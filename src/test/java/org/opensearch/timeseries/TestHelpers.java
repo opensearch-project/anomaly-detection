@@ -1402,7 +1402,7 @@ public class TestHelpers {
                 Map<String, Object> attrMap = new HashMap<>();
                 detector.getCategoryFields().stream().forEach(f -> attrMap.put(f, randomAlphaOfLength(5)));
                 entity = Entity.createEntityByReordering(attrMap);
-            } else if (detector.isHC()) {
+            } else if (detector.isHighCardinality()) {
                 entity = Entity.createEntityByReordering(ImmutableMap.of(detector.getCategoryFields().get(0), randomAlphaOfLength(5)));
             }
         }

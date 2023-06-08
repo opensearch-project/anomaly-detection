@@ -295,7 +295,7 @@ public class ExecuteADResultResponseRecorder {
                 anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             }
 
-            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !detector.isHC()) {
+            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !detector.isHighCardinality()) {
                 // single stream detector raises ResourceNotFoundException containing CommonErrorMessages.NO_CHECKPOINT_ERR_MSG
                 // when there is no checkpoint.
                 // Delay real time cache update by one minute so we will have trained models by then and update the state

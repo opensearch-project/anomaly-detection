@@ -216,7 +216,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         int pageSize,
         ActionListener<List<Entity>> listener
     ) {
-        if (!detector.isHC()) {
+        if (!detector.isHighCardinality()) {
             listener.onResponse(null);
             return;
         }

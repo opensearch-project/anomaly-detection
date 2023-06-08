@@ -30,7 +30,6 @@ import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.settings.ForecastNumericSetting;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -108,6 +107,9 @@ public class Forecaster extends Config {
             forecastInterval,
             imputationOption
         );
+
+        checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
+
         if (forecastInterval == null) {
             errorMessage = ForecastCommonMessages.NULL_FORECAST_INTERVAL;
             issueType = ValidationIssueType.FORECAST_INTERVAL;
@@ -122,22 +124,16 @@ public class Forecaster extends Config {
             issueType = ValidationIssueType.CATEGORY;
         }
 
-        if (errorMessage != null && issueType != null) {
-            throw new ValidationException(errorMessage, issueType, ValidationAspect.FORECASTER);
-        } else if (errorMessage != null || issueType != null) {
-            throw new TimeSeriesException(CommonMessages.FAIL_TO_VALIDATE);
+        if (invalidHorizon(horizon)) {
+            errorMessage = "Horizon size must be a positive integer no larger than "
+                + TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO
+                + ". Got "
+                + horizon;
+            issueType = ValidationIssueType.SHINGLE_SIZE_FIELD;
         }
 
-        if (invalidHorizon(horizon)) {
-            throw new ValidationException(
-                "Horizon size must be a positive integer no larger than "
-                    + TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO
-                    + ". Got "
-                    + horizon,
-                ValidationIssueType.SHINGLE_SIZE_FIELD,
-                ValidationAspect.FORECASTER
-            );
-        }
+        checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
+
         this.horizon = horizon;
     }
 
@@ -261,7 +257,7 @@ public class Forecaster extends Config {
                         throw new ValidationException(
                             "Custom query error in data filter: " + e.getMessage(),
                             ValidationIssueType.FILTER_QUERY,
-                            ValidationAspect.DETECTOR
+                            ValidationAspect.FORECASTER
                         );
                     } catch (IllegalArgumentException e) {
                         if (!e.getMessage().contains("empty clause")) {
@@ -275,9 +271,9 @@ public class Forecaster extends Config {
                     } catch (Exception e) {
                         if (e instanceof IllegalArgumentException && e.getMessage().contains(CommonMessages.NEGATIVE_TIME_CONFIGURATION)) {
                             throw new ValidationException(
-                                "Detection interval must be a positive integer",
+                                "Forecasting interval must be a positive integer",
                                 ValidationIssueType.FORECAST_INTERVAL,
-                                ValidationAspect.DETECTOR
+                                ValidationAspect.FORECASTER
                             );
                         }
                         throw e;
@@ -294,7 +290,7 @@ public class Forecaster extends Config {
                             throw new ValidationException(
                                 "Custom query error: " + e.getMessage(),
                                 ValidationIssueType.FEATURE_ATTRIBUTES,
-                                ValidationAspect.DETECTOR
+                                ValidationAspect.FORECASTER
                             );
                         }
                         throw e;
@@ -308,7 +304,7 @@ public class Forecaster extends Config {
                             throw new ValidationException(
                                 "Window delay interval must be a positive integer",
                                 ValidationIssueType.WINDOW_DELAY,
-                                ValidationAspect.DETECTOR
+                                ValidationAspect.FORECASTER
                             );
                         }
                         throw e;
@@ -364,7 +360,6 @@ public class Forecaster extends Config {
         return forecaster;
     }
 
-    // TODO: test if this method works
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();

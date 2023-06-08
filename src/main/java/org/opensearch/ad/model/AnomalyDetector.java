@@ -39,7 +39,6 @@ import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonValue;
@@ -148,6 +147,8 @@ public class AnomalyDetector extends Config {
             imputationOption
         );
 
+        checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
+
         if (detectionInterval == null) {
             errorMessage = ADCommonMessages.NULL_DETECTION_INTERVAL;
             issueType = ValidationIssueType.DETECTION_INTERVAL;
@@ -162,11 +163,7 @@ public class AnomalyDetector extends Config {
             issueType = ValidationIssueType.CATEGORY;
         }
 
-        if (errorMessage != null && issueType != null) {
-            throw new ValidationException(errorMessage, issueType, ValidationAspect.DETECTOR);
-        } else if (errorMessage != null || issueType != null) {
-            throw new TimeSeriesException(CommonMessages.FAIL_TO_VALIDATE);
-        }
+        checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
 
         this.detectorType = isHC(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
     }

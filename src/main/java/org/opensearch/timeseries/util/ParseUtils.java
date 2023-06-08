@@ -642,7 +642,7 @@ public final class ParseUtils {
 
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(rangeQuery).must(detector.getFilterQuery());
 
-        if (detector.isHC() && entity != null && entity.getAttributes().size() > 0) {
+        if (detector.isHighCardinality() && entity != null && entity.getAttributes().size() > 0) {
             entity
                 .getAttributes()
                 .entrySet()

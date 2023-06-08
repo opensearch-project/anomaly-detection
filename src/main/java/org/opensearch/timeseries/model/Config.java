@@ -25,6 +25,8 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.timeseries.annotation.Generated;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.FixedValueImputer;
@@ -186,6 +188,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndex = Strings.trimToNull(resultIndex);
         this.imputationOption = imputationOption;
         this.imputer = createImputer();
+        this.issueType = null;
+        this.errorMessage = null;
     }
 
     public Config(StreamInput input) throws IOException {
@@ -271,7 +275,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     }
 
     /**
-     * If the given shingle size is null, return default based on the kind of detector;
+     * If the given shingle size is null, return default;
      * otherwise, return the given shingle size.
      *
      * @param customShingleSize Given shingle size
@@ -477,7 +481,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         return customResultIndex;
     }
 
-    public boolean isHC() {
+    public boolean isHighCardinality() {
         return Config.isHC(getCategoryFields());
     }
 
@@ -546,5 +550,13 @@ public abstract class Config implements Writeable, ToXContentObject {
                 break;
         }
         return imputer;
+    }
+
+    protected void checkAndThrowValidationErrors(ValidationAspect validationAspect) {
+        if (errorMessage != null && issueType != null) {
+            throw new ValidationException(errorMessage, issueType, validationAspect);
+        } else if (errorMessage != null || issueType != null) {
+            throw new TimeSeriesException(CommonMessages.FAIL_TO_VALIDATE);
+        }
     }
 }

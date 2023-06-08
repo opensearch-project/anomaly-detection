@@ -219,7 +219,7 @@ public class ADBatchTaskRunner {
      * @param listener action listener
      */
     public void run(ADTask adTask, TransportService transportService, ActionListener<ADBatchAnomalyResultResponse> listener) {
-        boolean isHCDetector = adTask.getDetector().isHC();
+        boolean isHCDetector = adTask.getDetector().isHighCardinality();
         if (isHCDetector && !adTaskCacheManager.topEntityInited(adTask.getId())) {
             // Initialize top entities for HC detector
             threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
@@ -513,7 +513,7 @@ public class ADBatchTaskRunner {
             checkIfADTaskCancelledAndCleanupCache(adTask);
             String detectorId = adTask.getId();
             AnomalyDetector detector = adTask.getDetector();
-            boolean isHCDetector = detector.isHC();
+            boolean isHCDetector = detector.isHighCardinality();
             if (isHCDetector) {
                 String entityString = adTaskCacheManager.pollEntity(detectorId);
                 logger.debug("Start to run entity: {} of detector {}", entityString, detectorId);
@@ -646,7 +646,7 @@ public class ADBatchTaskRunner {
             listener.onFailure(e);
             handleException(adTask, e);
 
-            if (adTask.getDetector().isHC()) {
+            if (adTask.getDetector().isHighCardinality()) {
                 // Entity task done on worker node. Send entity task done message to coordinating node to poll next entity.
                 adTaskManager.entityTaskDone(adTask, e, transportService);
                 if (adTaskCacheManager.getAvailableNewEntityTaskLanes(adTask.getId()) > 0) {
@@ -698,7 +698,7 @@ public class ADBatchTaskRunner {
 
     // start new entity task lane
     private synchronized void startNewEntityTaskLane(ADTask adTask, TransportService transportService) {
-        if (adTask.getDetector().isHC() && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getId()) > 0) {
+        if (adTask.getDetector().isHighCardinality() && adTaskCacheManager.getAndDecreaseEntityTaskLanes(adTask.getId()) > 0) {
             logger.debug("start new task lane for detector {}", adTask.getId());
             forwardOrExecuteADTask(adTask, transportService, getInternalHCDelegatedListener(adTask));
         }
@@ -803,7 +803,7 @@ public class ADBatchTaskRunner {
             // If batch task finished normally, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-            if (!adTask.getDetector().isHC()) {
+            if (!adTask.getDetector().isHighCardinality()) {
                 // Set single-entity detector task as FINISHED here
                 adTaskManager
                     .cleanDetectorCache(
@@ -820,7 +820,7 @@ public class ADBatchTaskRunner {
             // If batch task failed, remove task from cache and decrease executing task count by 1.
             adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adStats.getStat(AD_EXECUTING_BATCH_TASK_COUNT.getName()).decrement();
-            if (!adTask.getDetector().isHC()) {
+            if (!adTask.getDetector().isHighCardinality()) {
                 adTaskManager.cleanDetectorCache(adTask, transportService, () -> handleException(adTask, e));
             } else {
                 adTaskManager.entityTaskDone(adTask, e, transportService);
@@ -1362,7 +1362,7 @@ public class ADBatchTaskRunner {
         String detectorTaskId = adTask.getDetectorLevelTaskId();
         // refresh latest HC task run time
         adTaskCacheManager.refreshLatestHCTaskRunTime(detectorId);
-        if (adTask.getDetector().isHC()
+        if (adTask.getDetector().isHighCardinality()
             && adTaskCacheManager.isHCTaskCoordinatingNode(detectorId)
             && adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId)) {
             // clean up pending and running entity on coordinating node

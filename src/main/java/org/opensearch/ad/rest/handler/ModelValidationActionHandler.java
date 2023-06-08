@@ -158,7 +158,7 @@ public class ModelValidationActionHandler {
                 listener.onFailure(exception);
                 logger.error("Failed to get top entity for categorical field", exception);
             });
-        if (anomalyDetector.isHC()) {
+        if (anomalyDetector.isHighCardinality()) {
             getTopEntity(recommendationListener);
         } else {
             recommendationListener.onResponse(Collections.emptyMap());
@@ -298,7 +298,7 @@ public class ModelValidationActionHandler {
     ) throws IOException {
         AggregationBuilder aggregation = getBucketAggregation(latestTime, (IntervalTimeConfiguration) anomalyDetector.getInterval());
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(anomalyDetector.getFilterQuery());
-        if (anomalyDetector.isHC()) {
+        if (anomalyDetector.isHighCardinality()) {
             if (topEntity.isEmpty()) {
                 listener
                     .onFailure(
@@ -653,7 +653,7 @@ public class ModelValidationActionHandler {
             // blocks below are executed if data is dense enough with filter query applied.
             // If HCAD then category fields will be added to bucket aggregation to see if they
             // are the root cause of the issues and if not the feature queries will be checked for sparsity
-        } else if (anomalyDetector.isHC()) {
+        } else if (anomalyDetector.isHighCardinality()) {
             getTopEntityForCategoryField(latestTime);
         } else {
             try {

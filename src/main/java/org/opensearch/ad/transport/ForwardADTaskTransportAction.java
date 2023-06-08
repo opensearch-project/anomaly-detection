@@ -115,7 +115,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             case NEXT_ENTITY:
                 logger.debug("Received NEXT_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Run next entity for HC detector historical analysis.
-                if (detector.isHC()) { // AD task could be HC detector level task or entity task
+                if (detector.isHighCardinality()) { // AD task could be HC detector level task or entity task
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId)) {
                         adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
@@ -200,7 +200,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 // Cancel HC detector's historical analysis.
                 // Don't support single detector for this action as single entity task will be cancelled directly
                 // on worker node.
-                if (detector.isHC()) {
+                if (detector.isHighCardinality()) {
                     adTaskCacheManager.clearPendingEntities(detectorId);
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (!adTaskCacheManager.hasEntity(detectorId) || !adTask.isEntityTask()) {

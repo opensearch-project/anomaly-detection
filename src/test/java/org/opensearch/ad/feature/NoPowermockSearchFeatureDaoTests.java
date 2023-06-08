@@ -141,7 +141,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
         hostField = "host";
 
         detector = mock(AnomalyDetector.class);
-        when(detector.isHC()).thenReturn(true);
+        when(detector.isHighCardinality()).thenReturn(true);
         when(detector.getCategoryFields()).thenReturn(Arrays.asList(new String[] { serviceField, hostField }));
         detectorId = "123";
         when(detector.getId()).thenReturn(detectorId);

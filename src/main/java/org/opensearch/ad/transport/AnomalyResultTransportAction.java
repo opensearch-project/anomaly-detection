@@ -402,7 +402,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
 
             AnomalyDetector anomalyDetector = detectorOptional.get();
-            if (anomalyDetector.isHC()) {
+            if (anomalyDetector.isHighCardinality()) {
                 hcDetectors.add(adID);
                 adStats.getStat(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName()).increment();
             }
@@ -445,7 +445,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         long dataEndTime
     ) {
         // HC logic starts here
-        if (anomalyDetector.isHC()) {
+        if (anomalyDetector.isHighCardinality()) {
             Optional<Exception> previousException = stateManager.fetchExceptionAndClear(adID);
             if (previousException.isPresent()) {
                 Exception exception = previousException.get();

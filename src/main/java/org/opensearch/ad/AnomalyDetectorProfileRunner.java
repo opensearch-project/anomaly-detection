@@ -162,7 +162,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                     AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
                     long enabledTimeMs = job.getEnabledTime().toEpochMilli();
 
-                    boolean isMultiEntityDetector = detector.isHC();
+                    boolean isMultiEntityDetector = detector.isHighCardinality();
 
                     int totalResponsesToWait = 0;
                     if (profilesToCollect.contains(DetectorProfileName.ERROR)) {
@@ -285,7 +285,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
 
     private void profileEntityStats(MultiResponsesDelegateActionListener<DetectorProfile> listener, AnomalyDetector detector) {
         List<String> categoryField = detector.getCategoryFields();
-        if (!detector.isHC() || categoryField.size() > ADNumericSetting.maxCategoricalFields()) {
+        if (!detector.isHighCardinality() || categoryField.size() > ADNumericSetting.maxCategoricalFields()) {
             listener.onResponse(new DetectorProfile.Builder().build());
         } else {
             if (categoryField.size() == 1) {
@@ -433,7 +433,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         AnomalyDetectorJob job,
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
-        boolean isMultientityDetector = detector.isHC();
+        boolean isMultientityDetector = detector.isHighCardinality();
         return ActionListener.wrap(profileResponse -> {
             DetectorProfile.Builder profile = new DetectorProfile.Builder();
             if (profilesToCollect.contains(DetectorProfileName.COORDINATING_NODE)) {

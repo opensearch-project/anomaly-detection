@@ -631,7 +631,7 @@ public class ADTaskManager {
                 // then we will assign 4 tasks slots to this HC detector (4 is less than 8). The data index
                 // only has 2 entities. So we assign 2 more task slots than actual need. But it's ok as we
                 // will auto tune task slot when historical analysis task starts.
-                int approvedTaskSlots = detector.isHC() ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots) : 1;
+                int approvedTaskSlots = detector.isHighCardinality() ? Math.min(maxRunningEntitiesPerDetector, availableAdTaskSlots) : 1;
                 forwardToCoordinatingNode(
                     adTask,
                     detector,
@@ -774,9 +774,9 @@ public class ADTaskManager {
 
     private ADTaskType getADTaskType(AnomalyDetector detector, DateRange detectionDateRange) {
         if (detectionDateRange == null) {
-            return detector.isHC() ? ADTaskType.REALTIME_HC_DETECTOR : ADTaskType.REALTIME_SINGLE_ENTITY;
+            return detector.isHighCardinality() ? ADTaskType.REALTIME_HC_DETECTOR : ADTaskType.REALTIME_SINGLE_ENTITY;
         } else {
-            return detector.isHC() ? ADTaskType.HISTORICAL_HC_DETECTOR : ADTaskType.HISTORICAL_SINGLE_ENTITY;
+            return detector.isHighCardinality() ? ADTaskType.HISTORICAL_HC_DETECTOR : ADTaskType.HISTORICAL_SINGLE_ENTITY;
         }
     }
 
@@ -1139,7 +1139,7 @@ public class ADTaskManager {
             if (taskStopped) {
                 logger.debug("Reset task state as stopped, task id: {}", adTask.getTaskId());
                 if (taskProfile.getTaskId() == null // This means coordinating node doesn't have HC detector cache
-                    && detector.isHC()
+                    && detector.isHighCardinality()
                     && !isNullOrEmpty(taskProfile.getEntityTaskProfiles())) {
                     // If coordinating node restarted, HC detector cache on it will be gone. But worker node still
                     // runs entity tasks, we'd better stop these entity tasks to clean up resource earlier.
@@ -1198,11 +1198,11 @@ public class ADTaskManager {
             // If no node is running this task, reset it as STOPPED.
             return true;
         }
-        if (!detector.isHC() && taskProfile.getNodeId() == null) {
+        if (!detector.isHighCardinality() && taskProfile.getNodeId() == null) {
             logger.debug("AD task not running for single entity detector {}, task {}", detectorId, taskId);
             return true;
         }
-        if (detector.isHC()
+        if (detector.isHighCardinality()
             && taskProfile.getTotalEntitiesInited()
             && isNullOrEmpty(taskProfile.getRunningEntities())
             && isNullOrEmpty(taskProfile.getEntityTaskProfiles())
@@ -2844,7 +2844,7 @@ public class ADTaskManager {
                 throw new TimeSeriesException(error);
             }
         }
-        if (detector.isHC()) {
+        if (detector.isHighCardinality()) {
             String categoryField = detector.getCategoryFields().get(0);
             return entity.getAttributes().get(categoryField);
         }
@@ -2871,7 +2871,7 @@ public class ADTaskManager {
                 logger.debug(error, e);
                 throw new TimeSeriesException(error);
             }
-        } else if (detector.isHC()) {
+        } else if (detector.isHighCardinality()) {
             return Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), entityValue);
         }
         throw new IllegalArgumentException("Fail to parse to Entity for single flow detector");
