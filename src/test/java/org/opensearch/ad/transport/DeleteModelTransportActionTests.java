@@ -68,7 +68,9 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         ThreadPool threadPool = mock(ThreadPool.class);
 
         SDKClusterService clusterService = mock(SDKClusterService.class);
+        ClusterName clusterName = mock(ClusterName.class);
         ClusterState clusterState = mock(ClusterState.class);
+        when(clusterService.getClusterName()).thenReturn(clusterName);
         when(clusterService.state()).thenReturn(clusterState);
         when(clusterState.getClusterName()).thenReturn(new ClusterName("clustername"));
         localNodeID = "foo";

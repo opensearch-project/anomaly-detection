@@ -63,7 +63,7 @@ public class ADTaskProfileTransportAction extends TransportAction<ADTaskProfileR
         List<ADTaskProfileNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADTaskProfileResponse(sdkClusterService.state().getClusterName(), responses, failures);
+        return new ADTaskProfileResponse(sdkClusterService.getClusterName(), responses, failures);
     }
 
     protected ADTaskProfileNodeRequest newNodeRequest(ADTaskProfileRequest request) {

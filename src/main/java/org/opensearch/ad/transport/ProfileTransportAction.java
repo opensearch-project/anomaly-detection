@@ -29,7 +29,6 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
@@ -52,8 +51,11 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
     /**
      * Constructor
      *
+     * @param extensionsRunner Extensions Runner
      * @param actionFilters Action Filters
+     * @param taskManager Task Manager
      * @param modelManager model manager object
+     * @param sdkClusterService extension cluster service
      * @param featureManager feature manager object
      * @param cacheProvider cache provider
      */
@@ -72,13 +74,12 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
         this.sdkClusterService = sdkClusterService;
-        Settings settings = extensionsRunner.getEnvironmentSettings();
-        this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
+        this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(extensionsRunner.getEnvironmentSettings());
         this.sdkClusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
     private ProfileResponse newResponse(ProfileRequest request, List<ProfileNodeResponse> responses, List<FailedNodeException> failures) {
-        return new ProfileResponse(sdkClusterService.state().getClusterName(), responses, failures);
+        return new ProfileResponse(sdkClusterService.getClusterName(), responses, failures);
     }
 
     @Override
