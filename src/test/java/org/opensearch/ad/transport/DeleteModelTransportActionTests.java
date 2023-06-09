@@ -44,12 +44,10 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.extensions.DiscoveryExtensionNode;
-import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -70,7 +68,9 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         ThreadPool threadPool = mock(ThreadPool.class);
 
         SDKClusterService clusterService = mock(SDKClusterService.class);
+        ClusterName clusterName = mock(ClusterName.class);
         ClusterState clusterState = mock(ClusterState.class);
+        when(clusterService.getClusterName()).thenReturn(clusterName);
         when(clusterService.state()).thenReturn(clusterState);
         when(clusterState.getClusterName()).thenReturn(new ClusterName("clustername"));
         localNodeID = "foo";
@@ -95,9 +95,6 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
         when(cacheProvider.get()).thenReturn(entityCache);
         ADTaskCacheManager adTaskCacheManager = mock(ADTaskCacheManager.class);
         EntityColdStarter coldStarter = mock(EntityColdStarter.class);
-        ExtensionsRunner extensionsRunner = mock(ExtensionsRunner.class);
-        Settings settings = Settings.builder().put("cluster.name", "clusterName").build();
-        when(extensionsRunner.getEnvironmentSettings()).thenReturn(settings);
 
         action = new DeleteModelTransportAction(
             threadPool,
@@ -109,8 +106,7 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
             featureManager,
             cacheProvider,
             adTaskCacheManager,
-            coldStarter,
-            extensionsRunner
+            coldStarter
         );
     }
 

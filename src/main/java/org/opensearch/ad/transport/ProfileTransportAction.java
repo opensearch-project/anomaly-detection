@@ -29,7 +29,6 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.cluster.ClusterName;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
@@ -48,7 +47,6 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
     private SDKClusterService sdkClusterService;
     // the number of models to return. Defaults to 10.
     private volatile int numModelsToReturn;
-    private ExtensionsRunner extensionsRunner;
 
     /**
      * Constructor
@@ -72,7 +70,6 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
         CacheProvider cacheProvider
     ) {
         super(ProfileAction.NAME, actionFilters, taskManager);
-        this.extensionsRunner = extensionsRunner;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
@@ -82,7 +79,7 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
     }
 
     private ProfileResponse newResponse(ProfileRequest request, List<ProfileNodeResponse> responses, List<FailedNodeException> failures) {
-        return new ProfileResponse(new ClusterName(extensionsRunner.getEnvironmentSettings().get("cluster.name")), responses, failures);
+        return new ProfileResponse(sdkClusterService.getClusterName(), responses, failures);
     }
 
     @Override
