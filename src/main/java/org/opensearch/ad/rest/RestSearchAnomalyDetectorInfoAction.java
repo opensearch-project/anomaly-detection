@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.COUNT;
-import static org.opensearch.ad.util.RestHandlerUtils.MATCH;
+import static org.opensearch.timeseries.util.RestHandlerUtils.COUNT;
+import static org.opensearch.timeseries.util.RestHandlerUtils.MATCH;
 
 import java.io.IOException;
 import java.util.List;

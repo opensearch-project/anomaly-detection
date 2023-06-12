@@ -57,7 +57,6 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
@@ -98,6 +97,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 

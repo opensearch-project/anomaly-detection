@@ -54,7 +54,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.SecurityClientUtil;
@@ -77,6 +76,7 @@ import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -195,7 +195,7 @@ public class SearchFeatureDaoParamTests {
             .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
 
-        when(max.getName()).thenReturn(ADCommonName.AGG_NAME_MAX_TIME);
+        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
         List<Aggregation> list = new ArrayList<>();
         list.add(max);
         Aggregations aggregations = new Aggregations(list);

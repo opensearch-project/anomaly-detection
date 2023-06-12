@@ -41,7 +41,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -50,6 +49,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
     ResultWriteWorker resultWriteQueue;

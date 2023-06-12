@@ -23,7 +23,6 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.common.Strings;
@@ -31,6 +30,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 
 public class EntityResultRequest extends ActionRequest implements ToXContentObject {
     private static final Logger LOG = LogManager.getLogger(EntityResultRequest.class);

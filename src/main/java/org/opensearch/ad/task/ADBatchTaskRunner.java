@@ -14,8 +14,6 @@ package org.opensearch.ad.task;
 import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.ad.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
-import static org.opensearch.ad.constant.ADCommonName.AGG_NAME_MAX_TIME;
-import static org.opensearch.ad.constant.ADCommonName.AGG_NAME_MIN_TIME;
 import static org.opensearch.ad.model.ADTask.CURRENT_PIECE_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.INIT_PROGRESS_FIELD;
@@ -67,8 +65,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -105,7 +101,10 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TaskCancelledException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.util.ParseUtils;
@@ -947,8 +946,8 @@ public class ADBatchTaskRunner {
     private void getDateRangeOfSourceData(ADTask adTask, BiConsumer<Long, Long> consumer, ActionListener<String> internalListener) {
         String taskId = adTask.getTaskId();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.min(AGG_NAME_MIN_TIME).field(adTask.getDetector().getTimeField()))
-            .aggregation(AggregationBuilders.max(AGG_NAME_MAX_TIME).field(adTask.getDetector().getTimeField()))
+            .aggregation(AggregationBuilders.min(CommonName.AGG_NAME_MIN_TIME).field(adTask.getDetector().getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(adTask.getDetector().getTimeField()))
             .size(0);
         if (adTask.getEntity() != null && adTask.getEntity().getAttributes().size() > 0) {
             BoolQueryBuilder query = new BoolQueryBuilder();
@@ -964,8 +963,8 @@ public class ADBatchTaskRunner {
             .indices(adTask.getDetector().getIndices().toArray(new String[0]))
             .source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
-            InternalMin minAgg = r.getAggregations().get(AGG_NAME_MIN_TIME);
-            InternalMax maxAgg = r.getAggregations().get(AGG_NAME_MAX_TIME);
+            InternalMin minAgg = r.getAggregations().get(CommonName.AGG_NAME_MIN_TIME);
+            InternalMax maxAgg = r.getAggregations().get(CommonName.AGG_NAME_MAX_TIME);
             double minValue = minAgg.getValue();
             double maxValue = maxAgg.getValue();
             // If time field not exist or there is no value, will return infinity value

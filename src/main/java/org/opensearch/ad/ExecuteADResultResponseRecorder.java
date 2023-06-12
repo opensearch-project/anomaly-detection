@@ -29,7 +29,6 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultResponse;
@@ -49,6 +48,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 public class ExecuteADResultResponseRecorder {

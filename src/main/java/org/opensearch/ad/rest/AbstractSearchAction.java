@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.opensearch.timeseries.util.RestHandlerUtils.getSourceContext;
 
 import java.io.IOException;
 import java.util.ArrayList;

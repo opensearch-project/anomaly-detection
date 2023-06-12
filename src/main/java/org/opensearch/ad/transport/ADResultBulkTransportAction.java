@@ -32,7 +32,6 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.util.BulkUtil;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -41,6 +40,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 public class ADResultBulkTransportAction extends HandledTransportAction<ADResultBulkRequest, ADResultBulkResponse> {

@@ -58,7 +58,6 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
@@ -91,6 +90,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.google.common.collect.ImmutableList;

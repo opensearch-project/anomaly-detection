@@ -19,7 +19,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.common.io.stream.NamedWriteableRegistry;
@@ -30,6 +29,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableMap;
 

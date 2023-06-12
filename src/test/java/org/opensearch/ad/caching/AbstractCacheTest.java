@@ -27,11 +27,11 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.model.Entity;
 
 public class AbstractCacheTest extends AbstractTimeSeriesTest {
     protected String modelId1, modelId2, modelId3, modelId4;

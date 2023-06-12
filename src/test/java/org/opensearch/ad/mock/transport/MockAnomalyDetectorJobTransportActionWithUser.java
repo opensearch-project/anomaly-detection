@@ -27,7 +27,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -38,6 +37,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 public class MockAnomalyDetectorJobTransportActionWithUser extends

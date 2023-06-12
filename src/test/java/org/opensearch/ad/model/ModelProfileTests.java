@@ -20,6 +20,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 

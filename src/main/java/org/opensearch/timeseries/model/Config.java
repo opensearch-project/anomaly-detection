@@ -17,12 +17,15 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -557,6 +560,16 @@ public abstract class Config implements Writeable, ToXContentObject {
             throw new ValidationException(errorMessage, issueType, validationAspect);
         } else if (errorMessage != null || issueType != null) {
             throw new TimeSeriesException(CommonMessages.FAIL_TO_VALIDATE);
+        }
+    }
+
+    public static Config parseConfig(Class<? extends Config> configClass, XContentParser parser) throws IOException {
+        if (configClass == AnomalyDetector.class) {
+            return AnomalyDetector.parse(parser);
+        } else if (configClass == Forecaster.class) {
+            return Forecaster.parse(parser);
+        } else {
+            throw new IllegalArgumentException("Unsupported config type");
         }
     }
 }

@@ -15,10 +15,10 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_PREVIEW_DETECT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
-import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -40,7 +40,6 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
@@ -57,6 +56,7 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 public class PreviewAnomalyDetectorTransportAction extends
@@ -175,7 +175,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         if (detector.getFeatureAttributes().isEmpty()) {
             return "Can't preview detector without feature";
         } else {
-            return RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, maxAnomalyFeatures);
+            return RestHandlerUtils.checkFeaturesSyntax(detector, maxAnomalyFeatures);
         }
     }
 

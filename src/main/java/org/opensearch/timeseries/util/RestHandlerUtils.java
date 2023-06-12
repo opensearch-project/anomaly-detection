@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
@@ -46,6 +46,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.base.Throwables;
@@ -85,6 +86,10 @@ public final class RestHandlerUtils {
 
     public static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
     public static final String[] UI_METADATA_EXCLUDE = new String[] { AnomalyDetector.UI_METADATA_FIELD };
+
+    public static final String FORECASTER_ID = "forecasterID";
+    public static final String FORECASTER = "forecaster";
+    public static final String REST_STATUS = "rest_status";
 
     private RestHandlerUtils() {}
 
@@ -130,18 +135,18 @@ public final class RestHandlerUtils {
     }
 
     /**
-     * Check if there is configuration/syntax error in feature definition of anomalyDetector
-     * @param anomalyDetector detector to check
-     * @param maxAnomalyFeatures max allowed feature number
+     * Check if there is configuration/syntax error in feature definition of config
+     * @param config config to check
+     * @param maxFeatures max allowed feature number
      * @return error message if error exists; otherwise, null is returned
      */
-    public static String checkAnomalyDetectorFeaturesSyntax(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
-        List<Feature> features = anomalyDetector.getFeatureAttributes();
+    public static String checkFeaturesSyntax(Config config, int maxFeatures) {
+        List<Feature> features = config.getFeatureAttributes();
         if (features != null) {
-            if (features.size() > maxAnomalyFeatures) {
-                return "Can't create more than " + maxAnomalyFeatures + " anomaly features";
+            if (features.size() > maxFeatures) {
+                return "Can't create more than " + maxFeatures + " features";
             }
-            return validateFeaturesConfig(anomalyDetector.getFeatureAttributes());
+            return validateFeaturesConfig(config.getFeatureAttributes());
         }
         return null;
     }

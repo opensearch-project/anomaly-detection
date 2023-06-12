@@ -22,13 +22,13 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 /**
  * Common handler to process AD request.

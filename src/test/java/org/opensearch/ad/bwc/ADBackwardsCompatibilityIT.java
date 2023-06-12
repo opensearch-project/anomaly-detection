@@ -24,9 +24,9 @@ import static org.opensearch.ad.rest.ADRestTestUtils.startHistoricalAnalysis;
 import static org.opensearch.ad.rest.ADRestTestUtils.stopHistoricalAnalysis;
 import static org.opensearch.ad.rest.ADRestTestUtils.stopRealtimeJob;
 import static org.opensearch.ad.rest.ADRestTestUtils.waitUntilTaskDone;
-import static org.opensearch.ad.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
-import static org.opensearch.ad.util.RestHandlerUtils.REALTIME_TASK;
+import static org.opensearch.timeseries.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
+import static org.opensearch.timeseries.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
+import static org.opensearch.timeseries.util.RestHandlerUtils.REALTIME_TASK;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,12 +46,12 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.rest.ADRestTestUtils;
 import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

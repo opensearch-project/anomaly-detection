@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.timeseries.model;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 

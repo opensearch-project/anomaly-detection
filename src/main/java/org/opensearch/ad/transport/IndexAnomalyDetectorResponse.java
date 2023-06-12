@@ -15,12 +15,12 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 public class IndexAnomalyDetectorResponse extends ActionResponse implements ToXContentObject {
     private final String id;

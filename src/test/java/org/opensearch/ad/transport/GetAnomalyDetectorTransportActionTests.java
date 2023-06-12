@@ -31,7 +31,6 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -52,6 +51,8 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableMap;

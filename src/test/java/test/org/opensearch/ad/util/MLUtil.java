@@ -24,9 +24,9 @@ import java.util.stream.IntStream;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.timeseries.model.Entity;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 

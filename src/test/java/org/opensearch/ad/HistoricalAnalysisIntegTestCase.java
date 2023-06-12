@@ -15,9 +15,9 @@ import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_START_TIME_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.PARENT_TASK_ID_FIELD;
-import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.timeseries.util.RestHandlerUtils.START_JOB;
 
 import java.io.IOException;
 import java.time.Instant;

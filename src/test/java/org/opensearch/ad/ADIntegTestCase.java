@@ -11,8 +11,8 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -46,7 +46,6 @@ import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -65,6 +64,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableMap;
 

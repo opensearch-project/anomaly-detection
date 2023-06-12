@@ -65,7 +65,6 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.EntityColdStartWorker;
@@ -87,6 +86,7 @@ import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
 

@@ -14,8 +14,8 @@ package org.opensearch.ad.rest.handler;
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
 import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
-import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -42,7 +42,6 @@ import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.StopDetectorAction;
 import org.opensearch.ad.transport.StopDetectorRequest;
 import org.opensearch.ad.transport.StopDetectorResponse;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -53,6 +52,7 @@ import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.base.Throwables;

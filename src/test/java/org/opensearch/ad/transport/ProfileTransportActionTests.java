@@ -35,13 +35,13 @@ import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.transport.TransportService;
 
 public class ProfileTransportActionTests extends OpenSearchIntegTestCase {

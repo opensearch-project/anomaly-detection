@@ -59,9 +59,7 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
@@ -93,8 +91,10 @@ import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.powermock.api.mockito.PowerMockito;
@@ -199,7 +199,7 @@ public class SearchFeatureDaoTests {
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
         aggsMap = new HashMap<>();
 
-        when(max.getName()).thenReturn(ADCommonName.AGG_NAME_MAX_TIME);
+        when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
         List<Aggregation> list = new ArrayList<>();
         list.add(max);
         Aggregations aggregations = new Aggregations(list);
@@ -252,11 +252,11 @@ public class SearchFeatureDaoTests {
     @SuppressWarnings("unchecked")
     public void getLatestDataTime_returnExpectedToListener() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(ADCommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
             .size(0);
         searchRequest.source(searchSourceBuilder);
         long epochTime = 100L;
-        aggsMap.put(ADCommonName.AGG_NAME_MAX_TIME, max);
+        aggsMap.put(CommonName.AGG_NAME_MAX_TIME, max);
         when(max.getValue()).thenReturn((double) epochTime);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);

@@ -58,7 +58,6 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
@@ -75,6 +74,7 @@ import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
 
 import test.org.opensearch.ad.util.MLUtil;

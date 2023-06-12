@@ -21,6 +21,7 @@ import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Entity;
 
 public class DetectorProfileTests extends OpenSearchTestCase {
 

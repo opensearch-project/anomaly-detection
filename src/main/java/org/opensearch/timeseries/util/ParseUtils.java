@@ -13,9 +13,7 @@ package org.opensearch.timeseries.util;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_USER_INFO;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
-import static org.opensearch.ad.constant.ADCommonName.DATE_HISTOGRAM;
 import static org.opensearch.ad.constant.ADCommonName.EPOCH_MILLIS_FORMAT;
-import static org.opensearch.ad.constant.ADCommonName.FEATURE_AGGS;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
@@ -43,12 +41,8 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ParsingException;
@@ -80,7 +74,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.carrotsearch.hppc.DoubleArrayList;
@@ -610,7 +606,7 @@ public final class ParseUtils {
             .ofNullable(searchResponse)
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
-            .map(map -> (Max) map.get(ADCommonName.AGG_NAME_MAX_TIME))
+            .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
             .map(agg -> (long) agg.getValue());
     }
 
@@ -654,12 +650,12 @@ public final class ParseUtils {
         List<CompositeValuesSourceBuilder<?>> sources = new ArrayList<>();
         sources
             .add(
-                new DateHistogramValuesSourceBuilder(DATE_HISTOGRAM)
+                new DateHistogramValuesSourceBuilder(CommonName.DATE_HISTOGRAM)
                     .field(detector.getTimeField())
                     .fixedInterval(DateHistogramInterval.seconds((int) intervalSeconds))
             );
 
-        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(FEATURE_AGGS, sources)
+        CompositeAggregationBuilder aggregationBuilder = new CompositeAggregationBuilder(CommonName.FEATURE_AGGS, sources)
             .size(MAX_BATCH_TASK_PIECE_SIZE);
 
         if (detector.getEnabledFeatureIds().size() == 0) {

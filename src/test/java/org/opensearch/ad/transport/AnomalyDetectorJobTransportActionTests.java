@@ -15,13 +15,13 @@ import static org.opensearch.ad.constant.ADCommonMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
-import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
-import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_PRIMARY_TERM;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.opensearch.timeseries.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.START_JOB;
+import static org.opensearch.timeseries.util.RestHandlerUtils.STOP_JOB;
 
 import java.io.IOException;
 import java.time.Instant;

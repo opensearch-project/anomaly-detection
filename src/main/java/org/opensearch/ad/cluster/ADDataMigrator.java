@@ -17,9 +17,9 @@ import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.TASK_TYPE_FIELD;
 import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_DETECTOR_UPPER_LIMIT;
-import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
 import java.time.Instant;
