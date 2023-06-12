@@ -25,7 +25,6 @@ import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.sdk.ExtensionsRunner;
