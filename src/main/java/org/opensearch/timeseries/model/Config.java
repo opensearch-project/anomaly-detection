@@ -569,7 +569,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else if (configClass == Forecaster.class) {
             return Forecaster.parse(parser);
         } else {
-            throw new IllegalArgumentException("Unsupported config type");
+            throw new IllegalArgumentException("Unsupported config type. Supported config types are [AnomalyDetector, Forecaster]");
         }
     }
 }

@@ -133,7 +133,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature aggregation query names:"));
+        assertTrue(response.getIssue().getMessage().contains("Config has duplicate feature aggregation query names:"));
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
@@ -155,8 +155,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature aggregation query names:"));
-        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature names:"));
+        assertTrue(response.getIssue().getMessage().contains("Config has duplicate feature aggregation query names:"));
+        assertTrue(response.getIssue().getMessage().contains("There are duplicate feature names:"));
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
@@ -178,7 +178,10 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         );
         ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertTrue(response.getIssue().getMessage().contains("Detector has duplicate feature names:"));
+        assertTrue(
+            "actual: " + response.getIssue().getMessage(),
+            response.getIssue().getMessage().contains("There are duplicate feature names:")
+        );
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }

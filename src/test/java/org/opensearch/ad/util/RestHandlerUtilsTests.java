@@ -98,7 +98,7 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
                 ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
             );
         String error = RestHandlerUtils.checkFeaturesSyntax(detector, 2);
-        assertEquals("Detector has duplicate feature names: " + featureName, error);
+        assertEquals("There are duplicate feature names: " + featureName, error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateAggregationNames() throws IOException {
@@ -109,6 +109,6 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
                     .of(randomFeature(randomAlphaOfLength(5), aggregationName), randomFeature(randomAlphaOfLength(5), aggregationName))
             );
         String error = RestHandlerUtils.checkFeaturesSyntax(detector, 2);
-        assertEquals("Detector has duplicate feature aggregation query names: " + aggregationName, error);
+        assertEquals("Config has duplicate feature aggregation query names: " + aggregationName, error);
     }
 }
