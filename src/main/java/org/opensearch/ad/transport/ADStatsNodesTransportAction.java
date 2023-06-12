@@ -83,11 +83,7 @@ public class ADStatsNodesTransportAction extends TransportAction<ADStatsRequest,
         List<ADStatsNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADStatsNodesResponse(
-            new ClusterName(extensionsRunner.getEnvironmentSettings().get("cluster.name")),
-            responses,
-            failures
-        );
+        return new ADStatsNodesResponse(sdkClusterService.getClusterName(), responses, failures);
     }
 
     protected ADStatsNodeRequest newNodeRequest(ADStatsRequest request) {

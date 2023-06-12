@@ -111,6 +111,10 @@ public class DeleteModelTransportAction extends TransportAction<DeleteModelReque
         List<DeleteModelNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
+<<<<<<< HEAD
         return new DeleteModelResponse(new ClusterName(extensionsRunner.getEnvironmentSettings().get("cluster.name")), responses, failures);
+=======
+        return new DeleteModelResponse(clusterService.getClusterName(), responses, failures);
+>>>>>>> feature/extensions
     }
 }

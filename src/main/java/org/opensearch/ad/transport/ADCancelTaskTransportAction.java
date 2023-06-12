@@ -58,11 +58,7 @@ public class ADCancelTaskTransportAction extends TransportAction<ADCancelTaskReq
         List<ADCancelTaskNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new ADCancelTaskResponse(
-            new ClusterName(extensionsRunner.getEnvironmentSettings().get("cluster.name")),
-            responses,
-            failures
-        );
+        return new ADCancelTaskResponse(clusterService.getClusterName(), responses, failures);
     }
 
     @Override
