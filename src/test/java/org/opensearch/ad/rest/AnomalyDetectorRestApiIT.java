@@ -46,7 +46,6 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.UUIDs;
@@ -232,13 +231,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testGetAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, sdkRestClient());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(ResponseException.class, () -> getAnomalyDetector(detector.getDetectorId(), sdkRestClient()));
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-
         AnomalyDetector createdDetector = getAnomalyDetector(detector.getDetectorId(), sdkRestClient());
         assertEquals("Incorrect Location header", detector, createdDetector);
     }
@@ -270,24 +262,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getUser(),
             null
         );
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "PUT",
-                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "?refresh=true",
-                    ImmutableMap.of(),
-                    TestHelpers.toHttpEntity(newDetector),
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -437,24 +411,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, sdkRestClient());
         SearchSourceBuilder search = (new SearchSourceBuilder()).query(QueryBuilders.termQuery("_id", detector.getDetectorId()));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "GET",
-                    TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
-                    ImmutableMap.of(),
-                    new StringEntity(search.toString(), ContentType.APPLICATION_JSON),
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-
         Response searchResponse = TestHelpers
             .makeRequest(
                 sdkRestClient(),
@@ -468,16 +424,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStatsAnomalyDetector() throws Exception {
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(sdkRestClient(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null)
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-
         Response statsResponse = TestHelpers
             .makeRequest(sdkRestClient(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
 
@@ -492,24 +438,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             Instant.now(),
             null
         );
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "POST",
-                    String.format(Locale.ROOT, TestHelpers.AD_BASE_PREVIEW_URI, input.getDetectorId()),
-                    ImmutableMap.of(),
-                    TestHelpers.toHttpEntity(input),
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response response = TestHelpers
             .makeRequest(
@@ -630,24 +558,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         SearchSourceBuilder search = (new SearchSourceBuilder())
             .query(QueryBuilders.termQuery("detector_id", anomalyResult.getDetectorId()));
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "POST",
-                    TestHelpers.AD_BASE_RESULT_URI + "/_search",
-                    ImmutableMap.of(),
-                    new StringEntity(search.toString(), ContentType.APPLICATION_JSON),
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
-
         Response searchResponse = TestHelpers
             .makeRequest(
                 sdkRestClient(),
@@ -675,23 +585,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testDeleteAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, sdkRestClient());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "DELETE",
-                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId(),
-                    ImmutableMap.of(),
-                    "",
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response response = TestHelpers
             .makeRequest(
                 sdkRestClient(),
@@ -844,23 +737,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testStartAdJobWithExistingDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, sdkRestClient());
 
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "POST",
-                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_start",
-                    ImmutableMap.of(),
-                    "",
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         Response startAdJobResponse = TestHelpers
             .makeRequest(
                 sdkRestClient(),
@@ -922,7 +798,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStopAdJob() throws Exception {
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
         AnomalyDetector detector = createRandomAnomalyDetector(true, false, sdkRestClient());
         Response startAdJobResponse = TestHelpers
             .makeRequest(
@@ -934,24 +809,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    sdkRestClient(),
-                    "POST",
-                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + detector.getDetectorId() + "/_stop",
-                    ImmutableMap.of(),
-                    "",
-                    null
-                )
-        );
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response stopAdJobResponse = TestHelpers
             .makeRequest(
@@ -1104,13 +961,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testDefaultProfileAnomalyDetector() throws Exception {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, sdkRestClient());
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, false);
-
-        Exception ex = expectThrows(ResponseException.class, () -> getDetectorProfile(detector.getDetectorId()));
-        assertThat(ex.getMessage(), containsString(CommonErrorMessages.DISABLED_ERR_MSG));
-
-        updateClusterSettings(EnabledSetting.AD_PLUGIN_ENABLED, true);
 
         Response profileResponse = getDetectorProfile(detector.getDetectorId());
         assertEquals("Incorrect profile status", RestStatus.OK, TestHelpers.restStatus(profileResponse));
