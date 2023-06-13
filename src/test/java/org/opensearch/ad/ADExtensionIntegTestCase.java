@@ -26,7 +26,6 @@ import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.RestClient;
