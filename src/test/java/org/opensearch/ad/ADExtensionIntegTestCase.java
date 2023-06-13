@@ -11,6 +11,7 @@
 
 package org.opensearch.ad;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,7 @@ import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
@@ -80,12 +82,12 @@ public abstract class ADExtensionIntegTestCase extends OpenSearchRestTestCase {
         openSearchIntegTestClusterPort = hosts.get(1).getPort();
     }
 
-    @Override
-    @After
-    public void tearDown() throws Exception {
-        super.tearDown();
-        if (sdkRestClient != null) {
+    @AfterClass
+    public static void closeSdkRestClient() throws IOException {
+        try {
             sdkRestClient.close();
+        } finally {
+            sdkRestClient = null;
         }
     }
 
