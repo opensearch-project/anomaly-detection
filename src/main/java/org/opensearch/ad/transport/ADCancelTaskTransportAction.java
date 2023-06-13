@@ -25,7 +25,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.TransportAction;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClusterService;
 import org.opensearch.tasks.Task;
 import org.opensearch.tasks.TaskManager;
@@ -36,20 +35,17 @@ public class ADCancelTaskTransportAction extends TransportAction<ADCancelTaskReq
     private final Logger logger = LogManager.getLogger(ADCancelTaskTransportAction.class);
     private ADTaskManager adTaskManager;
     private SDKClusterService clusterService;
-    private ExtensionsRunner extensionsRunner;
 
     @Inject
     public ADCancelTaskTransportAction(
         TaskManager taskManager,
         ActionFilters actionFilters,
         ADTaskManager adTaskManager,
-        SDKClusterService clusterService,
-        ExtensionsRunner extensionsRunner
+        SDKClusterService clusterService
     ) {
         super(ADCancelTaskAction.NAME, actionFilters, taskManager);
         this.adTaskManager = adTaskManager;
         this.clusterService = clusterService;
-        this.extensionsRunner = extensionsRunner;
     }
 
     protected ADCancelTaskResponse newResponse(

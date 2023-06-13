@@ -47,7 +47,6 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
     private SDKClusterService sdkClusterService;
     // the number of models to return. Defaults to 10.
     private volatile int numModelsToReturn;
-    private ExtensionsRunner extensionsRunner;
 
     /**
      * Constructor
@@ -71,7 +70,6 @@ public class ProfileTransportAction extends TransportAction<ProfileRequest, Prof
         CacheProvider cacheProvider
     ) {
         super(ProfileAction.NAME, actionFilters, taskManager);
-        this.extensionsRunner = extensionsRunner;
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
