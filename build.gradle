@@ -175,6 +175,7 @@ configurations.all {
 }
 
 configurations {
+    zipArchive
     testImplementation {
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
     }
@@ -366,14 +367,7 @@ testClusters.integTest {
             return new RegularFile() {
                 @Override
                 File getAsFile() {
-                    if (new File("$project.rootDir/$js_resource_folder").exists()) {
-                        project.delete(files("$project.rootDir/$js_resource_folder"))
-                    }
-                    project.mkdir js_resource_folder
-                    ant.get(src: job_scheduler_build_download,
-                            dest: js_resource_folder,
-                            httpusecaches: false)
-                    return fileTree(js_resource_folder).getSingleFile()
+                    return configurations.zipArchive.asFileTree.getSingleFile()
                 }
             }
         }
@@ -822,6 +816,7 @@ check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
 
 dependencies {
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-job-scheduler', version: "${opensearch_build}"
     compileOnly "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     implementation "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
