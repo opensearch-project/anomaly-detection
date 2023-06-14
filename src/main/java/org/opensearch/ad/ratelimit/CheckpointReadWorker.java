@@ -46,7 +46,6 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
@@ -56,6 +55,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.util.ParseUtils;
 

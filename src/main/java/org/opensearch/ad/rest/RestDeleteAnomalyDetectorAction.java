@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
 
 import java.io.IOException;
 import java.util.List;

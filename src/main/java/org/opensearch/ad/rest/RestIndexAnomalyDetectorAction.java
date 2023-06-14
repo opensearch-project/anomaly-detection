@@ -11,11 +11,11 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
-import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
-import static org.opensearch.ad.util.RestHandlerUtils.REFRESH;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.timeseries.util.RestHandlerUtils.IF_PRIMARY_TERM;
+import static org.opensearch.timeseries.util.RestHandlerUtils.IF_SEQ_NO;
+import static org.opensearch.timeseries.util.RestHandlerUtils.REFRESH;
 
 import java.io.IOException;
 import java.util.List;

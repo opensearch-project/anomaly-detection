@@ -18,6 +18,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Entity;
 
 public class ADEntityTaskProfileTests extends OpenSearchSingleNodeTestCase {
 

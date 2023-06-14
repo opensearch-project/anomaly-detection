@@ -24,10 +24,10 @@ import java.util.Optional;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Entity;
 
 public class AbstractRateLimitingTest extends AbstractTimeSeriesTest {
     Clock clock;

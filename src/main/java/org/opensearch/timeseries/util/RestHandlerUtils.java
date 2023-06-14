@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import static org.opensearch.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
@@ -26,8 +26,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
@@ -46,6 +44,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.base.Throwables;
@@ -84,7 +84,11 @@ public final class RestHandlerUtils {
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
 
     public static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
-    public static final String[] UI_METADATA_EXCLUDE = new String[] { AnomalyDetector.UI_METADATA_FIELD };
+    public static final String[] UI_METADATA_EXCLUDE = new String[] { Config.UI_METADATA_FIELD };
+
+    public static final String FORECASTER_ID = "forecasterID";
+    public static final String FORECASTER = "forecaster";
+    public static final String REST_STATUS = "rest_status";
 
     private RestHandlerUtils() {}
 
@@ -130,18 +134,18 @@ public final class RestHandlerUtils {
     }
 
     /**
-     * Check if there is configuration/syntax error in feature definition of anomalyDetector
-     * @param anomalyDetector detector to check
-     * @param maxAnomalyFeatures max allowed feature number
+     * Check if there is configuration/syntax error in feature definition of config
+     * @param config config to check
+     * @param maxFeatures max allowed feature number
      * @return error message if error exists; otherwise, null is returned
      */
-    public static String checkAnomalyDetectorFeaturesSyntax(AnomalyDetector anomalyDetector, int maxAnomalyFeatures) {
-        List<Feature> features = anomalyDetector.getFeatureAttributes();
+    public static String checkFeaturesSyntax(Config config, int maxFeatures) {
+        List<Feature> features = config.getFeatureAttributes();
         if (features != null) {
-            if (features.size() > maxAnomalyFeatures) {
-                return "Can't create more than " + maxAnomalyFeatures + " anomaly features";
+            if (features.size() > maxFeatures) {
+                return "Can't create more than " + maxFeatures + " features";
             }
-            return validateFeaturesConfig(anomalyDetector.getFeatureAttributes());
+            return validateFeaturesConfig(config.getFeatureAttributes());
         }
         return null;
     }
@@ -163,14 +167,14 @@ public final class RestHandlerUtils {
 
         StringBuilder errorMsgBuilder = new StringBuilder();
         if (duplicateFeatureNames.size() > 0) {
-            errorMsgBuilder.append("Detector has duplicate feature names: ");
+            errorMsgBuilder.append("There are duplicate feature names: ");
             errorMsgBuilder.append(String.join(", ", duplicateFeatureNames));
         }
         if (errorMsgBuilder.length() != 0 && duplicateFeatureAggNames.size() > 0) {
             errorMsgBuilder.append(". ");
         }
         if (duplicateFeatureAggNames.size() > 0) {
-            errorMsgBuilder.append(ADCommonMessages.DUPLICATE_FEATURE_AGGREGATION_NAMES);
+            errorMsgBuilder.append(CommonMessages.DUPLICATE_FEATURE_AGGREGATION_NAMES);
             errorMsgBuilder.append(String.join(", ", duplicateFeatureAggNames));
         }
         return errorMsgBuilder.toString();
@@ -193,9 +197,9 @@ public final class RestHandlerUtils {
 
     /**
      * Wrap action listener to avoid return verbose error message and wrong 500 error to user.
-     * Suggestion for exception handling in AD:
+     * Suggestion for exception handling in timeseries analysis (e.g., AD and Forecast):
      * 1. If the error is caused by wrong input, throw IllegalArgumentException exception.
-     * 2. For other errors, please use AnomalyDetectionException or its subclass, or use
+     * 2. For other errors, please use TimeSeriesException or its subclass, or use
      *    OpenSearchStatusException.
      *
      * TODO: tune this function for wrapped exception, return root exception error message

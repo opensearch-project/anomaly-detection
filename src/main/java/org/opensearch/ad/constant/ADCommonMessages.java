@@ -48,7 +48,6 @@ public class ADCommonMessages {
     public static String HISTORICAL_ANALYSIS_CANCELLED = "Historical analysis cancelled by user";
     public static String HC_DETECTOR_TASK_IS_UPDATING = "HC detector task is updating";
     public static String INVALID_TIME_CONFIGURATION_UNITS = "Time unit %s is not supported";
-    public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Detector has duplicate feature aggregation query names: ";
     public static String FAIL_TO_GET_DETECTOR = "Fail to get detector";
     public static String FAIL_TO_GET_DETECTOR_INFO = "Fail to get detector info";
     public static String FAIL_TO_CREATE_DETECTOR = "Fail to create detector";

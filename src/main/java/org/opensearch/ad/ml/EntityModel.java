@@ -15,7 +15,7 @@ import java.util.ArrayDeque;
 import java.util.Optional;
 import java.util.Queue;
 
-import org.opensearch.ad.model.Entity;
+import org.opensearch.timeseries.model.Entity;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 

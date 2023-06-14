@@ -12,8 +12,8 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
-import static org.opensearch.ad.util.RestHandlerUtils.RESULT_INDEX;
-import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
+import static org.opensearch.timeseries.util.RestHandlerUtils.RESULT_INDEX;
+import static org.opensearch.timeseries.util.RestHandlerUtils.getSourceContext;
 
 import java.io.IOException;
 import java.util.Locale;

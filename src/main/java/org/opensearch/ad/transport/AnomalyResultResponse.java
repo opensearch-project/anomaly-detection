@@ -21,7 +21,6 @@ import java.util.List;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.common.io.stream.InputStreamStreamInput;
 import org.opensearch.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
@@ -29,6 +28,7 @@ import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.model.FeatureData;
 
 public class AnomalyResultResponse extends ActionResponse implements ToXContentObject {
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";

@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.model.Entity;
 
 public class EntityTests extends AbstractTimeSeriesTest {
     /**

@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-import org.opensearch.ad.model.Entity;
+import org.opensearch.timeseries.model.Entity;
 
 public class EntityFeatureRequest extends EntityRequest {
     private final double[] currentFeature;

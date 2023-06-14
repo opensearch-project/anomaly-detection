@@ -12,12 +12,12 @@
 package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.listEqualsWithoutConsideringOrder;
 import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
+import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -62,7 +62,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -86,6 +85,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -877,7 +877,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             return;
         }
         // checking configuration/syntax error of detector features
-        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(anomalyDetector, maxAnomalyFeatures);
+        String error = RestHandlerUtils.checkFeaturesSyntax(anomalyDetector, maxAnomalyFeatures);
         if (StringUtils.isNotBlank(error)) {
             if (indexingDryRun) {
                 listener.onFailure(new ValidationException(error, ValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.DETECTOR));

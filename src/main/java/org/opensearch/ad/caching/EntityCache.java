@@ -22,8 +22,8 @@ import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.timeseries.model.Entity;
 
 public interface EntityCache extends MaintenanceState, CleanState, DetectorModelSize {
     /**

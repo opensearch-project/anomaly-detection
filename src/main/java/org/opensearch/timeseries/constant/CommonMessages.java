@@ -48,6 +48,7 @@ public class CommonMessages {
     public static final String FEATURE_WITH_INVALID_QUERY_MSG = FEATURE_INVALID_MSG_PREFIX + " causing a runtime exception: ";
     public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
         "Feature has an unknown exception caught while executing the feature query: ";
+    public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Config has duplicate feature aggregation query names: ";
 
     // ======================================
     // Index message

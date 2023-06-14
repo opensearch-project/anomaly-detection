@@ -9,15 +9,15 @@
 package org.opensearch.ad.rest;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomBoolean;
-import static org.opensearch.ad.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
-import static org.opensearch.ad.util.RestHandlerUtils.REALTIME_TASK;
 import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
 import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomInt;
 import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomLong;
 import static org.opensearch.test.rest.OpenSearchRestTestCase.entityAsMap;
+import static org.opensearch.timeseries.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
+import static org.opensearch.timeseries.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
+import static org.opensearch.timeseries.util.RestHandlerUtils.REALTIME_TASK;
 
 import java.io.IOException;
 import java.time.Instant;

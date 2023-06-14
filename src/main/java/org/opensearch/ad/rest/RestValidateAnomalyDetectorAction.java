@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.TYPE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
 import java.io.IOException;
 import java.util.Arrays;

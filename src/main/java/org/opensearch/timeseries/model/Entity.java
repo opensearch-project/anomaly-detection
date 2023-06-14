@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.timeseries.model;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -25,7 +25,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import org.apache.lucene.util.SetOnce;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.Numbers;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.hash.MurmurHash3;
@@ -229,52 +228,52 @@ public class Entity implements ToXContentObject, Writeable {
     }
 
     /**
-    * Create model Id out of detector Id and attribute name and value pairs
-    *
-    * HCAD v1 uses the categorical value as part of the model document Id, but
-    *  OpenSearch’s document Id can be at most 512 bytes. Categorical values are
-    *  usually less than 256 characters, but can grow to 32766 in theory.
-    *  HCAD v1 skips an entity if the entity's name is more than 256 characters.
-    *  We cannot do that in v2 as that can reject a lot of entities. To overcome
-    *  the obstacle, we hash categorical values to a 128-bit string (like SHA-1
-    *  that git uses) and use the hash as part of the model document Id.
-    *
-    * We have choices to make regarding when to use the hash as part of a model
-    * document Id: for all HC detectors or a HC detector with multiple categorical
-    * fields. The challenge lies in providing backward compatibility of looking for
-    * a model checkpoint in the case of a HC detector with one categorical field.
-    * If using hashes for all HC detectors, we need two get requests to ensure that
-    * a model checkpoint exists. One uses the document Id without a hash, while one
-    * uses the document Id with a hash. The dual get requests are ineffective. If
-    * limiting hashes to a HC detector with multiple categorical fields, there is
-    * no backward compatibility issue. However, the code will be branchy. One may
-    * wonder if backward compatibility can be ignored; indeed, the old checkpoints
-    * will be gone after a transition period during upgrading. During the transition
-    * period, HC detectors can experience unnecessary cold starts as if the
-    * detectors were just started. Checkpoint index size can double if every model
-    * has two model documents. The transition period can be as long as 3 days since
-    * our checkpoint retention period is 3 days. There is no perfect solution. We
-    * prefer limiting hashes to an HC detector with multiple categorical fields as
-    * its customer impact is none.
-    *
-    * @param detectorId Detector Id
-    * @param attributes Attributes of an entity
-    * @return the model Id
-    */
-    public static Optional<String> getModelId(String detectorId, SortedMap<String, String> attributes) {
+     * Create model Id out of config Id and the attribute name and value pairs
+     *
+     * HCAD v1 uses the categorical value as part of the model document Id,
+     *  but OpenSearch's document Id can be at most 512 bytes. Categorical
+     *  values are usually less than 256 characters but can grow to 32766
+     *  in theory. HCAD v1 skips an entity if the entity's name is more than
+     *  256 characters. We cannot do that in v2 as that can reject a lot of
+     *  entities. To overcome the obstacle, we hash categorical values to a
+     *  128-bit string (like SHA-1 that git uses) and use the hash as part
+     *  of the model document Id.
+     *
+     * We have choices regarding when to use the hash as part of a model
+     * document Id: for all HC detectors or an HC detector with multiple
+     * categorical fields. The challenge lies in providing backward
+     * compatibility by looking for a model checkpoint for an HC detector
+     * with one categorical field. If using hashes for all HC detectors,
+     * we need two get requests to ensure that a model checkpoint exists.
+     * One uses the document Id without a hash, while one uses the document
+     * Id with a hash. The dual get requests are ineffective. If limiting
+     * hashes to an HC detector with multiple categorical fields, there is
+     * no backward compatibility issue. However, the code will be branchy.
+     * One may wonder if backward compatibility can be ignored; indeed,
+     * the old checkpoints will be gone after a transition period during
+     * upgrading. During the transition period, the HC detector can
+     * experience unnecessary cold starts as if the detectors were just
+     * started. The checkpoint index size can double if every model has
+     * two model documents. The transition period can be three days since
+     * our checkpoint retention period is three days.
+     *
+     * There is no perfect solution. Considering that we can initialize one
+     * million models within 15 minutes in our performance test, we prefer
+     * to keep one and multiple categorical fields consistent and use hash
+     * only. This lifts the limitation that the categorical values cannot
+     * be more than 256 characters when there is one categorical field.
+     * Also, We will use hashes for new analyses like forecasting, regardless
+     * of the number of categorical fields. Using hashes always helps simplify
+     * our code base without worrying about whether the config is
+     * AnomalyDetector and when it is not. Thus, we prefer a hash-only solution
+     * for ease of use and maintainability.
+     *
+     * @param configId config Id
+     * @param attributes Attributes of an entity
+     * @return the model Id
+     */
+    private static Optional<String> getModelId(String configId, SortedMap<String, String> attributes) {
         if (attributes.isEmpty()) {
-            return Optional.empty();
-        } else if (attributes.size() == 1) {
-            for (Map.Entry<String, String> categoryValuePair : attributes.entrySet()) {
-                // For OpenSearch, the limit of the document ID is 512 bytes.
-                // skip an entity if the entity's name is more than 256 characters
-                // since we are using it as part of document id.
-                String categoricalValue = categoryValuePair.getValue().toString();
-                if (categoricalValue.length() > AnomalyDetectorSettings.MAX_ENTITY_LENGTH) {
-                    return Optional.empty();
-                }
-                return Optional.of(detectorId + MODEL_ID_INFIX + categoricalValue);
-            }
             return Optional.empty();
         } else {
             String normalizedFields = normalizedAttributes(attributes);
@@ -291,20 +290,20 @@ public class Entity implements ToXContentObject, Writeable {
             System.arraycopy(Numbers.longToBytes(hashFunc.h1), 0, bytes, 0, 8);
             System.arraycopy(Numbers.longToBytes(hashFunc.h2), 0, bytes, 8, 8);
             // Some bytes like 10 in ascii is corrupted in some systems. Base64 ensures we use safe bytes: https://tinyurl.com/mxmrhmhf
-            return Optional.of(detectorId + MODEL_ID_INFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes));
+            return Optional.of(configId + MODEL_ID_INFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes));
         }
     }
 
     /**
      * Get the cached model Id if present. Or recompute one if missing.
      *
-     * @param detectorId Detector Id.  Used as part of model Id.
+     * @param configId Id. Used as part of model Id.
      * @return Model Id.  Can be missing (e.g., the field value is too long for single-category detector)
      */
-    public Optional<String> getModelId(String detectorId) {
+    public Optional<String> getModelId(String configId) {
         if (modelId.get() == null) {
             // computing model id is not cheap and the result is deterministic. We only do it once.
-            Optional<String> computedModelId = Entity.getModelId(detectorId, attributes);
+            Optional<String> computedModelId = Entity.getModelId(configId, attributes);
             if (computedModelId.isPresent()) {
                 this.modelId.set(computedModelId.get());
             } else {

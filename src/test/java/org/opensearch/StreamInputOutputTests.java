@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.opensearch.action.FailedNodeException;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
@@ -43,6 +42,7 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.model.Entity;
 
 /**
  * Put in core package so that we can using Version's package private constructor
