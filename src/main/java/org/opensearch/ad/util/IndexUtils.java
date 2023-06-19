@@ -139,8 +139,8 @@ public class IndexUtils {
                 return NONEXISTENT_INDEX_STATUS;
             }
         }
-
         ClusterHealthRequest clusterHealthRequest = new ClusterHealthRequest(indexOrAliasName);
+        clusterHealthRequest.setLevel("indices");
         CompletableFuture<ClusterHealthResponse> clusterHealthFuture = new CompletableFuture<>();
         sdkRestClient
             .cluster()
