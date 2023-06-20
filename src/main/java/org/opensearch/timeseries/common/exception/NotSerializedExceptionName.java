@@ -11,12 +11,13 @@
 
 package org.opensearch.timeseries.common.exception;
 
+import static org.opensearch.OpenSearchException.getExceptionName;
+
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.BaseExceptionsHelper;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 
 /**
@@ -29,16 +30,16 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
  */
 public enum NotSerializedExceptionName {
 
-    RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ResourceNotFoundException("", ""))),
-    LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new LimitExceededException("", "", false))),
-    END_RUN_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new EndRunException("", "", false))),
-    TIME_SERIES_DETECTION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TimeSeriesException("", ""))),
-    INTERNAL_FAILURE_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new InternalFailure("", ""))),
-    CLIENT_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ClientException("", ""))),
-    CANCELLATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new TaskCancelledException("", ""))),
-    DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new DuplicateTaskException(""))),
-    VERSION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new VersionException(""))),
-    VALIDATION_EXCEPTION_NAME_UNDERSCORE(BaseExceptionsHelper.getExceptionName(new ValidationException("", null, null)));
+    RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ResourceNotFoundException("", ""))),
+    LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new LimitExceededException("", "", false))),
+    END_RUN_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new EndRunException("", "", false))),
+    TIME_SERIES_DETECTION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new TimeSeriesException("", ""))),
+    INTERNAL_FAILURE_NAME_UNDERSCORE(getExceptionName(new InternalFailure("", ""))),
+    CLIENT_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ClientException("", ""))),
+    CANCELLATION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new TaskCancelledException("", ""))),
+    DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new DuplicateTaskException(""))),
+    VERSION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new VersionException(""))),
+    VALIDATION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ValidationException("", null, null)));
 
     private static final Logger LOG = LogManager.getLogger(NotSerializedExceptionName.class);
     private final String name;
