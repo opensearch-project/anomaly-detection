@@ -45,7 +45,7 @@ import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
@@ -154,7 +154,6 @@ import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.ad.util.Throttler;
@@ -176,6 +175,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.forecast.model.Forecaster;
+import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
@@ -194,7 +194,10 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.function.ThrowingSupplierWrapper;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.watcher.ResourceWatcherService;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -226,7 +229,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     public static final String AD_BATCH_TASK_THREAD_POOL_NAME = "ad-batch-task-threadpool";
     public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
     private static Gson gson;
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
     private Client client;
     private ClusterService clusterService;
@@ -333,14 +336,19 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         this.clientUtil = new ClientUtil(settings, client, throttler, threadPool);
         this.indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameExpressionResolver);
         this.nodeFilter = new DiscoveryNodeFilterer(clusterService);
-        this.anomalyDetectionIndices = new AnomalyDetectionIndices(
-            client,
-            clusterService,
-            threadPool,
-            settings,
-            nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
-        );
+        // convert from checked IOException to unchecked RuntimeException
+        this.anomalyDetectionIndices = ThrowingSupplierWrapper
+            .throwingSupplierWrapper(
+                () -> new ADIndexManagement(
+                    client,
+                    clusterService,
+                    threadPool,
+                    settings,
+                    nodeFilter,
+                    TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+                )
+            )
+            .get();
         this.clusterService = clusterService;
 
         Imputer imputer = new LinearUniformImputer(true);
@@ -853,6 +861,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
         List<Setting<?>> systemSetting = ImmutableList
             .of(
+                // ======================================
+                // AD settings
+                // ======================================
                 // HCAD cache
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
                 AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
@@ -894,7 +905,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
                 AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT,
                 AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT,
-                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
+                AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS,
                 // Security
                 LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
                 AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
@@ -938,7 +949,22 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 // clean resource
                 AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
                 // stats/profile API
-                AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE
+                AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE,
+                // ======================================
+                // Forecast settings
+                // ======================================
+                // result index rollover
+                ForecastSettings.FORECAST_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                ForecastSettings.FORECAST_RESULT_HISTORY_RETENTION_PERIOD,
+                ForecastSettings.FORECAST_RESULT_HISTORY_ROLLOVER_PERIOD,
+                // resource usage control
+                ForecastSettings.FORECAST_MODEL_MAX_SIZE_PERCENTAGE,
+                // TODO: add validation code
+                // ForecastSettings.FORECAST_MAX_SINGLE_STREAM_FORECASTERS,
+                // ForecastSettings.FORECAST_MAX_HC_FORECASTERS,
+                ForecastSettings.FORECAST_INDEX_PRESSURE_SOFT_LIMIT,
+                ForecastSettings.FORECAST_INDEX_PRESSURE_HARD_LIMIT,
+                ForecastSettings.FORECAST_MAX_PRIMARY_SHARDS
             );
         return unmodifiableList(
             Stream

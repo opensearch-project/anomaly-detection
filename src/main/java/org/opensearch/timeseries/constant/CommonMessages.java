@@ -83,6 +83,6 @@ public class CommonMessages {
     // rate limiting worker
     // ======================================
     public static final String BUG_RESPONSE = "We might have bugs.";
-    public static final String MEMORY_LIMIT_EXCEEDED_ERR_MSG = "AD models memory usage exceeds our limit.";
+    public static final String MEMORY_LIMIT_EXCEEDED_ERR_MSG = "Models memory usage exceeds our limit.";
 
 }

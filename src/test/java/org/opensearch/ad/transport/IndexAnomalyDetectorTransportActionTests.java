@@ -39,7 +39,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
@@ -116,7 +116,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             clientUtil,
             clusterService,
             indexSettings(),
-            mock(AnomalyDetectionIndices.class),
+            mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
             searchFeatureDao
@@ -214,7 +214,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             clientUtil,
             clusterService,
             settings,
-            mock(AnomalyDetectionIndices.class),
+            mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
             searchFeatureDao
@@ -240,7 +240,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             clientUtil,
             clusterService,
             settings,
-            mock(AnomalyDetectionIndices.class),
+            mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
             searchFeatureDao

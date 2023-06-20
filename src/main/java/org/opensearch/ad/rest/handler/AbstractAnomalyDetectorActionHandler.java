@@ -53,7 +53,7 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
@@ -130,7 +130,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
 
     public static String INVALID_NAME_SIZE = "Name should be shortened. The maximum limit is " + MAX_DETECTOR_NAME_SIZE + " characters.";
 
-    protected final AnomalyDetectionIndices anomalyDetectionIndices;
+    protected final ADIndexManagement anomalyDetectionIndices;
     protected final String detectorId;
     protected final Long seqNo;
     protected final Long primaryTerm;
@@ -192,7 +192,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         SecurityClientUtil clientUtil,
         TransportService transportService,
         ActionListener<T> listener,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
         Long primaryTerm,
@@ -284,10 +284,10 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     // index won't be created, only validation checks will be executed throughout the class
     private void createOrUpdateDetector() {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (!anomalyDetectionIndices.doesAnomalyDetectorIndexExist() && !this.isDryRun) {
+            if (!anomalyDetectionIndices.doesConfigIndexExist() && !this.isDryRun) {
                 logger.info("AnomalyDetector Indices do not exist");
                 anomalyDetectionIndices
-                    .initAnomalyDetectorIndex(
+                    .initConfigIndex(
                         ActionListener
                             .wrap(response -> onCreateMappingsResponse(response, false), exception -> listener.onFailure(exception))
                     );
@@ -466,7 +466,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected void validateAgainstExistingMultiEntityAnomalyDetector(String detectorId, boolean indexingDryRun) {
-        if (anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
+        if (anomalyDetectionIndices.doesConfigIndexExist()) {
             QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(AnomalyDetector.CATEGORY_FIELD));
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
@@ -493,7 +493,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             if (categoricalFields != null && categoricalFields.size() > 0) {
                 validateAgainstExistingMultiEntityAnomalyDetector(null, indexingDryRun);
             } else {
-                if (anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
+                if (anomalyDetectionIndices.doesConfigIndexExist()) {
                     QueryBuilder query = QueryBuilders.matchAllQuery();
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
@@ -685,7 +685,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     }
 
     protected void checkADNameExists(String detectorId, boolean indexingDryRun) throws IOException {
-        if (anomalyDetectionIndices.doesAnomalyDetectorIndexExist()) {
+        if (anomalyDetectionIndices.doesConfigIndexExist()) {
             BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
             // src/main/resources/mappings/anomaly-detectors.json#L14
             boolQueryBuilder.must(QueryBuilders.termQuery("name.keyword", anomalyDetector.getName()));

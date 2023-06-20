@@ -31,11 +31,10 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultAction;
@@ -63,6 +62,7 @@ import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 
 import com.google.common.base.Throwables;
 
@@ -77,7 +77,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
     private Client client;
     private ThreadPool threadPool;
     private ConcurrentHashMap<String, Integer> detectorEndRunExceptionCount;
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
     private ADTaskManager adTaskManager;
     private NodeStateManager nodeStateManager;
     private ExecuteADResultResponseRecorder recorder;
@@ -117,7 +117,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         this.adTaskManager = adTaskManager;
     }
 
-    public void setAnomalyDetectionIndices(AnomalyDetectionIndices anomalyDetectionIndices) {
+    public void setAnomalyDetectionIndices(ADIndexManagement anomalyDetectionIndices) {
         this.anomalyDetectionIndices = anomalyDetectionIndices;
     }
 
@@ -514,7 +514,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         );
     }
 
-    private void stopAdJob(String detectorId, AnomalyDetectorFunction function) {
+    private void stopAdJob(String detectorId, ExecutorFunction function) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
         ActionListener<GetResponse> listener = ActionListener.wrap(response -> {
             if (response.isExists()) {

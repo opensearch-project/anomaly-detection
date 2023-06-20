@@ -17,7 +17,7 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
@@ -52,7 +52,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         Client client,
         Settings settings,
         ThreadPool threadPool,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService
@@ -81,8 +81,8 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         }
 
         try {
-            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
-                anomalyDetectionIndices.initDefaultAnomalyResultIndexDirectly(ActionListener.wrap(initResponse -> {
+            if (!anomalyDetectionIndices.doesDefaultResultIndexExist()) {
+                anomalyDetectionIndices.initDefaultResultIndexDirectly(ActionListener.wrap(initResponse -> {
                     if (initResponse.isAcknowledged()) {
                         bulk(currentBulkRequest, listener);
                     } else {

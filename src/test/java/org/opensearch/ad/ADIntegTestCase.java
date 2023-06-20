@@ -41,7 +41,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -105,7 +105,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public void createDetectors(List<AnomalyDetector> detectors, boolean createIndexFirst) throws IOException {
         if (createIndexFirst) {
-            createIndex(CommonName.CONFIG_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
+            createIndex(CommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
         }
 
         for (AnomalyDetector detector : detectors) {
@@ -129,19 +129,19 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public void createDetectorIndex() throws IOException {
-        createIndex(CommonName.CONFIG_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
+        createIndex(CommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
     }
 
     public void createADResultIndex() throws IOException {
-        createIndex(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, AnomalyDetectionIndices.getAnomalyResultMappings());
+        createIndex(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, ADIndexManagement.getResultMappings());
     }
 
     public void createCustomADResultIndex(String indexName) throws IOException {
-        createIndex(indexName, AnomalyDetectionIndices.getAnomalyResultMappings());
+        createIndex(indexName, ADIndexManagement.getResultMappings());
     }
 
     public void createDetectionStateIndex() throws IOException {
-        createIndex(ADCommonName.DETECTION_STATE_INDEX, AnomalyDetectionIndices.getDetectionStateMappings());
+        createIndex(ADCommonName.DETECTION_STATE_INDEX, ADIndexManagement.getStateMappings());
     }
 
     public void createTestDataIndex(String indexName) {

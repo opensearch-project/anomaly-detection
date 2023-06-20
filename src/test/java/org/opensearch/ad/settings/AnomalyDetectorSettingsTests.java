@@ -95,7 +95,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                             AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT,
                             AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT,
-                            AnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
+                            AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS,
                             AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
                             AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                             AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
@@ -184,7 +184,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         // INDEX_PRESSURE_SOFT_LIMIT does not use legacy setting
         assertEquals(Float.valueOf(0.6f), AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT.get(Settings.EMPTY));
         assertEquals(
-            AnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(Settings.EMPTY)
         );
         assertEquals(
@@ -297,7 +297,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.get(settings), Float.valueOf(0.8f));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_primary_shards", 80).build();
-        assertEquals(AnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(settings), Integer.valueOf(80));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS.get(settings), Integer.valueOf(80));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(settings), Integer.valueOf(10));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_cache_miss_handling_per_second", 79).build();
@@ -372,7 +372,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(5));
         // INDEX_PRESSURE_SOFT_LIMIT uses default instead of legacy fallback
         assertEquals(AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT.get(settings), Float.valueOf(0.6F));
-        assertEquals(AnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(settings), Integer.valueOf(21));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS.get(settings), Integer.valueOf(21));
         // MAX_CACHE_MISS_HANDLING_PER_SECOND is removed in the new release
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND.get(settings), Integer.valueOf(22));
         assertEquals(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.get(settings), Integer.valueOf(23));

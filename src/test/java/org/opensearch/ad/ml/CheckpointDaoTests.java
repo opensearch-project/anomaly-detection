@@ -95,7 +95,7 @@ import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
@@ -143,7 +143,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     private Clock clock;
 
     @Mock
-    private AnomalyDetectionIndices indexUtil;
+    private ADIndexManagement indexUtil;
 
     private Schema<ThresholdedRandomCutForestState> trcfSchema;
 

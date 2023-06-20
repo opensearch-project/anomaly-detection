@@ -38,7 +38,6 @@ import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -57,6 +56,7 @@ import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
@@ -248,7 +248,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            AnomalyDetectorFunction function = (AnomalyDetectorFunction) args[1];
+            ExecutorFunction function = (ExecutorFunction) args[1];
 
             function.execute();
             return null;

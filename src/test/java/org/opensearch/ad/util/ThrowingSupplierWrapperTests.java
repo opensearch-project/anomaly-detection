@@ -14,6 +14,7 @@ package org.opensearch.ad.util;
 import java.io.IOException;
 
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.function.ThrowingSupplierWrapper;
 
 public class ThrowingSupplierWrapperTests extends OpenSearchTestCase {
     private static String foo() throws IOException {

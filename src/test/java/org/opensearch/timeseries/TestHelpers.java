@@ -63,7 +63,7 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -1128,11 +1128,7 @@ public class TestHelpers {
 
     public static void createEmptyAnomalyResultIndex(RestClient client) throws IOException {
         createEmptyIndex(client, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
-        createIndexMapping(
-            client,
-            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            toHttpEntity(AnomalyDetectionIndices.getAnomalyResultMappings())
-        );
+        createIndexMapping(client, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, toHttpEntity(ADIndexManagement.getResultMappings()));
     }
 
     public static void createEmptyIndex(RestClient client, String indexName) throws IOException {

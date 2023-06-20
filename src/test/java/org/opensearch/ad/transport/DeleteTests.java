@@ -40,11 +40,9 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -61,6 +59,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.ClusterCreation;
@@ -198,14 +197,6 @@ public class DeleteTests extends AbstractTimeSeriesTest {
     public void testJsonRequestDeleteModel() throws IOException, JsonPathNotFoundException {
         DeleteModelRequest request = new DeleteModelRequest("123");
         testJsonRequestTemplate(request, request::getAdID);
-    }
-
-    public void testNewResponse() throws IOException {
-        StreamInput input = mock(StreamInput.class);
-        when(input.readBoolean()).thenReturn(true);
-        AcknowledgedResponse response = new AcknowledgedResponse(input);
-
-        assertTrue(response.isAcknowledged());
     }
 
     private enum DetectorExecutionMode {

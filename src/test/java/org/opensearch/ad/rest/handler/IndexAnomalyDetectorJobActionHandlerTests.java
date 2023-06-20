@@ -38,7 +38,7 @@ import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -50,7 +50,6 @@ import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -61,13 +60,14 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
 
 public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCase {
 
-    private static AnomalyDetectionIndices anomalyDetectionIndices;
+    private static ADIndexManagement anomalyDetectionIndices;
     private static String detectorId;
     private static Long seqNo;
     private static Long primaryTerm;
@@ -94,12 +94,12 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
         detectorId = "123";
         seqNo = 1L;
         primaryTerm = 2L;
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+        anomalyDetectionIndices = mock(ADIndexManagement.class);
         xContentRegistry = NamedXContentRegistry.EMPTY;
         transportService = mock(TransportService.class);
 
         requestTimeout = TimeValue.timeValueMinutes(60);
-        when(anomalyDetectionIndices.doesAnomalyDetectorJobIndexExist()).thenReturn(true);
+        when(anomalyDetectionIndices.doesJobIndexExist()).thenReturn(true);
 
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));

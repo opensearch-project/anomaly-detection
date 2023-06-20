@@ -37,14 +37,13 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -60,6 +59,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 
 /**
  * Migrate AD data to support backward compatibility.
@@ -71,14 +71,14 @@ public class ADDataMigrator {
     private final Client client;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
-    private final AnomalyDetectionIndices detectionIndices;
+    private final ADIndexManagement detectionIndices;
     private final AtomicBoolean dataMigrated;
 
     public ADDataMigrator(
         Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
-        AnomalyDetectionIndices detectionIndices
+        ADIndexManagement detectionIndices
     ) {
         this.client = client;
         this.clusterService = clusterService;
@@ -94,12 +94,12 @@ public class ADDataMigrator {
         if (!dataMigrated.getAndSet(true)) {
             logger.info("Start migrating AD data");
 
-            if (!detectionIndices.doesAnomalyDetectorJobIndexExist()) {
+            if (!detectionIndices.doesJobIndexExist()) {
                 logger.info("AD job index doesn't exist, no need to migrate");
                 return;
             }
 
-            if (detectionIndices.doesDetectorStateIndexExist()) {
+            if (detectionIndices.doesStateIndexExist()) {
                 migrateDetectorInternalStateToRealtimeTask();
             } else {
                 // If detection index doesn't exist, create index and backfill realtime task.
@@ -179,7 +179,7 @@ public class ADDataMigrator {
         }
         String jobId = job.getName();
 
-        AnomalyDetectorFunction createRealtimeTaskFunction = () -> {
+        ExecutorFunction createRealtimeTaskFunction = () -> {
             GetRequest getRequest = new GetRequest(DETECTION_STATE_INDEX, jobId);
             client.get(getRequest, ActionListener.wrap(r -> {
                 if (r != null && r.isExists()) {
@@ -204,7 +204,7 @@ public class ADDataMigrator {
 
     private void checkIfRealtimeTaskExistsAndBackfill(
         AnomalyDetectorJob job,
-        AnomalyDetectorFunction createRealtimeTaskFunction,
+        ExecutorFunction createRealtimeTaskFunction,
         ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs,
         boolean migrateAll
     ) {

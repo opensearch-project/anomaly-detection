@@ -28,7 +28,7 @@ import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
@@ -62,7 +62,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
     protected Client client;
 
     @Mock
-    protected AnomalyDetectionIndices anomalyDetectionIndices;
+    protected ADIndexManagement anomalyDetectionIndices;
 
     @Mock
     protected Throttler throttler;
@@ -137,8 +137,8 @@ public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
                     break;
             }
             return null;
-        }).when(anomalyDetectionIndices).initDefaultAnomalyResultIndexDirectly(any());
-        when(anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()).thenReturn(anomalyResultIndexExists);
+        }).when(anomalyDetectionIndices).initDefaultResultIndexDirectly(any());
+        when(anomalyDetectionIndices.doesDefaultResultIndexExist()).thenReturn(anomalyResultIndexExists);
     }
 
     protected void setUpSavingAnomalyResultIndex(boolean anomalyResultIndexExists) throws IOException {

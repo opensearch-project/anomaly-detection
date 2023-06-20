@@ -28,6 +28,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
 /**
@@ -53,7 +54,7 @@ public class AnomalyDetectorActionHandler {
         Client client,
         String detectorId,
         ActionListener listener,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
         if (clusterService.state().metadata().indices().containsKey(CommonName.JOB_INDEX)) {
@@ -75,7 +76,7 @@ public class AnomalyDetectorActionHandler {
     private void onGetAdJobResponseForWrite(
         GetResponse response,
         ActionListener listener,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
         if (response.isExists()) {

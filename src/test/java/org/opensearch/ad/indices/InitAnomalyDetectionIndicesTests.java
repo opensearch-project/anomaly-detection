@@ -31,20 +31,20 @@ import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.IndicesAdminClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.routing.RoutingTable;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
     Client client;
@@ -52,7 +52,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
     ThreadPool threadPool;
     Settings settings;
     DiscoveryNodeFilterer nodeFilter;
-    AnomalyDetectionIndices adIndices;
+    ADIndexManagement adIndices;
     ClusterName clusterName;
     ClusterState clusterState;
     IndicesAdminClient indicesClient;
@@ -86,7 +86,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+                                AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS
                             )
                     )
                 )
@@ -97,13 +97,13 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
         clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
-        adIndices = new AnomalyDetectionIndices(
+        adIndices = new ADIndexManagement(
             client,
             clusterService,
             threadPool,
             settings,
             nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
         );
     }
 
@@ -121,7 +121,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
         if (index.equals(CommonName.CONFIG_INDEX)) {
-            adIndices.initAnomalyDetectorIndexIfAbsent(listener);
+            adIndices.initConfigIndexIfAbsent(listener);
         } else {
             adIndices.initDetectionStateIndex(listener);
         }
@@ -133,22 +133,24 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void fixedPrimaryShardsIndexNoCreationTemplate(String index, String alias) throws IOException {
+    private void fixedPrimaryShardsIndexNoCreationTemplate(String index, String... alias) throws IOException {
         clusterState = mock(ClusterState.class);
         when(clusterService.state()).thenReturn(clusterState);
 
-        RoutingTable.Builder rb = RoutingTable.builder();
-        rb.addAsNew(indexMeta(index, 1L));
-        when(clusterState.getRoutingTable()).thenReturn(rb.build());
+        // RoutingTable.Builder rb = RoutingTable.builder();
+        // rb.addAsNew(indexMeta(index, 1L));
+        // when(clusterState.metadata()).thenReturn(rb.build());
 
         Metadata.Builder mb = Metadata.builder();
-        mb.put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true);
+        // mb.put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true);
+        mb.put(indexMeta(index, 1L, alias), true);
+        when(clusterState.metadata()).thenReturn(mb.build());
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
         if (index.equals(CommonName.CONFIG_INDEX)) {
-            adIndices.initAnomalyDetectorIndexIfAbsent(listener);
+            adIndices.initConfigIndexIfAbsent(listener);
         } else {
-            adIndices.initDefaultAnomalyResultIndexIfAbsent(listener);
+            adIndices.initDefaultResultIndexIfAbsent(listener);
         }
 
         verify(indicesClient, never()).create(any(), any());
@@ -180,15 +182,15 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
         if (index.equals(CommonName.CONFIG_INDEX)) {
-            adIndices.initAnomalyDetectorIndexIfAbsent(listener);
+            adIndices.initConfigIndexIfAbsent(listener);
         } else if (index.equals(ADCommonName.DETECTION_STATE_INDEX)) {
             adIndices.initDetectionStateIndex(listener);
         } else if (index.equals(ADCommonName.CHECKPOINT_INDEX_NAME)) {
             adIndices.initCheckpointIndex(listener);
         } else if (index.equals(CommonName.JOB_INDEX)) {
-            adIndices.initAnomalyDetectorJobIndex(listener);
+            adIndices.initJobIndex(listener);
         } else {
-            adIndices.initDefaultAnomalyResultIndexIfAbsent(listener);
+            adIndices.initDefaultResultIndexIfAbsent(listener);
         }
 
         ArgumentCaptor<CreateIndexResponse> captor = ArgumentCaptor.forClass(CreateIndexResponse.class);
@@ -198,11 +200,11 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
     }
 
     public void testNotCreateDetector() throws IOException {
-        fixedPrimaryShardsIndexNoCreationTemplate(CommonName.CONFIG_INDEX, null);
+        fixedPrimaryShardsIndexNoCreationTemplate(CommonName.CONFIG_INDEX);
     }
 
     public void testNotCreateResult() throws IOException {
-        fixedPrimaryShardsIndexNoCreationTemplate(CommonName.CONFIG_INDEX, null);
+        fixedPrimaryShardsIndexNoCreationTemplate(CommonName.CONFIG_INDEX);
     }
 
     public void testCreateDetector() throws IOException {

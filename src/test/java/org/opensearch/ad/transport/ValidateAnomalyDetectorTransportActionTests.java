@@ -21,7 +21,7 @@ import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -299,7 +299,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     @Test
     public void testValidateAnomalyDetectorWithCustomResultIndexWithInvalidMapping() throws IOException {
         String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
-        URL url = AnomalyDetectionIndices.class.getClassLoader().getResource("mappings/anomaly-checkpoint.json");
+        URL url = ADIndexManagement.class.getClassLoader().getResource("mappings/anomaly-checkpoint.json");
         createIndex(resultIndex, Resources.toString(url, Charsets.UTF_8));
         AnomalyDetector anomalyDetector = TestHelpers
             .randomDetector(

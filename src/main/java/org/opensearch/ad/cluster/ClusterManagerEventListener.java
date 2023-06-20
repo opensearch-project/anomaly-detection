@@ -18,7 +18,6 @@ import org.opensearch.ad.cluster.diskcleanup.IndexCleanup;
 import org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.DateUtils;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.service.ClusterService;
@@ -28,6 +27,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.annotations.VisibleForTesting;
 

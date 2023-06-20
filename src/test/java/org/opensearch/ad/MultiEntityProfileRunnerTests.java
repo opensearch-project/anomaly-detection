@@ -66,6 +66,7 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
 
 public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {

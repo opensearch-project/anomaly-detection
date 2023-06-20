@@ -24,7 +24,6 @@ import java.util.Map;
 import org.opensearch.Version;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -36,9 +35,11 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class CustomIndexTests extends AbstractTimeSeriesTest {
-    AnomalyDetectionIndices adIndices;
+    ADIndexManagement adIndices;
     Client client;
     ClusterService clusterService;
     DiscoveryNodeFilterer nodeFilter;
@@ -71,7 +72,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+                                AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS
                             )
                     )
                 )
@@ -81,13 +82,13 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
 
         nodeFilter = mock(DiscoveryNodeFilterer.class);
 
-        adIndices = new AnomalyDetectionIndices(
+        adIndices = new ADIndexManagement(
             client,
             clusterService,
             threadPool,
             settings,
             nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
         );
     }
 

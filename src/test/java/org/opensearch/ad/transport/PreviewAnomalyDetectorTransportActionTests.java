@@ -50,7 +50,7 @@ import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -335,7 +335,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportActionWithDetector() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         CreateIndexResponse createResponse = TestHelpers
-            .createIndex(client().admin(), CommonName.CONFIG_INDEX, AnomalyDetectionIndices.getAnomalyDetectorMappings());
+            .createIndex(client().admin(), CommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
         Assert.assertNotNull(createResponse);
 
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
