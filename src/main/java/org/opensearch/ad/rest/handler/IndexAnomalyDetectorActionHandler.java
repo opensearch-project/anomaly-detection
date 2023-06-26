@@ -14,7 +14,7 @@ package org.opensearch.ad.rest.handler;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -66,7 +66,7 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         SecurityClientUtil clientUtil,
         TransportService transportService,
         ActionListener<IndexAnomalyDetectorResponse> listener,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
         Long primaryTerm,

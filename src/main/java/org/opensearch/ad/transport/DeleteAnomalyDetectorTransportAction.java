@@ -35,7 +35,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -50,6 +49,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -191,7 +191,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         });
     }
 
-    private void getDetectorJob(String detectorId, ActionListener<DeleteResponse> listener, AnomalyDetectorFunction function) {
+    private void getDetectorJob(String detectorId, ActionListener<DeleteResponse> listener, ExecutorFunction function) {
         if (clusterService.state().metadata().indices().containsKey(CommonName.JOB_INDEX)) {
             GetRequest request = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
             client.get(request, ActionListener.wrap(response -> onGetAdJobResponseForWrite(response, listener, function), exception -> {
@@ -203,7 +203,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
         }
     }
 
-    private void onGetAdJobResponseForWrite(GetResponse response, ActionListener<DeleteResponse> listener, AnomalyDetectorFunction function)
+    private void onGetAdJobResponseForWrite(GetResponse response, ActionListener<DeleteResponse> listener, ExecutorFunction function)
         throws IOException {
         if (response.isExists()) {
             String adJobId = response.getId();

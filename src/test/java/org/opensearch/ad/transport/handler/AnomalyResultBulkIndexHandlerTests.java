@@ -34,7 +34,7 @@ import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
@@ -56,12 +56,12 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     private Client client;
     private IndexUtils indexUtils;
     private ActionListener<BulkResponse> listener;
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+        anomalyDetectionIndices = mock(ADIndexManagement.class);
         client = mock(Client.class);
         Settings settings = Settings.EMPTY;
         Clock clock = mock(Clock.class);
@@ -92,7 +92,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     public void testNullAnomalyResults() {
         bulkIndexHandler.bulkIndexAnomalyResult(null, null, listener);
         verify(listener, times(1)).onResponse(null);
-        verify(anomalyDetectionIndices, never()).doesAnomalyDetectorIndexExist();
+        verify(anomalyDetectionIndices, never()).doesConfigIndexExist();
     }
 
     public void testAnomalyResultBulkIndexHandler_IndexNotExist() {
@@ -133,7 +133,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onResponse(new CreateIndexResponse(false, false, ANOMALY_RESULT_INDEX_ALIAS));
             return null;
-        }).when(anomalyDetectionIndices).initDefaultAnomalyResultIndexDirectly(any());
+        }).when(anomalyDetectionIndices).initDefaultResultIndexDirectly(any());
         bulkIndexHandler.bulkIndexAnomalyResult(null, ImmutableList.of(mock(AnomalyResult.class)), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
         assertEquals("Creating anomaly result index with mappings call not acknowledged", exceptionCaptor.getValue().getMessage());
@@ -142,7 +142,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     public void testWrongAnomalyResult() {
         BulkRequestBuilder bulkRequestBuilder = new BulkRequestBuilder(client, BulkAction.INSTANCE);
         doReturn(bulkRequestBuilder).when(client).prepareBulk();
-        doReturn(true).when(anomalyDetectionIndices).doesDefaultAnomalyResultIndexExist();
+        doReturn(true).when(anomalyDetectionIndices).doesDefaultResultIndexExist();
         doAnswer(invocation -> {
             ActionListener<BulkResponse> listener = invocation.getArgument(1);
             BulkItemResponse[] bulkItemResponses = new BulkItemResponse[2];
@@ -176,7 +176,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     public void testBulkSaveException() {
         BulkRequestBuilder bulkRequestBuilder = mock(BulkRequestBuilder.class);
         doReturn(bulkRequestBuilder).when(client).prepareBulk();
-        doReturn(true).when(anomalyDetectionIndices).doesDefaultAnomalyResultIndexExist();
+        doReturn(true).when(anomalyDetectionIndices).doesDefaultResultIndexExist();
 
         String testError = randomAlphaOfLength(5);
         doAnswer(invocation -> {

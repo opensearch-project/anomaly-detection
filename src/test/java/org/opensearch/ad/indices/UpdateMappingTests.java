@@ -41,7 +41,6 @@ import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.IndicesAdminClient;
@@ -57,11 +56,13 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class UpdateMappingTests extends AbstractTimeSeriesTest {
     private static String resultIndexName;
 
-    private AnomalyDetectionIndices adIndices;
+    private ADIndexManagement adIndices;
     private ClusterService clusterService;
     private int numberOfNodes;
     private AdminClient adminClient;
@@ -98,7 +99,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+                                AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS
                             )
                     )
                 )
@@ -122,25 +123,24 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         numberOfNodes = 2;
         when(nodeFilter.getNumberOfEligibleDataNodes()).thenReturn(numberOfNodes);
-        adIndices = new AnomalyDetectionIndices(
+        adIndices = new ADIndexManagement(
             client,
             clusterService,
             threadPool,
             settings,
             nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
         );
     }
 
     public void testNoIndexToUpdate() {
         adIndices.update();
         verify(indicesAdminClient, never()).putMapping(any(), any());
-        // for an index, we may check doesAliasExists/doesIndexExists and shouldUpdateConcreteIndex
-        // 1 time for result index since alias does not exist and 2 times for other indices
-        verify(clusterService, times(9)).state();
+        // for an index, we may check doesAliasExists/doesIndexExists
+        verify(clusterService, times(5)).state();
         adIndices.update();
         // we will not trigger new check since we have checked all indices before
-        verify(clusterService, times(9)).state();
+        verify(clusterService, times(5)).state();
     }
 
     @SuppressWarnings({ "serial", "unchecked" })
@@ -165,7 +165,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
             .numberOfReplicas(0)
             .putMapping(new MappingMetadata("type", new HashMap<String, Object>() {
                 {
-                    put(AnomalyDetectionIndices.META, new HashMap<String, Object>() {
+                    put(ADIndexManagement.META, new HashMap<String, Object>() {
                         {
                             // version 1 will cause update
                             put(CommonName.SCHEMA_VERSION_FIELD, 1);
@@ -298,7 +298,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testTooManyUpdate() {
+    public void testTooManyUpdate() throws IOException {
         setUpSuccessfulGetJobSetting();
         doAnswer(invocation -> {
             ActionListener<AcknowledgedResponse> listener = (ActionListener<AcknowledgedResponse>) invocation.getArgument(2);
@@ -307,7 +307,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
             return null;
         }).when(indicesAdminClient).updateSettings(any(), any());
 
-        adIndices = new AnomalyDetectionIndices(client, clusterService, threadPool, settings, nodeFilter, 1);
+        adIndices = new ADIndexManagement(client, clusterService, threadPool, settings, nodeFilter, 1);
 
         adIndices.update();
         adIndices.update();

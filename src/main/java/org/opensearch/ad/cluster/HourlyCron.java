@@ -17,9 +17,9 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.transport.CronAction;
 import org.opensearch.ad.transport.CronRequest;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class HourlyCron implements Runnable {
     private static final Logger LOG = LogManager.getLogger(HourlyCron.class);

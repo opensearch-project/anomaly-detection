@@ -49,7 +49,6 @@ import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.RCFPollingResponse;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.ad.util.SecurityClientUtil;
@@ -73,6 +72,7 @@ import org.opensearch.timeseries.common.exception.NotSerializedExceptionName;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {

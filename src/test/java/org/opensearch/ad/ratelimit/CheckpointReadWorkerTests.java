@@ -51,7 +51,7 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
@@ -94,7 +94,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     ModelManager modelManager;
     EntityColdStartWorker coldstartQueue;
     ResultWriteWorker resultWriteQueue;
-    AnomalyDetectionIndices anomalyDetectionIndices;
+    ADIndexManagement anomalyDetectionIndices;
     CacheProvider cacheProvider;
     EntityCache entityCache;
     EntityFeatureRequest request, request2, request3;
@@ -136,7 +136,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         coldstartQueue = mock(EntityColdStartWorker.class);
         resultWriteQueue = mock(ResultWriteWorker.class);
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+        anomalyDetectionIndices = mock(ADIndexManagement.class);
 
         cacheProvider = mock(CacheProvider.class);
         entityCache = mock(EntityCache.class);

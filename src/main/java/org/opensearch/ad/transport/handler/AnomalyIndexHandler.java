@@ -26,7 +26,7 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BackoffPolicy;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.BulkUtil;
 import org.opensearch.ad.util.ClientUtil;
@@ -56,7 +56,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     protected final ThreadPool threadPool;
     protected final BackoffPolicy savingBackoffPolicy;
     protected final String indexName;
-    protected final AnomalyDetectionIndices anomalyDetectionIndices;
+    protected final ADIndexManagement anomalyDetectionIndices;
     // whether save to a specific doc id or not. False by default.
     protected boolean fixedDoc;
     protected final ClientUtil clientUtil;
@@ -80,7 +80,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         Settings settings,
         ThreadPool threadPool,
         String indexName,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService
@@ -131,9 +131,9 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                 save(toSave, detectorId, customIndexName);
                 return;
             }
-            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
+            if (!anomalyDetectionIndices.doesDefaultResultIndexExist()) {
                 anomalyDetectionIndices
-                    .initDefaultAnomalyResultIndexDirectly(
+                    .initDefaultResultIndexDirectly(
                         ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
                             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                                 // It is possible the index has been created while we sending the create request

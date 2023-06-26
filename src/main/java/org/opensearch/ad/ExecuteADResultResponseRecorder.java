@@ -25,7 +25,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfileName;
@@ -37,7 +37,6 @@ import org.opensearch.ad.transport.ProfileRequest;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -50,11 +49,12 @@ import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class ExecuteADResultResponseRecorder {
     private static final Logger log = LogManager.getLogger(ExecuteADResultResponseRecorder.class);
 
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ADTaskManager adTaskManager;
     private DiscoveryNodeFilterer nodeFilter;
@@ -65,7 +65,7 @@ public class ExecuteADResultResponseRecorder {
     private int rcfMinSamples;
 
     public ExecuteADResultResponseRecorder(
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         AnomalyIndexHandler<AnomalyResult> anomalyResultHandler,
         ADTaskManager adTaskManager,
         DiscoveryNodeFilterer nodeFilter,

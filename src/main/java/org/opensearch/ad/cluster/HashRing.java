@@ -40,7 +40,6 @@ import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.SingleStreamModelIdMapper;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.ClusterAdminClient;
@@ -54,6 +53,7 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.Sets;
 

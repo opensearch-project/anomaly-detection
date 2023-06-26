@@ -46,7 +46,6 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
@@ -59,6 +58,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 

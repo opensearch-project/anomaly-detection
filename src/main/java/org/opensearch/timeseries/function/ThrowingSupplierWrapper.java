@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.function;
 
 import java.util.function.Supplier;
 

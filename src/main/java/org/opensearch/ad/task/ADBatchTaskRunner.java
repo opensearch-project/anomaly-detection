@@ -58,14 +58,13 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStats;
@@ -102,6 +101,7 @@ import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TaskCancelledException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
@@ -131,7 +131,7 @@ public class ADBatchTaskRunner {
     private final ADCircuitBreakerService adCircuitBreakerService;
     private final ADTaskManager adTaskManager;
     private final AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
+    private final ADIndexManagement anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
 
     private final ADTaskCacheManager adTaskCacheManager;
@@ -157,7 +157,7 @@ public class ADBatchTaskRunner {
         ADCircuitBreakerService adCircuitBreakerService,
         FeatureManager featureManager,
         ADTaskManager adTaskManager,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         ADStats adStats,
         AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler,
         ADTaskCacheManager adTaskCacheManager,
@@ -1325,7 +1325,7 @@ public class ADBatchTaskRunner {
     }
 
     private void updateDetectorLevelTaskState(String detectorId, String detectorTaskId, String newState) {
-        AnomalyDetectorFunction function = () -> adTaskManager
+        ExecutorFunction function = () -> adTaskManager
             .updateADTask(detectorTaskId, ImmutableMap.of(STATE_FIELD, newState), ActionListener.wrap(r -> {
                 logger.info("Updated HC detector task: {} state as: {} for detector: {}", detectorTaskId, newState, detectorId);
                 adTaskCacheManager.updateDetectorTaskState(detectorId, detectorTaskId, newState);

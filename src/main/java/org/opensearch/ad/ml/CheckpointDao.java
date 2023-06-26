@@ -56,7 +56,7 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.index.IndexNotFoundException;
@@ -128,7 +128,7 @@ public class CheckpointDao {
 
     private final Class<? extends ThresholdingModel> thresholdingModelClass;
 
-    private final AnomalyDetectionIndices indexUtil;
+    private final ADIndexManagement indexUtil;
     private final JsonParser parser = new JsonParser();
     // we won't read/write a checkpoint larger than a threshold
     private final int maxCheckpointBytes;
@@ -166,7 +166,7 @@ public class CheckpointDao {
         ThresholdedRandomCutForestMapper trcfMapper,
         Schema<ThresholdedRandomCutForestState> trcfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
-        AnomalyDetectionIndices indexUtil,
+        ADIndexManagement indexUtil,
         int maxCheckpointBytes,
         GenericObjectPool<LinkedBuffer> serializeRCFBufferPool,
         int serializeRCFBufferSize,

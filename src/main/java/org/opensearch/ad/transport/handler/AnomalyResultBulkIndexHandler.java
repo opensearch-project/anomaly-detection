@@ -25,7 +25,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
@@ -41,7 +41,7 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyResult> {
     private static final Logger LOG = LogManager.getLogger(AnomalyResultBulkIndexHandler.class);
 
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
 
     public AnomalyResultBulkIndexHandler(
         Client client,
@@ -50,7 +50,7 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService,
-        AnomalyDetectionIndices anomalyDetectionIndices
+        ADIndexManagement anomalyDetectionIndices
     ) {
         super(client, settings, threadPool, ANOMALY_RESULT_INDEX_ALIAS, anomalyDetectionIndices, clientUtil, indexUtils, clusterService);
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -83,8 +83,8 @@ public class AnomalyResultBulkIndexHandler extends AnomalyIndexHandler<AnomalyRe
                 bulkSaveDetectorResult(resultIndex, anomalyResults, listener);
                 return;
             }
-            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
-                anomalyDetectionIndices.initDefaultAnomalyResultIndexDirectly(ActionListener.wrap(response -> {
+            if (!anomalyDetectionIndices.doesDefaultResultIndexExist()) {
+                anomalyDetectionIndices.initDefaultResultIndexDirectly(ActionListener.wrap(response -> {
                     if (response.isAcknowledged()) {
                         bulkSaveDetectorResult(anomalyResults, listener);
                     } else {

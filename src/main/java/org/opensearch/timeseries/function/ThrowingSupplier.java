@@ -9,15 +9,15 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.function;
 
 /**
- * A consumer that can throw checked exception
+ * A supplier that can throw checked exception
  *
  * @param <T> method parameter type
  * @param <E> Exception type
  */
 @FunctionalInterface
-public interface ThrowingConsumer<T, E extends Exception> {
-    void accept(T t) throws E;
+public interface ThrowingSupplier<T, E extends Exception> {
+    T get() throws E;
 }

@@ -15,7 +15,7 @@ import java.time.Clock;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.ad.util.SecurityClientUtil;
@@ -59,7 +59,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         Client client,
         SecurityClientUtil clientUtil,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,
         Integer maxSingleEntityAnomalyDetectors,

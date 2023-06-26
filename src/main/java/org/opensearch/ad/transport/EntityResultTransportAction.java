@@ -33,7 +33,7 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
@@ -86,7 +86,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     private ADCircuitBreakerService adCircuitBreakerService;
     private CacheProvider cache;
     private final NodeStateManager stateManager;
-    private AnomalyDetectionIndices indexUtil;
+    private ADIndexManagement indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
     private ColdEntityWorker coldEntityQueue;
@@ -102,7 +102,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         ADCircuitBreakerService adCircuitBreakerService,
         CacheProvider entityCache,
         NodeStateManager stateManager,
-        AnomalyDetectionIndices indexUtil,
+        ADIndexManagement indexUtil,
         ResultWriteWorker resultWriteQueue,
         CheckpointReadWorker checkpointReadQueue,
         ColdEntityWorker coldEntityQueue,

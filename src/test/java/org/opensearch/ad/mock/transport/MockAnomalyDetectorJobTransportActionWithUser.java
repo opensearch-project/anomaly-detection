@@ -21,7 +21,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
@@ -47,7 +47,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     private final Client client;
     private final ClusterService clusterService;
     private final Settings settings;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
+    private final ADIndexManagement anomalyDetectionIndices;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Boolean filterByEnabled;
     private ThreadContext.StoredContext context;
@@ -62,7 +62,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         Client client,
         ClusterService clusterService,
         Settings settings,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
         ExecuteADResultResponseRecorder recorder

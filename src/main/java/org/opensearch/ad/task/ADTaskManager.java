@@ -19,7 +19,7 @@ import static org.opensearch.ad.constant.ADCommonMessages.EXCEED_HISTORICAL_ANAL
 import static org.opensearch.ad.constant.ADCommonMessages.HC_DETECTOR_TASK_IS_UPDATING;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.ADTask.COORDINATING_NODE_FIELD;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.ERROR_FIELD;
@@ -101,7 +101,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADEntityTaskProfile;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
@@ -111,7 +111,6 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
@@ -126,7 +125,6 @@ import org.opensearch.ad.transport.ADTaskProfileRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.ForwardADTaskAction;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -165,8 +163,10 @@ import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TaskCancelledException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
@@ -189,7 +189,7 @@ public class ADTaskManager {
     private final Client client;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
-    private final AnomalyDetectionIndices detectionIndices;
+    private final ADIndexManagement detectionIndices;
     private final DiscoveryNodeFilterer nodeFilter;
     private final ADTaskCacheManager adTaskCacheManager;
 
@@ -213,7 +213,7 @@ public class ADTaskManager {
         ClusterService clusterService,
         Client client,
         NamedXContentRegistry xContentRegistry,
-        AnomalyDetectionIndices detectionIndices,
+        ADIndexManagement detectionIndices,
         DiscoveryNodeFilterer nodeFilter,
         HashRing hashRing,
         ADTaskCacheManager adTaskCacheManager,
@@ -737,7 +737,7 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         try {
-            if (detectionIndices.doesDetectorStateIndexExist()) {
+            if (detectionIndices.doesStateIndexExist()) {
                 // If detection index exist, check if latest AD task is running
                 getAndExecuteOnLatestDetectorLevelTask(detector.getId(), getADTaskTypes(detectionDateRange), (adTask) -> {
                     if (!adTask.isPresent() || adTask.get().isDone()) {
@@ -1077,7 +1077,7 @@ public class ADTaskManager {
 
     private <T> void resetRealtimeDetectorTaskState(
         List<ADTask> runningRealtimeTasks,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         TransportService transportService,
         ActionListener<T> listener
     ) {
@@ -1115,7 +1115,7 @@ public class ADTaskManager {
 
     private <T> void resetHistoricalDetectorTaskState(
         List<ADTask> runningHistoricalTasks,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         TransportService transportService,
         ActionListener<T> listener
     ) {
@@ -1261,7 +1261,7 @@ public class ADTaskManager {
 
     private <T> void resetTaskStateAsStopped(
         ADTask adTask,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         TransportService transportService,
         ActionListener<T> listener
     ) {
@@ -1325,7 +1325,7 @@ public class ADTaskManager {
     public <T> void cleanDetectorCache(
         ADTask adTask,
         TransportService transportService,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         ActionListener<T> listener
     ) {
         String coordinatingNode = adTask.getCoordinatingNode();
@@ -1356,7 +1356,7 @@ public class ADTaskManager {
         }
     }
 
-    protected void cleanDetectorCache(ADTask adTask, TransportService transportService, AnomalyDetectorFunction function) {
+    protected void cleanDetectorCache(ADTask adTask, TransportService transportService, ExecutorFunction function) {
         String detectorId = adTask.getId();
         String taskId = adTask.getTaskId();
         cleanDetectorCache(
@@ -1660,7 +1660,7 @@ public class ADTaskManager {
     protected <T> void deleteTaskDocs(
         String detectorId,
         SearchRequest searchRequest,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         ActionListener<T> listener
     ) {
         ActionListener<SearchResponse> searchListener = ActionListener.wrap(r -> {
@@ -1891,7 +1891,7 @@ public class ADTaskManager {
      * @param function AD function
      * @param listener action listener
      */
-    public void deleteADTasks(String detectorId, AnomalyDetectorFunction function, ActionListener<DeleteResponse> listener) {
+    public void deleteADTasks(String detectorId, ExecutorFunction function, ActionListener<DeleteResponse> listener) {
         DeleteByQueryRequest request = new DeleteByQueryRequest(DETECTION_STATE_INDEX);
 
         BoolQueryBuilder query = new BoolQueryBuilder();
@@ -1993,7 +1993,7 @@ public class ADTaskManager {
                 if (error != null) {
                     updatedFields.put(ADTask.ERROR_FIELD, error.getMessage());
                 }
-                AnomalyDetectorFunction function = () -> updateADTask(adTask.get().getTaskId(), updatedFields, ActionListener.wrap(r -> {
+                ExecutorFunction function = () -> updateADTask(adTask.get().getTaskId(), updatedFields, ActionListener.wrap(r -> {
                     if (error == null) {
                         listener.onResponse(new AnomalyDetectorJobResponse(detectorId, 0, 0, 0, RestStatus.OK));
                     } else {
@@ -2112,7 +2112,7 @@ public class ADTaskManager {
             getAndExecuteOnLatestDetectorLevelTask(detectorId, REALTIME_TASK_TYPES, (adTaskOptional) -> {
                 if (!adTaskOptional.isPresent()) {
                     logger.debug("Can't find realtime task for detector {}, init realtime task cache directly", detectorId);
-                    AnomalyDetectorFunction function = () -> createNewADTask(
+                    ExecutorFunction function = () -> createNewADTask(
                         detector,
                         null,
                         detector.getUser(),
@@ -2163,8 +2163,8 @@ public class ADTaskManager {
         }
     }
 
-    private void recreateRealtimeTask(AnomalyDetectorFunction function, ActionListener<Boolean> listener) {
-        if (detectionIndices.doesDetectorStateIndexExist()) {
+    private void recreateRealtimeTask(ExecutorFunction function, ActionListener<Boolean> listener) {
+        if (detectionIndices.doesStateIndexExist()) {
             function.execute();
         } else {
             // If detection index doesn't exist, create index and execute function.

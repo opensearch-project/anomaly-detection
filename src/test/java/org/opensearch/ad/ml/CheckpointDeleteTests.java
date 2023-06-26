@@ -28,7 +28,7 @@ import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.index.IndexNotFoundException;
@@ -64,7 +64,7 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
     private Client client;
     private ClientUtil clientUtil;
     private Gson gson;
-    private AnomalyDetectionIndices indexUtil;
+    private ADIndexManagement indexUtil;
     private String detectorId;
     private int maxCheckpointBytes;
     private GenericObjectPool<LinkedBuffer> objectPool;
@@ -87,7 +87,7 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
         client = mock(Client.class);
         clientUtil = mock(ClientUtil.class);
         gson = null;
-        indexUtil = mock(AnomalyDetectionIndices.class);
+        indexUtil = mock(ADIndexManagement.class);
         detectorId = "123";
         maxCheckpointBytes = 1_000_000;
 

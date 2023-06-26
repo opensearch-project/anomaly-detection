@@ -29,10 +29,9 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.SecurityClientUtil;
@@ -49,6 +48,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
@@ -62,7 +62,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     private final SecurityClientUtil clientUtil;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
+    private final ADIndexManagement anomalyDetectionIndices;
     private final SearchFeatureDao searchFeatureDao;
     private volatile Boolean filterByEnabled;
     private Clock clock;
@@ -75,7 +75,7 @@ public class ValidateAnomalyDetectorTransportAction extends
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         Settings settings,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
         SearchFeatureDao searchFeatureDao
@@ -108,7 +108,7 @@ public class ValidateAnomalyDetectorTransportAction extends
     private void resolveUserAndExecute(
         User requestedUser,
         ActionListener<ValidateAnomalyDetectorResponse> listener,
-        AnomalyDetectorFunction function
+        ExecutorFunction function
     ) {
         try {
             // Check if user has backend roles
@@ -231,7 +231,7 @@ public class ValidateAnomalyDetectorTransportAction extends
 
     private void checkIndicesAndExecute(
         List<String> indices,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         ActionListener<ValidateAnomalyDetectorResponse> listener
     ) {
         SearchRequest searchRequest = new SearchRequest()

@@ -82,7 +82,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
@@ -91,7 +91,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.transport.ADStatsNodeResponse;
@@ -100,7 +99,6 @@ import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -128,8 +126,10 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
@@ -145,7 +145,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private ClusterService clusterService;
     private ClusterSettings clusterSettings;
     private DiscoveryNodeFilterer nodeFilter;
-    private AnomalyDetectionIndices detectionIndices;
+    private ADIndexManagement detectionIndices;
     private ADTaskCacheManager adTaskCacheManager;
     private HashRing hashRing;
     private ThreadContext.StoredContext context;
@@ -231,7 +231,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         client = mock(Client.class);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
-        detectionIndices = mock(AnomalyDetectionIndices.class);
+        detectionIndices = mock(ADIndexManagement.class);
         adTaskCacheManager = mock(ADTaskCacheManager.class);
         hashRing = mock(HashRing.class);
         transportService = mock(TransportService.class);
@@ -329,7 +329,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             listener.onResponse(new CreateIndexResponse(false, false, ANOMALY_RESULT_INDEX_ALIAS));
             return null;
         }).when(detectionIndices).initDetectionStateIndex(any());
-        doReturn(false).when(detectionIndices).doesDetectorStateIndexExist();
+        doReturn(false).when(detectionIndices).doesStateIndexExist();
         AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
         setupGetDetector(detector);
 
@@ -345,7 +345,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             listener.onFailure(new ResourceAlreadyExistsException("index created"));
             return null;
         }).when(detectionIndices).initDetectionStateIndex(any());
-        doReturn(false).when(detectionIndices).doesDetectorStateIndexExist();
+        doReturn(false).when(detectionIndices).doesStateIndexExist();
         AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
         setupGetDetector(detector);
 
@@ -360,7 +360,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             listener.onFailure(new RuntimeException(error));
             return null;
         }).when(detectionIndices).initDetectionStateIndex(any());
-        doReturn(false).when(detectionIndices).doesDetectorStateIndexExist();
+        doReturn(false).when(detectionIndices).doesStateIndexExist();
         AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
         setupGetDetector(detector);
 
@@ -1353,7 +1353,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         }).when(client).execute(any(), any(), any());
 
         String detectorId = randomAlphaOfLength(5);
-        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ExecutorFunction function = mock(ExecutorFunction.class);
         ActionListener<DeleteResponse> listener = mock(ActionListener.class);
         adTaskManager.deleteADTasks(detectorId, function, listener);
         verify(function, times(1)).execute();
@@ -1378,7 +1378,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         }).when(client).execute(any(), any(), any());
 
         String detectorId = randomAlphaOfLength(5);
-        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ExecutorFunction function = mock(ExecutorFunction.class);
         ActionListener<DeleteResponse> listener = mock(ActionListener.class);
         adTaskManager.deleteADTasks(detectorId, function, listener);
         verify(listener, times(1)).onFailure(any());
@@ -1397,7 +1397,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         }).when(client).execute(any(), any(), any());
 
         String detectorId = randomAlphaOfLength(5);
-        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ExecutorFunction function = mock(ExecutorFunction.class);
         ActionListener<DeleteResponse> listener = mock(ActionListener.class);
 
         adTaskManager.deleteADTasks(detectorId, function, listener);
@@ -1458,7 +1458,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         DateRange detectionDateRange = randomDetectionDateRange();
         User user = null;
         ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
-        when(detectionIndices.doesDetectorStateIndexExist()).thenReturn(false);
+        when(detectionIndices.doesStateIndexExist()).thenReturn(false);
         doThrow(new RuntimeException("test")).when(detectionIndices).initDetectionStateIndex(any());
         adTaskManager.startDetector(detector, detectionDateRange, user, transportService, listener);
         verify(listener, times(1)).onFailure(any());
@@ -1618,7 +1618,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
         String detectorId = randomAlphaOfLength(5);
         SearchRequest searchRequest = mock(SearchRequest.class);
-        AnomalyDetectorFunction function = mock(AnomalyDetectorFunction.class);
+        ExecutorFunction function = mock(ExecutorFunction.class);
         ActionListener<SearchResponse> listener = mock(ActionListener.class);
         adTaskManager.deleteTaskDocs(detectorId, searchRequest, function, listener);
         verify(adTaskCacheManager, times(1)).addDeletedDetectorTask(anyString());

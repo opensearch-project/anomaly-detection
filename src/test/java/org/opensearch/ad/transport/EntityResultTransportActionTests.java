@@ -58,7 +58,7 @@ import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonValue;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.EntityModel;
@@ -131,7 +131,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     EntityColdStarter coldStarter;
     ColdEntityWorker coldEntityQueue;
     EntityColdStartWorker entityColdStartQueue;
-    AnomalyDetectionIndices indexUtil;
+    ADIndexManagement indexUtil;
     ClusterService clusterService;
     ADStats adStats;
 
@@ -232,7 +232,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         coldEntities.add(cacheMissEntityObj);
         when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
 
-        indexUtil = mock(AnomalyDetectionIndices.class);
+        indexUtil = mock(ADIndexManagement.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
 
         resultWriteQueue = mock(ResultWriteWorker.class);

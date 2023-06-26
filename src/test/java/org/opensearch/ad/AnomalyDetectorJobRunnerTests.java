@@ -54,7 +54,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
@@ -65,7 +65,6 @@ import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.bytes.BytesReference;
@@ -92,6 +91,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.ImmutableList;
 
@@ -143,7 +143,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
     @Mock
     private NodeStateManager nodeStateManager;
 
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -181,7 +181,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         runner.setSettings(settings);
 
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
+        anomalyDetectionIndices = mock(ADIndexManagement.class);
 
         runner.setAnomalyDetectionIndices(anomalyDetectionIndices);
 

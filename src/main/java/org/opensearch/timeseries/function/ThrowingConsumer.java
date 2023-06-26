@@ -9,15 +9,15 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.rest.handler;
+package org.opensearch.timeseries.function;
 
+/**
+ * A consumer that can throw checked exception
+ *
+ * @param <T> method parameter type
+ * @param <E> Exception type
+ */
 @FunctionalInterface
-public interface AnomalyDetectorFunction {
-
-    /**
-     * Performs this operation.
-     *
-     * Notes: don't forget to send back responses via channel if you process response with this method.
-     */
-    void execute();
+public interface ThrowingConsumer<T, E extends Exception> {
+    void accept(T t) throws E;
 }

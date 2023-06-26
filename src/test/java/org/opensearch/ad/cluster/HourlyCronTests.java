@@ -32,7 +32,6 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.transport.CronAction;
 import org.opensearch.ad.transport.CronNodeResponse;
 import org.opensearch.ad.transport.CronResponse;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -40,6 +39,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import test.org.opensearch.ad.util.ClusterCreation;
 

@@ -38,7 +38,7 @@ import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
@@ -78,7 +78,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
     private final CheckpointDao checkpointDao;
     private final EntityColdStartWorker entityColdStartQueue;
     private final ResultWriteWorker resultWriteQueue;
-    private final AnomalyDetectionIndices indexUtil;
+    private final ADIndexManagement indexUtil;
     private final CacheProvider cacheProvider;
     private final CheckpointWriteWorker checkpointWriteQueue;
     private final ADStats adStats;
@@ -103,7 +103,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         EntityColdStartWorker entityColdStartQueue,
         ResultWriteWorker resultWriteQueue,
         NodeStateManager stateManager,
-        AnomalyDetectionIndices indexUtil,
+        ADIndexManagement indexUtil,
         CacheProvider cacheProvider,
         Duration stateTtl,
         CheckpointWriteWorker checkpointWriteQueue,

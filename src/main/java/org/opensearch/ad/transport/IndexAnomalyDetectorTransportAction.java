@@ -30,9 +30,8 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
@@ -49,6 +48,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.transport.TransportService;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
@@ -56,7 +56,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final Client client;
     private final SecurityClientUtil clientUtil;
     private final TransportService transportService;
-    private final AnomalyDetectionIndices anomalyDetectionIndices;
+    private final ADIndexManagement anomalyDetectionIndices;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
     private final ADTaskManager adTaskManager;
@@ -72,7 +72,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         SecurityClientUtil clientUtil,
         ClusterService clusterService,
         Settings settings,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao
@@ -189,7 +189,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
     private void checkIndicesAndExecute(
         List<String> indices,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         ActionListener<IndexAnomalyDetectorResponse> listener
     ) {
         SearchRequest searchRequest = new SearchRequest()

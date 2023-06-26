@@ -76,7 +76,7 @@ import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.feature.CompositeRetriever;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -160,7 +160,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
     private String detectorId;
     private Instant now;
     private CacheProvider provider;
-    private AnomalyDetectionIndices indexUtil;
+    private ADIndexManagement indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
     private EntityColdStartWorker entityColdStartQueue;
@@ -300,7 +300,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             .thenReturn(MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build()));
         when(entityCache.selectUpdateCandidate(any(), any(), any())).thenReturn(Pair.of(new ArrayList<Entity>(), new ArrayList<Entity>()));
 
-        indexUtil = mock(AnomalyDetectionIndices.class);
+        indexUtil = mock(ADIndexManagement.class);
         resultWriteQueue = mock(ResultWriteWorker.class);
         checkpointReadQueue = mock(CheckpointReadWorker.class);
         entityColdStartQueue = mock(EntityColdStartWorker.class);

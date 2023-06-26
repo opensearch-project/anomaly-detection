@@ -34,7 +34,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -64,7 +64,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
     protected ClusterService clusterService;
     protected ActionListener<ValidateAnomalyDetectorResponse> channel;
     protected TransportService transportService;
-    protected AnomalyDetectionIndices anomalyDetectionIndices;
+    protected ADIndexManagement anomalyDetectionIndices;
     protected String detectorId;
     protected Long seqNo;
     protected Long primaryTerm;
@@ -98,8 +98,8 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         channel = mock(ActionListener.class);
         transportService = mock(TransportService.class);
 
-        anomalyDetectionIndices = mock(AnomalyDetectionIndices.class);
-        when(anomalyDetectionIndices.doesAnomalyDetectorIndexExist()).thenReturn(true);
+        anomalyDetectionIndices = mock(ADIndexManagement.class);
+        when(anomalyDetectionIndices.doesConfigIndexExist()).thenReturn(true);
 
         detectorId = "123";
         seqNo = 0L;

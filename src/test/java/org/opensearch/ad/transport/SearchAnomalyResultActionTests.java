@@ -16,7 +16,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.timeseries.TestHelpers.createClusterState;
 import static org.opensearch.timeseries.TestHelpers.createSearchResponse;
 import static org.opensearch.timeseries.TestHelpers.matchAllRequest;

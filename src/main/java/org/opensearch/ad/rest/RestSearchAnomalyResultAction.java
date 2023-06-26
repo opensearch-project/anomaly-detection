@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.timeseries.util.RestHandlerUtils.RESULT_INDEX;
 import static org.opensearch.timeseries.util.RestHandlerUtils.getSourceContext;
 
