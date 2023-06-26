@@ -1,0 +1,7 @@
+name: ad-extension
+uniqueId: ad-extension
+hostAddress: '127.0.0.1'
+port: '4532'
+version: '1.0'
+opensearchVersion: '3.0.0'
+minimumCompatibleVersion: '3.0.0'

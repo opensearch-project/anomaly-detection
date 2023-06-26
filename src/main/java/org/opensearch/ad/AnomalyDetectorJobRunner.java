@@ -190,7 +190,6 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
      * Get anomaly result, index result or handle exception if failed.
      *
      * @param jobParameter       scheduled job parameter
-     * @param lockService        lock service
      * @param lock               lock to run job
      * @param detectionStartTime detection start time
      * @param executionStartTime detection end time

@@ -40,8 +40,8 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,7 +57,7 @@ public class ADRestTestUtils {
     }
 
     public static Response ingestSimpleMockLog(
-        RestClient client,
+        SDKRestClient client,
         String indexName,
         int startDays,
         int totalDocsPerCategory,
@@ -115,7 +115,7 @@ public class ADRestTestUtils {
     }
 
     public static Response ingestTestDataForHistoricalAnalysis(
-        RestClient client,
+        SDKRestClient client,
         String indexName,
         int detectionIntervalInMinutes,
         boolean createIndex,
@@ -133,7 +133,7 @@ public class ADRestTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static int getDocCountOfIndex(RestClient client, String indexName) throws IOException {
+    public static int getDocCountOfIndex(SDKRestClient client, String indexName) throws IOException {
         Response searchResponse = TestHelpers
             .makeRequest(
                 client,
@@ -150,7 +150,7 @@ public class ADRestTestUtils {
     }
 
     public static Response createAnomalyDetector(
-        RestClient client,
+        SDKRestClient client,
         String indexName,
         String timeField,
         int detectionIntervalInMinutes,
@@ -175,7 +175,7 @@ public class ADRestTestUtils {
     }
 
     public static Response createAnomalyDetector(
-        RestClient client,
+        SDKRestClient client,
         String indexName,
         String timeField,
         int detectionIntervalInMinutes,
@@ -224,7 +224,7 @@ public class ADRestTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static List<ADTask> searchLatestAdTaskOfDetector(RestClient client, String detectorId, String taskType) throws IOException {
+    public static List<ADTask> searchLatestAdTaskOfDetector(SDKRestClient client, String detectorId, String taskType) throws IOException {
         List<ADTask> adTasks = new ArrayList<>();
         Response searchAdTaskResponse = TestHelpers
             .makeRequest(
@@ -276,7 +276,7 @@ public class ADRestTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static int countADResultOfDetector(RestClient client, String detectorId, String taskId) throws IOException {
+    public static int countADResultOfDetector(SDKRestClient client, String detectorId, String taskId) throws IOException {
         String taskFilter = "TASK_FILTER";
         String query = "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"detector_id\":\""
             + detectorId
@@ -304,7 +304,7 @@ public class ADRestTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static int countDetectors(RestClient client, String detectorType) throws IOException {
+    public static int countDetectors(SDKRestClient client, String detectorType) throws IOException {
         String detectorTypeFilter = "DETECTOR_TYPE_FILTER";
         String query = "{\"query\":{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"name\"}}"
             + detectorTypeFilter
@@ -413,7 +413,7 @@ public class ADRestTestUtils {
      * @throws IOException exception may throw in entityAsMap
      */
     @SuppressWarnings("unchecked")
-    public static String startAnomalyDetectorDirectly(RestClient client, String detectorId) throws IOException {
+    public static String startAnomalyDetectorDirectly(SDKRestClient client, String detectorId) throws IOException {
         Response response = TestHelpers
             .makeRequest(
                 client,
@@ -441,7 +441,7 @@ public class ADRestTestUtils {
      * @throws IOException exception may throw in toHttpEntity and entityAsMap
      */
     @SuppressWarnings("unchecked")
-    public static String startHistoricalAnalysis(RestClient client, String detectorId) throws IOException {
+    public static String startHistoricalAnalysis(SDKRestClient client, String detectorId) throws IOException {
         Instant now = Instant.now();
         DetectionDateRange dateRange = new DetectionDateRange(now.minus(30, ChronoUnit.DAYS), now);
         Response response = TestHelpers
@@ -460,11 +460,11 @@ public class ADRestTestUtils {
         return taskId;
     }
 
-    public static ADTaskProfile waitUntilTaskDone(RestClient client, String detectorId) throws InterruptedException {
+    public static ADTaskProfile waitUntilTaskDone(SDKRestClient client, String detectorId) throws InterruptedException {
         return waitUntilTaskReachState(client, detectorId, TestHelpers.HISTORICAL_ANALYSIS_DONE_STATS);
     }
 
-    public static ADTaskProfile waitUntilTaskReachState(RestClient client, String detectorId, Set<String> targetStates)
+    public static ADTaskProfile waitUntilTaskReachState(SDKRestClient client, String detectorId, Set<String> targetStates)
         throws InterruptedException {
         int i = 0;
         int retryTimes = 200;
@@ -483,7 +483,7 @@ public class ADRestTestUtils {
         return adTaskProfile;
     }
 
-    public static ADTaskProfile getADTaskProfile(RestClient client, String detectorId) throws IOException, ParseException {
+    public static ADTaskProfile getADTaskProfile(SDKRestClient client, String detectorId) throws IOException, ParseException {
         Response profileResponse = TestHelpers
             .makeRequest(
                 client,
@@ -512,15 +512,15 @@ public class ADRestTestUtils {
         return adTaskProfile;
     }
 
-    public static Response stopRealtimeJob(RestClient client, String detectorId) throws IOException {
+    public static Response stopRealtimeJob(SDKRestClient client, String detectorId) throws IOException {
         return stopDetector(client, detectorId, false);
     }
 
-    public static Response stopHistoricalAnalysis(RestClient client, String detectorId) throws IOException {
+    public static Response stopHistoricalAnalysis(SDKRestClient client, String detectorId) throws IOException {
         return stopDetector(client, detectorId, true);
     }
 
-    public static Response stopDetector(RestClient client, String detectorId, boolean historicalAnalysis) throws IOException {
+    public static Response stopDetector(SDKRestClient client, String detectorId, boolean historicalAnalysis) throws IOException {
         String param = historicalAnalysis ? "?historical" : "";
         Response response = TestHelpers
             .makeRequest(
@@ -534,7 +534,7 @@ public class ADRestTestUtils {
         return response;
     }
 
-    public static Response deleteDetector(RestClient client, String detectorId) throws IOException {
+    public static Response deleteDetector(SDKRestClient client, String detectorId) throws IOException {
         Response response = TestHelpers
             .makeRequest(
                 client,

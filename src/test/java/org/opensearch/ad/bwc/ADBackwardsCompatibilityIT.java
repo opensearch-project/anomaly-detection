@@ -5,28 +5,9 @@
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  */
-
+/* @anomaly.detection extension, commented until we have BWC test support for extensions
 package org.opensearch.ad.bwc;
 
-import static org.opensearch.ad.rest.ADRestTestUtils.countADResultOfDetector;
-import static org.opensearch.ad.rest.ADRestTestUtils.deleteDetector;
-import static org.opensearch.ad.rest.ADRestTestUtils.searchLatestAdTaskOfDetector;
-import static org.opensearch.ad.rest.ADRestTestUtils.startHistoricalAnalysis;
-import static org.opensearch.ad.rest.ADRestTestUtils.waitUntilTaskDone;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import org.junit.Before;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.client.Response;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
 
@@ -452,3 +433,4 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     }
 
 }
+*/

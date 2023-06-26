@@ -55,12 +55,11 @@ import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.RestStatus;
-import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
  */
-public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
+public abstract class ODFERestTestCase extends ADExtensionIntegTestCase {
 
     protected boolean isHttps() {
         boolean isHttps = Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
@@ -99,14 +98,14 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     // (e.g., deleting system indices)
     protected static void deleteIndexWithAdminClient(String name) throws IOException {
         Request request = new Request("DELETE", "/" + name);
-        adminClient().performRequest(request);
+        sdkAdminClient().performRequest(request);
     }
 
     // Utility fn for checking if an index exists. Should only be used when not allowed in a regular context
     // (e.g., checking existence of system indices)
     protected static boolean indexExistsWithAdminClient(String indexName) throws IOException {
         Request request = new Request("HEAD", "/" + indexName);
-        Response response = adminClient().performRequest(request);
+        Response response = sdkAdminClient().performRequest(request);
         return RestStatus.OK.getStatus() == response.getStatusLine().getStatusCode();
     }
 
@@ -141,7 +140,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @SuppressWarnings("unchecked")
     @After
     protected void wipeAllODFEIndices() throws IOException {
-        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+        Response response = sdkAdminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
         XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType());
         try (
             XContentParser parser = xContentType
@@ -163,7 +162,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             for (Map<String, Object> index : parserList) {
                 String indexName = (String) index.get("index");
                 if (indexName != null && !".opendistro_security".equals(indexName)) {
-                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
+                    sdkAdminClient().performRequest(new Request("DELETE", "/" + indexName));
                 }
             }
         }

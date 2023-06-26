@@ -25,28 +25,28 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
 import org.opensearch.rest.RestStatus;
+import org.opensearch.sdk.SDKClient.SDKRestClient;
 
 import com.google.common.collect.ImmutableList;
 
 public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     String aliceUser = "alice";
-    RestClient aliceClient;
+    SDKRestClient aliceClient;
     String bobUser = "bob";
-    RestClient bobClient;
+    SDKRestClient bobClient;
     String catUser = "cat";
-    RestClient catClient;
+    SDKRestClient catClient;
     String dogUser = "dog";
-    RestClient dogClient;
+    SDKRestClient dogClient;
     String elkUser = "elk";
-    RestClient elkClient;
+    SDKRestClient elkClient;
     String fishUser = "fish";
-    RestClient fishClient;
+    SDKRestClient fishClient;
     String goatUser = "goat";
-    RestClient goatClient;
+    SDKRestClient goatClient;
     String lionUser = "lion";
-    RestClient lionClient;
+    SDKRestClient lionClient;
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
 
@@ -209,7 +209,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
         // Fish should be able to update detectors created by Alice. But the detector's backend role should
         // not be replaced as Fish's backend roles.
-        TestHelpers.createIndexWithTimeField(client(), newDetector.getIndices().get(0), newDetector.getTimeField());
+        TestHelpers.createIndexWithTimeField(sdkRestClient(), newDetector.getIndices().get(0), newDetector.getTimeField());
         Response response = updateAnomalyDetector(aliceDetector.getDetectorId(), newDetector, fishClient);
         Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
         AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getDetectorId(), aliceClient);
@@ -300,7 +300,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
         // User cat has permission to create index
         resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
-        TestHelpers.createIndexWithTimeField(client(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
+        TestHelpers.createIndexWithTimeField(sdkRestClient(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
         AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
         assertEquals(resultIndex, detectorOfCat.getResultIndex());
     }
