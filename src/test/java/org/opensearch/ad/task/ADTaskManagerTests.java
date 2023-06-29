@@ -328,7 +328,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onResponse(new CreateIndexResponse(false, false, ANOMALY_RESULT_INDEX_ALIAS));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
         doReturn(false).when(detectionIndices).doesStateIndexExist();
         AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
         setupGetDetector(detector);
@@ -344,7 +344,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onFailure(new ResourceAlreadyExistsException("index created"));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
         doReturn(false).when(detectionIndices).doesStateIndexExist();
         AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
         setupGetDetector(detector);
@@ -359,7 +359,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onFailure(new RuntimeException(error));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
         doReturn(false).when(detectionIndices).doesStateIndexExist();
         AnomalyDetector detector = randomDetector(ImmutableList.of(randomFeature(true)), randomAlphaOfLength(5), 1, randomAlphaOfLength(5));
         setupGetDetector(detector);
@@ -1459,7 +1459,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         User user = null;
         ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
         when(detectionIndices.doesStateIndexExist()).thenReturn(false);
-        doThrow(new RuntimeException("test")).when(detectionIndices).initDetectionStateIndex(any());
+        doThrow(new RuntimeException("test")).when(detectionIndices).initStateIndex(any());
         adTaskManager.startDetector(detector, detectionDateRange, user, transportService, listener);
         verify(listener, times(1)).onFailure(any());
     }

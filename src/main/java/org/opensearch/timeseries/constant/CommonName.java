@@ -40,6 +40,7 @@ public class CommonName {
     // Validation
     // ======================================
     public static final String MODEL_ASPECT = "model";
+    public static final String CONFIG_ID_MISSING_MSG = "config ID is missing";
 
     // ======================================
     // Used for custom forecast result index
@@ -64,6 +65,7 @@ public class CommonName {
     public static final String ENTITY_FIELD = "entity";
     public static final String USER_FIELD = "user";
     public static final String CONFIDENCE_FIELD = "confidence";
+    public static final String DATA_QUALITY_FIELD = "data_quality";
     // MODEL_ID_FIELD can be used in profile and stats API as well
     public static final String MODEL_ID_FIELD = "model_id";
     public static final String TIMESTAMP = "timestamp";
@@ -75,12 +77,15 @@ public class CommonName {
     // current key for entity samples
     public static final String ENTITY_SAMPLE_QUEUE = "samples";
 
-    public static final String FORECASTER_ID_FIELD = "forecaster_id";
-
     // ======================================
     // Profile name
     // ======================================
     public static final String MODEL_SIZE_IN_BYTES = "model_size_in_bytes";
+
+    // ======================================
+    // Used for backward-compatibility in messaging
+    // ======================================
+    public static final String EMPTY_FIELD = "";
 
     // ======================================
     // Query
@@ -93,4 +98,12 @@ public class CommonName {
     public static final String DATE_HISTOGRAM = "date_histogram";
     // feature aggregation name
     public static final String FEATURE_AGGS = "feature_aggs";
+
+    // ======================================
+    // Used in toXContent
+    // ======================================
+    public static final String CONFIG_ID_KEY = "config_id";
+    public static final String MODEL_ID_KEY = "model_id";
+    public static final String TASK_ID_FIELD = "task_id";
+    public static final String ENTITY_ID_FIELD = "entity_id";
 }

@@ -31,23 +31,23 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.plugins.Plugin;
+import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagementIntegTestCase;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
-/**
- * Inherit from OpenSearchIntegTestCase we need methods like client() and nodePlugins().
- * Have to name this to Tests instead of IT. Otherwise, we have
- * to run it using integTest and there are quite a few errors like
- * "java.lang.IllegalArgumentException: Cannot run TEST scope test with tests.cluster".
- *
- */
+@OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.TEST, numDataNodes = 0, numClientNodes = 0, supportsDedicatedMasters = false)
 public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<ForecastIndex, ForecastIndexManagement> {
     private ForecastIndexManagement indices;
     private Settings settings;
     private DiscoveryNodeFilterer nodeFilter;
+
+    @Override
+    protected boolean ignoreExternalCluster() {
+        return true;
+    }
 
     // help register setting using AnomalyDetectorPlugin.getSettings. Otherwise, AnomalyDetectionIndices's constructor would fail due to
     // unregistered settings like AD_RESULT_HISTORY_MAX_DOCS.
@@ -65,6 +65,9 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
             .put("plugins.forecast.forecast_result_history_max_docs", 10000L)
             .put("plugins.forecast.request_timeout", TimeValue.timeValueSeconds(10))
             .build();
+
+        internalCluster().ensureAtLeastNumDataNodes(1);
+        ensureStableCluster(1);
 
         nodeFilter = new DiscoveryNodeFilterer(clusterService());
 

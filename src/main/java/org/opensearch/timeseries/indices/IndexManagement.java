@@ -74,7 +74,6 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.constant.CommonValue;
 import org.opensearch.timeseries.function.ExecutorFunction;
-import org.opensearch.timeseries.indices.IndexManagement.IndexState;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -983,4 +982,6 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     protected abstract void rolloverAndDeleteHistoryIndex();
 
     public abstract void initCustomResultIndexDirectly(String resultIndex, ActionListener<CreateIndexResponse> actionListener);
+
+    public abstract void initStateIndex(ActionListener<CreateIndexResponse> actionListener);
 }

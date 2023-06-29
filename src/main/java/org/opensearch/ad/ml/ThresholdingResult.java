@@ -13,25 +13,24 @@ package org.opensearch.ad.ml;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.timeseries.ml.IntermediateResult;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
 
 /**
  * Data object containing thresholding results.
  */
-public class ThresholdingResult {
+public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
 
     private final double grade;
-    private final double confidence;
-    private final double rcfScore;
-    private long totalUpdates;
-
     /**
      * position of the anomaly vis a vis the current time (can be -ve) if anomaly is
      * detected late, which can and should happen sometime; for shingle size 1; this
@@ -135,6 +134,8 @@ public class ThresholdingResult {
     // size of the forest
     private int forestSize;
 
+    protected final double confidence;
+
     /**
      * Constructor for default empty value or backward compatibility.
      * In terms of bwc, when an old node sends request for threshold results,
@@ -163,10 +164,10 @@ public class ThresholdingResult {
         double threshold,
         int forestSize
     ) {
-        this.grade = grade;
+        super(totalUpdates, rcfScore);
         this.confidence = confidence;
-        this.rcfScore = rcfScore;
-        this.totalUpdates = totalUpdates;
+        this.grade = grade;
+
         this.relativeIndex = relativeIndex;
         this.relevantAttribution = relevantAttribution;
         this.pastValues = pastValues;
@@ -177,29 +178,21 @@ public class ThresholdingResult {
     }
 
     /**
+     * Returns the confidence for the result (e.g., anomaly grade in AD).
+     *
+     * @return confidence for the result
+     */
+    public double getConfidence() {
+        return confidence;
+    }
+
+    /**
      * Returns the anomaly grade.
      *
      * @return the anoamly grade
      */
     public double getGrade() {
         return grade;
-    }
-
-    /**
-     * Returns the confidence for the grade.
-     *
-     * @return confidence for the grade
-     */
-    public double getConfidence() {
-        return confidence;
-    }
-
-    public double getRcfScore() {
-        return rcfScore;
-    }
-
-    public long getTotalUpdates() {
-        return totalUpdates;
     }
 
     public int getRelativeIndex() {
@@ -232,21 +225,19 @@ public class ThresholdingResult {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
+        if (!super.equals(o))
+            return false;
+        if (getClass() != o.getClass())
             return false;
         ThresholdingResult that = (ThresholdingResult) o;
-        return this.grade == that.grade
-            && this.confidence == that.confidence
-            && this.rcfScore == that.rcfScore
-            && this.totalUpdates == that.totalUpdates
+        return Double.doubleToLongBits(confidence) == Double.doubleToLongBits(that.confidence)
+            && Double.doubleToLongBits(this.grade) == Double.doubleToLongBits(that.grade)
             && this.relativeIndex == that.relativeIndex
             && Arrays.equals(relevantAttribution, that.relevantAttribution)
             && Arrays.equals(pastValues, that.pastValues)
             && Arrays.deepEquals(expectedValuesList, that.expectedValuesList)
             && Arrays.equals(likelihoodOfValues, that.likelihoodOfValues)
-            && threshold == that.threshold
+            && Double.doubleToLongBits(threshold) == Double.doubleToLongBits(that.threshold)
             && forestSize == that.forestSize;
     }
 
@@ -254,10 +245,9 @@ public class ThresholdingResult {
     public int hashCode() {
         return Objects
             .hash(
-                grade,
+                super.hashCode(),
                 confidence,
-                rcfScore,
-                totalUpdates,
+                grade,
                 relativeIndex,
                 Arrays.hashCode(relevantAttribution),
                 Arrays.hashCode(pastValues),
@@ -271,10 +261,9 @@ public class ThresholdingResult {
     @Override
     public String toString() {
         return new ToStringBuilder(this)
+            .append(super.toString())
             .append("grade", grade)
             .append("confidence", confidence)
-            .append("rcfScore", rcfScore)
-            .append("totalUpdates", totalUpdates)
             .append("relativeIndex", relativeIndex)
             .append("relevantAttribution", Arrays.toString(relevantAttribution))
             .append("pastValues", Arrays.toString(pastValues))
@@ -302,43 +291,47 @@ public class ThresholdingResult {
     * @param error Error
     * @return converted AnomalyResult
     */
-    public AnomalyResult toAnomalyResult(
-        AnomalyDetector detector,
+    @Override
+    public List<AnomalyResult> toIndexableResults(
+        Config detector,
         Instant dataStartInstant,
         Instant dataEndInstant,
         Instant executionStartInstant,
         Instant executionEndInstant,
         List<FeatureData> featureData,
-        Entity entity,
+        Optional<Entity> entity,
         Integer schemaVersion,
         String modelId,
         String taskId,
         String error
     ) {
-        return AnomalyResult
-            .fromRawTRCFResult(
-                detector.getId(),
-                detector.getIntervalInMilliseconds(),
-                taskId,
-                rcfScore,
-                grade,
-                confidence,
-                featureData,
-                dataStartInstant,
-                dataEndInstant,
-                executionStartInstant,
-                executionEndInstant,
-                error,
-                entity,
-                detector.getUser(),
-                schemaVersion,
-                modelId,
-                relevantAttribution,
-                relativeIndex,
-                pastValues,
-                expectedValuesList,
-                likelihoodOfValues,
-                threshold
+        return Collections
+            .singletonList(
+                AnomalyResult
+                    .fromRawTRCFResult(
+                        detector.getId(),
+                        detector.getIntervalInMilliseconds(),
+                        taskId,
+                        rcfScore,
+                        grade,
+                        confidence,
+                        featureData,
+                        dataStartInstant,
+                        dataEndInstant,
+                        executionStartInstant,
+                        executionEndInstant,
+                        error,
+                        entity,
+                        detector.getUser(),
+                        schemaVersion,
+                        modelId,
+                        relevantAttribution,
+                        relativeIndex,
+                        pastValues,
+                        expectedValuesList,
+                        likelihoodOfValues,
+                        threshold
+                    )
             );
     }
 }

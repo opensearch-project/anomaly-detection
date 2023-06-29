@@ -190,7 +190,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
 
         mappings.put(CommonName.SCHEMA_VERSION_FIELD, Collections.singletonMap("type", "integer"));
 
-        mappings.put(AnomalyResult.TASK_ID_FIELD, Collections.singletonMap("type", "keyword"));
+        mappings.put(CommonName.TASK_ID_FIELD, Collections.singletonMap("type", "keyword"));
 
         mappings.put(AnomalyResult.THRESHOLD_FIELD, Collections.singletonMap("type", "double"));
 

@@ -24,6 +24,7 @@ import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS
 
 import java.io.IOException;
 import java.time.Clock;
+import java.util.Optional;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
@@ -98,7 +99,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
     public void testAnomalyResultBulkIndexHandler_IndexNotExist() {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(false);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
-        when(anomalyResult.getId()).thenReturn("testId");
+        when(anomalyResult.getConfigId()).thenReturn("testId");
 
         bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
@@ -109,7 +110,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
         when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(false);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
-        when(anomalyResult.getId()).thenReturn("testId");
+        when(anomalyResult.getConfigId()).thenReturn("testId");
 
         bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
@@ -120,7 +121,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
         when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(true);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
-        when(anomalyResult.getId()).thenReturn("testId");
+        when(anomalyResult.getConfigId()).thenReturn("testId");
         when(anomalyResult.toXContent(any(), any())).thenThrow(new RuntimeException());
 
         bulkIndexHandler.bulkIndexAnomalyResult("testIndex", ImmutableList.of(anomalyResult), listener);
@@ -203,7 +204,7 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
             null,
             null,
             randomAlphaOfLength(5),
-            null,
+            Optional.empty(),
             null,
             null,
             null,

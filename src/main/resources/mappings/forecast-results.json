@@ -18,6 +18,9 @@
         }
       }
     },
+    "data_quality": {
+      "type": "double"
+    },
     "data_start_time": {
       "type": "date",
       "format": "strict_date_time||epoch_millis"
@@ -95,30 +98,34 @@
     "model_id": {
       "type": "keyword"
     },
-   "forecast_series": {
-       "type": "nested",
-       "properties": {
-        "lower_bound": {
-          "type": "double"
-        },
-        "upper_bound": {
-          "type": "double"
-        },
-        "feature_id": {
-          "type": "keyword"
-        },
-        "value": {
-          "type": "double"
-        },
-        "data_start_time": {
-          "type": "date",
-          "format": "strict_date_time||epoch_millis"
-        },
-        "data_end_time": {
-          "type": "date",
-          "format": "strict_date_time||epoch_millis"
-        }
-      }
-   }
+    "entity_id": {
+      "type": "keyword"
+    },
+    "forecast_lower_bound": {
+      "type": "double"
+    },
+    "forecast_upper_bound": {
+      "type": "double"
+    },
+    "confidence_interval_width": {
+      "type": "double"
+    },
+    "forecast_value": {
+      "type": "double"
+    },
+    "horizon_index": {
+      "type": "integer"
+    },
+    "forecast_data_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "forecast_data_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "feature_id": {
+      "type": "keyword"
+    }
   }
 }

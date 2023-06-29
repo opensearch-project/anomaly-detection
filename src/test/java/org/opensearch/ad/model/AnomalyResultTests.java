@@ -70,7 +70,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertTrue(
-            Objects.equal(detectResult.getId(), parsedDetectResult.getId())
+            Objects.equal(detectResult.getConfigId(), parsedDetectResult.getConfigId())
                 && Objects.equal(detectResult.getTaskId(), parsedDetectResult.getTaskId())
                 && Objects.equal(detectResult.getAnomalyScore(), parsedDetectResult.getAnomalyScore())
                 && Objects.equal(detectResult.getAnomalyGrade(), parsedDetectResult.getAnomalyGrade())
@@ -95,7 +95,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
         assertNull(parsedDetectResult.getAnomalyGrade());
         assertNull(parsedDetectResult.getAnomalyScore());
         assertTrue(
-            Objects.equal(detectResult.getId(), parsedDetectResult.getId())
+            Objects.equal(detectResult.getConfigId(), parsedDetectResult.getConfigId())
                 && Objects.equal(detectResult.getTaskId(), parsedDetectResult.getTaskId())
                 && Objects.equal(detectResult.getFeatureData(), parsedDetectResult.getFeatureData())
                 && Objects.equal(detectResult.getDataStartTime(), parsedDetectResult.getDataStartTime())

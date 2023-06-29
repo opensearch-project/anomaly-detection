@@ -154,7 +154,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
             return;
         }
         AnomalyResult result = resultToRetry.get();
-        String detectorId = result.getId();
+        String detectorId = result.getConfigId();
         nodeStateManager.getAnomalyDetector(detectorId, onGetDetector(requestToRetry, index, detectorId, result));
     }
 

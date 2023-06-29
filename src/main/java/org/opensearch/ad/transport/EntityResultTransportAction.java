@@ -211,31 +211,32 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     // result.getGrade() = 0 means it is not an anomaly
                     // So many OpenSearchRejectedExecutionException if we write no matter what
                     if (result.getRcfScore() > 0) {
-                        AnomalyResult resultToSave = result
-                            .toAnomalyResult(
+                        List<AnomalyResult> resultsToSave = result
+                            .toIndexableResults(
                                 detector,
                                 Instant.ofEpochMilli(request.getStart()),
                                 Instant.ofEpochMilli(request.getEnd()),
                                 executionStartTime,
                                 Instant.now(),
                                 ParseUtils.getFeatureData(datapoint, detector),
-                                categoricalValues,
+                                Optional.ofNullable(categoricalValues),
                                 indexUtil.getSchemaVersion(ADIndex.RESULT),
                                 modelId,
                                 null,
                                 null
                             );
-
-                        resultWriteQueue
-                            .put(
-                                new ResultWriteRequest(
-                                    System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
-                                    detectorId,
-                                    result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                                    resultToSave,
-                                    detector.getCustomResultIndex()
-                                )
-                            );
+                        for (AnomalyResult r : resultsToSave) {
+                            resultWriteQueue
+                                .put(
+                                    new ResultWriteRequest(
+                                        System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
+                                        detectorId,
+                                        result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
+                                        r,
+                                        detector.getCustomResultIndex()
+                                    )
+                                );
+                        }
                     }
                 } catch (IllegalArgumentException e) {
                     // fail to score likely due to model corruption. Re-cold start to recover.

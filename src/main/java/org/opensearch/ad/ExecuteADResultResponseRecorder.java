@@ -16,6 +16,7 @@ import static org.opensearch.ad.constant.ADCommonMessages.CAN_NOT_FIND_LATEST_TA
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -282,7 +283,7 @@ public class ExecuteADResultResponseRecorder {
                 executionStartTime,
                 Instant.now(),
                 errorMessage,
-                null, // single-stream detectors have no entity
+                Optional.empty(), // single-stream detectors have no entity
                 user,
                 anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                 null // no model id

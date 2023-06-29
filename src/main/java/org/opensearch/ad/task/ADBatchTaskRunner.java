@@ -1104,7 +1104,7 @@ public class ADBatchTaskRunner {
                     executeStartTime,
                     Instant.now(),
                     error,
-                    adTask.getEntity(),
+                    Optional.ofNullable(adTask.getEntity()),
                     adTask.getDetector().getUser(),
                     anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                     adTask.getEntityModelId()
@@ -1134,7 +1134,7 @@ public class ADBatchTaskRunner {
                         executeStartTime,
                         Instant.now(),
                         null,
-                        adTask.getEntity(),
+                        Optional.ofNullable(adTask.getEntity()),
                         adTask.getDetector().getUser(),
                         anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                         adTask.getEntityModelId(),
