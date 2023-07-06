@@ -43,6 +43,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -154,7 +155,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             );
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {

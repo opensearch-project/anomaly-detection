@@ -11,8 +11,9 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.PREVIEW;
+import static org.opensearch.ad.util.RestHandlerUtils.*;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
 import java.util.List;
@@ -40,7 +41,9 @@ import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
+import org.opensearch.rest.NamedRoute;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -67,7 +70,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
         return PREVIEW_ANOMALY_DETECTOR_ACTION;
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -138,15 +141,16 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
     }
 
     @Override
-    public List<RouteHandler> routeHandlers() {
+    public List<NamedRoute> routes() {
         return ImmutableList
             .of(
                 // preview detector
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, PREVIEW),
-                    handleRequest
-                )
+                new NamedRoute.Builder()
+                    .method(POST)
+                    .path(String.format(String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, PREVIEW)))
+                    .uniqueName(routePrefix("detector/preview"))
+                    .handler(handleRequest)
+                    .build()
             );
     }
 

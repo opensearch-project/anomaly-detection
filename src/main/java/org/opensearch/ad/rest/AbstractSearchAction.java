@@ -15,6 +15,8 @@ import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.opensearch.rest.RestRequest.Method.GET;
+import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,10 +46,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
-import org.opensearch.rest.BytesRestResponse;
-import org.opensearch.rest.RestChannel;
-import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.rest.*;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
 import org.opensearch.sdk.rest.BaseExtensionRestHandler;
@@ -88,7 +87,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         this.extensionsRunner = extensionsRunner;
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -170,11 +169,12 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         return new ExtensionRestResponse(request, RestStatus.OK, response.toXContent(JsonXContent.contentBuilder(), EMPTY_PARAMS));
     }
 
-    public List<RouteHandler> routeHandlers() {
-        List<RouteHandler> routes = new ArrayList<>();
+    @Override
+    public List<NamedRoute> routes() {
+        List<NamedRoute> routes = new ArrayList<>();
         for (String path : urlPaths) {
-            routes.add(new RouteHandler(RestRequest.Method.POST, path, handleRequest));
-            routes.add(new RouteHandler(RestRequest.Method.GET, path, handleRequest));
+            routes.add(new NamedRoute.Builder().method(POST).path(path).uniqueName(routePrefix(path)).handler(handleRequest).build());
+            routes.add(new NamedRoute.Builder().method(GET).path(path).uniqueName(routePrefix(path)).handler(handleRequest).build());
         }
         return routes;
     }
@@ -183,16 +183,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     public List<ReplacedRouteHandler> replacedRouteHandlers() {
         List<ReplacedRouteHandler> replacedRoutes = new ArrayList<>();
         for (Pair<String, String> deprecatedPath : deprecatedPaths) {
-            replacedRoutes
-                .add(
-                    new ReplacedRouteHandler(
-                        RestRequest.Method.POST,
-                        deprecatedPath.getKey(),
-                        RestRequest.Method.POST,
-                        deprecatedPath.getValue(),
-                        handleRequest
-                    )
-                );
+            replacedRoutes.add(new ReplacedRouteHandler(POST, deprecatedPath.getKey(), POST, deprecatedPath.getValue(), handleRequest));
             replacedRoutes
                 .add(
                     new ReplacedRouteHandler(

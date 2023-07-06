@@ -14,6 +14,7 @@ package org.opensearch.ad.rest;
 import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
+import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
 import java.util.List;
@@ -40,7 +41,9 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
+import org.opensearch.rest.NamedRoute;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestActions;
 import org.opensearch.sdk.ExtensionsRunner;
@@ -109,7 +112,7 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
         return getAnomalyDetectorResponse(request, response);
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -119,21 +122,22 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
     };
 
     @Override
-    public List<RouteHandler> routeHandlers() {
+    public List<NamedRoute> routes() {
         return ImmutableList
             .of(
                 // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
-                    handleRequest
-                ),
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String
-                        .format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
-                    handleRequest
-                )
+                new NamedRoute.Builder()
+                    .method(POST)
+                    .path(String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE))
+                    .uniqueName(routePrefix("detector/profile"))
+                    .handler(handleRequest)
+                    .build(),
+                new NamedRoute.Builder()
+                    .method(POST)
+                    .path(String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, TYPE))
+                    .uniqueName(routePrefix("detector/type"))
+                    .handler(handleRequest)
+                    .build()
             );
     }
 

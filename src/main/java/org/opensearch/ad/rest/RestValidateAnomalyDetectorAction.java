@@ -14,6 +14,7 @@ package org.opensearch.ad.rest;
 import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -45,7 +46,9 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
+import org.opensearch.rest.NamedRoute;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -78,23 +81,25 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
     }
 
     @Override
-    public List<RouteHandler> routeHandlers() {
+    public List<NamedRoute> routes() {
         return ImmutableList
             .of(
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE),
-                    handleRequest
-                ),
-                new RouteHandler(
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE, TYPE),
-                    handleRequest
-                )
+                new NamedRoute.Builder()
+                    .method(POST)
+                    .path(String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE))
+                    .uniqueName(routePrefix("detector/validate"))
+                    .handler(handleRequest)
+                    .build(),
+                new NamedRoute.Builder()
+                    .method(POST)
+                    .path(String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE, TYPE))
+                    .uniqueName(routePrefix("detector/validate/type"))
+                    .handler(handleRequest)
+                    .build()
             );
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {

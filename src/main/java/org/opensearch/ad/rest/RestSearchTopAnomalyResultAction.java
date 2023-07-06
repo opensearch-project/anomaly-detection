@@ -12,6 +12,8 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.rest.RestRequest.Method.GET;
+import static org.opensearch.rest.RestRequest.Method.POST;
 
 import java.io.IOException;
 import java.util.List;
@@ -33,7 +35,9 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
+import org.opensearch.rest.NamedRoute;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -68,7 +72,7 @@ public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
         return SEARCH_TOP_ANOMALY_DETECTOR_ACTION;
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -131,11 +135,21 @@ public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
     }
 
     @Override
-    public List<RouteHandler> routeHandlers() {
+    public List<NamedRoute> routes() {
         return ImmutableList
             .of(
-                new RouteHandler(RestRequest.Method.POST, URL_PATH, handleRequest),
-                new RouteHandler(RestRequest.Method.GET, URL_PATH, handleRequest)
+                new NamedRoute.Builder()
+                    .method(POST)
+                    .path(URL_PATH)
+                    .uniqueName(routePrefix("search/post/topresults"))
+                    .handler(handleRequest)
+                    .build(),
+                new NamedRoute.Builder()
+                    .method(GET)
+                    .path(URL_PATH)
+                    .uniqueName(routePrefix("search/read/topresults"))
+                    .handler(handleRequest)
+                    .build()
             );
     }
 }

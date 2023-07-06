@@ -12,6 +12,7 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.rest.RestRequest.Method.DELETE;
 
 import java.io.IOException;
 import java.util.List;
@@ -34,7 +35,9 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.extensions.rest.ExtensionRestResponse;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.rest.NamedRoute;
 import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.sdk.ExtensionsRunner;
 import org.opensearch.sdk.SDKClient.SDKRestClient;
@@ -71,7 +74,7 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
         return DELETE_AD_RESULTS_ACTION;
     }
 
-    private Function<RestRequest, ExtensionRestResponse> handleRequest = (request) -> {
+    private Function<RestRequest, RestResponse> handleRequest = (request) -> {
         try {
             return prepareRequest(request);
         } catch (Exception e) {
@@ -112,8 +115,16 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
     }
 
     @Override
-    public List<RouteHandler> routeHandlers() {
+    public List<NamedRoute> routes() {
+        String path = AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/results";
         return ImmutableList
-            .of(new RouteHandler(RestRequest.Method.DELETE, AnomalyDetectorExtension.AD_BASE_DETECTORS_URI + "/results", handleRequest));
+            .of(
+                new NamedRoute.Builder()
+                    .method(DELETE)
+                    .path(path)
+                    .uniqueName(routePrefix("detector/results"))
+                    .handler(handleRequest)
+                    .build()
+            );
     }
 }
