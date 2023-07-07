@@ -31,6 +31,7 @@ import org.opensearch.ad.common.exception.ResourceNotFoundException;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Feature;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -96,7 +97,7 @@ public final class RestHandlerUtils {
      * @return instance of {@link org.opensearch.search.fetch.subphase.FetchSourceContext}
      */
     public static FetchSourceContext getSourceContext(RestRequest request, SearchSourceBuilder searchSourceBuilder) {
-        String userAgent = Strings.coalesceToEmpty(request.header("User-Agent"));
+        String userAgent = coalesceToEmpty(request.header("User-Agent"));
 
         // If there is a _source given in request than we either add UI_Metadata to exclude or not depending on if request
         // is from OpenSearch-Dashboards, if no _source field then we either exclude UI_metadata or return nothing at all.
@@ -237,5 +238,9 @@ public final class RestHandlerUtils {
             return false;
         }
         return e instanceof OpenSearchStatusException || e instanceof IndexNotFoundException || e instanceof InvalidIndexNameException;
+    }
+
+    private static String coalesceToEmpty(@Nullable String s) {
+        return s == null ? "" : s;
     }
 }

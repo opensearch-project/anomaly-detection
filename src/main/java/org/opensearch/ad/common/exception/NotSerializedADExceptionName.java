@@ -11,12 +11,13 @@
 
 package org.opensearch.ad.common.exception;
 
+import static org.opensearch.OpenSearchException.getExceptionName;
+
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.OpenSearchException;
 import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 
 /**
@@ -29,16 +30,16 @@ import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
  */
 public enum NotSerializedADExceptionName {
 
-    RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ResourceNotFoundException("", ""))),
-    LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new LimitExceededException("", "", false))),
-    END_RUN_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new EndRunException("", "", false))),
-    ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new AnomalyDetectionException("", ""))),
-    INTERNAL_FAILURE_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new InternalFailure("", ""))),
-    CLIENT_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ClientException("", ""))),
-    CANCELLATION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADTaskCancelledException("", ""))),
-    DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new DuplicateTaskException(""))),
-    AD_VERSION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADVersionException(""))),
-    AD_VALIDATION_EXCEPTION_NAME_UNDERSCORE(OpenSearchException.getExceptionName(new ADValidationException("", null, null)));
+    RESOURCE_NOT_FOUND_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ResourceNotFoundException("", ""))),
+    LIMIT_EXCEEDED_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new LimitExceededException("", "", false))),
+    END_RUN_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new EndRunException("", "", false))),
+    ANOMALY_DETECTION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new AnomalyDetectionException("", ""))),
+    INTERNAL_FAILURE_NAME_UNDERSCORE(getExceptionName(new InternalFailure("", ""))),
+    CLIENT_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ClientException("", ""))),
+    CANCELLATION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ADTaskCancelledException("", ""))),
+    DUPLICATE_TASK_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new DuplicateTaskException(""))),
+    AD_VERSION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ADVersionException(""))),
+    AD_VALIDATION_EXCEPTION_NAME_UNDERSCORE(getExceptionName(new ADValidationException("", null, null)));
 
     private static final Logger LOG = LogManager.getLogger(NotSerializedADExceptionName.class);
     private final String name;
