@@ -34,7 +34,10 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.indices.IndexManagement;
@@ -171,6 +174,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
      *
      * @param actionListener action called after create index
      */
+    @Override
     public void initStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
             CreateIndexRequest request = new CreateIndexRequest(ForecastCommonName.FORECAST_STATE_INDEX)
@@ -236,8 +240,10 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
 
     @Override
     protected IndexRequest createDummyIndexRequest(String resultIndex) throws IOException {
-        // TODO: add real support when committing ForecastResult class
-        return new IndexRequest(resultIndex).id(DUMMY_FORECAST_RESULT_ID).source(XContentType.JSON, "field", "value");
+        ForecastResult dummyResult = ForecastResult.getDummyResult();
+        return new IndexRequest(resultIndex)
+            .id(DUMMY_FORECAST_RESULT_ID)
+            .source(dummyResult.toXContent(XContentBuilder.builder(XContentType.JSON.xContent()), ToXContent.EMPTY_PARAMS));
     }
 
     @Override

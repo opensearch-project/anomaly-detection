@@ -40,7 +40,7 @@ public class ProfileUtil {
         filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_SCORE_FIELD).gt(0));
         // Historical analysis result also stored in result index, which has non-null task_id.
         // For realtime detection result, we should filter task_id == null
-        ExistsQueryBuilder taskIdExistsFilter = QueryBuilders.existsQuery(AnomalyResult.TASK_ID_FIELD);
+        ExistsQueryBuilder taskIdExistsFilter = QueryBuilders.existsQuery(CommonName.TASK_ID_FIELD);
         filterQuery.mustNot(taskIdExistsFilter);
 
         SearchSourceBuilder source = new SearchSourceBuilder().query(filterQuery).size(1);

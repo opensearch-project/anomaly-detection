@@ -125,7 +125,7 @@ public class ADDataMigratorTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onFailure(new RuntimeException("test"));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
 
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
@@ -145,7 +145,7 @@ public class ADDataMigratorTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onFailure(new ResourceAlreadyExistsException("test"));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
 
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
@@ -165,7 +165,7 @@ public class ADDataMigratorTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onResponse(new CreateIndexResponse(false, false, DETECTION_STATE_INDEX));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
 
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
@@ -185,7 +185,7 @@ public class ADDataMigratorTests extends ADUnitTestCase {
             ActionListener<CreateIndexResponse> listener = invocation.getArgument(0);
             listener.onResponse(new CreateIndexResponse(true, false, DETECTION_STATE_INDEX));
             return null;
-        }).when(detectionIndices).initDetectionStateIndex(any());
+        }).when(detectionIndices).initStateIndex(any());
 
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);

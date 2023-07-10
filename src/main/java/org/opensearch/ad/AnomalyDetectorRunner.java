@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -168,20 +169,23 @@ public final class AnomalyDetectorRunner {
                 AnomalyResult result;
                 if (results != null && results.size() > i) {
                     ThresholdingResult thresholdingResult = results.get(i);
-                    result = thresholdingResult
-                        .toAnomalyResult(
+                    List<AnomalyResult> resultsToSave = thresholdingResult
+                        .toIndexableResults(
                             detector,
                             Instant.ofEpochMilli(timeRange.getKey()),
                             Instant.ofEpochMilli(timeRange.getValue()),
                             null,
                             null,
                             featureDatas,
-                            entity,
+                            Optional.ofNullable(entity),
                             CommonValue.NO_SCHEMA_VERSION,
                             null,
                             null,
                             null
                         );
+                    for (AnomalyResult r : resultsToSave) {
+                        anomalyResults.add(r);
+                    }
                 } else {
                     result = new AnomalyResult(
                         detector.getId(),
@@ -192,14 +196,13 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         null,
-                        entity,
+                        Optional.ofNullable(entity),
                         detector.getUser(),
                         CommonValue.NO_SCHEMA_VERSION,
                         null
                     );
+                    anomalyResults.add(result);
                 }
-
-                anomalyResults.add(result);
             }
         }
         return anomalyResults;

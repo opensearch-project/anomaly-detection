@@ -31,7 +31,7 @@ public class ForecastIndexMappingTests extends OpenSearchTestCase {
         assertTrue("schema_version field is missing", mappingJson.path("properties").has("schema_version"));
         assertTrue("task_id field is missing", mappingJson.path("properties").has("task_id"));
         assertTrue("model_id field is missing", mappingJson.path("properties").has("model_id"));
-        assertTrue("forecast_series field is missing", mappingJson.path("properties").has("forecast_series"));
+        assertTrue("forecast_series field is missing", mappingJson.path("properties").has("forecast_value"));
     }
 
     public void testGetCheckpointMappings() throws IOException {

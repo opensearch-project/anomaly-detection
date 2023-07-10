@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.AnomalyResult;
@@ -360,7 +361,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
                 executionStartInstant,
                 executionEndInstant,
                 error,
-                null,
+                Optional.empty(),
                 user,
                 schemaVersion,
                 null, // single-stream real-time has no model id

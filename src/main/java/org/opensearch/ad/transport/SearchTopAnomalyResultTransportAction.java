@@ -486,11 +486,11 @@ public class SearchTopAnomalyResultTransportAction extends
         query.filter(dateRangeFilter).filter(anomalyGradeFilter);
 
         if (request.getHistorical() == true) {
-            TermQueryBuilder taskIdFilter = QueryBuilders.termQuery(AnomalyResult.TASK_ID_FIELD, request.getTaskId());
+            TermQueryBuilder taskIdFilter = QueryBuilders.termQuery(CommonName.TASK_ID_FIELD, request.getTaskId());
             query.filter(taskIdFilter);
         } else {
             TermQueryBuilder detectorIdFilter = QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, request.getId());
-            ExistsQueryBuilder taskIdExistsFilter = QueryBuilders.existsQuery(AnomalyResult.TASK_ID_FIELD);
+            ExistsQueryBuilder taskIdExistsFilter = QueryBuilders.existsQuery(CommonName.TASK_ID_FIELD);
             query.filter(detectorIdFilter).mustNot(taskIdExistsFilter);
         }
         return query;

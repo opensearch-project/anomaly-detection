@@ -74,7 +74,6 @@ import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
-import org.opensearch.ad.model.DataByFeatureId;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.model.ExpectedValueList;
@@ -138,6 +137,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
+import org.opensearch.timeseries.model.DataByFeatureId;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
@@ -870,7 +870,7 @@ public class TestHelpers {
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             error,
-            null,
+            Optional.empty(),
             user,
             CommonValue.NO_SCHEMA_VERSION,
             null,
@@ -950,8 +950,8 @@ public class TestHelpers {
             endTimeEpochMillis == null ? Instant.now().truncatedTo(ChronoUnit.SECONDS) : Instant.ofEpochMilli(endTimeEpochMillis),
             error,
             entityAttrs == null
-                ? Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5))
-                : Entity.createEntityByReordering(entityAttrs),
+                ? Optional.ofNullable(Entity.createSingleAttributeEntity(randomAlphaOfLength(5), randomAlphaOfLength(5)))
+                : Optional.ofNullable(Entity.createEntityByReordering(entityAttrs)),
             randomUser(),
             CommonValue.NO_SCHEMA_VERSION,
             null,

@@ -386,31 +386,35 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             }
 
             if (result != null && result.getRcfScore() > 0) {
-                AnomalyResult resultToSave = result
-                    .toAnomalyResult(
+                RequestPriority requestPriority = result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM;
+
+                List<AnomalyResult> resultsToSave = result
+                    .toIndexableResults(
                         detector,
                         Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
                         Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getIntervalInMilliseconds()),
                         Instant.now(),
                         Instant.now(),
                         ParseUtils.getFeatureData(origRequest.getCurrentFeature(), detector),
-                        entity,
+                        Optional.ofNullable(entity),
                         indexUtil.getSchemaVersion(ADIndex.RESULT),
                         modelId,
                         null,
                         null
                     );
 
-                resultWriteQueue
-                    .put(
-                        new ResultWriteRequest(
-                            origRequest.getExpirationEpochMs(),
-                            detectorId,
-                            result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                            resultToSave,
-                            detector.getCustomResultIndex()
-                        )
-                    );
+                for (AnomalyResult r : resultsToSave) {
+                    resultWriteQueue
+                        .put(
+                            new ResultWriteRequest(
+                                origRequest.getExpirationEpochMs(),
+                                detectorId,
+                                requestPriority,
+                                r,
+                                detector.getCustomResultIndex()
+                            )
+                        );
+                }
             }
 
             // try to load to cache

@@ -192,7 +192,8 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
      *
      * @param actionListener action called after create index
      */
-    public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
+    @Override
+    public void initStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
             CreateIndexRequest request = new CreateIndexRequest(ADCommonName.DETECTION_STATE_INDEX)
                 .mapping(getStateMappings(), XContentType.JSON)

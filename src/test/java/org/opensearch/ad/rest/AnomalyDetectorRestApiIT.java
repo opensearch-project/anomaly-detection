@@ -636,7 +636,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         assertEquals("Post anomaly result failed", RestStatus.CREATED, TestHelpers.restStatus(response));
 
-        SearchSourceBuilder search = (new SearchSourceBuilder()).query(QueryBuilders.termQuery("detector_id", anomalyResult.getId()));
+        SearchSourceBuilder search = (new SearchSourceBuilder()).query(QueryBuilders.termQuery("detector_id", anomalyResult.getConfigId()));
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 

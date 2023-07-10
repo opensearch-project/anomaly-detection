@@ -123,7 +123,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
         if (index.equals(CommonName.CONFIG_INDEX)) {
             adIndices.initConfigIndexIfAbsent(listener);
         } else {
-            adIndices.initDetectionStateIndex(listener);
+            adIndices.initStateIndex(listener);
         }
 
         ArgumentCaptor<CreateIndexResponse> captor = ArgumentCaptor.forClass(CreateIndexResponse.class);
@@ -184,7 +184,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
         if (index.equals(CommonName.CONFIG_INDEX)) {
             adIndices.initConfigIndexIfAbsent(listener);
         } else if (index.equals(ADCommonName.DETECTION_STATE_INDEX)) {
-            adIndices.initDetectionStateIndex(listener);
+            adIndices.initStateIndex(listener);
         } else if (index.equals(ADCommonName.CHECKPOINT_INDEX_NAME)) {
             adIndices.initCheckpointIndex(listener);
         } else if (index.equals(CommonName.JOB_INDEX)) {

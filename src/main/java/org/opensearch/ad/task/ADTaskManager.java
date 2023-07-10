@@ -39,7 +39,6 @@ import static org.opensearch.ad.model.ADTaskType.ALL_HISTORICAL_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.REALTIME_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
-import static org.opensearch.ad.model.AnomalyResult.TASK_ID_FIELD;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
@@ -55,6 +54,7 @@ import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.constant.CommonName.TASK_ID_FIELD;
 import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
@@ -748,7 +748,7 @@ public class ADTaskManager {
                 }, transportService, true, listener);
             } else {
                 // If detection index doesn't exist, create index and execute detector.
-                detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
+                detectionIndices.initStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
                         logger.info("Created {} with mappings.", DETECTION_STATE_INDEX);
                         updateLatestFlagOfOldTasksAndCreateNewTask(detector, detectionDateRange, user, listener);
@@ -2168,7 +2168,7 @@ public class ADTaskManager {
             function.execute();
         } else {
             // If detection index doesn't exist, create index and execute function.
-            detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
+            detectionIndices.initStateIndex(ActionListener.wrap(r -> {
                 if (r.isAcknowledged()) {
                     logger.info("Created {} with mappings.", DETECTION_STATE_INDEX);
                     function.execute();
