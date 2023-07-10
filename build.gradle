@@ -646,7 +646,7 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version_snapshot}"
     compile "org.opensearch:common-utils:${common_utils_version}"
     compile "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    compile group: 'com.google.guava', name: 'guava', version:'31.0.1-jre'
+    compile group: 'com.google.guava', name: 'guava', version:'32.0.1-jre'
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
     compile group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
