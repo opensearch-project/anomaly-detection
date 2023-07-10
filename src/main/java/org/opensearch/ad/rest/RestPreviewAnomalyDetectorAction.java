@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.*;
+import static org.opensearch.ad.util.RestHandlerUtils.PREVIEW;
 import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.rest.RestRequest.Method.POST;
 
@@ -148,7 +148,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(String.format(String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, PREVIEW)))
-                    .uniqueName(routePrefix("detector/preview"))
+                    .uniqueName(routePrefix("detectors/preview"))
                     .handler(handleRequest)
                     .build()
             );

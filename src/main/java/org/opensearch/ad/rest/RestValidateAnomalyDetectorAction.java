@@ -87,13 +87,13 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE))
-                    .uniqueName(routePrefix("detector/validate"))
+                    .uniqueName(routePrefix("detectors/validate"))
                     .handler(handleRequest)
                     .build(),
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, VALIDATE, TYPE))
-                    .uniqueName(routePrefix("detector/validate/type"))
+                    .uniqueName(routePrefix("detectors/validate/type"))
                     .handler(handleRequest)
                     .build()
             );

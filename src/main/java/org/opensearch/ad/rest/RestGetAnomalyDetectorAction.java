@@ -129,13 +129,13 @@ public class RestGetAnomalyDetectorAction extends BaseExtensionRestHandler {
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE))
-                    .uniqueName(routePrefix("detector/profile"))
+                    .uniqueName(routePrefix("detectors/profile"))
                     .handler(handleRequest)
                     .build(),
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, DETECTOR_ID, TYPE))
-                    .uniqueName(routePrefix("detector/type"))
+                    .uniqueName(routePrefix("detectors/type"))
                     .handler(handleRequest)
                     .build()
             );
