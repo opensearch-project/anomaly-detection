@@ -109,7 +109,6 @@ import org.opensearch.common.Priority;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -1510,9 +1509,9 @@ public class TestHelpers {
     }
 
     public static ClusterState createClusterState() {
-        ImmutableOpenMap<String, IndexMetadata> immutableOpenMap = ImmutableOpenMap
-            .<String, IndexMetadata>builder()
-            .fPut(
+        final Map<String, IndexMetadata> mappings = new HashMap<>();
+        mappings
+            .put(
                 ANOMALY_DETECTOR_JOB_INDEX,
                 IndexMetadata
                     .builder("test")
@@ -1524,10 +1523,20 @@ public class TestHelpers {
                             .put("index.version.created", Version.CURRENT.id)
                     )
                     .build()
-            )
-            .build();
-        Metadata metaData = Metadata.builder().indices(immutableOpenMap).build();
-        ClusterState clusterState = new ClusterState(new ClusterName("test_name"), 1l, "uuid", metaData, null, null, null, null, 1, true);
+            );
+        Metadata metaData = Metadata.builder().indices(mappings).build();
+        ClusterState clusterState = new ClusterState(
+            new ClusterName("test_name"),
+            1l,
+            "uuid",
+            metaData,
+            null,
+            null,
+            null,
+            new HashMap<>(),
+            1,
+            true
+        );
         return clusterState;
     }
 }

@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +73,6 @@ import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -82,6 +80,7 @@ import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.InjectSecurity;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -91,8 +90,6 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 
-import com.carrotsearch.hppc.cursors.ObjectCursor;
-import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -759,8 +756,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         adminClient.cluster().state(clusterStateRequest, ActionListener.wrap(clusterStateResponse -> {
             String latestToDelete = null;
             long latest = Long.MIN_VALUE;
-            for (ObjectCursor<IndexMetadata> cursor : clusterStateResponse.getState().metadata().indices().values()) {
-                IndexMetadata indexMetaData = cursor.value;
+            for (IndexMetadata indexMetaData : clusterStateResponse.getState().metadata().indices().values()) {
                 long creationTime = indexMetaData.getCreationDate();
 
                 if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis()) {
@@ -986,10 +982,10 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
                 .indicesOptions(IndicesOptions.lenientExpandOpenHidden());
             adminClient.indices().getAliases(getAliasRequest, ActionListener.wrap(getAliasResponse -> {
                 String concreteIndex = null;
-                for (ObjectObjectCursor<String, List<AliasMetadata>> entry : getAliasResponse.getAliases()) {
-                    if (false == entry.value.isEmpty()) {
+                for (Map.Entry<String, List<AliasMetadata>> entry : getAliasResponse.getAliases().entrySet()) {
+                    if (false == entry.getValue().isEmpty()) {
                         // we assume the alias map to one concrete index, thus we can return after finding one
-                        concreteIndex = entry.key;
+                        concreteIndex = entry.getKey();
                         break;
                     }
                 }
@@ -1137,9 +1133,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
 
     private static Integer getIntegerSetting(GetSettingsResponse settingsResponse, String settingKey) {
         Integer value = null;
-        Iterator<Settings> iter = settingsResponse.getIndexToSettings().valuesIt();
-        while (iter.hasNext()) {
-            Settings settings = iter.next();
+        for (Settings settings : settingsResponse.getIndexToSettings().values()) {
             value = settings.getAsInt(settingKey, null);
             if (value != null) {
                 break;
@@ -1150,9 +1144,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
 
     private static String getStringSetting(GetSettingsResponse settingsResponse, String settingKey) {
         String value = null;
-        Iterator<Settings> iter = settingsResponse.getIndexToSettings().valuesIt();
-        while (iter.hasNext()) {
-            Settings settings = iter.next();
+        for (Settings settings : settingsResponse.getIndexToSettings().values()) {
             value = settings.get(settingKey, null);
             if (value != null) {
                 break;

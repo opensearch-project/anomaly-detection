@@ -30,7 +30,7 @@ import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.Strings;
+import org.opensearch.core.common.Strings;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
