@@ -204,8 +204,8 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
         } catch (IOException e) {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if anomalies
-        // found).
+        // forecast indices need RAW (e.g., we want users to be able to consume forecast results as soon as
+        // possible and send out an alert if a threshold is breached).
         Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
         CreateIndexRequest request = new CreateIndexRequest(ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME, replicationSettings)
             .mapping(mapping, XContentType.JSON);

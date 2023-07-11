@@ -428,8 +428,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
      * @throws IOException IOException from {@link IndexManagement#getConfigMappings}
      */
     public void initConfigIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if anomalies
-        // found).
+        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
+        // and send out an alert if anomalies found).
         Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
         CreateIndexRequest request = new CreateIndexRequest(CommonName.CONFIG_INDEX, replicationSettings)
             .mapping(getConfigMappings(), XContentType.JSON)
@@ -482,8 +482,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
      */
     public void initJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
-            // anomalies found).
+            // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as
+            // possible and send out an alert if anomalies found).
             Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
             CreateIndexRequest request = new CreateIndexRequest(CommonName.JOB_INDEX, replicationSettings)
                 .mapping(getJobMappings(), XContentType.JSON);
@@ -937,8 +937,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if anomalies
-        // found).
+        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
+        // and send out an alert if anomalies found).
         Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
         createRequest.index(rolloverIndexPattern).settings(replicationSettings).mapping(resultMapping, XContentType.JSON);
 
@@ -965,8 +965,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         IndexType resultIndex,
         ActionListener<CreateIndexResponse> actionListener
     ) {
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if anomalies
-        // found).
+        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
+        // and send out an alert if anomalies found).
         Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
         CreateIndexRequest request = new CreateIndexRequest(resultIndexName, replicationSettings).mapping(resultMapping, XContentType.JSON);
         if (alias != null) {
