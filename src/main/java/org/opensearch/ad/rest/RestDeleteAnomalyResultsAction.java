@@ -122,7 +122,7 @@ public class RestDeleteAnomalyResultsAction extends BaseExtensionRestHandler {
                 new NamedRoute.Builder()
                     .method(DELETE)
                     .path(path)
-                    .uniqueName(routePrefix("detectors/results"))
+                    .uniqueName(addRouteNamePrefix("detectors/results"))
                     .handler(handleRequest)
                     .build()
             );

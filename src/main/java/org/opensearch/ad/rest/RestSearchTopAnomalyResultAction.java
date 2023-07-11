@@ -141,13 +141,13 @@ public class RestSearchTopAnomalyResultAction extends BaseExtensionRestHandler {
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(URL_PATH)
-                    .uniqueName(routePrefix("search/post/topresults"))
+                    .uniqueName(addRouteNamePrefix("search/post/topresults"))
                     .handler(handleRequest)
                     .build(),
                 new NamedRoute.Builder()
                     .method(GET)
                     .path(URL_PATH)
-                    .uniqueName(routePrefix("search/read/topresults"))
+                    .uniqueName(addRouteNamePrefix("search/read/topresults"))
                     .handler(handleRequest)
                     .build()
             );

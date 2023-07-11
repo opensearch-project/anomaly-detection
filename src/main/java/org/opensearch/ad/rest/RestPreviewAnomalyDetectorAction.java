@@ -148,7 +148,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseExtensionRestHandler {
                 new NamedRoute.Builder()
                     .method(POST)
                     .path(String.format(String.format(Locale.ROOT, "%s/%s", AnomalyDetectorExtension.AD_BASE_DETECTORS_URI, PREVIEW)))
-                    .uniqueName(routePrefix("detectors/preview"))
+                    .uniqueName(addRouteNamePrefix("detectors/preview"))
                     .handler(handleRequest)
                     .build()
             );

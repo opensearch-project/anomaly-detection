@@ -178,8 +178,9 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     public List<NamedRoute> routes() {
         List<NamedRoute> routes = new ArrayList<>();
         for (String path : urlPaths) {
-            routes.add(new NamedRoute.Builder().method(POST).path(path).uniqueName(routePrefix(path)).handler(handleRequest).build());
-            routes.add(new NamedRoute.Builder().method(GET).path(path).uniqueName(routePrefix(path)).handler(handleRequest).build());
+            routes
+                .add(new NamedRoute.Builder().method(POST).path(path).uniqueName(addRouteNamePrefix(path)).handler(handleRequest).build());
+            routes.add(new NamedRoute.Builder().method(GET).path(path).uniqueName(addRouteNamePrefix(path)).handler(handleRequest).build());
         }
         return routes;
     }
