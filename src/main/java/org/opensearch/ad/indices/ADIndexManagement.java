@@ -19,6 +19,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDEX_MAPPING_FILE;
+import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REPLICATION_TYPE;
+import static org.opensearch.indices.replication.common.ReplicationType.DOCUMENT;
 
 import java.io.IOException;
 import java.util.EnumMap;
@@ -64,7 +66,7 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
      * @param settings       OS cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
-     * @throws IOException
+     * @throws IOException when failing to get mapping file
      */
     public ADIndexManagement(
         Client client,
@@ -195,7 +197,10 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
     @Override
     public void initStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(ADCommonName.DETECTION_STATE_INDEX)
+            // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
+            // anomalies found).
+            Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
+            CreateIndexRequest request = new CreateIndexRequest(ADCommonName.DETECTION_STATE_INDEX, replicationSettings)
                 .mapping(getStateMappings(), XContentType.JSON)
                 .settings(settings);
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
@@ -219,7 +224,11 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
         } catch (IOException e) {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
-        CreateIndexRequest request = new CreateIndexRequest(ADCommonName.CHECKPOINT_INDEX_NAME).mapping(mapping, XContentType.JSON);
+        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if anomalies
+        // found).
+        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
+        CreateIndexRequest request = new CreateIndexRequest(ADCommonName.CHECKPOINT_INDEX_NAME, replicationSettings)
+            .mapping(mapping, XContentType.JSON);
         choosePrimaryShards(request, true);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }

@@ -11,6 +11,7 @@
 
 package org.opensearch.forecast.indices;
 
+import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REPLICATION_TYPE;
 import static org.opensearch.forecast.constant.ForecastCommonName.DUMMY_FORECAST_RESULT_ID;
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_CHECKPOINT_INDEX_MAPPING_FILE;
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_MAX_PRIMARY_SHARDS;
@@ -19,6 +20,7 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_RESULT_
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_RESULT_HISTORY_RETENTION_PERIOD;
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_RESULT_HISTORY_ROLLOVER_PERIOD;
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_STATE_INDEX_MAPPING_FILE;
+import static org.opensearch.indices.replication.common.ReplicationType.DOCUMENT;
 
 import java.io.IOException;
 import java.util.EnumMap;
@@ -61,7 +63,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
      * @param settings       OS cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host forecast indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
-     * @throws IOException
+     * @throws IOException when failing to get mapping file
      */
     public ForecastIndexManagement(
         Client client,
@@ -177,7 +179,8 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
     @Override
     public void initStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            CreateIndexRequest request = new CreateIndexRequest(ForecastCommonName.FORECAST_STATE_INDEX)
+            Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
+            CreateIndexRequest request = new CreateIndexRequest(ForecastCommonName.FORECAST_STATE_INDEX, replicationSettings)
                 .mapping(getStateMappings(), XContentType.JSON)
                 .settings(settings);
             adminClient.indices().create(request, markMappingUpToDate(ForecastIndex.STATE, actionListener));
@@ -201,7 +204,10 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
         } catch (IOException e) {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
-        CreateIndexRequest request = new CreateIndexRequest(ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME)
+        // forecast indices need RAW (e.g., we want users to be able to consume forecast results as soon as
+        // possible and send out an alert if a threshold is breached).
+        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
+        CreateIndexRequest request = new CreateIndexRequest(ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME, replicationSettings)
             .mapping(mapping, XContentType.JSON);
         choosePrimaryShards(request, true);
         adminClient.indices().create(request, markMappingUpToDate(ForecastIndex.CHECKPOINT, actionListener));
