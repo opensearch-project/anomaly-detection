@@ -39,7 +39,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -58,6 +57,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -548,7 +548,7 @@ public class PriorityCache implements EntityCache {
     private void tryClearUpMemory() {
         try {
             if (maintenanceLock.tryLock()) {
-                threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> clearMemory());
+                threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME).execute(() -> clearMemory());
             } else {
                 threadPool.schedule(() -> {
                     try {
@@ -556,7 +556,7 @@ public class PriorityCache implements EntityCache {
                     } catch (Exception e) {
                         LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
                     }
-                }, new TimeValue(random.nextInt(90), TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+                }, new TimeValue(random.nextInt(90), TimeUnit.SECONDS), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
             }
         } finally {
             if (maintenanceLock.isHeldByCurrentThread()) {

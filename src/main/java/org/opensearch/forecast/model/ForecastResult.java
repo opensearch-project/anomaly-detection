@@ -11,7 +11,7 @@
 
 package org.opensearch.forecast.model;
 
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.forecast.constant.ForecastCommonName.DUMMY_FORECASTER_ID;
 
 import java.io.IOException;
@@ -21,10 +21,10 @@ import java.util.List;
 import java.util.Optional;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.ParseField;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;

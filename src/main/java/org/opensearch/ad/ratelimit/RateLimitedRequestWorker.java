@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.ExpiringState;
 import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
@@ -44,6 +43,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 /**
@@ -551,7 +551,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 } catch (Exception e) {
                     LOG.error(new ParameterizedMessage("Fail to process requests in [{}].", this.workerName), e);
                 }
-            }, new TimeValue(coolDownMinutes, TimeUnit.MINUTES), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+            }, new TimeValue(coolDownMinutes, TimeUnit.MINUTES), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
         } else {
             try {
                 triggerProcess();

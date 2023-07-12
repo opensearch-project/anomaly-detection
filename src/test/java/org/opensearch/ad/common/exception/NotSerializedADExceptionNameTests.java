@@ -13,7 +13,7 @@ package org.opensearch.ad.common.exception;
 
 import java.util.Optional;
 
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.common.exception.ClientException;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;

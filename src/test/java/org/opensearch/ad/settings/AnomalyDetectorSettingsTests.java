@@ -15,19 +15,19 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Before;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 @SuppressWarnings({ "rawtypes" })
 public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
-    AnomalyDetectorPlugin plugin;
+    TimeSeriesAnalyticsPlugin plugin;
 
     @Before
     public void setup() {
-        this.plugin = new AnomalyDetectorPlugin();
+        this.plugin = new TimeSeriesAnalyticsPlugin();
     }
 
     public void testAllLegacyOpenDistroSettingsReturned() {

@@ -26,13 +26,13 @@ import org.junit.Before;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.opensearch.action.admin.indices.get.GetIndexResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagementIntegTestCase;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -49,11 +49,12 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
         return true;
     }
 
-    // help register setting using AnomalyDetectorPlugin.getSettings. Otherwise, AnomalyDetectionIndices's constructor would fail due to
-    // unregistered settings like AD_RESULT_HISTORY_MAX_DOCS.
+    // help register setting using TimeSeriesAnalyticsPlugin.getSettings.
+    // Otherwise, ForecastIndexManagement's constructor would fail due to
+    // unregistered settings like FORECAST_RESULT_HISTORY_MAX_DOCS_PER_SHARD.
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
+        return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     @Before

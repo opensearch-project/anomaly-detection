@@ -46,7 +46,6 @@ import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkItemResponse.Failure;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
@@ -58,11 +57,12 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
+import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.engine.VersionConflictEngineException;
-import org.opensearch.index.shard.ShardId;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 
 import test.org.opensearch.ad.util.MLUtil;
@@ -182,7 +182,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         ExecutorService executorService = mock(ExecutorService.class);
 
         ThreadPool mockThreadPool = mock(ThreadPool.class);
-        when(mockThreadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(mockThreadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
         doAnswer(invocation -> {
             Runnable runnable = () -> {
                 try {

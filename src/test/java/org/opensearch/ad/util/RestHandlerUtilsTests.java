@@ -18,7 +18,7 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.OPENSEARCH_DASHBOA
 import java.io.IOException;
 
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;

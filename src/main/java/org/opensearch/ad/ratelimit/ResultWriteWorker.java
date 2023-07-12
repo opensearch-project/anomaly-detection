@@ -35,12 +35,12 @@ import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.threadpool.ThreadPool;
@@ -206,7 +206,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
                     .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, indexSource, indexContentType)
             ) {
                 // the first character is null. Without skipping it, we get
-                // org.opensearch.common.ParsingException: Failed to parse object: expecting token of type [START_OBJECT] but found
+                // org.opensearch.core.common.ParsingException: Failed to parse object: expecting token of type [START_OBJECT] but found
                 // [null]
                 xContentParser.nextToken();
                 return Optional.of(AnomalyResult.parse(xContentParser));

@@ -33,7 +33,6 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.feature.FeatureManager;
@@ -54,6 +53,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
@@ -169,7 +169,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
-            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
         );
 
         checkpointWriteQueue = mock(CheckpointWriteWorker.class);

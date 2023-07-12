@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
-import static org.opensearch.ad.AnomalyDetectorPlugin.LEGACY_AD_BASE;
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BASE_URI;
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE;
 
 import java.util.Arrays;
 import java.util.HashSet;

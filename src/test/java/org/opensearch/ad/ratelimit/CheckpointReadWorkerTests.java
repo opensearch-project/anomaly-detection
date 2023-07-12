@@ -46,7 +46,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -66,13 +65,14 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
@@ -529,7 +529,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     public void testRemoveUnusedQueues() {
         // do nothing when putting a request to keep queues not empty
         ExecutorService executorService = mock(ExecutorService.class);
-        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
 
         worker = new CheckpointReadWorker(
             Integer.MAX_VALUE,
@@ -575,7 +575,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     private void maintenanceSetup() {
         // do nothing when putting a request to keep queues not empty
         ExecutorService executorService = mock(ExecutorService.class);
-        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
         when(threadPool.stats()).thenReturn(new ThreadPoolStats(new ArrayList<Stats>()));
     }
 

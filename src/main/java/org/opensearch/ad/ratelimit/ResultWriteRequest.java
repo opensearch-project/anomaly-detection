@@ -14,9 +14,9 @@ package org.opensearch.ad.ratelimit;
 import java.io.IOException;
 
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 
 public class ResultWriteRequest extends QueuedRequest implements Writeable {
     private final AnomalyResult result;
