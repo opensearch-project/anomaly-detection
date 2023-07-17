@@ -43,7 +43,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
@@ -70,17 +69,18 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.NetworkExceptionHelper;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.ClientException;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
@@ -311,7 +311,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 // wrap expensive operation inside ad threadpool
-                threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
+                threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME).execute(() -> {
                     try {
 
                         Set<Entry<DiscoveryNode, Map<Entity, double[]>>> node2Entities = entityFeatures
@@ -517,6 +517,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
 
         DiscoveryNode rcfNode = asRCFNode.get();
 
+        // we have already returned listener inside shouldStart method
         if (!shouldStart(listener, adID, anomalyDetector, rcfNode.getId(), rcfModelID)) {
             return;
         }
@@ -1006,7 +1007,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                     .trainModel(
                         detector,
                         dataPoints,
-                        new ThreadedActionListener<>(LOG, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, trainModelListener, false)
+                        new ThreadedActionListener<>(
+                            LOG,
+                            threadPool,
+                            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
+                            trainModelListener,
+                            false
+                        )
                     );
             } else {
                 stateManager.setException(detectorId, new EndRunException(detectorId, "Cannot get training data", false));
@@ -1026,7 +1033,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             .runAfter(listener, coldStartFinishingCallback::close);
 
         threadPool
-            .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
+            .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
             .execute(
                 () -> featureManager
                     .getColdStartData(
@@ -1034,7 +1041,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                         new ThreadedActionListener<>(
                             LOG,
                             threadPool,
-                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
                             listenerWithReleaseCallback,
                             false
                         )

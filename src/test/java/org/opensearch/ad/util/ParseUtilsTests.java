@@ -20,9 +20,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;

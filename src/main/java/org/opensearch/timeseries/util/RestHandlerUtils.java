@@ -11,8 +11,8 @@
 
 package org.opensearch.timeseries.util;
 
-import static org.opensearch.rest.RestStatus.BAD_REQUEST;
-import static org.opensearch.rest.RestStatus.INTERNAL_SERVER_ERROR;
+import static org.opensearch.core.rest.RestStatus.BAD_REQUEST;
+import static org.opensearch.core.rest.RestStatus.INTERNAL_SERVER_ERROR;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -28,10 +28,11 @@ import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
@@ -39,7 +40,6 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.indices.InvalidIndexNameException;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;

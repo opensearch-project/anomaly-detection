@@ -43,23 +43,22 @@ import org.apache.logging.log4j.util.StackLocatorUtil;
 import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.logging.Loggers;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.http.HttpRequest;
 import org.opensearch.http.HttpResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestRequest.Method;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchModule;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.FixedExecutorBuilder;
@@ -261,10 +260,10 @@ public class AbstractTimeSeriesTest extends OpenSearchTestCase {
             name,
             new FixedExecutorBuilder(
                 Settings.EMPTY,
-                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
                 1,
                 1000,
-                "opensearch.ad." + AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+                "opensearch.ad." + TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
             )
         );
     }
@@ -446,7 +445,7 @@ public class AbstractTimeSeriesTest extends OpenSearchTestCase {
     protected void setUpADThreadPool(ThreadPool mockThreadPool) {
         ExecutorService executorService = mock(ExecutorService.class);
 
-        when(mockThreadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(mockThreadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
         doAnswer(invocation -> {
             Runnable runnable = invocation.getArgument(0);
             runnable.run();

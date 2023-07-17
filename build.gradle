@@ -199,9 +199,9 @@ ext {
 }
 
 opensearchplugin {
-    name 'opensearch-anomaly-detection'
-    description 'OpenSearch anomaly detector plugin'
-    classname 'org.opensearch.ad.AnomalyDetectorPlugin'
+    name 'opensearch-time-series-analytics'
+    description 'OpenSearch time series analytics plugin'
+    classname 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
     extendedPlugins = ['lang-painless', 'opensearch-job-scheduler']
 }
 
@@ -655,7 +655,7 @@ task release(type: Copy, group: 'build') {
 
 List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
-        'org.opensearch.ad.AnomalyDetectorPlugin',
+        'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin',
 
         // rest layer is tested in integration testing mostly, difficult to mock all of it
         'org.opensearch.ad.rest.*',

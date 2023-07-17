@@ -18,7 +18,6 @@ import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
@@ -26,6 +25,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 public abstract class ScheduledWorker<RequestType extends QueuedRequest, TransformedRequestType extends QueuedRequest> extends
     RateLimitedRequestWorker<RequestType> {
@@ -114,7 +114,7 @@ public abstract class ScheduledWorker<RequestType extends QueuedRequest, Transfo
 
     private synchronized void schedulePulling(TimeValue delay) {
         try {
-            threadPool.schedule(this::pullRequests, delay, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+            threadPool.schedule(this::pullRequests, delay, TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
         } catch (Exception e) {
             LOG.error("Fail to schedule cold entity pulling", e);
         }

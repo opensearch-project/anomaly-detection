@@ -34,9 +34,6 @@ public class ADCommonName {
     // Anomaly Detector name for X-Opaque-Id header
     // ======================================
     public static final String ANOMALY_DETECTOR = "[Anomaly Detector]";
-    public static final String AD_PLUGIN_NAME = "opensearch-anomaly-detection";
-    public static final String AD_PLUGIN_NAME_FOR_TEST = "org.opensearch.ad.AnomalyDetectorPlugin";
-    public static final String AD_PLUGIN_VERSION_FOR_TEST = "NA";
 
     // ======================================
     // Ultrawarm node attributes

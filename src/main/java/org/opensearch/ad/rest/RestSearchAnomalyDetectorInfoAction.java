@@ -20,7 +20,6 @@ import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.SearchAnomalyDetectorInfoAction;
@@ -29,6 +28,7 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.collect.ImmutableList;
 
@@ -71,16 +71,16 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
                 // get the count of number of detectors
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, COUNT),
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, COUNT),
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, COUNT)
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, COUNT)
                 ),
                 // get if a detector name exists with name
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, MATCH),
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, MATCH),
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, MATCH)
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, MATCH)
                 )
             );
     }

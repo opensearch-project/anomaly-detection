@@ -14,7 +14,7 @@ package org.opensearch.ad.model;
 import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetectorType.MULTI_ENTITY;
 import static org.opensearch.ad.model.AnomalyDetectorType.SINGLE_ENTITY;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 
 import java.io.IOException;
@@ -26,12 +26,12 @@ import java.util.Map;
 
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADNumericSetting;
-import org.opensearch.common.ParsingException;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.ParseField;
+import org.opensearch.core.common.ParsingException;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;

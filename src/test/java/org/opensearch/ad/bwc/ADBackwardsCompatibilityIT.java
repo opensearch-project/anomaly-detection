@@ -48,7 +48,7 @@ import org.opensearch.ad.rest.ADRestTestUtils;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.util.RestHandlerUtils;

@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.RestHandlerUtils.TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
@@ -36,13 +35,14 @@ import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.ValidationAspect;
 
@@ -75,11 +75,11 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             .of(
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
                 ),
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
+                    String.format(Locale.ROOT, "%s/%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
                 )
             );
     }

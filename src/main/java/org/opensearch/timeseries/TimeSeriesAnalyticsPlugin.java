@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
 import static java.util.Collections.unmodifiableList;
 
@@ -34,6 +34,11 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.SpecialPermission;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
+import org.opensearch.ad.AnomalyDetectorJobRunner;
+import org.opensearch.ad.AnomalyDetectorRunner;
+import org.opensearch.ad.ExecuteADResultResponseRecorder;
+import org.opensearch.ad.MemoryTracker;
+import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -161,7 +166,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
@@ -169,9 +173,10 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
-import org.opensearch.common.xcontent.XContentParserUtils;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.core.xcontent.XContentParserUtils;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.forecast.model.Forecaster;
@@ -216,10 +221,11 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of AD plugin.
  */
-public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
 
-    private static final Logger LOG = LogManager.getLogger(AnomalyDetectorPlugin.class);
+    private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
+    // AD constants
     public static final String LEGACY_AD_BASE = "/_opendistro/_anomaly_detection";
     public static final String LEGACY_OPENDISTRO_AD_BASE_URI = LEGACY_AD_BASE + "/detectors";
     public static final String AD_BASE_URI = "/_plugins/_anomaly_detection";
@@ -227,7 +233,16 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
     public static final String AD_THREAD_POOL_PREFIX = "opensearch.ad.";
     public static final String AD_THREAD_POOL_NAME = "ad-threadpool";
     public static final String AD_BATCH_TASK_THREAD_POOL_NAME = "ad-batch-task-threadpool";
-    public static final String AD_JOB_TYPE = "opendistro_anomaly_detector";
+
+    // forecasting constants
+    public static final String FORECAST_BASE_URI = "/_plugins/_forecast";
+    public static final String FORECAST_FORECASTERS_URI = FORECAST_BASE_URI + "/forecasters";
+    public static final String FORECAST_THREAD_POOL_PREFIX = "opensearch.forecast.";
+    public static final String FORECAST_THREAD_POOL_NAME = "forecast-threadpool";
+    public static final String FORECAST_BATCH_TASK_THREAD_POOL_NAME = "forecast-batch-task-threadpool";
+
+    public static final String TIME_SERIES_JOB_TYPE = "opensearch_time_series_analytics";
+
     private static Gson gson;
     private ADIndexManagement anomalyDetectionIndices;
     private AnomalyDetectorRunner anomalyDetectorRunner;
@@ -250,10 +265,10 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
         SpecialPermission.check();
         // gson intialization requires "java.lang.RuntimePermission" "accessDeclaredMembers" to
         // initialize ConstructorConstructor
-        AccessController.doPrivileged((PrivilegedAction<Void>) AnomalyDetectorPlugin::initGson);
+        AccessController.doPrivileged((PrivilegedAction<Void>) TimeSeriesAnalyticsPlugin::initGson);
     }
 
-    public AnomalyDetectorPlugin() {}
+    public TimeSeriesAnalyticsPlugin() {}
 
     @Override
     public List<RestHandler> getRestHandlers(
@@ -1029,7 +1044,7 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
 
     @Override
     public String getJobType() {
-        return AD_JOB_TYPE;
+        return TIME_SERIES_JOB_TYPE;
     }
 
     @Override

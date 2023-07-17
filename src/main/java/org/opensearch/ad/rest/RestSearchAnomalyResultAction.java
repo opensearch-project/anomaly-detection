@@ -21,7 +21,6 @@ import java.util.Locale;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.ADEnabledSetting;
@@ -29,6 +28,7 @@ import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.collect.ImmutableList;
 
@@ -36,8 +36,8 @@ import com.google.common.collect.ImmutableList;
  * This class consists of the REST handler to search anomaly results.
  */
 public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyResult> {
-    private static final String LEGACY_URL_PATH = AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
-    private static final String URL_PATH = AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/results/_search";
+    private static final String LEGACY_URL_PATH = TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
+    private static final String URL_PATH = TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI + "/results/_search";
     public static final String SEARCH_ANOMALY_RESULT_ACTION = "search_anomaly_result";
 
     public RestSearchAnomalyResultAction() {

@@ -50,6 +50,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.ImmutableList;
@@ -248,7 +249,7 @@ public class HashRingTests extends ADUnitTestCase {
         plugins
             .add(
                 new PluginInfo(
-                    ADCommonName.AD_PLUGIN_NAME,
+                    CommonName.TIME_SERIES_PLUGIN_NAME,
                     randomAlphaOfLengthBetween(3, 10),
                     version,
                     Version.CURRENT,

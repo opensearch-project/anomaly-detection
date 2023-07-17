@@ -26,7 +26,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.timeseries.TestHelpers;

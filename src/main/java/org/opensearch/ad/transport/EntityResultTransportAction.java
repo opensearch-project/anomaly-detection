@@ -27,7 +27,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
@@ -52,6 +51,7 @@ import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -127,7 +127,9 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     @Override
     protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
-            threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
+            threadPool
+                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
+                .execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
             listener.onFailure(new LimitExceededException(request.getId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }

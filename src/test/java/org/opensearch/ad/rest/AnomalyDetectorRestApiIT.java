@@ -31,7 +31,6 @@ import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
@@ -45,11 +44,12 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
@@ -481,14 +481,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
         Exception ex = expectThrows(
             ResponseException.class,
-            () -> TestHelpers.makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null)
+            () -> TestHelpers.makeRequest(client(), "GET", TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null)
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
         Response statsResponse = TestHelpers
-            .makeRequest(client(), "GET", AnomalyDetectorPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
+            .makeRequest(client(), "GET", TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
 
         assertEquals("Get stats failed", RestStatus.OK, TestHelpers.restStatus(statsResponse));
     }

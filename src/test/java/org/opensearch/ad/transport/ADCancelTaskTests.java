@@ -22,8 +22,8 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.NamedWriteableAwareStreamInput;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.StreamInput;
 
 import com.google.common.collect.ImmutableList;
 

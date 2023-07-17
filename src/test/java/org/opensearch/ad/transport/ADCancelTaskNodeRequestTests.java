@@ -16,7 +16,7 @@ import java.io.IOException;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.mock.transport.MockADCancelTaskNodeRequest_1_0;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamInput;
 
 public class ADCancelTaskNodeRequestTests extends ADUnitTestCase {
 

@@ -31,7 +31,7 @@ public final class ForecastSettings {
     // ======================================
     // restful apis
     // ======================================
-    public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
+    public static final Setting<TimeValue> FORECAST_REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
             "plugins.forecast.request_timeout",
             TimeValue.timeValueSeconds(10),
@@ -113,10 +113,31 @@ public final class ForecastSettings {
     public static final Setting<Integer> FORECAST_MAX_PRIMARY_SHARDS = Setting
         .intSetting("plugins.forecast.max_primary_shards", 20, 0, 200, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
+    // saving checkpoint every 12 hours.
+    // To support 1 million entities in 36 data nodes, each node has roughly 28K models.
+    // In each hour, we roughly need to save 2400 models. Since each model saving can
+    // take about 1 seconds (default value of FORECAST_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS)
+    // we can use up to 2400 seconds to finish saving checkpoints.
+    public static final Setting<TimeValue> FORECAST_CHECKPOINT_SAVING_FREQ = Setting
+        .positiveTimeSetting(
+            "plugins.forecast.checkpoint_saving_freq",
+            TimeValue.timeValueHours(12),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<TimeValue> FORECAST_CHECKPOINT_TTL = Setting
+        .positiveTimeSetting(
+            "plugins.forecast.checkpoint_ttl",
+            TimeValue.timeValueDays(7),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
     // ======================================
     // Security
     // ======================================
-    public static final Setting<Boolean> FILTER_BY_BACKEND_ROLES = Setting
+    public static final Setting<Boolean> FORECAST_FILTER_BY_BACKEND_ROLES = Setting
         .boolSetting("plugins.forecast.filter_by_backend_roles", false, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // ======================================
@@ -217,6 +238,62 @@ public final class ForecastSettings {
             Setting.Property.Dynamic
         );
 
+    // the percentage of heap usage allowed for queues holding large requests
+    // set it to 0 to disable the queue
+    public static final Setting<Float> FORECAST_CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.forecast.checkpoint_write_queue_max_heap_percent",
+            0.01f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Float> FORECAST_CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.forecast.checkpoint_maintain_queue_max_heap_percent",
+            0.001f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Float> FORECAST_COLD_START_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.forecast.cold_start_queue_max_heap_percent",
+            0.001f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Float> FORECAST_RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.forecast.result_write_queue_max_heap_percent",
+            0.01f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Float> FORECAST_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.forecast.checkpoint_read_queue_max_heap_percent",
+            0.001f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    public static final Setting<Float> FORECAST_COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT = Setting
+        .floatSetting(
+            "plugins.forecast.cold_entity_queue_max_heap_percent",
+            0.001f,
+            0.0f,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
     // ======================================
     // fault tolerance
     // ======================================
@@ -239,27 +316,28 @@ public final class ForecastSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Integer> FORECAST_MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
-        .intSetting("plugins.forecast.max_retry_for_unresponsive_node", 5, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
+    public static final Setting<Integer> FORECAST_MAX_RETRY_FOR_END_RUN_EXCEPTION = Setting
+        .intSetting("plugins.forecast.max_retry_for_end_run_exception", 6, 0, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // ======================================
     // cache related parameters
     // ======================================
     /*
      * Opensearch-only setting
-     * Each detector has its dedicated cache that stores ten entities' states per node.
-     * A detector's hottest entities load their states into the dedicated cache.
-     * Other detectors cannot use space reserved by a detector's dedicated cache.
+     * Each forecaster has its dedicated cache that stores ten entities' states per node for HC
+     * and one entity' state per node for single-stream forecaster.
+     * A forecaster's hottest entities load their states into the dedicated cache.
+     * Other forecasters cannot use space reserved by a forecaster's dedicated cache.
      * DEDICATED_CACHE_SIZE is a setting to make dedicated cache's size flexible.
      * When that setting is changed, if the size decreases, we will release memory
-     * if required (e.g., when a user also decreased AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-     * the max memory percentage that AD can use);
+     * if required (e.g., when a user also decreased ForecastSettings.FORECAST_MODEL_MAX_SIZE_PERCENTAGE,
+     * the max memory percentage that forecasting plugin can use);
      * if the size increases, we may reject the setting change if we cannot fulfill
-     * that request (e.g., when it will uses more memory than allowed for AD).
+     * that request (e.g., when it will uses more memory than allowed for Forecasting).
      *
      * With compact rcf, rcf with 30 trees and shingle size 4 is of 500KB.
      * The recommended max heap size is 32 GB. Even if users use all of the heap
-     * for AD, the max number of entity model cannot surpass
+     * for Forecasting, the max number of entity model cannot surpass
      * 3.2 GB/500KB = 3.2 * 10^10 / 5*10^5 = 6.4 * 10 ^4
      * where 3.2 GB is from 10% memory limit of AD plugin.
      * That's why I am using 60_000 as the max limit.
@@ -268,6 +346,33 @@ public final class ForecastSettings {
         .intSetting("plugins.forecast.dedicated_cache_size", 10, 0, 60_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     public static final Setting<Double> FORECAST_MODEL_MAX_SIZE_PERCENTAGE = Setting
-        .doubleSetting("plugins.forecast.model_max_size_percent", 0.1, 0, 0.7, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .doubleSetting("plugins.forecast.model_max_size_percent", 0.1, 0, 0.9, Setting.Property.NodeScope, Setting.Property.Dynamic);
+
+    // ======================================
+    // pagination setting
+    // ======================================
+    // pagination size
+    public static final Setting<Integer> FORECAST_PAGE_SIZE = Setting
+        .intSetting("plugins.forecast.page_size", 1_000, 0, 10_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
+
+    // Increase the value will adding pressure to indexing anomaly results and our feature query
+    // OpenSearch-only setting as previous the legacy default is too low (1000)
+    public static final Setting<Integer> FORECAST_MAX_ENTITIES_PER_INTERVAL = Setting
+        .intSetting(
+            "plugins.forecast.max_entities_per_interval",
+            1_000_000,
+            0,
+            2_000_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    // ======================================
+    // stats/profile API setting
+    // ======================================
+    // the max number of models to return per node.
+    // the setting is used to limit resource usage due to showing models
+    public static final Setting<Integer> FORECAST_MAX_MODEL_SIZE_PER_NODE = Setting
+        .intSetting("plugins.forecast.max_model_size_per_node", 100, 1, 10_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
 }

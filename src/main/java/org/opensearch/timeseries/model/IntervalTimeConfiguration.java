@@ -18,8 +18,8 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.annotation.Generated;
 

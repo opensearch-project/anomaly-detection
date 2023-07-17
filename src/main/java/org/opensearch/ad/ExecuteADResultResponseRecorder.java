@@ -45,6 +45,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -164,7 +165,8 @@ public class ExecuteADResultResponseRecorder {
                 // real time init progress is 0 may mean this is a newly started detector
                 // Delay real time cache update by one minute. If we are in init status, the delay may give the model training time to
                 // finish. We can change the detector running immediately instead of waiting for the next interval.
-                threadPool.schedule(profileHCInitProgress, new TimeValue(60, TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+                threadPool
+                    .schedule(profileHCInitProgress, new TimeValue(60, TimeUnit.SECONDS), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
             } else {
                 profileHCInitProgress.run();
             }
@@ -317,7 +319,7 @@ public class ExecuteADResultResponseRecorder {
                         log.error("Fail to execute RCFRollingAction", e);
                         updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
                     }));
-                }, new TimeValue(60, TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+                }, new TimeValue(60, TimeUnit.SECONDS), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
             } else {
                 updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
             }

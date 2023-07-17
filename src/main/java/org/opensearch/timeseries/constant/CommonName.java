@@ -106,4 +106,11 @@ public class CommonName {
     public static final String MODEL_ID_KEY = "model_id";
     public static final String TASK_ID_FIELD = "task_id";
     public static final String ENTITY_ID_FIELD = "entity_id";
+
+    // ======================================
+    // plugin info
+    // ======================================
+    public static final String TIME_SERIES_PLUGIN_NAME = "opensearch-time-series-analytics";
+    public static final String TIME_SERIES_PLUGIN_NAME_FOR_TEST = "org.opensearch.timeseries.TimeSeriesAnalyticsPlugin";
+    public static final String TIME_SERIES_PLUGIN_VERSION_FOR_TEST = "NA";
 }

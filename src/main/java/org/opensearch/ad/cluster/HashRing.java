@@ -11,8 +11,6 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.ADCommonName.AD_PLUGIN_NAME;
-import static org.opensearch.ad.constant.ADCommonName.AD_PLUGIN_NAME_FOR_TEST;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
 
 import java.time.Clock;
@@ -53,6 +51,7 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.Sets;
@@ -269,7 +268,8 @@ public class HashRing {
                         }
                         TreeMap<Integer, DiscoveryNode> circle = null;
                         for (PluginInfo pluginInfo : plugins.getPluginInfos()) {
-                            if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
+                            if (CommonName.TIME_SERIES_PLUGIN_NAME.equals(pluginInfo.getName())
+                                || CommonName.TIME_SERIES_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
                                 Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
                                 boolean eligibleNode = nodeFilter.isEligibleNode(curNode);
                                 if (eligibleNode) {

@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.task;
 
-import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.ad.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.model.ADTask.CURRENT_PIECE_FIELD;
@@ -28,6 +27,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIE
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 

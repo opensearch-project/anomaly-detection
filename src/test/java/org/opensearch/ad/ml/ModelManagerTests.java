@@ -55,7 +55,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
@@ -73,6 +72,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
@@ -211,7 +211,7 @@ public class ModelManagerTests {
         when(rcf.process(any(), anyLong())).thenReturn(descriptor);
 
         ExecutorService executorService = mock(ExecutorService.class);
-        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
         doAnswer(invocation -> {
             Runnable runnable = invocation.getArgument(0);
             runnable.run();
@@ -929,7 +929,7 @@ public class ModelManagerTests {
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
             threadPool,
-            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
         );
 
         CheckpointWriteWorker checkpointWriteQueue = mock(CheckpointWriteWorker.class);

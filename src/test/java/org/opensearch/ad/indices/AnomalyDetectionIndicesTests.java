@@ -16,12 +16,12 @@ import java.util.Collection;
 import java.util.Collections;
 
 import org.junit.Before;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.indices.IndexManagementIntegTestCase;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -33,11 +33,12 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
     private Settings settings;
     private DiscoveryNodeFilterer nodeFilter;
 
-    // help register setting using AnomalyDetectorPlugin.getSettings. Otherwise, AnomalyDetectionIndices's constructor would fail due to
-    // unregistered settings like AD_RESULT_HISTORY_MAX_DOCS.
+    // help register setting using TimeSeriesAnalyticsPlugin.getSettings.
+    // Otherwise, ADIndexManagement's constructor would fail due to
+    // unregistered settings like AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
+        return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     @Before

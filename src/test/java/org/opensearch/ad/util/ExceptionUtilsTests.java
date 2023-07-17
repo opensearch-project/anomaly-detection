@@ -14,8 +14,8 @@ package org.opensearch.ad.util;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.index.shard.ShardId;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 

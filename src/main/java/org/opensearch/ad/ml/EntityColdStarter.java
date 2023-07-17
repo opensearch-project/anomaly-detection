@@ -37,7 +37,6 @@ import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.CleanState;
 import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.NodeStateManager;
@@ -51,6 +50,7 @@ import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.dataprocessor.Imputer;
@@ -310,7 +310,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             });
 
             threadPool
-                .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
+                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
                 .execute(
                     () -> getEntityColdStartData(
                         detectorId,
@@ -318,7 +318,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                         new ThreadedActionListener<>(
                             logger,
                             threadPool,
-                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
                             coldStartCallBack,
                             false
                         )
@@ -444,7 +444,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                 .getEntityMinDataTime(
                     detector,
                     entity,
-                    new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, minTimeListener, false)
+                    new ThreadedActionListener<>(logger, threadPool, TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME, minTimeListener, false)
                 );
 
         }, listener::onFailure);
@@ -452,7 +452,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         nodeStateManager
             .getAnomalyDetector(
                 detectorId,
-                new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, getDetectorListener, false)
+                new ThreadedActionListener<>(logger, threadPool, TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME, getDetectorListener, false)
             );
     }
 
@@ -559,7 +559,13 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                     // metric is ill-formed, but that cannot be solved by cold-start strategy of the AD plugin — if we attempt to do
                     // that, we will have issues with legitimate interpretations of 0.
                     true,
-                    new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, getFeaturelistener, false)
+                    new ThreadedActionListener<>(
+                        logger,
+                        threadPool,
+                        TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
+                        getFeaturelistener,
+                        false
+                    )
                 );
         } catch (Exception e) {
             listener.onFailure(e);

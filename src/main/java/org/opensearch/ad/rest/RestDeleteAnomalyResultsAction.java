@@ -20,19 +20,19 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.collect.ImmutableList;
 
@@ -85,6 +85,6 @@ public class RestDeleteAnomalyResultsAction extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList.of(new Route(RestRequest.Method.DELETE, AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI + "/results"));
+        return ImmutableList.of(new Route(RestRequest.Method.DELETE, TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI + "/results"));
     }
 }

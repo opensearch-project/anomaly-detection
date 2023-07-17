@@ -22,7 +22,6 @@ import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.ADEnabledSetting;
@@ -34,6 +33,7 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
 
@@ -88,40 +88,49 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                 // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
                 ),
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
                 )
             );
     }
 
     @Override
     public List<ReplacedRoute> replacedRoutes() {
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
-        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        String path = String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         return ImmutableList
             .of(
                 new ReplacedRoute(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path),
                 new ReplacedRoute(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path),
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE)
                 ),
                 // types is a profile names. See a complete list of supported profiles names in
                 // org.opensearch.ad.model.ProfileName.
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s/{%s}",
+                            TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI,
+                            DETECTOR_ID,
+                            PROFILE,
+                            TYPE
+                        ),
                     RestRequest.Method.GET,
                     String
                         .format(
                             Locale.ROOT,
                             "%s/{%s}/%s/{%s}",
-                            AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
+                            TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
                             DETECTOR_ID,
                             PROFILE,
                             TYPE

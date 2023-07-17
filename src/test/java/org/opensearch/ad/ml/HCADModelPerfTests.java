@@ -34,7 +34,6 @@ import org.apache.lucene.tests.util.TimeUnits;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SearchFeatureDao;
@@ -44,6 +43,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -126,7 +126,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
                 AnomalyDetectorSettings.HOURLY_MAINTENANCE,
                 threadPool,
-                AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
             );
 
             entityColdStarter = new EntityColdStarter(
