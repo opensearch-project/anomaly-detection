@@ -38,13 +38,14 @@ import org.opensearch.ad.transport.ProfileRequest;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
@@ -52,6 +53,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class ExecuteADResultResponseRecorder {
     private static final Logger log = LogManager.getLogger(ExecuteADResultResponseRecorder.class);
@@ -337,12 +339,12 @@ public class ExecuteADResultResponseRecorder {
         String error,
         ActionListener<Long> listener
     ) {
-        nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+        nodeStateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
                 listener.onFailure(new TimeSeriesException(detectorId, "fail to get detector"));
                 return;
             }
-            nodeStateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(jobOptional -> {
+            nodeStateManager.getJob(detectorId, ActionListener.wrap(jobOptional -> {
                 if (!jobOptional.isPresent()) {
                     listener.onFailure(new TimeSeriesException(detectorId, "fail to get job"));
                     return;
@@ -350,7 +352,7 @@ public class ExecuteADResultResponseRecorder {
 
                 ProfileUtil
                     .confirmDetectorRealtimeInitStatus(
-                        detectorOptional.get(),
+                        (AnomalyDetector) detectorOptional.get(),
                         jobOptional.get().getEnabledTime().toEpochMilli(),
                         client,
                         ActionListener.wrap(searchResponse -> {

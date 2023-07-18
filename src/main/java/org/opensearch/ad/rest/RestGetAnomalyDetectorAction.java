@@ -66,7 +66,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         boolean returnJob = request.paramAsBoolean("job", false);
         boolean returnTask = request.paramAsBoolean("task", false);
         boolean all = request.paramAsBoolean("_all", false);
-        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
+        GetAnomalyDetectorRequest getConfigRequest = new GetAnomalyDetectorRequest(
             detectorId,
             RestActions.parseVersion(request),
             returnJob,
@@ -77,8 +77,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             buildEntity(request, detectorId)
         );
 
-        return channel -> client
-            .execute(GetAnomalyDetectorAction.INSTANCE, getAnomalyDetectorRequest, new RestToXContentListener<>(channel));
+        return channel -> client.execute(GetAnomalyDetectorAction.INSTANCE, getConfigRequest, new RestToXContentListener<>(channel));
     }
 
     @Override

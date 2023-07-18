@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.timeseries.model;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -31,8 +31,6 @@ import org.opensearch.jobscheduler.spi.schedule.CronSchedule;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.schedule.ScheduleParser;
-import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
@@ -40,7 +38,7 @@ import com.google.common.base.Objects;
 /**
  * Anomaly detector job.
  */
-public class AnomalyDetectorJob implements Writeable, ToXContentObject, ScheduledJobParameter {
+public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
     enum ScheduleType {
         CRON,
         INTERVAL
@@ -48,7 +46,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetectorJob";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
-        AnomalyDetectorJob.class,
+        Job.class,
         new ParseField(PARSE_FIELD_NAME),
         it -> parse(it)
     );
@@ -76,7 +74,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
     private final User user;
     private String resultIndex;
 
-    public AnomalyDetectorJob(
+    public Job(
         String name,
         Schedule schedule,
         TimeConfiguration windowDelay,
@@ -100,9 +98,9 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         this.resultIndex = resultIndex;
     }
 
-    public AnomalyDetectorJob(StreamInput input) throws IOException {
+    public Job(StreamInput input) throws IOException {
         name = input.readString();
-        if (input.readEnum(AnomalyDetectorJob.ScheduleType.class) == ScheduleType.CRON) {
+        if (input.readEnum(Job.ScheduleType.class) == ScheduleType.CRON) {
             schedule = new CronSchedule(input);
         } else {
             schedule = new IntervalSchedule(input);
@@ -168,7 +166,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
         output.writeOptionalString(resultIndex);
     }
 
-    public static AnomalyDetectorJob parse(XContentParser parser) throws IOException {
+    public static Job parse(XContentParser parser) throws IOException {
         String name = null;
         Schedule schedule = null;
         TimeConfiguration windowDelay = null;
@@ -222,7 +220,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
                     break;
             }
         }
-        return new AnomalyDetectorJob(
+        return new Job(
             name,
             schedule,
             windowDelay,
@@ -242,7 +240,7 @@ public class AnomalyDetectorJob implements Writeable, ToXContentObject, Schedule
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        AnomalyDetectorJob that = (AnomalyDetectorJob) o;
+        Job that = (Job) o;
         return Objects.equal(getName(), that.getName())
             && Objects.equal(getSchedule(), that.getSchedule())
             && Objects.equal(isEnabled(), that.isEnabled())

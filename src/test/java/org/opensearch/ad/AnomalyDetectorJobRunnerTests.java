@@ -56,7 +56,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskCacheManager;
@@ -64,7 +63,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -85,12 +83,16 @@ import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.ImmutableList;
@@ -109,7 +111,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
     private LockService lockService;
 
     @Mock
-    private AnomalyDetectorJob jobParameter;
+    private Job jobParameter;
 
     @Mock
     private JobExecutionContext context;
@@ -194,7 +196,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             if (request.index().equals(CommonName.JOB_INDEX)) {
-                AnomalyDetectorJob job = TestHelpers.randomAnomalyDetectorJob(true);
+                Job job = TestHelpers.randomAnomalyDetectorJob(true);
                 listener.onResponse(TestHelpers.createGetResponse(job, randomAlphaOfLength(5), CommonName.JOB_INDEX));
             }
             return null;
@@ -227,10 +229,10 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         detector = TestHelpers.randomAnomalyDetectorWithEmptyFeature();
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         runner.setNodeStateManager(nodeStateManager);
 
         recorder = new ExecuteADResultResponseRecorder(
@@ -392,7 +394,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
                     jobExists,
                     BytesReference
                         .bytes(
-                            new AnomalyDetectorJob(
+                            new Job(
                                 jobParameter.getName(),
                                 jobParameter.getSchedule(),
                                 jobParameter.getWindowDelay(),
@@ -575,10 +577,10 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         Instant executionStartTime = confirmInitializedSetup();
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
 
@@ -586,8 +588,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
         verify(adTaskCacheManager, times(1)).hasQueriedResultIndex(anyString());
-        verify(nodeStateManager, times(1)).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        verify(nodeStateManager, times(0)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        verify(nodeStateManager, times(0)).getJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
         assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get detector"));
@@ -598,16 +600,16 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         Instant executionStartTime = confirmInitializedSetup();
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetectorJob>> listener = invocation.getArgument(1);
+            ActionListener<Optional<Job>> listener = invocation.getArgument(1);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(nodeStateManager).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getJob(any(String.class), any(ActionListener.class));
 
         LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
 
@@ -615,8 +617,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
         verify(adTaskCacheManager, times(1)).hasQueriedResultIndex(anyString());
-        verify(nodeStateManager, times(1)).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        verify(nodeStateManager, times(1)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
         assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get job"));
@@ -627,10 +629,10 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         Instant executionStartTime = confirmInitializedSetup();
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
 
@@ -638,8 +640,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
         verify(adTaskCacheManager, times(1)).hasQueriedResultIndex(anyString());
-        verify(nodeStateManager, times(1)).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        verify(nodeStateManager, times(0)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        verify(nodeStateManager, times(0)).getJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
         assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get detector"));
@@ -650,16 +652,16 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         Instant executionStartTime = confirmInitializedSetup();
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetectorJob>> listener = invocation.getArgument(1);
+            ActionListener<Optional<Job>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(nodeStateManager).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getJob(any(String.class), any(ActionListener.class));
 
         LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
 
@@ -667,8 +669,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
         verify(adTaskCacheManager, times(1)).hasQueriedResultIndex(anyString());
-        verify(nodeStateManager, times(1)).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        verify(nodeStateManager, times(1)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getJob(any(String.class), any(ActionListener.class));
         verify(adTaskManager, times(1)).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
         assertEquals(1, testAppender.countMessage("Fail to confirm rcf update"));
         assertTrue(testAppender.containExceptionMsg(TimeSeriesException.class, "fail to get job"));
@@ -685,16 +687,16 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         Instant executionStartTime = confirmInitializedSetup();
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetectorJob>> listener = invocation.getArgument(1);
+            ActionListener<Optional<Job>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null)));
             return null;
-        }).when(nodeStateManager).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getJob(any(String.class), any(ActionListener.class));
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -755,9 +757,9 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         runner.runAdJob(jobParameter, lockService, lock, Instant.now().minusSeconds(60), executionStartTime, recorder, detector);
 
         verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
+        verify(nodeStateManager, times(1)).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        verify(nodeStateManager, times(1)).getJob(any(String.class), any(ActionListener.class));
         verify(client, times(1)).search(any(), any());
-        verify(nodeStateManager, times(1)).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        verify(nodeStateManager, times(1)).getAnomalyDetectorJob(any(String.class), any(ActionListener.class));
 
         ArgumentCaptor<Long> totalUpdates = ArgumentCaptor.forClass(Long.class);
         verify(adTaskManager, times(1))

@@ -46,13 +46,11 @@ import org.opensearch.ad.EntityProfileRunner;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
@@ -68,8 +66,10 @@ import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -143,7 +143,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                 (anomalyDetector) -> getExecute(request, listener),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry,
+                AnomalyDetector.class
             );
         } catch (Exception e) {
             LOG.error(e);
@@ -296,7 +297,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
             public void onResponse(MultiGetResponse multiGetResponse) {
                 MultiGetItemResponse[] responses = multiGetResponse.getResponses();
                 AnomalyDetector detector = null;
-                AnomalyDetectorJob adJob = null;
+                Job adJob = null;
                 String id = null;
                 long version = 0;
                 long seqNo = 0;
@@ -336,7 +337,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                                     .createXContentParserFromRegistry(xContentRegistry, response.getResponse().getSourceAsBytesRef())
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                                adJob = AnomalyDetectorJob.parse(parser);
+                                adJob = Job.parse(parser);
                             } catch (Exception e) {
                                 String message = "Failed to parse detector job " + detectorId;
                                 listener.onFailure(buildInternalServerErrorResponse(e, message));

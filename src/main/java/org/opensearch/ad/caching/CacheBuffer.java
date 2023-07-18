@@ -25,7 +25,6 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.ExpiringState;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.MemoryTracker.Origin;
 import org.opensearch.ad.ml.EntityModel;
@@ -36,6 +35,7 @@ import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.util.DateUtils;
+import org.opensearch.timeseries.ExpiringState;
 
 /**
  * We use a layered cache to manage active entities’ states.  We have a two-level

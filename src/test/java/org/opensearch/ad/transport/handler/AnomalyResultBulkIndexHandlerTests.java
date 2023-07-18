@@ -37,9 +37,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -48,6 +46,7 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.util.ClientUtil;
 
 import com.google.common.collect.ImmutableList;
 
@@ -66,9 +65,8 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
         client = mock(Client.class);
         Settings settings = Settings.EMPTY;
         Clock clock = mock(Clock.class);
-        Throttler throttler = new Throttler(clock);
         ThreadPool threadpool = mock(ThreadPool.class);
-        ClientUtil clientUtil = new ClientUtil(Settings.EMPTY, client, throttler, threadpool);
+        ClientUtil clientUtil = new ClientUtil(client);
         indexUtils = mock(IndexUtils.class);
         ClusterService clusterService = mock(ClusterService.class);
         ThreadPool threadPool = mock(ThreadPool.class);

@@ -21,9 +21,9 @@ public class TimeSeriesSettings {
     // the larger shingle size, the harder to fill in a complete shingle
     public static final int MAX_SHINGLE_SIZE = 60;
 
-    public static final String CONFIG_INDEX_MAPPING_FILE = "mappings/anomaly-detectors.json";
+    public static final String CONFIG_INDEX_MAPPING_FILE = "mappings/config.json";
 
-    public static final String JOBS_INDEX_MAPPING_FILE = "mappings/anomaly-detector-jobs.json";
+    public static final String JOBS_INDEX_MAPPING_FILE = "mappings/job.json";
 
     // 100,000 insertions costs roughly 1KB.
     public static final int DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION = 100_000;
@@ -51,6 +51,10 @@ public class TimeSeriesSettings {
     public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.9f;
 
     public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
+
+    // Maximum number of deleted tasks can keep in cache.
+    public static final Setting<Integer> MAX_CACHED_DELETED_TASKS = Setting
+        .intSetting("plugins.timeseries.max_cached_deleted_tasks", 1000, 1, 10_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // ======================================
     // Checkpoint setting
@@ -185,7 +189,12 @@ public class TimeSeriesSettings {
         );
 
     // ======================================
-    // AD Index setting
+    // Index setting
     // ======================================
     public static int MAX_UPDATE_RETRY_TIMES = 10_000;
+
+    // ======================================
+    // JOB
+    // ======================================
+    public static final long DEFAULT_JOB_LOC_DURATION_SECONDS = 60;
 }

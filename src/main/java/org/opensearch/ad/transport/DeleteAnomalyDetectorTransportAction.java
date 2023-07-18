@@ -34,7 +34,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.model.AnomalyDetectorJob;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -50,6 +50,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -119,7 +120,8 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                 }, listener),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry,
+                AnomalyDetector.class
             );
         } catch (Exception e) {
             LOG.error(e);
@@ -214,7 +216,7 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
                         .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
+                    Job adJob = Job.parse(parser);
                     if (adJob.isEnabled()) {
                         listener.onFailure(new OpenSearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
                         return;

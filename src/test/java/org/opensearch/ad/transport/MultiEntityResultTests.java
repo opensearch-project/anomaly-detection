@@ -24,9 +24,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
 
 import java.io.IOException;
@@ -69,7 +67,6 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -90,9 +87,6 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.ClientUtil;
-import org.opensearch.ad.util.SecurityClientUtil;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -115,6 +109,8 @@ import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
@@ -123,7 +119,10 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportInterceptor;
@@ -201,12 +200,12 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         stateManager = mock(NodeStateManager.class);
         // make sure parameters are not null, otherwise this mock won't get invoked
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(stateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
+        }).when(stateManager).getConfig(anyString(), eq(AnalysisType.AD), any(ActionListener.class));
 
-        settings = Settings.builder().put(AnomalyDetectorSettings.COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
+        settings = Settings.builder().put(AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
 
         // make sure end time is larger enough than Clock.systemUTC().millis() to get PageIterator.hasNext() to pass
         request = new AnomalyResultRequest(detectorId, 100, Clock.systemUTC().millis() + 100_000);
@@ -230,8 +229,8 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         Set<Setting<?>> anomalyResultSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         anomalyResultSetting.add(MAX_ENTITIES_PER_QUERY);
         anomalyResultSetting.add(PAGE_SIZE);
-        anomalyResultSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
-        anomalyResultSetting.add(BACKOFF_MINUTES);
+        anomalyResultSetting.add(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE);
+        anomalyResultSetting.add(TimeSeriesSettings.BACKOFF_MINUTES);
         ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, anomalyResultSetting);
 
         DiscoveryNode discoveryNode = new DiscoveryNode(
@@ -440,10 +439,12 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             client,
             xContentRegistry(),
             settings,
-            new ClientUtil(settings, client, new Throttler(mock(Clock.class)), threadPool),
+            new ClientUtil(client),
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
+            clusterService,
+            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+            TimeSeriesSettings.BACKOFF_MINUTES
         );
 
         clientUtil = new SecurityClientUtil(stateManager, settings);
@@ -754,7 +755,9 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
+            clusterService,
+            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+            TimeSeriesSettings.BACKOFF_MINUTES
         );
 
         NodeStateManager spyStateManager = spy(stateManager);
@@ -1208,11 +1211,11 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         CountDownLatch modelNodeInProgress = new CountDownLatch(1);
         // make sure parameters are not null, otherwise this mock won't get invoked
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             modelNodeInProgress.countDown();
             return null;
-        }).when(modelNodeStateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
+        }).when(modelNodeStateManager).getConfig(anyString(), eq(AnalysisType.AD), any(ActionListener.class));
         return modelNodeStateManager;
     }
 

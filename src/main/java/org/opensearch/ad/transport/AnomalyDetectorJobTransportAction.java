@@ -13,8 +13,8 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_START_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_STOP_DETECTOR;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -26,6 +26,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -87,7 +88,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
         String rawPath = request.getRawPath();
-        TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
+        TimeValue requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? FAIL_TO_START_DETECTOR : FAIL_TO_STOP_DETECTOR;
         ActionListener<AnomalyDetectorJobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
@@ -113,7 +114,8 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
                 ),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry,
+                AnomalyDetector.class
             );
         } catch (Exception e) {
             logger.error(e);

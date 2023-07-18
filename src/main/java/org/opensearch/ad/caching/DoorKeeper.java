@@ -17,8 +17,8 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.ExpiringState;
-import org.opensearch.ad.MaintenanceState;
+import org.opensearch.timeseries.ExpiringState;
+import org.opensearch.timeseries.MaintenanceState;
 
 import com.google.common.base.Charsets;
 import com.google.common.hash.BloomFilter;

@@ -40,12 +40,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.ad.CleanState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.CleanState;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Entity;
 
 /**
@@ -156,7 +158,7 @@ public class FeatureManager implements CleanState {
 
         if (missingRanges.size() > 0) {
             try {
-                searchFeatureDao.getFeatureSamplesForPeriods(detector, missingRanges, ActionListener.wrap(points -> {
+                searchFeatureDao.getFeatureSamplesForPeriods(detector, missingRanges, AnalysisType.AD, ActionListener.wrap(points -> {
                     for (int i = 0; i < points.size(); i++) {
                         Optional<double[]> point = points.get(i);
                         long rangeEndTime = missingRanges.get(i).getValue();
@@ -306,6 +308,7 @@ public class FeatureManager implements CleanState {
                     .getFeatureSamplesForPeriods(
                         detector,
                         sampleRanges,
+                        AnalysisType.AD,
                         new ThreadedActionListener<>(logger, threadPool, adThreadPoolName, getFeaturesListener, false)
                     );
             } catch (IOException e) {
@@ -545,7 +548,14 @@ public class FeatureManager implements CleanState {
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
         searchFeatureDao
-            .getColdStartSamplesForPeriods(detector, sampleRanges, entity, true, getSamplesRangesListener(sampleRanges, listener));
+            .getColdStartSamplesForPeriods(
+                detector,
+                sampleRanges,
+                Optional.ofNullable(entity),
+                true,
+                AnalysisType.AD,
+                getSamplesRangesListener(sampleRanges, listener)
+            );
     }
 
     private ActionListener<List<Optional<double[]>>> getSamplesRangesListener(
@@ -577,7 +587,8 @@ public class FeatureManager implements CleanState {
         List<Entry<Long, Long>> sampleRanges,
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
-        searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges, getSamplesRangesListener(sampleRanges, listener));
+        searchFeatureDao
+            .getFeatureSamplesForPeriods(detector, sampleRanges, AnalysisType.AD, getSamplesRangesListener(sampleRanges, listener));
     }
 
     /**

@@ -49,15 +49,12 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetAction;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.MatchQueryBuilder;
@@ -68,7 +65,9 @@ import org.opensearch.index.reindex.ScrollableHitSource;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.util.ClientUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -188,15 +187,11 @@ public class CheckpointDao {
         this.anomalyRate = anomalyRate;
     }
 
-    private void saveModelCheckpointSync(Map<String, Object> source, String modelId) {
-        clientUtil.<IndexRequest, IndexResponse>timedRequest(new IndexRequest(indexName).id(modelId).source(source), logger, client::index);
-    }
-
     private void putModelCheckpoint(String modelId, Map<String, Object> source, ActionListener<Void> listener) {
         if (indexUtil.doesCheckpointIndexExist()) {
             saveModelCheckpointAsync(source, modelId, listener);
         } else {
-            onCheckpointNotExist(source, modelId, true, listener);
+            onCheckpointNotExist(source, modelId, listener);
         }
     }
 
@@ -234,25 +229,17 @@ public class CheckpointDao {
         putModelCheckpoint(modelId, source, listener);
     }
 
-    private void onCheckpointNotExist(Map<String, Object> source, String modelId, boolean isAsync, ActionListener<Void> listener) {
+    private void onCheckpointNotExist(Map<String, Object> source, String modelId, ActionListener<Void> listener) {
         indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
             if (initResponse.isAcknowledged()) {
-                if (isAsync) {
-                    saveModelCheckpointAsync(source, modelId, listener);
-                } else {
-                    saveModelCheckpointSync(source, modelId);
-                }
+                saveModelCheckpointAsync(source, modelId, listener);
             } else {
                 throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
             }
         }, exception -> {
             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                 // It is possible the index has been created while we sending the create request
-                if (isAsync) {
-                    saveModelCheckpointAsync(source, modelId, listener);
-                } else {
-                    saveModelCheckpointSync(source, modelId);
-                }
+                saveModelCheckpointAsync(source, modelId, listener);
             } else {
                 logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
             }

@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;

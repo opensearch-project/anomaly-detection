@@ -38,6 +38,7 @@ import static org.opensearch.ad.model.ADTaskType.ALL_HISTORICAL_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.REALTIME_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
@@ -45,16 +46,15 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.ad.stats.InternalStatNames.AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT;
 import static org.opensearch.ad.stats.InternalStatNames.AD_USED_BATCH_TASK_SLOT_COUNT;
-import static org.opensearch.ad.util.ExceptionUtil.getErrorMessage;
-import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
 import static org.opensearch.timeseries.constant.CommonMessages.CREATE_INDEX_NOT_ACKNOWLEDGED;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 import static org.opensearch.timeseries.constant.CommonName.TASK_ID_FIELD;
+import static org.opensearch.timeseries.util.ExceptionUtil.getErrorMessage;
+import static org.opensearch.timeseries.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
@@ -109,7 +109,6 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
@@ -166,6 +165,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportRequestOptions;
@@ -251,12 +251,12 @@ public class ADTaskManager {
         transportRequestOptions = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(REQUEST_TIMEOUT.get(settings))
+            .withTimeout(AD_REQUEST_TIMEOUT.get(settings))
             .build();
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(
-                REQUEST_TIMEOUT,
+                AD_REQUEST_TIMEOUT,
                 it -> {
                     transportRequestOptions = TransportRequestOptions
                         .builder()
@@ -1092,7 +1092,7 @@ public class ADTaskManager {
             if (r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    Job job = Job.parse(parser);
                     if (!job.isEnabled()) {
                         logger.debug("AD job is disabled, reset realtime task as stopped for detector {}", detectorId);
                         resetTaskStateAsStopped(adTask, function, transportService, listener);

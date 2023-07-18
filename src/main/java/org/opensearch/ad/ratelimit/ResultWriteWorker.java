@@ -26,14 +26,12 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -44,6 +42,10 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultBulkRequest, ADResultBulkResponse> {
     private static final Logger LOG = LogManager.getLogger(ResultWriteWorker.class);
@@ -155,10 +157,10 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
         }
         AnomalyResult result = resultToRetry.get();
         String detectorId = result.getConfigId();
-        nodeStateManager.getAnomalyDetector(detectorId, onGetDetector(requestToRetry, index, detectorId, result));
+        nodeStateManager.getConfig(detectorId, AnalysisType.AD, onGetDetector(requestToRetry, index, detectorId, result));
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         List<IndexRequest> requestToRetry,
         int index,
         String detectorId,
@@ -171,7 +173,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
             super.put(
                 new ResultWriteRequest(
                     // expire based on execute start time

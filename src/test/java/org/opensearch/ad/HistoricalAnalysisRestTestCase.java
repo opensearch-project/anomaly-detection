@@ -61,7 +61,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
 
     public ToXContentObject[] getHistoricalAnomalyDetector(String detectorId, boolean returnTask, RestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        return getAnomalyDetector(detectorId, header, false, returnTask, client);
+        return getConfig(detectorId, header, false, returnTask, client);
     }
 
     public ADTaskProfile getADTaskProfile(String detectorId) throws IOException, ParseException {

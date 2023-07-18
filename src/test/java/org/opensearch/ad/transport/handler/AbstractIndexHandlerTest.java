@@ -30,9 +30,7 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -43,6 +41,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.util.ClientUtil;
 
 public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
     enum IndexCreation {
@@ -63,9 +62,6 @@ public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
 
     @Mock
     protected ADIndexManagement anomalyDetectionIndices;
-
-    @Mock
-    protected Throttler throttler;
 
     @Mock
     protected ClusterService clusterService;
@@ -95,7 +91,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
         MockitoAnnotations.initMocks(this);
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
-        clientUtil = new ClientUtil(settings, client, throttler, context);
+        clientUtil = new ClientUtil(client);
         indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
     }
 

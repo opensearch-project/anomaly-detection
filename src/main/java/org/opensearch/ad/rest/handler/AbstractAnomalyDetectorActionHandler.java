@@ -52,17 +52,13 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.MergeableList;
 import org.opensearch.ad.rest.RestValidateAnomalyDetectorAction;
 import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
-import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -79,13 +75,18 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.MergeableList;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -377,7 +378,15 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
-        clientUtil.executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, mappingsListener);
+        clientUtil
+            .executeWithInjectedSecurity(
+                GetFieldMappingsAction.INSTANCE,
+                getMappingsRequest,
+                user,
+                client,
+                AnalysisType.AD,
+                mappingsListener
+            );
     }
 
     /**
@@ -650,7 +659,15 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             listener.onFailure(new IllegalArgumentException(message));
         });
 
-        clientUtil.executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, mappingsListener);
+        clientUtil
+            .executeWithInjectedSecurity(
+                GetFieldMappingsAction.INSTANCE,
+                getMappingsRequest,
+                user,
+                client,
+                AnalysisType.AD,
+                mappingsListener
+            );
     }
 
     protected void searchAdInputIndices(String detectorId, boolean indexingDryRun) {
@@ -667,7 +684,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 exception -> listener.onFailure(exception)
             );
 
-        clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, searchResponseListener);
+        clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, AnalysisType.AD, searchResponseListener);
     }
 
     protected void onSearchAdInputIndicesResponse(SearchResponse response, String detectorId, boolean indexingDryRun) throws IOException {
@@ -940,7 +957,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 logger.error(errorMessage, e);
                 multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
             });
-            clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, searchResponseListener);
+            clientUtil
+                .asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, AnalysisType.AD, searchResponseListener);
         }
     }
 }

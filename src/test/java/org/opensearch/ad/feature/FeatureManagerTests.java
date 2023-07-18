@@ -59,10 +59,12 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.util.ArrayEqMatcher;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
@@ -204,10 +206,12 @@ public class FeatureManagerTests {
         }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
         if (latestTime != null) {
             doAnswer(invocation -> {
-                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(2);
+                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
                 listener.onResponse(samples);
                 return null;
-            }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), any(ActionListener.class));
+            })
+                .when(searchFeatureDao)
+                .getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), any(ActionListener.class));
         }
 
         ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
@@ -260,7 +264,9 @@ public class FeatureManagerTests {
             listener.onResponse(Optional.ofNullable(0L));
             return null;
         }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
-        doThrow(IOException.class).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(), any(ActionListener.class));
+        doThrow(IOException.class)
+            .when(searchFeatureDao)
+            .getFeatureSamplesForPeriods(eq(detector), any(), eq(AnalysisType.AD), any(ActionListener.class));
 
         ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
         featureManager.getColdStartData(detector, listener);
@@ -319,7 +325,7 @@ public class FeatureManagerTests {
         AtomicBoolean firstQuery = new AtomicBoolean(true);
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
             if (firstQuery.get()) {
                 firstQuery.set(false);
                 daoListener
@@ -328,7 +334,9 @@ public class FeatureManagerTests {
                 daoListener.onResponse(asList(Optional.ofNullable(null), Optional.ofNullable(null), Optional.of(new double[] { 1 })));
             }
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+        })
+            .when(searchFeatureDao)
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
 
         SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
@@ -358,7 +366,7 @@ public class FeatureManagerTests {
         AtomicBoolean firstQuery = new AtomicBoolean(true);
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
             if (firstQuery.get()) {
                 firstQuery.set(false);
                 daoListener
@@ -367,7 +375,9 @@ public class FeatureManagerTests {
                 daoListener.onResponse(asList(Optional.ofNullable(null), Optional.ofNullable(null), Optional.of(new double[] { 1 })));
             }
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+        })
+            .when(searchFeatureDao)
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
 
         SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
@@ -390,7 +400,7 @@ public class FeatureManagerTests {
         AtomicBoolean firstQuery = new AtomicBoolean(true);
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
             if (firstQuery.get()) {
                 firstQuery.set(false);
                 daoListener
@@ -399,7 +409,9 @@ public class FeatureManagerTests {
                 daoListener.onResponse(asList(Optional.ofNullable(null), Optional.ofNullable(null), Optional.of(new double[] { 1 })));
             }
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+        })
+            .when(searchFeatureDao)
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
 
         SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
@@ -435,8 +447,8 @@ public class FeatureManagerTests {
 
             ActionListener<List<Optional<double[]>>> listener = null;
 
-            if (args[2] instanceof ActionListener) {
-                listener = (ActionListener<List<Optional<double[]>>>) args[2];
+            if (args[3] instanceof ActionListener) {
+                listener = (ActionListener<List<Optional<double[]>>>) args[3];
             }
 
             if (querySuccess) {
@@ -446,7 +458,7 @@ public class FeatureManagerTests {
             }
 
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), any());
+        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), any());
 
         when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3))).thenReturn(new double[][] { { 1, 2, 3 } });
         when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
@@ -496,10 +508,10 @@ public class FeatureManagerTests {
         coldStartSamples.add(Optional.of(new double[] { 30.0 }));
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         ActionListener<Features> listener = mock(ActionListener.class);
 
@@ -520,10 +532,10 @@ public class FeatureManagerTests {
         Entity entity = Entity.createSingleAttributeEntity("fieldName", "value");
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(new ArrayList<>());
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         ActionListener<Features> listener = mock(ActionListener.class);
 
@@ -560,7 +572,7 @@ public class FeatureManagerTests {
         AtomicBoolean isPreQuery = new AtomicBoolean(true);
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
             if (isPreQuery.get()) {
                 isPreQuery.set(false);
                 daoListener.onResponse(preQueryResponse);
@@ -572,7 +584,9 @@ public class FeatureManagerTests {
                 }
             }
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+        })
+            .when(searchFeatureDao)
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
     }
 
     private Object[] getCurrentFeaturesTestData_whenAfterQueryResultsFormFullShingle() {
@@ -615,7 +629,7 @@ public class FeatureManagerTests {
         // Start test
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());
 
@@ -652,7 +666,7 @@ public class FeatureManagerTests {
         // Start test
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, start, end);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());
 
@@ -712,7 +726,7 @@ public class FeatureManagerTests {
         // Start test
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());
 
@@ -758,7 +772,7 @@ public class FeatureManagerTests {
         // Start test
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         assertFalse(listenerResponse.getUnprocessedFeatures().isPresent());
         assertFalse(listenerResponse.getProcessedFeatures().isPresent());
     }
@@ -795,7 +809,7 @@ public class FeatureManagerTests {
         // Start test
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
         assertFalse(listenerResponse.getProcessedFeatures().isPresent());
     }
@@ -826,7 +840,7 @@ public class FeatureManagerTests {
         ActionListener<SinglePointFeatures> listener = mock(ActionListener.class);
         featureManager.getCurrentFeatures(detector, testStartTime, testEndTime, listener);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         verify(listener).onFailure(any(IOException.class));
     }
 
@@ -859,12 +873,17 @@ public class FeatureManagerTests {
         // first call to cache missing points
         featureManager.getCurrentFeatures(detector, firstStartTime, firstEndTime, mock(ActionListener.class));
         verify(searchFeatureDao, times(1))
-            .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == shingleSize), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(
+                eq(detector),
+                argThat(list -> list.size() == shingleSize),
+                eq(AnalysisType.AD),
+                any(ActionListener.class)
+            );
 
         // second call should only fetch current point even if previous points missing
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, secondStartTime, secondEndTime);
         verify(searchFeatureDao, times(1))
-            .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == 1), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == 1), eq(AnalysisType.AD), any(ActionListener.class));
 
         assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
         if (expectedProcessedFeaturesOptional.isPresent()) {
@@ -942,7 +961,7 @@ public class FeatureManagerTests {
         // Start test
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());
 
@@ -977,14 +996,16 @@ public class FeatureManagerTests {
             List<Entry<Long, Long>> ranges = invocation.getArgument(1);
             assertEquals(ranges.size(), shingleSize);
 
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(2);
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
             List<Optional<double[]>> response = new ArrayList<Optional<double[]>>();
             for (int i = 0; i < ranges.size(); i++) {
                 response.add(Optional.of(new double[] { i }));
             }
             daoListener.onResponse(response);
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), any(List.class), any(ActionListener.class));
+        })
+            .when(searchFeatureDao)
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         SinglePointFeatures listenerResponse = getCurrentFeatures(detector, 0, intervalInMilliseconds);
         assertTrue(listenerResponse.getProcessedFeatures().isPresent());

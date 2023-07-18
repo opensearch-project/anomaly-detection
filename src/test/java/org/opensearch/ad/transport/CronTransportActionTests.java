@@ -23,7 +23,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
@@ -42,6 +41,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.transport.TransportService;
 
 import test.org.opensearch.ad.util.JsonDeserializer;

@@ -13,6 +13,7 @@ package org.opensearch.ad.ml;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -54,6 +55,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
@@ -119,10 +121,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(1602269260000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
 
@@ -134,10 +136,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         coldStartSamples.add(Optional.of(sample2));
         coldStartSamples.add(Optional.of(sample3));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -183,14 +185,14 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
-        verify(searchFeatureDao, never()).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        verify(searchFeatureDao, never()).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         assertTrue(!model.getTrcf().isPresent());
         checkSemaphoreRelease();
@@ -268,10 +270,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(1602269260000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
         double[] sample1 = new double[] { 57.0 };
@@ -284,10 +286,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         coldStartSamples.add(Optional.empty());
         coldStartSamples.add(Optional.of(sample5));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -322,10 +324,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(1602269260000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
         double[] sample1 = new double[] { 57.0 };
@@ -340,10 +342,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         coldStartSamples.add(Optional.of(new double[] { -17.0 }));
         coldStartSamples.add(Optional.of(new double[] { -38.0 }));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -378,17 +380,17 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onFailure(new OpenSearchRejectedExecutionException(""));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
         entityColdStarter.trainModel(entity, "456", modelState, listener);
 
         // only the first one makes the call
-        verify(searchFeatureDao, times(1)).getEntityMinDataTime(any(), any(), any());
+        verify(searchFeatureDao, times(1)).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
         checkSemaphoreRelease();
     }
 
@@ -398,14 +400,14 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         modelState = new ModelState<>(model, modelId, detectorId, ModelType.ENTITY.getName(), clock, priority);
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onFailure(new TimeSeriesException(detectorId, ""));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
 
-        assertTrue(stateManager.getLastDetectionError(detectorId) != null);
+        assertTrue(stateManager.fetchExceptionAndClear(detectorId).isPresent());
         checkSemaphoreRelease();
     }
 
@@ -429,19 +431,19 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(1602269260000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
         coldStartSamples.add(Optional.of(new double[] { 57.0 }));
         coldStartSamples.add(Optional.of(new double[] { 1.0 }));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -482,10 +484,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(894056973000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -594,10 +596,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
             doAnswer(invocation -> {
-                ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+                ActionListener<Optional<Long>> listener = invocation.getArgument(3);
                 listener.onResponse(Optional.of(timestamps[0]));
                 return null;
-            }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+            }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
             doAnswer(invocation -> {
                 List<Entry<Long, Long>> ranges = invocation.getArgument(1);
@@ -616,10 +618,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
                     coldStartSamples.add(Optional.of(data[valueIndex]));
                 }
 
-                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
                 listener.onResponse(coldStartSamples);
                 return null;
-            }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+            }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
             EntityModel model = new EntityModel(entity, new ArrayDeque<>(), null);
             modelState = new ModelState<>(model, modelId, detector.getId(), ModelType.ENTITY.getName(), clock, priority);
@@ -749,10 +751,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     public void testCacheReleaseAfterMaintenance() throws IOException, InterruptedException {
         ModelState<EntityModel> modelState = createStateForCacheRelease();
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(1602269260000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
 
@@ -764,10 +766,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         coldStartSamples.add(Optional.of(sample2));
         coldStartSamples.add(Optional.of(sample3));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -794,10 +796,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     public void testCacheReleaseAfterClear() throws IOException, InterruptedException {
         ModelState<EntityModel> modelState = createStateForCacheRelease();
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(1602269260000L));
             return null;
-        }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+        }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
         List<Optional<double[]>> coldStartSamples = new ArrayList<>();
 
@@ -809,10 +811,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         coldStartSamples.add(Optional.of(sample2));
         coldStartSamples.add(Optional.of(sample3));
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+            ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
             listener.onResponse(coldStartSamples);
             return null;
-        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+        }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
         entityColdStarter.trainModel(entity, detectorId, modelState, listener);
         checkSemaphoreRelease();

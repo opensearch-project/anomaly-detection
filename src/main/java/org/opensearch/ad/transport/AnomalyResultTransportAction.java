@@ -43,7 +43,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonMessages;
@@ -53,14 +52,11 @@ import org.opensearch.ad.feature.CompositeRetriever.PageIterator;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
@@ -80,6 +76,8 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.ClientException;
 import org.opensearch.timeseries.common.exception.EndRunException;
@@ -89,11 +87,15 @@ import org.opensearch.timeseries.common.exception.NotSerializedExceptionName;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.ActionNotFoundTransportException;
 import org.opensearch.transport.ConnectTransportException;
 import org.opensearch.transport.NodeNotConnectedException;
@@ -173,7 +175,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
+            .withTimeout(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings))
             .build();
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
@@ -275,7 +277,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
             try {
-                stateManager.getAnomalyDetector(adID, onGetDetector(listener, adID, request));
+                stateManager.getConfig(adID, AnalysisType.AD, onGetDetector(listener, adID, request));
             } catch (Exception ex) {
                 handleExecuteException(ex, listener, adID);
             }
@@ -390,7 +392,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         ActionListener<AnomalyResultResponse> listener,
         String adID,
         AnomalyResultRequest request
@@ -401,7 +403,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
                 return;
             }
 
-            AnomalyDetector anomalyDetector = detectorOptional.get();
+            AnomalyDetector anomalyDetector = (AnomalyDetector) detectorOptional.get();
             if (anomalyDetector.isHighCardinality()) {
                 hcDetectors.add(adID);
                 adStats.getStat(StatNames.AD_HC_EXECUTE_REQUEST_COUNT.getName()).increment();

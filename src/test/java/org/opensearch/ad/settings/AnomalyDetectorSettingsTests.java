@@ -20,6 +20,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 @SuppressWarnings({ "rawtypes" })
 public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
@@ -79,14 +80,14 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
                             AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
                             AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
-                            AnomalyDetectorSettings.REQUEST_TIMEOUT,
+                            AnomalyDetectorSettings.AD_REQUEST_TIMEOUT,
                             AnomalyDetectorSettings.DETECTION_INTERVAL,
                             AnomalyDetectorSettings.DETECTION_WINDOW_DELAY,
                             AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                             AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
-                            AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
-                            AnomalyDetectorSettings.COOLDOWN_MINUTES,
-                            AnomalyDetectorSettings.BACKOFF_MINUTES,
+                            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+                            AnomalyDetectorSettings.AD_COOLDOWN_MINUTES,
+                            AnomalyDetectorSettings.AD_BACKOFF_MINUTES,
                             AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
                             AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF,
                             AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
@@ -116,7 +117,9 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
                             AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                             AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-                            AnomalyDetectorSettings.PAGE_SIZE
+                            AnomalyDetectorSettings.PAGE_SIZE,
+                            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+                            TimeSeriesSettings.BACKOFF_MINUTES
                         )
                 )
         );
@@ -136,7 +139,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.REQUEST_TIMEOUT.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT.get(Settings.EMPTY)
         );
         assertEquals(
@@ -152,15 +155,15 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(Settings.EMPTY),
+            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.COOLDOWN_MINUTES.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.BACKOFF_MINUTES.get(Settings.EMPTY),
+            TimeSeriesSettings.BACKOFF_MINUTES.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES.get(Settings.EMPTY)
         );
         assertEquals(
@@ -211,7 +214,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
 
     public void testSettingsGetValue() {
         Settings settings = Settings.builder().put("plugins.anomaly_detection.request_timeout", "42s").build();
-        assertEquals(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(42));
+        assertEquals(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(42));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(10));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_anomaly_detectors", 99).build();
@@ -253,16 +256,22 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings), TimeValue.timeValueDays(30));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_retry_for_unresponsive_node", 91).build();
-        assertEquals(AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(91));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(91));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(5));
 
+        settings = Settings.builder().put("plugins.timeseries.max_retry_for_unresponsive_node", 91).build();
+        assertEquals(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(91));
+
         settings = Settings.builder().put("plugins.anomaly_detection.cooldown_minutes", TimeValue.timeValueMinutes(90)).build();
-        assertEquals(AnomalyDetectorSettings.COOLDOWN_MINUTES.get(settings), TimeValue.timeValueMinutes(90));
+        assertEquals(AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.get(settings), TimeValue.timeValueMinutes(90));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES.get(settings), TimeValue.timeValueMinutes(5));
 
         settings = Settings.builder().put("plugins.anomaly_detection.backoff_minutes", TimeValue.timeValueMinutes(89)).build();
-        assertEquals(AnomalyDetectorSettings.BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(89));
+        assertEquals(AnomalyDetectorSettings.AD_BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(89));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(15));
+
+        settings = Settings.builder().put("plugins.timeseries.backoff_minutes", TimeValue.timeValueMinutes(89)).build();
+        assertEquals(TimeSeriesSettings.BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(89));
 
         settings = Settings.builder().put("plugins.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(88)).build();
         assertEquals(AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY.get(settings), TimeValue.timeValueMillis(88));
@@ -333,8 +342,10 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             .put("opendistro.anomaly_detection.ad_result_history_max_docs", 8L)
             .put("opendistro.anomaly_detection.ad_result_history_retention_period", "9d")
             .put("opendistro.anomaly_detection.max_retry_for_unresponsive_node", 10)
+            .put("plugins.timeseries.max_retry_for_unresponsive_node", 10)
             .put("opendistro.anomaly_detection.cooldown_minutes", "11m")
             .put("opendistro.anomaly_detection.backoff_minutes", "12m")
+            .put("plugins.timeseries.backoff_minutes", "12m")
             .put("opendistro.anomaly_detection.backoff_initial_delay", "13ms") //
             .put("opendistro.anomaly_detection.max_retry_for_backoff", 14)
             .put("opendistro.anomaly_detection.max_retry_for_end_run_exception", 15)
@@ -353,16 +364,18 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(1));
         assertEquals(AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(2));
         assertEquals(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings), Integer.valueOf(3));
-        assertEquals(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(4));
+        assertEquals(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(4));
         assertEquals(AnomalyDetectorSettings.DETECTION_INTERVAL.get(settings), TimeValue.timeValueMinutes(5));
         assertEquals(AnomalyDetectorSettings.DETECTION_WINDOW_DELAY.get(settings), TimeValue.timeValueMinutes(6));
         assertEquals(AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings), TimeValue.timeValueHours(7));
         // AD_RESULT_HISTORY_MAX_DOCS is removed in the new release
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS.get(settings), Long.valueOf(8L));
         assertEquals(AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings), TimeValue.timeValueDays(9));
-        assertEquals(AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(10));
-        assertEquals(AnomalyDetectorSettings.COOLDOWN_MINUTES.get(settings), TimeValue.timeValueMinutes(11));
-        assertEquals(AnomalyDetectorSettings.BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(12));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(10));
+        assertEquals(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(settings), Integer.valueOf(10));
+        assertEquals(AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.get(settings), TimeValue.timeValueMinutes(11));
+        assertEquals(AnomalyDetectorSettings.AD_BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(12));
+        assertEquals(TimeSeriesSettings.BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(12));
         assertEquals(AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY.get(settings), TimeValue.timeValueMillis(13));
         assertEquals(AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF.get(settings), Integer.valueOf(14));
         assertEquals(AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(15));

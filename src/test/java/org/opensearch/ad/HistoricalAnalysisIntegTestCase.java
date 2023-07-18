@@ -40,7 +40,6 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
@@ -57,6 +56,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.Job;
 
 import com.google.common.collect.ImmutableList;
 
@@ -212,7 +212,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         return adTask;
     }
 
-    public AnomalyDetectorJob getADJob(String detectorId) throws IOException {
+    public Job getADJob(String detectorId) throws IOException {
         return toADJob(getDoc(CommonName.JOB_INDEX, detectorId));
     }
 
@@ -220,8 +220,8 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         return ADTask.parse(TestHelpers.parser(doc.getSourceAsString()));
     }
 
-    public AnomalyDetectorJob toADJob(GetResponse doc) throws IOException {
-        return AnomalyDetectorJob.parse(TestHelpers.parser(doc.getSourceAsString()));
+    public Job toADJob(GetResponse doc) throws IOException {
+        return Job.parse(TestHelpers.parser(doc.getSourceAsString()));
     }
 
     public ADTask startHistoricalAnalysis(Instant startTime, Instant endTime) throws IOException {

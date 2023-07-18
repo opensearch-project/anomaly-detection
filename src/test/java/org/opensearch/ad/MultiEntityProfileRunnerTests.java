@@ -46,7 +46,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorProfile;
@@ -64,9 +63,12 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
@@ -92,7 +94,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private String model0Id;
 
     private int shingleSize;
-    private AnomalyDetectorJob job;
+    private Job job;
     private TransportService transportService;
     private ADTaskManager adTaskManager;
 

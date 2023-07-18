@@ -37,9 +37,7 @@ import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -49,6 +47,7 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.transport.TransportService;
 
 public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
@@ -67,15 +66,9 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
 
         Client client = client();
         Clock clock = mock(Clock.class);
-        Throttler throttler = new Throttler(clock);
         ThreadPool threadPool = mock(ThreadPool.class);
         IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
-        IndexUtils indexUtils = new IndexUtils(
-            client,
-            new ClientUtil(Settings.EMPTY, client, throttler, threadPool),
-            clusterService(),
-            indexNameResolver
-        );
+        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(client), clusterService(), indexNameResolver);
         ModelManager modelManager = mock(ModelManager.class);
         CacheProvider cacheProvider = mock(CacheProvider.class);
         EntityCache cache = mock(EntityCache.class);

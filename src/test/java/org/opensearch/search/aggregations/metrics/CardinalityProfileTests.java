@@ -31,24 +31,24 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.AbstractProfileRunnerTests;
 import org.opensearch.ad.AnomalyDetectorProfileRunner;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileNodeResponse;
 import org.opensearch.ad.transport.ProfileResponse;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
+import org.opensearch.common.util.BitMixer;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-
-import com.carrotsearch.hppc.BitMixer;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 
 /**
  * Run tests in ES package since InternalCardinality has only package private constructors
@@ -73,10 +73,10 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
             .randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(detectorIntervalMin, ChronoUnit.MINUTES), true);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(anyString(), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         runner = new AnomalyDetectorProfileRunner(
             client,
@@ -103,7 +103,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
                         break;
                 }
             } else if (request.index().equals(CommonName.JOB_INDEX)) {
-                AnomalyDetectorJob job = null;
+                Job job = null;
                 switch (jobStatus) {
                     case ENABLED:
                         job = TestHelpers.randomAnomalyDetectorJob(true);

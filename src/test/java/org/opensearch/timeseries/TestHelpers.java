@@ -71,7 +71,6 @@ import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -143,6 +142,7 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
@@ -963,12 +963,12 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyDetectorJob randomAnomalyDetectorJob() {
+    public static Job randomAnomalyDetectorJob() {
         return randomAnomalyDetectorJob(true);
     }
 
-    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
-        return new AnomalyDetectorJob(
+    public static Job randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
+        return new Job(
             randomAlphaOfLength(10),
             randomIntervalSchedule(),
             randomIntervalTimeConfiguration(),
@@ -982,7 +982,7 @@ public class TestHelpers {
         );
     }
 
-    public static AnomalyDetectorJob randomAnomalyDetectorJob(boolean enabled) {
+    public static Job randomAnomalyDetectorJob(boolean enabled) {
         return randomAnomalyDetectorJob(
             enabled,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),

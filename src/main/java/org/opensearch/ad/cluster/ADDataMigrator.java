@@ -42,9 +42,7 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -60,6 +58,8 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 /**
  * Migrate AD data to support backward compatibility.
@@ -137,13 +137,13 @@ public class ADDataMigrator {
                 logger.info("No anomaly detector job found, no need to migrate");
                 return;
             }
-            ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs = new ConcurrentLinkedQueue<>();
+            ConcurrentLinkedQueue<Job> detectorJobs = new ConcurrentLinkedQueue<>();
             Iterator<SearchHit> iterator = r.getHits().iterator();
             while (iterator.hasNext()) {
                 SearchHit searchHit = iterator.next();
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    Job job = Job.parse(parser);
                     detectorJobs.add(job);
                 } catch (IOException e) {
                     logger.error("Fail to parse AD job " + searchHit.getId(), e);
@@ -168,8 +168,8 @@ public class ADDataMigrator {
      * @param detectorJobs realtime AD jobs
      * @param backfillAllJob backfill task for all realtime job or not
      */
-    public void backfillRealtimeTask(ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs, boolean backfillAllJob) {
-        AnomalyDetectorJob job = detectorJobs.poll();
+    public void backfillRealtimeTask(ConcurrentLinkedQueue<Job> detectorJobs, boolean backfillAllJob) {
+        Job job = detectorJobs.poll();
         if (job == null) {
             logger.info("AD data migration done.");
             if (backfillAllJob) {
@@ -203,9 +203,9 @@ public class ADDataMigrator {
     }
 
     private void checkIfRealtimeTaskExistsAndBackfill(
-        AnomalyDetectorJob job,
+        Job job,
         ExecutorFunction createRealtimeTaskFunction,
-        ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs,
+        ConcurrentLinkedQueue<Job> detectorJobs,
         boolean migrateAll
     ) {
         String jobId = job.getName();
@@ -233,12 +233,7 @@ public class ADDataMigrator {
         }));
     }
 
-    private void createRealtimeADTask(
-        AnomalyDetectorJob job,
-        String error,
-        ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs,
-        boolean migrateAll
-    ) {
+    private void createRealtimeADTask(Job job, String error, ConcurrentLinkedQueue<Job> detectorJobs, boolean migrateAll) {
         client.get(new GetRequest(CommonName.CONFIG_INDEX, job.getName()), ActionListener.wrap(r -> {
             if (r != null && r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {

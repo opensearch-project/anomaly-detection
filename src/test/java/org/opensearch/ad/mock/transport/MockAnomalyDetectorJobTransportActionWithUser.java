@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.mock.transport;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
 import org.apache.logging.log4j.LogManager;
@@ -22,6 +22,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
@@ -91,7 +92,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
         long seqNo = request.getSeqNo();
         long primaryTerm = request.getPrimaryTerm();
         String rawPath = request.getRawPath();
-        TimeValue requestTimeout = REQUEST_TIMEOUT.get(settings);
+        TimeValue requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
         String userStr = "user_name|backendrole1,backendrole2|roles1,role2";
         // By the time request reaches here, the user permissions are validated by Security plugin.
         User user = User.parse(userStr);
@@ -114,7 +115,8 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
                 ),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry,
+                AnomalyDetector.class
             );
         } catch (Exception e) {
             logger.error(e);

@@ -24,6 +24,7 @@ import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.Job;
 
 public class AnomalyDetectorJobTests extends OpenSearchSingleNodeTestCase {
 
@@ -38,22 +39,22 @@ public class AnomalyDetectorJobTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testParseAnomalyDetectorJob() throws IOException {
-        AnomalyDetectorJob anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();
+        Job anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();
         String anomalyDetectorJobString = TestHelpers
             .xContentBuilderToString(anomalyDetectorJob.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         anomalyDetectorJobString = anomalyDetectorJobString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
 
-        AnomalyDetectorJob parsedAnomalyDetectorJob = AnomalyDetectorJob.parse(TestHelpers.parser(anomalyDetectorJobString));
+        Job parsedAnomalyDetectorJob = Job.parse(TestHelpers.parser(anomalyDetectorJobString));
         assertEquals("Parsing anomaly detect result doesn't work", anomalyDetectorJob, parsedAnomalyDetectorJob);
     }
 
     public void testSerialization() throws IOException {
-        AnomalyDetectorJob anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();
+        Job anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();
         BytesStreamOutput output = new BytesStreamOutput();
         anomalyDetectorJob.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        AnomalyDetectorJob parsedAnomalyDetectorJob = new AnomalyDetectorJob(input);
+        Job parsedAnomalyDetectorJob = new Job(input);
         assertNotNull(parsedAnomalyDetectorJob);
     }
 }

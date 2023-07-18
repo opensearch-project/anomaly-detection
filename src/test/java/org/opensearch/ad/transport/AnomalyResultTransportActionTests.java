@@ -25,7 +25,6 @@ import org.junit.Before;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
@@ -33,6 +32,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

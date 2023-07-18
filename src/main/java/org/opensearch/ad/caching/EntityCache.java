@@ -16,13 +16,13 @@ import java.util.List;
 import java.util.Optional;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.opensearch.ad.CleanState;
 import org.opensearch.ad.DetectorModelSize;
-import org.opensearch.ad.MaintenanceState;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.timeseries.CleanState;
+import org.opensearch.timeseries.MaintenanceState;
 import org.opensearch.timeseries.model.Entity;
 
 public interface EntityCache extends MaintenanceState, CleanState, DetectorModelSize {

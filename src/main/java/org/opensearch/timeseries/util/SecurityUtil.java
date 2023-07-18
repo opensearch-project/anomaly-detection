@@ -9,15 +9,15 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import java.util.Collections;
 import java.util.List;
 
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Job;
 
 import com.google.common.collect.ImmutableList;
 
@@ -57,12 +57,12 @@ public class SecurityUtil {
 
     /**
      * *
-     * @param detector Detector config
+     * @param config analysis config
      * @param settings Node settings
      * @return user recorded by a detector. Made adjstument for BWC (backward-compatibility) if necessary.
      */
-    public static User getUserFromDetector(AnomalyDetector detector, Settings settings) {
-        return getAdjustedUserBWC(detector.getUser(), settings);
+    public static User getUserFromConfig(Config config, Settings settings) {
+        return getAdjustedUserBWC(config.getUser(), settings);
     }
 
     /**
@@ -71,7 +71,7 @@ public class SecurityUtil {
      * @param settings Node settings
      * @return user recorded by a detector job
      */
-    public static User getUserFromJob(AnomalyDetectorJob detectorJob, Settings settings) {
+    public static User getUserFromJob(Job detectorJob, Settings settings) {
         return getAdjustedUserBWC(detectorJob.getUser(), settings);
     }
 }

@@ -17,8 +17,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.opensearch.ad.ExpiringState;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.timeseries.ExpiringState;
 import org.opensearch.timeseries.constant.CommonName;
 
 /**

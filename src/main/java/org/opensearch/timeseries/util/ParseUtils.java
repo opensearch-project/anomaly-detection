@@ -11,8 +11,6 @@
 
 package org.opensearch.timeseries.util;
 
-import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_USER_INFO;
-import static org.opensearch.ad.constant.ADCommonMessages.NO_PERMISSION_TO_ACCESS_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonName.EPOCH_MILLIS_FORMAT;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
@@ -73,13 +71,14 @@ import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
-import com.carrotsearch.hppc.DoubleArrayList;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -333,18 +332,18 @@ public final class ParseUtils {
     }
 
     public static SearchSourceBuilder generatePreviewQuery(
-        AnomalyDetector detector,
+        Config config,
         List<Entry<Long, Long>> ranges,
         NamedXContentRegistry xContentRegistry
     ) throws IOException {
 
-        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(detector.getTimeField()).format("epoch_millis");
+        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(config.getTimeField()).format("epoch_millis");
         for (Entry<Long, Long> range : ranges) {
             dateRangeBuilder.addRange(range.getKey(), range.getValue());
         }
 
-        if (detector.getFeatureAttributes() != null) {
-            for (Feature feature : detector.getFeatureAttributes()) {
+        if (config.getFeatureAttributes() != null) {
+            for (Feature feature : config.getFeatureAttributes()) {
                 AggregatorFactories.Builder internalAgg = parseAggregators(
                     feature.getAggregation().toString(),
                     xContentRegistry,
@@ -354,29 +353,31 @@ public final class ParseUtils {
             }
         }
 
-        return new SearchSourceBuilder().query(detector.getFilterQuery()).size(0).aggregation(dateRangeBuilder);
+        return new SearchSourceBuilder().query(config.getFilterQuery()).size(0).aggregation(dateRangeBuilder);
     }
 
-    public static SearchSourceBuilder generateEntityColdStartQuery(
-        AnomalyDetector detector,
+    public static SearchSourceBuilder generateColdStartQuery(
+        Config config,
         List<Entry<Long, Long>> ranges,
-        Entity entity,
+        Optional<Entity> entity,
         NamedXContentRegistry xContentRegistry
     ) throws IOException {
 
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(detector.getFilterQuery());
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(config.getFilterQuery());
 
-        for (TermQueryBuilder term : entity.getTermQueryBuilders()) {
-            internalFilterQuery.filter(term);
+        if (entity.isPresent()) {
+            for (TermQueryBuilder term : entity.get().getTermQueryBuilders()) {
+                internalFilterQuery.filter(term);
+            }
         }
 
-        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(detector.getTimeField()).format("epoch_millis");
+        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(config.getTimeField()).format("epoch_millis");
         for (Entry<Long, Long> range : ranges) {
             dateRangeBuilder.addRange(range.getKey(), range.getValue());
         }
 
-        if (detector.getFeatureAttributes() != null) {
-            for (Feature feature : detector.getFeatureAttributes()) {
+        if (config.getFeatureAttributes() != null) {
+            for (Feature feature : config.getFeatureAttributes()) {
                 AggregatorFactories.Builder internalAgg = parseAggregators(
                     feature.getAggregation().toString(),
                     xContentRegistry,
@@ -443,23 +444,34 @@ public final class ParseUtils {
         return User.parse(userStr);
     }
 
-    public static void resolveUserAndExecute(
+    public static <ConfigType extends Config> void resolveUserAndExecute(
         User requestedUser,
-        String detectorId,
+        String configId,
         boolean filterByEnabled,
         ActionListener listener,
-        Consumer<AnomalyDetector> function,
+        Consumer<ConfigType> function,
         Client client,
         ClusterService clusterService,
-        NamedXContentRegistry xContentRegistry
+        NamedXContentRegistry xContentRegistry,
+        Class<ConfigType> configTypeClass
     ) {
         try {
-            if (requestedUser == null || detectorId == null) {
+            if (requestedUser == null || configId == null) {
                 // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
                 // check if request user have access to the detector or not.
                 function.accept(null);
             } else {
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry, filterByEnabled);
+                getConfig(
+                    requestedUser,
+                    configId,
+                    listener,
+                    function,
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    filterByEnabled,
+                    configTypeClass
+                );
             }
         } catch (Exception e) {
             listener.onFailure(e);
@@ -467,45 +479,48 @@ public final class ParseUtils {
     }
 
     /**
-     * If filterByEnabled is true, get detector and check if the user has permissions to access the detector,
-     * then execute function; otherwise, get detector and execute function
+     * If filterByEnabled is true, get config and check if the user has permissions to access the config,
+     * then execute function; otherwise, get config and execute function
      * @param requestUser user from request
-     * @param detectorId detector id
+     * @param configId config id
      * @param listener action listener
      * @param function consumer function
      * @param client client
      * @param clusterService cluster service
      * @param xContentRegistry XContent registry
      * @param filterByBackendRole filter by backend role or not
+     * @param configTypeClass the class of the ConfigType, used by the ConfigFactory to parse the correct type of Config
      */
-    public static void getDetector(
+    public static <ConfigType extends Config> void getConfig(
         User requestUser,
-        String detectorId,
+        String configId,
         ActionListener listener,
-        Consumer<AnomalyDetector> function,
+        Consumer<ConfigType> function,
         Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
-        boolean filterByBackendRole
+        boolean filterByBackendRole,
+        Class<ConfigType> configTypeClass
     ) {
         if (clusterService.state().metadata().indices().containsKey(CommonName.CONFIG_INDEX)) {
-            GetRequest request = new GetRequest(CommonName.CONFIG_INDEX).id(detectorId);
+            GetRequest request = new GetRequest(CommonName.CONFIG_INDEX).id(configId);
             client
                 .get(
                     request,
                     ActionListener
                         .wrap(
-                            response -> onGetAdResponse(
+                            response -> onGetConfigResponse(
                                 response,
                                 requestUser,
-                                detectorId,
+                                configId,
                                 listener,
                                 function,
                                 xContentRegistry,
-                                filterByBackendRole
+                                filterByBackendRole,
+                                configTypeClass
                             ),
                             exception -> {
-                                logger.error("Failed to get anomaly detector: " + detectorId, exception);
+                                logger.error("Failed to get anomaly detector: " + configId, exception);
                                 listener.onFailure(exception);
                             }
                         )
@@ -515,34 +530,50 @@ public final class ParseUtils {
         }
     }
 
-    public static void onGetAdResponse(
+    /**
+     * This method processes the GetResponse and applies the consumer function if the user has permissions
+     * or if the filterByBackendRole is disabled. It uses a ConfigFactory to parse the correct type of Config.
+     *
+     * @param <ConfigType> The type of Config to be processed in this method, which extends from the Config base type.
+     * @param response The GetResponse from the getConfig request. This contains the information about the config that is to be processed.
+     * @param requestUser The User from the request. This user's permissions will be checked to ensure they have access to the config.
+     * @param configId The ID of the config. This is used for logging and error messages.
+     * @param listener The ActionListener to call if an error occurs. Any errors that occur during the processing of the config will be passed to this listener.
+     * @param function The Consumer function to apply to the ConfigType. If the user has permission to access the config, this function will be applied.
+     * @param xContentRegistry The XContentRegistry used to create the XContentParser. This is used to parse the response into a ConfigType.
+     * @param filterByBackendRole A boolean indicating whether to filter by backend role. If true, the user's backend roles will be checked to ensure they have access to the config.
+     * @param configTypeClass The class of the ConfigType, used by the ConfigFactory to parse the correct type of Config.
+     */
+    public static <ConfigType extends Config> void onGetConfigResponse(
         GetResponse response,
         User requestUser,
-        String detectorId,
+        String configId,
         ActionListener<GetAnomalyDetectorResponse> listener,
-        Consumer<AnomalyDetector> function,
+        Consumer<ConfigType> function,
         NamedXContentRegistry xContentRegistry,
-        boolean filterByBackendRole
+        boolean filterByBackendRole,
+        Class<ConfigType> configTypeClass
     ) {
         if (response.isExists()) {
             try (
                 XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
             ) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                AnomalyDetector detector = AnomalyDetector.parse(parser);
-                User resourceUser = detector.getUser();
+                @SuppressWarnings("unchecked")
+                ConfigType config = (ConfigType) Config.parseConfig(configTypeClass, parser);
+                User resourceUser = config.getUser();
 
-                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, detectorId) || isAdmin(requestUser)) {
-                    function.accept(detector);
+                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
+                    function.accept(config);
                 } else {
-                    logger.debug("User: " + requestUser.getName() + " does not have permissions to access detector: " + detectorId);
-                    listener.onFailure(new TimeSeriesException(NO_PERMISSION_TO_ACCESS_DETECTOR + detectorId));
+                    logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
+                    listener.onFailure(new TimeSeriesException(CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId));
                 }
             } catch (Exception e) {
-                listener.onFailure(new TimeSeriesException(FAIL_TO_GET_USER_INFO + detectorId));
+                listener.onFailure(new TimeSeriesException(CommonMessages.FAIL_TO_GET_USER_INFO + configId));
             }
         } else {
-            listener.onFailure(new ResourceNotFoundException(detectorId, FAIL_TO_FIND_CONFIG_MSG + detectorId));
+            listener.onFailure(new ResourceNotFoundException(configId, FAIL_TO_FIND_CONFIG_MSG + configId));
         }
     }
 
@@ -710,12 +741,12 @@ public final class ParseUtils {
     }
 
     public static double[] parseDoubleArray(XContentParser parser) throws IOException {
-        DoubleArrayList oldValList = new DoubleArrayList();
+        final List<Double> oldValList = new ArrayList<>();
         ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
             oldValList.add(parser.doubleValue());
         }
-        return oldValList.toArray();
+        return oldValList.stream().mapToDouble(Double::doubleValue).toArray();
     }
 
     public static List<String> parseAggregationRequest(XContentParser parser) throws IOException {

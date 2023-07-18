@@ -12,6 +12,7 @@
 package org.opensearch.ad.ratelimit;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -22,10 +23,11 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.Entity;
 
@@ -54,10 +56,10 @@ public class AbstractRateLimitingTest extends AbstractTimeSeriesTest {
 
         nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         entity = Entity.createSingleAttributeEntity(categoryField, "value");
         entity2 = Entity.createSingleAttributeEntity(categoryField, "value2");

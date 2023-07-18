@@ -15,7 +15,7 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_CREATE_DETECTO
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_UPDATE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.timeseries.util.ParseUtils.getDetector;
+import static org.opensearch.timeseries.util.ParseUtils.getConfig;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -29,13 +29,11 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -48,7 +46,9 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
@@ -126,7 +126,17 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                 boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
                 // Update detector request, check if user has permissions to update the detector
                 // Get detector and verify backend roles
-                getDetector(requestedUser, detectorId, listener, function, client, clusterService, xContentRegistry, filterByBackendRole);
+                getConfig(
+                    requestedUser,
+                    detectorId,
+                    listener,
+                    function,
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    filterByBackendRole,
+                    AnomalyDetector.class
+                );
             } else {
                 // Create Detector. No need to get current detector.
                 function.accept(null);

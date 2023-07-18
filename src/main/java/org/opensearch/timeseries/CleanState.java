@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
 /**
  * Represent a state organized via detectorId.  When deleting a detector's state,

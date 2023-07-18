@@ -73,7 +73,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
+            .withTimeout(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings))
             .build();
         this.clusterService = clusterService;
         this.cacheProvider = cacheProvider;

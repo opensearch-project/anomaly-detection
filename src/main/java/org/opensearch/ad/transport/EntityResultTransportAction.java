@@ -27,7 +27,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.ADCommonName;
@@ -47,16 +46,19 @@ import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportService;
 
@@ -153,14 +155,14 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 listener = ExceptionUtil.wrapListener(listener, exception, detectorId);
             }
 
-            stateManager.getAnomalyDetector(detectorId, onGetDetector(listener, detectorId, request, previousException));
+            stateManager.getConfig(detectorId, AnalysisType.AD, onGetDetector(listener, detectorId, request, previousException));
         } catch (Exception exception) {
             LOG.error("fail to get entity's anomaly grade", exception);
             listener.onFailure(exception);
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         ActionListener<AcknowledgedResponse> listener,
         String detectorId,
         EntityResultRequest request,
@@ -172,7 +174,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
 
             if (request.getEntities() == null) {
                 listener.onFailure(new EndRunException(detectorId, "Fail to get any entities from request.", false));

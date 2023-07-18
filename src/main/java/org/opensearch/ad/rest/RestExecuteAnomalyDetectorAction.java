@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.timeseries.util.RestHandlerUtils.RUN;
@@ -54,8 +54,8 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
     private final Logger logger = LogManager.getLogger(RestExecuteAnomalyDetectorAction.class);
 
     public RestExecuteAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        this.requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
 
     @Override
@@ -68,7 +68,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
-        AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);
+        AnomalyDetectorExecutionInput input = getConfigExecutionInput(request);
         return channel -> {
             String error = validateAdExecutionInput(input);
             if (StringUtils.isNotBlank(error)) {
@@ -85,7 +85,7 @@ public class RestExecuteAnomalyDetectorAction extends BaseRestHandler {
         };
     }
 
-    private AnomalyDetectorExecutionInput getAnomalyDetectorExecutionInput(RestRequest request) throws IOException {
+    private AnomalyDetectorExecutionInput getConfigExecutionInput(RestRequest request) throws IOException {
         String detectorId = null;
         if (request.hasParam(DETECTOR_ID)) {
             detectorId = request.param(DETECTOR_ID);

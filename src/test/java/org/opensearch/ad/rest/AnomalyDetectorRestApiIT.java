@@ -36,7 +36,6 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.ADEnabledSetting;
@@ -54,6 +53,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -240,18 +240,18 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
-        Exception ex = expectThrows(ResponseException.class, () -> getAnomalyDetector(detector.getId(), client()));
+        Exception ex = expectThrows(ResponseException.class, () -> getConfig(detector.getId(), client()));
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
 
-        AnomalyDetector createdDetector = getAnomalyDetector(detector.getId(), client());
+        AnomalyDetector createdDetector = getConfig(detector.getId(), client());
         assertEquals("Incorrect Location header", detector, createdDetector);
     }
 
     public void testGetNotExistingAnomalyDetector() throws Exception {
         createRandomAnomalyDetector(true, true, client());
-        TestHelpers.assertFailWith(ResponseException.class, null, () -> getAnomalyDetector(randomAlphaOfLength(5), client()));
+        TestHelpers.assertFailWith(ResponseException.class, null, () -> getConfig(randomAlphaOfLength(5), client()));
     }
 
     public void testUpdateAnomalyDetector() throws Exception {
@@ -311,7 +311,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Updated anomaly detector id doesn't match", detector.getId(), responseBody.get("_id"));
         assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
 
-        AnomalyDetector updatedDetector = getAnomalyDetector(detector.getId(), client());
+        AnomalyDetector updatedDetector = getConfig(detector.getId(), client());
         assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals("Anomaly detector description not updated", newDescription, updatedDetector.getDescription());
     }
@@ -389,7 +389,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 null
             );
 
-        AnomalyDetector resultDetector = getAnomalyDetector(detectorWithNewName.getId(), client());
+        AnomalyDetector resultDetector = getConfig(detectorWithNewName.getId(), client());
         assertEquals("Detector name updating failed", detectorWithNewName.getName(), resultDetector.getName());
         assertEquals("Updated anomaly detector id doesn't match", detectorWithNewName.getId(), resultDetector.getId());
         assertNotEquals(
@@ -818,12 +818,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
-        ToXContentObject[] results = getAnomalyDetector(detector.getId(), true, client());
+        ToXContentObject[] results = getConfig(detector.getId(), true, client());
         assertEquals("Incorrect Location header", detector, results[0]);
-        assertEquals("Incorrect detector job name", detector.getId(), ((AnomalyDetectorJob) results[1]).getName());
-        assertTrue(((AnomalyDetectorJob) results[1]).isEnabled());
+        assertEquals("Incorrect detector job name", detector.getId(), ((Job) results[1]).getName());
+        assertTrue(((Job) results[1]).isEnabled());
 
-        results = getAnomalyDetector(detector.getId(), false, client());
+        results = getConfig(detector.getId(), false, client());
         assertEquals("Incorrect Location header", detector, results[0]);
         assertEquals("Should not return detector job", null, results[1]);
     }
@@ -1197,7 +1197,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("incorrect version", version > 0);
 
         // Get the detector using new _plugins API
-        AnomalyDetector createdDetector = getAnomalyDetector(id, client());
+        AnomalyDetector createdDetector = getConfig(id, client());
         assertEquals("Get anomaly detector failed", createdDetector.getId(), id);
 
         // Delete the detector using legacy _opendistro API

@@ -41,7 +41,6 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
@@ -53,19 +52,22 @@ import org.opensearch.ad.transport.ProfileNodeResponse;
 import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingResponse;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.RemoteTransportException;
 
 public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTests {
@@ -100,10 +102,10 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         detector = TestHelpers.randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(detectorIntervalMin, ChronoUnit.MINUTES));
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(anyString(), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(anyString(), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         runner = new AnomalyDetectorProfileRunner(
             client,
@@ -137,7 +139,7 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         break;
                 }
             } else if (request.index().equals(CommonName.JOB_INDEX)) {
-                AnomalyDetectorJob job = null;
+                Job job = null;
                 switch (jobStatus) {
                     case INDEX_NOT_EXIT:
                         listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));

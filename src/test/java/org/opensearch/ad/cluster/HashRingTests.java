@@ -19,7 +19,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
 
 import java.net.UnknownHostException;
 import java.time.Clock;
@@ -88,8 +88,8 @@ public class HashRingTests extends ADUnitTestCase {
         warmNodeId = "warmNode";
         warmNode = createNode(warmNodeId, "127.0.0.3", 9202, ImmutableMap.of(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE));
 
-        settings = Settings.builder().put(COOLDOWN_MINUTES.getKey(), TimeValue.timeValueSeconds(5)).build();
-        ClusterSettings clusterSettings = clusterSetting(settings, COOLDOWN_MINUTES);
+        settings = Settings.builder().put(AD_COOLDOWN_MINUTES.getKey(), TimeValue.timeValueSeconds(5)).build();
+        ClusterSettings clusterSettings = clusterSetting(settings, AD_COOLDOWN_MINUTES);
         clusterService = spy(new ClusterService(settings, clusterSettings, null));
 
         nodeFilter = spy(new DiscoveryNodeFilterer(clusterService));

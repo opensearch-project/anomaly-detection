@@ -13,8 +13,8 @@ package org.opensearch.ad.rest.handler;
 
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
 import static org.opensearch.action.DocWriteResponse.Result.UPDATED;
-import static org.opensearch.ad.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
@@ -34,7 +34,6 @@ import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyResultAction;
@@ -53,6 +52,7 @@ import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -188,7 +188,7 @@ public class IndexAnomalyDetectorJobActionHandler {
             Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
             Duration duration = Duration.of(interval.getInterval(), interval.getUnit());
 
-            AnomalyDetectorJob job = new AnomalyDetectorJob(
+            Job job = new Job(
                 detector.getId(),
                 schedule,
                 detector.getWindowDelay(),
@@ -201,7 +201,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                 detector.getCustomResultIndex()
             );
 
-            getAnomalyDetectorJobForWrite(detector, job, listener);
+            getJobForWrite(detector, job, listener);
         } catch (Exception e) {
             String message = "Failed to parse anomaly detector job " + detectorId;
             logger.error(message, e);
@@ -209,11 +209,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         }
     }
 
-    private void getAnomalyDetectorJobForWrite(
-        AnomalyDetector detector,
-        AnomalyDetectorJob job,
-        ActionListener<AnomalyDetectorJobResponse> listener
-    ) {
+    private void getJobForWrite(AnomalyDetector detector, Job job, ActionListener<AnomalyDetectorJobResponse> listener) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
 
         client
@@ -230,19 +226,19 @@ public class IndexAnomalyDetectorJobActionHandler {
     private void onGetAnomalyDetectorJobForWrite(
         GetResponse response,
         AnomalyDetector detector,
-        AnomalyDetectorJob job,
+        Job job,
         ActionListener<AnomalyDetectorJobResponse> listener
     ) throws IOException {
         if (response.isExists()) {
             try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                AnomalyDetectorJob currentAdJob = AnomalyDetectorJob.parse(parser);
+                Job currentAdJob = Job.parse(parser);
                 if (currentAdJob.isEnabled()) {
                     listener
                         .onFailure(new OpenSearchStatusException("Anomaly detector job is already running: " + detectorId, RestStatus.OK));
                     return;
                 } else {
-                    AnomalyDetectorJob newJob = new AnomalyDetectorJob(
+                    Job newJob = new Job(
                         job.getName(),
                         job.getSchedule(),
                         job.getWindowDelay(),
@@ -289,11 +285,8 @@ public class IndexAnomalyDetectorJobActionHandler {
         }
     }
 
-    private void indexAnomalyDetectorJob(
-        AnomalyDetectorJob job,
-        ExecutorFunction function,
-        ActionListener<AnomalyDetectorJobResponse> listener
-    ) throws IOException {
+    private void indexAnomalyDetectorJob(Job job, ExecutorFunction function, ActionListener<AnomalyDetectorJobResponse> listener)
+        throws IOException {
         IndexRequest indexRequest = new IndexRequest(CommonName.JOB_INDEX)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
             .source(job.toXContent(XContentFactory.jsonBuilder(), RestHandlerUtils.XCONTENT_WITH_TYPE))
@@ -351,11 +344,11 @@ public class IndexAnomalyDetectorJobActionHandler {
             if (response.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    Job job = Job.parse(parser);
                     if (!job.isEnabled()) {
                         adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, transportService, listener);
                     } else {
-                        AnomalyDetectorJob newJob = new AnomalyDetectorJob(
+                        Job newJob = new Job(
                             job.getName(),
                             job.getSchedule(),
                             job.getWindowDelay(),

@@ -62,6 +62,7 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 
@@ -376,10 +377,10 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testDetectorNotAvailableSingleWrite() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         worker.write(state, true, RequestPriority.MEDIUM);
         verify(checkpoint, never()).batchWrite(any(), any());
@@ -388,10 +389,10 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testDetectorNotAvailableWriteAll() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         List<ModelState<EntityModel>> states = new ArrayList<>();
         states.add(state);
@@ -402,10 +403,10 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testDetectorFetchException() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         worker.write(state, true, RequestPriority.MEDIUM);
         verify(checkpoint, never()).batchWrite(any(), any());

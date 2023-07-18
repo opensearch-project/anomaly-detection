@@ -30,7 +30,6 @@ import org.junit.Before;
 import org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.component.LifecycleListener;
@@ -40,6 +39,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {

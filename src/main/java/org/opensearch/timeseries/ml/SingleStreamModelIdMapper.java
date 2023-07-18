@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.ml;
+package org.opensearch.timeseries.ml;
 
 import java.util.Locale;
 import java.util.regex.Matcher;

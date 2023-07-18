@@ -44,7 +44,6 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.cluster.metadata.AliasMetadata;
@@ -64,6 +63,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.transport.TransportInterceptor;
 import org.opensearch.transport.TransportService;
 
@@ -351,7 +351,7 @@ public class AbstractTimeSeriesTest extends OpenSearchTestCase {
                         AnomalyDetector.XCONTENT_REGISTRY,
                         AnomalyResult.XCONTENT_REGISTRY,
                         DetectorInternalState.XCONTENT_REGISTRY,
-                        AnomalyDetectorJob.XCONTENT_REGISTRY
+                        Job.XCONTENT_REGISTRY
                     )
             );
         return new NamedXContentRegistry(entries);
