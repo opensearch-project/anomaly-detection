@@ -531,8 +531,15 @@ public final class ParseUtils {
     }
 
     /**
-     * This method processes the GetResponse and applies the consumer function if the user has permissions
-     * or if the filterByBackendRole is disabled. It uses a ConfigFactory to parse the correct type of Config.
+     * Processes a GetResponse by leveraging the factory method Config.parseConfig to
+     * appropriately parse the specified type of Config. The execution of the provided
+     * consumer function depends on the state of the 'filterByBackendRole' setting:
+     *
+     * - If 'filterByBackendRole' is disabled, the consumer function will be invoked
+     *   irrespective of the user's permissions.
+     *
+     * - If 'filterByBackendRole' is enabled, the consumer function will only be invoked
+     *   provided the user holds the requisite permissions.
      *
      * @param <ConfigType> The type of Config to be processed in this method, which extends from the Config base type.
      * @param response The GetResponse from the getConfig request. This contains the information about the config that is to be processed.
