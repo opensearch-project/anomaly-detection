@@ -138,7 +138,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         adTaskManager.refreshRealtimeJobRunTime(detectorId);
         if (!(scheduledJobParameter instanceof Job)) {
             throw new IllegalArgumentException(
-                "Job parameter is not instance of AnomalyDetectorJob, type: " + scheduledJobParameter.getClass().getCanonicalName()
+                "Job parameter is not instance of Job, type: " + scheduledJobParameter.getClass().getCanonicalName()
             );
         }
         Job jobParameter = (Job) scheduledJobParameter;

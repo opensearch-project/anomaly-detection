@@ -57,13 +57,13 @@ public class TimeSeriesSafeSecurityInjector extends SafeSecurityInjector {
             return;
         }
 
-        ActionListener<Optional<? extends Config>> getDetectorListener = ActionListener.wrap(detectorOp -> {
-            if (!detectorOp.isPresent()) {
+        ActionListener<Optional<? extends Config>> getConfigListener = ActionListener.wrap(configOp -> {
+            if (!configOp.isPresent()) {
                 injectListener.onFailure(new EndRunException(id, "Config is not available.", false));
                 return;
             }
-            Config detector = detectorOp.get();
-            User userInfo = SecurityUtil.getUserFromConfig(detector, settings);
+            Config config = configOp.get();
+            User userInfo = SecurityUtil.getUserFromConfig(config, settings);
             inject(userInfo.getName(), userInfo.getRoles());
             injectListener.onResponse(null);
         }, injectListener::onFailure);
@@ -71,7 +71,7 @@ public class TimeSeriesSafeSecurityInjector extends SafeSecurityInjector {
         // Since we are gonna read user from config, make sure the config exists and fetched from disk or cached memory
         // We don't accept a passed-in Config because the caller might mistakenly not insert any user info in the
         // constructed Config and thus poses risks. In the case, if the user is null, we will give admin role.
-        nodeStateManager.getConfig(id, context, getDetectorListener);
+        nodeStateManager.getConfig(id, context, getConfigListener);
     }
 
     public void injectUserRoles(User user) {

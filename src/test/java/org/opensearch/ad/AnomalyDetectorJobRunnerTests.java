@@ -262,7 +262,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
     @Test
     public void testRunJobWithWrongParameterType() {
         expectedEx.expect(IllegalArgumentException.class);
-        expectedEx.expectMessage("Job parameter is not instance of AnomalyDetectorJob, type: ");
+        expectedEx.expectMessage("Job parameter is not instance of Job, type: ");
 
         ScheduledJobParameter parameter = mock(ScheduledJobParameter.class);
         when(jobParameter.getLockDurationSeconds()).thenReturn(null);
