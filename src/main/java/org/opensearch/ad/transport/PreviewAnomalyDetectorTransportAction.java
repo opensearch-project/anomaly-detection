@@ -114,7 +114,8 @@ public class PreviewAnomalyDetectorTransportAction extends
                 (anomalyDetector) -> previewExecute(request, context, listener),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry,
+                AnomalyDetector.class
             );
         } catch (Exception e) {
             logger.error(e);

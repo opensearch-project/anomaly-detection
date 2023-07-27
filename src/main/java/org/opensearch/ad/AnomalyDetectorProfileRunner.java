@@ -35,7 +35,6 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
@@ -49,9 +48,6 @@ import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.RCFPollingResponse;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -68,11 +64,16 @@ import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuil
 import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.InternalCardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.NotSerializedExceptionName;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
@@ -159,7 +160,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    Job job = Job.parse(parser);
                     long enabledTimeMs = job.getEnabledTime().toEpochMilli();
 
                     boolean isMultiEntityDetector = detector.isHighCardinality();
@@ -315,6 +316,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         client::search,
                         detector.getId(),
                         client,
+                        AnalysisType.AD,
                         searchResponseListener
                     );
             } else {
@@ -368,6 +370,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
                         client::search,
                         detector.getId(),
                         client,
+                        AnalysisType.AD,
                         searchResponseListener
                     );
             }
@@ -418,7 +421,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private void profileModels(
         AnomalyDetector detector,
         Set<DetectorProfileName> profiles,
-        AnomalyDetectorJob job,
+        Job job,
         boolean forMultiEntityDetector,
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
@@ -430,7 +433,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     private ActionListener<ProfileResponse> onModelResponse(
         AnomalyDetector detector,
         Set<DetectorProfileName> profilesToCollect,
-        AnomalyDetectorJob job,
+        Job job,
         MultiResponsesDelegateActionListener<DetectorProfile> listener
     ) {
         boolean isMultientityDetector = detector.isHighCardinality();
@@ -464,7 +467,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
     }
 
     private void profileMultiEntityDetectorStateRelated(
-        AnomalyDetectorJob job,
+        Job job,
         Set<DetectorProfileName> profilesToCollect,
         ProfileResponse profileResponse,
         DetectorProfile.Builder profileBuilder,

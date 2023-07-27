@@ -15,9 +15,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -34,13 +32,10 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
@@ -52,13 +47,17 @@ import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.ClientUtil;
 
 import com.google.common.collect.ImmutableList;
 
@@ -125,8 +124,8 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
         nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
-        nodestateSetting.add(BACKOFF_MINUTES);
+        nodestateSetting.add(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE);
+        nodestateSetting.add(TimeSeriesSettings.BACKOFF_MINUTES);
         nodestateSetting.add(CHECKPOINT_SAVING_FREQ);
         clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
 
@@ -147,7 +146,9 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             clientUtil,
             clock,
             AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
+            clusterService,
+            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+            TimeSeriesSettings.BACKOFF_MINUTES
         );
 
         imputer = new LinearUniformImputer(true);

@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.model.MergeableList;
 
 public class MergeableListTests extends AbstractTimeSeriesTest {
 

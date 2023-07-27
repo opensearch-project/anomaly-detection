@@ -9,9 +9,11 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.timeseries.model;
 
 import java.util.List;
+
+import org.opensearch.ad.model.Mergeable;
 
 public class MergeableList<T> implements Mergeable {
 

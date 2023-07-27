@@ -43,14 +43,14 @@ import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.rest.ADRestTestUtils;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
@@ -70,6 +70,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     private List<String> runningRealtimeDetectors;
     private List<String> historicalDetectors;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -188,7 +189,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                 case UPGRADED:
                     // This branch is for testing full upgraded cluster. That means all nodes in cluster are running
                     // latest AD version.
-                    Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-time-series-analytics"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
                     Map<ADRestTestUtils.DetectorType, String> detectors = new HashMap<>();
@@ -258,7 +259,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             i++;
             for (String detectorId : runningRealtimeDetectors) {
                 Map<String, Object> jobAndTask = getDetectorWithJobAndTask(client(), detectorId);
-                AnomalyDetectorJob job = (AnomalyDetectorJob) jobAndTask.get(ANOMALY_DETECTOR_JOB);
+                Job job = (Job) jobAndTask.get(ANOMALY_DETECTOR_JOB);
                 ADTask historicalTask = (ADTask) jobAndTask.get(HISTORICAL_ANALYSIS_TASK);
                 ADTask realtimeTask = (ADTask) jobAndTask.get(REALTIME_TASK);
                 assertTrue(job.isEnabled());
@@ -291,7 +292,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                 }
             }
             Map<String, Object> jobAndTask = getDetectorWithJobAndTask(client(), detectorId);
-            AnomalyDetectorJob job = (AnomalyDetectorJob) jobAndTask.get(ANOMALY_DETECTOR_JOB);
+            Job job = (Job) jobAndTask.get(ANOMALY_DETECTOR_JOB);
             ADTask historicalAdTask = (ADTask) jobAndTask.get(HISTORICAL_ANALYSIS_TASK);
             if (!job.isEnabled() && historicalAdTask.isDone()) {
                 Response deleteDetectorResponse = deleteDetector(client(), detectorId);
@@ -320,7 +321,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
             String jobId = startAnomalyDetectorDirectly(client(), detectorId);
             assertEquals(detectorId, jobId);
             Map<String, Object> jobAndTask = getDetectorWithJobAndTask(client(), detectorId);
-            AnomalyDetectorJob detectorJob = (AnomalyDetectorJob) jobAndTask.get(ANOMALY_DETECTOR_JOB);
+            Job detectorJob = (Job) jobAndTask.get(ANOMALY_DETECTOR_JOB);
             assertTrue(detectorJob.isEnabled());
             runningRealtimeDetectors.add(detectorId);
         }
@@ -329,7 +330,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
     private void verifyAllRealtimeJobsRunning() throws IOException {
         for (String detectorId : runningRealtimeDetectors) {
             Map<String, Object> jobAndTask = getDetectorWithJobAndTask(client(), detectorId);
-            AnomalyDetectorJob detectorJob = (AnomalyDetectorJob) jobAndTask.get(ANOMALY_DETECTOR_JOB);
+            Job detectorJob = (Job) jobAndTask.get(ANOMALY_DETECTOR_JOB);
             assertTrue(detectorJob.isEnabled());
         }
     }
@@ -452,7 +453,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
 
         if (!historicalDetector) {
             Map<String, Object> jobAndTask = getDetectorWithJobAndTask(client(), detectorId);
-            AnomalyDetectorJob job = (AnomalyDetectorJob) jobAndTask.get(ANOMALY_DETECTOR_JOB);
+            Job job = (Job) jobAndTask.get(ANOMALY_DETECTOR_JOB);
             assertTrue(job.isEnabled());
             runningRealtimeDetectors.add(detectorId);
         } else {

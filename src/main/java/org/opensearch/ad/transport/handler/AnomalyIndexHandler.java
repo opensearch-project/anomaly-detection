@@ -29,7 +29,6 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.BulkUtil;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.block.ClusterBlockLevel;
@@ -42,6 +41,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
 public class AnomalyIndexHandler<T extends ToXContentObject> {

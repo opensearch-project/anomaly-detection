@@ -58,7 +58,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
-        AnomalyDetectorExecutionInput input = getAnomalyDetectorExecutionInput(request);
+        AnomalyDetectorExecutionInput input = getConfigExecutionInput(request);
 
         return channel -> {
             String rawPath = request.rawPath();
@@ -77,7 +77,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
         };
     }
 
-    private AnomalyDetectorExecutionInput getAnomalyDetectorExecutionInput(RestRequest request) throws IOException {
+    private AnomalyDetectorExecutionInput getConfigExecutionInput(RestRequest request) throws IOException {
         String detectorId = null;
         if (request.hasParam(RestHandlerUtils.DETECTOR_ID)) {
             detectorId = request.param(RestHandlerUtils.DETECTOR_ID);

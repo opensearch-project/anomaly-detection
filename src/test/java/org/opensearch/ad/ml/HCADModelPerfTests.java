@@ -13,6 +13,7 @@ package org.opensearch.ad.ml;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -36,15 +37,16 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.ClusterServiceUtils;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -188,10 +190,10 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             when(clock.millis()).thenReturn(timestamps[trainTestSplit - 1]);
 
             doAnswer(invocation -> {
-                ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+                ActionListener<Optional<Long>> listener = invocation.getArgument(3);
                 listener.onResponse(Optional.of(timestamps[0]));
                 return null;
-            }).when(searchFeatureDao).getEntityMinDataTime(any(), any(), any());
+            }).when(searchFeatureDao).getMinDataTime(any(), any(), eq(AnalysisType.AD), any());
 
             doAnswer(invocation -> {
                 List<Entry<Long, Long>> ranges = invocation.getArgument(1);
@@ -210,10 +212,10 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                     coldStartSamples.add(Optional.of(data[valueIndex]));
                 }
 
-                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
+                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(5);
                 listener.onResponse(coldStartSamples);
                 return null;
-            }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), any());
+            }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
             entity = Entity.createSingleAttributeEntity("field", entityName + z);
             EntityModel model = new EntityModel(entity, new ArrayDeque<>(), null);

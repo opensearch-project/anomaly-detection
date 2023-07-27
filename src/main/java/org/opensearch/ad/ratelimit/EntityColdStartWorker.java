@@ -24,7 +24,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.EntityColdStarter;
@@ -32,11 +31,13 @@ import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 /**
  * A queue for HCAD model training (a.k.a. cold start). As model training is a
@@ -121,7 +122,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         );
 
         ActionListener<Void> coldStartListener = ActionListener.wrap(r -> {
-            nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+            nodeStateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(detectorOptional -> {
                 try {
                     if (!detectorOptional.isPresent()) {
                         LOG
@@ -133,7 +134,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
                             );
                         return;
                     }
-                    AnomalyDetector detector = detectorOptional.get();
+                    AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
                     EntityModel model = modelState.getModel();
                     // load to cache if cold start succeeds
                     if (model != null && model.getTrcf() != null) {

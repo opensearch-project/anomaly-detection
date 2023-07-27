@@ -21,7 +21,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.rest.RestStatus;
@@ -29,6 +28,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
 /**
@@ -88,7 +88,7 @@ public class AnomalyDetectorActionHandler {
                         .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
+                    Job adJob = Job.parse(parser);
                     if (adJob.isEnabled()) {
                         listener.onFailure(new OpenSearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
                         return;

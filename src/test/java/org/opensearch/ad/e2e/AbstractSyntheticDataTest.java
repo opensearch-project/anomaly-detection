@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.e2e;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.BACKOFF_MINUTES;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.File;
 import java.io.FileReader;

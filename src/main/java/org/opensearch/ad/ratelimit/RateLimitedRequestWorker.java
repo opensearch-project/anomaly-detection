@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -33,9 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.ExpiringState;
-import org.opensearch.ad.MaintenanceState;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -43,6 +40,9 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.timeseries.ExpiringState;
+import org.opensearch.timeseries.MaintenanceState;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
@@ -228,7 +228,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         this.lastSelectedRequestQueueId = null;
         this.requestQueues = new ConcurrentSkipListMap<>();
         this.cooldownStart = Instant.MIN;
-        this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.coolDownMinutes = (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes());
         this.maintenanceFreqConstant = maintenanceFreqConstant;
         this.stateTtl = stateTtl;
         this.nodeStateManager = nodeStateManager;

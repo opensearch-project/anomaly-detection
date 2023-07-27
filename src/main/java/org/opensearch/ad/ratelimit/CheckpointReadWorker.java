@@ -33,7 +33,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.ADCommonName;
@@ -47,16 +46,19 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 
 /**
@@ -310,8 +312,9 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 }
 
                 nodeStateManager
-                    .getAnomalyDetector(
+                    .getConfig(
                         detectorId,
+                        AnalysisType.AD,
                         onGetDetector(
                             origRequest,
                             i,
@@ -336,7 +339,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         EntityFeatureRequest origRequest,
         int index,
         String detectorId,
@@ -354,7 +357,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
 
             ModelState<EntityModel> modelState = modelManager
                 .processEntityCheckpoint(checkpoint, entity, modelId, detectorId, detector.getShingleSize());

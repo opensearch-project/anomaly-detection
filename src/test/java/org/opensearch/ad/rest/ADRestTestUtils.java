@@ -40,13 +40,13 @@ import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -351,12 +351,12 @@ public class ADRestTestUtils {
 
         Map<String, Object> jobMap = (Map<String, Object>) responseMap.get(ANOMALY_DETECTOR_JOB);
         if (jobMap != null) {
-            String jobName = (String) jobMap.get(AnomalyDetectorJob.NAME_FIELD);
-            boolean enabled = (boolean) jobMap.get(AnomalyDetectorJob.IS_ENABLED_FIELD);
-            long enabledTime = (long) jobMap.get(AnomalyDetectorJob.ENABLED_TIME_FIELD);
-            long lastUpdateTime = (long) jobMap.get(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD);
+            String jobName = (String) jobMap.get(Job.NAME_FIELD);
+            boolean enabled = (boolean) jobMap.get(Job.IS_ENABLED_FIELD);
+            long enabledTime = (long) jobMap.get(Job.ENABLED_TIME_FIELD);
+            long lastUpdateTime = (long) jobMap.get(Job.LAST_UPDATE_TIME_FIELD);
 
-            AnomalyDetectorJob job = new AnomalyDetectorJob(
+            Job job = new Job(
                 jobName,
                 null,
                 null,

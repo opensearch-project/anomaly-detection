@@ -16,7 +16,6 @@ import java.io.IOException;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -24,6 +23,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
 public class GetAnomalyDetectorResponse extends ActionResponse implements ToXContentObject {
@@ -34,7 +34,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
     private long primaryTerm;
     private long seqNo;
     private AnomalyDetector detector;
-    private AnomalyDetectorJob adJob;
+    private Job adJob;
     private ADTask realtimeAdTask;
     private ADTask historicalAdTask;
     private RestStatus restStatus;
@@ -65,7 +65,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
             detector = new AnomalyDetector(in);
             returnJob = in.readBoolean();
             if (returnJob) {
-                adJob = new AnomalyDetectorJob(in);
+                adJob = new Job(in);
             } else {
                 adJob = null;
             }
@@ -89,7 +89,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         long primaryTerm,
         long seqNo,
         AnomalyDetector detector,
-        AnomalyDetectorJob adJob,
+        Job adJob,
         boolean returnJob,
         ADTask realtimeAdTask,
         ADTask historicalAdTask,
@@ -197,7 +197,7 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         return detectorProfile;
     }
 
-    public AnomalyDetectorJob getAdJob() {
+    public Job getAdJob() {
         return adJob;
     }
 

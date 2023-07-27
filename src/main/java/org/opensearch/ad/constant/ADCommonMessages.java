@@ -24,8 +24,6 @@ public class ADCommonMessages {
     public static String FAIL_TO_PARSE_DETECTOR_MSG = "Fail to parse detector with id: ";
     public static String FAIL_TO_GET_PROFILE_MSG = "Fail to get profile for detector ";
     public static String FAIL_TO_GET_TOTAL_ENTITIES = "Failed to get total entities for detector ";
-    public static String FAIL_TO_GET_USER_INFO = "Unable to get user information from detector ";
-    public static String NO_PERMISSION_TO_ACCESS_DETECTOR = "User does not have permissions to access detector: ";
     public static String CATEGORICAL_FIELD_NUMBER_SURPASSED = "We don't support categorical fields more than ";
     public static String EMPTY_PROFILES_COLLECT = "profiles to collect are missing or invalid";
     public static String FAIL_FETCH_ERR_MSG = "Fail to fetch profile for ";

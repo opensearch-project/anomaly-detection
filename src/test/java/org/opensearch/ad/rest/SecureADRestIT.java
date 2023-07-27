@@ -191,7 +191,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         // User Cat has AD full access, should be able to get a detector
-        AnomalyDetector detector = getAnomalyDetector(aliceDetector.getId(), catClient);
+        AnomalyDetector detector = getConfig(aliceDetector.getId(), catClient);
         Assert.assertEquals(aliceDetector.getId(), detector.getId());
     }
 
@@ -201,7 +201,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         enableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
-        Exception exception = expectThrows(IOException.class, () -> { getAnomalyDetector(aliceDetector.getId(), catClient); });
+        Exception exception = expectThrows(IOException.class, () -> { getConfig(aliceDetector.getId(), catClient); });
         Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
     }
 
@@ -225,7 +225,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         enableFilterBy();
         confirmingClientIsAdmin();
-        AnomalyDetector detector = getAnomalyDetector(aliceDetector.getId(), client());
+        AnomalyDetector detector = getConfig(aliceDetector.getId(), client());
         Assert
             .assertArrayEquals(
                 "User backend role of detector doesn't change",
@@ -268,7 +268,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // But the detector's backend role should not be replaced as client's backend roles (all_access).
         Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, client());
         Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
-        AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getId(), aliceClient);
+        AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
         Assert
             .assertArrayEquals(
                 "odfe is still the backendrole, not opensearch",
@@ -317,7 +317,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // not be replaced as Fish's backend roles.
         Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, fishClient);
         Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
-        AnomalyDetector anomalyDetector = getAnomalyDetector(aliceDetector.getId(), aliceClient);
+        AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
         Assert
             .assertArrayEquals(
                 "Wrong user roles",

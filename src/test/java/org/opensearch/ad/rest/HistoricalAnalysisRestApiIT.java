@@ -36,12 +36,12 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Job;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -146,7 +146,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         // get detector with AD task
         ToXContentObject[] result = getHistoricalAnomalyDetector(detectorId, true, client());
         AnomalyDetector parsedDetector = (AnomalyDetector) result[0];
-        AnomalyDetectorJob parsedJob = (AnomalyDetectorJob) result[1];
+        Job parsedJob = (Job) result[1];
         ADTask parsedADTask = (ADTask) result[2];
         assertNull(parsedJob);
         assertNotNull(parsedDetector);
@@ -212,7 +212,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals((detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
 
         // get historical detector
-        AnomalyDetector updatedDetector = getAnomalyDetector(detector.getId(), client());
+        AnomalyDetector updatedDetector = getConfig(detector.getId(), client());
         assertNotEquals(updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
         assertEquals(newDetector.getName(), updatedDetector.getName());
         assertEquals(newDetector.getDescription(), updatedDetector.getDescription());

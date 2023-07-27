@@ -29,7 +29,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.stats.CommonStats;
 import org.opensearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.opensearch.action.admin.indices.stats.ShardStats;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.client.IndicesAdminClient;
 import org.opensearch.cluster.service.ClusterService;
@@ -38,6 +37,7 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.store.StoreStats;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.util.ClientUtil;
 
 public class IndexCleanupTests extends AbstractTimeSeriesTest {
 

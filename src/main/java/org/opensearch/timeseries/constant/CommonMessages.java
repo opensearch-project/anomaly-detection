@@ -85,4 +85,10 @@ public class CommonMessages {
     public static final String BUG_RESPONSE = "We might have bugs.";
     public static final String MEMORY_LIMIT_EXCEEDED_ERR_MSG = "Models memory usage exceeds our limit.";
 
+    // ======================================
+    // security
+    // ======================================
+    public static String NO_PERMISSION_TO_ACCESS_CONFIG = "User does not have permissions to access config: ";
+    public static String FAIL_TO_GET_USER_INFO = "Unable to get user information from config ";
+
 }

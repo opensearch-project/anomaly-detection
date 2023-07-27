@@ -37,7 +37,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -58,6 +57,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -71,7 +71,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private DeleteResponse deleteResponse;
     private GetResponse getResponse;
     ClusterService clusterService;
-    private AnomalyDetectorJob jobParameter;
+    private Job jobParameter;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -117,7 +117,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
             adTaskManager
         );
 
-        jobParameter = mock(AnomalyDetectorJob.class);
+        jobParameter = mock(Job.class);
         when(jobParameter.getName()).thenReturn(randomAlphaOfLength(10));
         IntervalSchedule schedule = new IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES);
         when(jobParameter.getSchedule()).thenReturn(schedule);
@@ -288,7 +288,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
                     true,
                     BytesReference
                         .bytes(
-                            new AnomalyDetectorJob(
+                            new Job(
                                 "1234",
                                 jobParameter.getSchedule(),
                                 jobParameter.getWindowDelay(),

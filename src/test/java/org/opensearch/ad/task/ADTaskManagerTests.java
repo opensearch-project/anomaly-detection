@@ -30,12 +30,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 import static org.opensearch.timeseries.TestHelpers.randomAdTask;
 import static org.opensearch.timeseries.TestHelpers.randomAnomalyDetector;
@@ -90,7 +90,6 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.transport.ADStatsNodeResponse;
@@ -129,6 +128,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
@@ -213,14 +213,14 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .builder()
             .put(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.getKey(), 2)
             .put(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1)
-            .put(REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
+            .put(AD_REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
             .build();
 
         clusterSettings = clusterSetting(
             settings,
             MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
             BATCH_TASK_PIECE_INTERVAL_SECONDS,
-            REQUEST_TIMEOUT,
+            AD_REQUEST_TIMEOUT,
             DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
             MAX_BATCH_TASK_PER_NODE,
             MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS
@@ -847,7 +847,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .builder()
             .put(MAX_OLD_AD_TASK_DOCS_PER_DETECTOR.getKey(), 2)
             .put(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1)
-            .put(REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
+            .put(AD_REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
             .put(DELETE_AD_RESULT_WHEN_DELETE_DETECTOR.getKey(), true)
             .build();
 
@@ -855,7 +855,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             settings,
             MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
             BATCH_TASK_PIECE_INTERVAL_SECONDS,
-            REQUEST_TIMEOUT,
+            AD_REQUEST_TIMEOUT,
             DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
             MAX_BATCH_TASK_PER_NODE,
             MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS
@@ -1237,7 +1237,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
                     true,
                     BytesReference
                         .bytes(
-                            new AnomalyDetectorJob(
+                            new Job(
                                 detectorId,
                                 randomIntervalSchedule(),
                                 randomIntervalTimeConfiguration(),

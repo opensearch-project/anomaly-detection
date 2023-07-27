@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class NodeStateTests extends OpenSearchTestCase {
@@ -38,7 +37,7 @@ public class NodeStateTests extends OpenSearchTestCase {
 
     public void testMaintenanceNotRemoveSingle() throws IOException {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000));
-        state.setDetectorDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
+        state.setConfigDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
 
         when(clock.instant()).thenReturn(Instant.MIN);
         assertTrue(!state.expired(duration));
@@ -46,8 +45,8 @@ public class NodeStateTests extends OpenSearchTestCase {
 
     public void testMaintenanceNotRemove() throws IOException {
         when(clock.instant()).thenReturn(Instant.ofEpochSecond(1000));
-        state.setDetectorDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
-        state.setLastDetectionError(null);
+        state.setConfigDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
+        state.setException(null);
 
         when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
         assertTrue(!state.expired(duration));
@@ -56,11 +55,11 @@ public class NodeStateTests extends OpenSearchTestCase {
     public void testMaintenanceRemoveLastError() throws IOException {
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000));
         state
-            .setDetectorDef(
+            .setConfigDef(
 
                 TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null)
             );
-        state.setLastDetectionError(null);
+        state.setException(null);
 
         when(clock.instant()).thenReturn(Instant.ofEpochSecond(3700));
         assertTrue(state.expired(duration));
@@ -68,7 +67,7 @@ public class NodeStateTests extends OpenSearchTestCase {
 
     public void testMaintenancRemoveDetector() throws IOException {
         when(clock.instant()).thenReturn(Instant.MIN);
-        state.setDetectorDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
+        state.setConfigDef(TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null));
         when(clock.instant()).thenReturn(Instant.MAX);
         assertTrue(state.expired(duration));
 

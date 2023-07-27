@@ -55,7 +55,6 @@ import org.opensearch.ad.caching.PriorityTracker;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
@@ -75,8 +74,6 @@ import org.opensearch.ad.transport.ADStatsNodeResponse;
 import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -95,19 +92,23 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TaskCancelledException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
@@ -180,7 +181,7 @@ public class ADBatchTaskRunner {
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
+            .withTimeout(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings))
             .build();
 
         this.adTaskCacheManager = adTaskCacheManager;
@@ -487,6 +488,7 @@ public class ADBatchTaskRunner {
                 // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
                 adTask.getUser(),
                 client,
+                AnalysisType.AD,
                 searchResponseListener
             );
     }
@@ -1010,6 +1012,7 @@ public class ADBatchTaskRunner {
                 // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
                 adTask.getUser(),
                 client,
+                AnalysisType.AD,
                 searchResponseListener
             );
     }

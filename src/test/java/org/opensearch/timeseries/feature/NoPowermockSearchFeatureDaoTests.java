@@ -9,10 +9,11 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.feature;
+package org.opensearch.timeseries.feature;
 
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -55,16 +56,15 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponse.Clusters;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
+import org.opensearch.common.util.BitMixer;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
 import org.opensearch.index.mapper.DateFieldMapper;
@@ -94,14 +94,16 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 
-import com.carrotsearch.hppc.BitMixer;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -169,10 +171,10 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
         clock = mock(Clock.class);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
 
         searchFeatureDao = new SearchFeatureDao(
@@ -525,8 +527,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             .getColdStartSamplesForPeriods(
                 detector,
                 sampleRanges,
-                Entity.createSingleAttributeEntity("field", "abc"),
+                Optional.of(Entity.createSingleAttributeEntity("field", "abc")),
                 true,
+                AnalysisType.AD,
                 ActionListener.wrap(samples -> {
                     assertEquals(3, samples.size());
                     for (int i = 0; i < samples.size(); i++) {
@@ -558,8 +561,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             .getColdStartSamplesForPeriods(
                 detector,
                 sampleRanges,
-                Entity.createSingleAttributeEntity("field", "abc"),
+                Optional.of(Entity.createSingleAttributeEntity("field", "abc")),
                 false,
+                AnalysisType.AD,
                 ActionListener.wrap(samples -> {
                     assertEquals(2, samples.size());
                     for (int i = 0; i < samples.size(); i++) {

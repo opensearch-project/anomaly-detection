@@ -24,7 +24,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
@@ -36,6 +35,7 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportService;
 

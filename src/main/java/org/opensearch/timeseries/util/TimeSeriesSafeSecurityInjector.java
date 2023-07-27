@@ -9,31 +9,40 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.Strings;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.model.Config;
 
-public class ADSafeSecurityInjector extends SafeSecurityInjector {
-    private static final Logger LOG = LogManager.getLogger(ADSafeSecurityInjector.class);
+public class TimeSeriesSafeSecurityInjector extends SafeSecurityInjector {
+    private static final Logger LOG = LogManager.getLogger(TimeSeriesSafeSecurityInjector.class);
     private NodeStateManager nodeStateManager;
+    private AnalysisType context;
 
-    public ADSafeSecurityInjector(String detectorId, Settings settings, ThreadContext tc, NodeStateManager stateManager) {
-        super(detectorId, settings, tc);
+    public TimeSeriesSafeSecurityInjector(
+        String configId,
+        Settings settings,
+        ThreadContext tc,
+        NodeStateManager stateManager,
+        AnalysisType context
+    ) {
+        super(configId, settings, tc);
         this.nodeStateManager = stateManager;
+        this.context = context;
     }
 
-    public void injectUserRolesFromDetector(ActionListener<Void> injectListener) {
+    public void injectUserRolesFromConfig(ActionListener<Void> injectListener) {
         // if id is null, we cannot fetch a detector
         if (Strings.isEmpty(id)) {
             LOG.debug("Empty id");
@@ -48,21 +57,21 @@ public class ADSafeSecurityInjector extends SafeSecurityInjector {
             return;
         }
 
-        ActionListener<Optional<AnomalyDetector>> getDetectorListener = ActionListener.wrap(detectorOp -> {
-            if (!detectorOp.isPresent()) {
-                injectListener.onFailure(new EndRunException(id, "AnomalyDetector is not available.", false));
+        ActionListener<Optional<? extends Config>> getConfigListener = ActionListener.wrap(configOp -> {
+            if (!configOp.isPresent()) {
+                injectListener.onFailure(new EndRunException(id, "Config is not available.", false));
                 return;
             }
-            AnomalyDetector detector = detectorOp.get();
-            User userInfo = SecurityUtil.getUserFromDetector(detector, settings);
+            Config config = configOp.get();
+            User userInfo = SecurityUtil.getUserFromConfig(config, settings);
             inject(userInfo.getName(), userInfo.getRoles());
             injectListener.onResponse(null);
         }, injectListener::onFailure);
 
-        // Since we are gonna read user from detector, make sure the anomaly detector exists and fetched from disk or cached memory
-        // We don't accept a passed-in AnomalyDetector because the caller might mistakenly not insert any user info in the
-        // constructed AnomalyDetector and thus poses risks. In the case, if the user is null, we will give admin role.
-        nodeStateManager.getAnomalyDetector(id, getDetectorListener);
+        // Since we are gonna read user from config, make sure the config exists and fetched from disk or cached memory
+        // We don't accept a passed-in Config because the caller might mistakenly not insert any user info in the
+        // constructed Config and thus poses risks. In the case, if the user is null, we will give admin role.
+        nodeStateManager.getConfig(id, context, getConfigListener);
     }
 
     public void injectUserRoles(User user) {

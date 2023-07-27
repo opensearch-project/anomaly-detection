@@ -30,7 +30,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.ADStatsResponse;
-import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -43,6 +42,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.transport.TransportService;
 
 public class StatsAnomalyDetectorTransportAction extends HandledTransportAction<ADStatsRequest, StatsAnomalyDetectorResponse> {

@@ -31,18 +31,20 @@ import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.update.UpdateRequest;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, BulkRequest, BulkResponse> {
     private static final Logger LOG = LogManager.getLogger(CheckpointWriteWorker.class);
@@ -163,11 +165,11 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                 return;
             }
 
-            nodeStateManager.getAnomalyDetector(detectorId, onGetDetector(detectorId, modelId, modelState, priority));
+            nodeStateManager.getConfig(detectorId, AnalysisType.AD, onGetDetector(detectorId, modelId, modelState, priority));
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         String detectorId,
         String modelId,
         ModelState<EntityModel> modelState,
@@ -179,7 +181,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
             try {
                 Map<String, Object> source = checkpoint.toIndexSource(modelState);
 
@@ -216,13 +218,13 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
     }
 
     public void writeAll(List<ModelState<EntityModel>> modelStates, String detectorId, boolean forceWrite, RequestPriority priority) {
-        ActionListener<Optional<AnomalyDetector>> onGetForAll = ActionListener.wrap(detectorOptional -> {
+        ActionListener<Optional<? extends Config>> onGetForAll = ActionListener.wrap(detectorOptional -> {
             if (false == detectorOptional.isPresent()) {
                 LOG.warn(new ParameterizedMessage("AnomalyDetector [{}] is not available.", detectorId));
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
             try {
                 List<CheckpointWriteRequest> allRequests = new ArrayList<>();
                 for (ModelState<EntityModel> state : modelStates) {
@@ -269,6 +271,6 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
 
         }, exception -> { LOG.error(new ParameterizedMessage("fail to get detector [{}]", detectorId), exception); });
 
-        nodeStateManager.getAnomalyDetector(detectorId, onGetForAll);
+        nodeStateManager.getConfig(detectorId, AnalysisType.AD, onGetForAll);
     }
 }

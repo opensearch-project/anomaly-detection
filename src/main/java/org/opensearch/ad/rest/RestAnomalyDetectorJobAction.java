@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.timeseries.util.RestHandlerUtils.IF_PRIMARY_TERM;
@@ -50,8 +50,8 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
     private volatile TimeValue requestTimeout;
 
     public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        this.requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
 
     @Override

@@ -71,6 +71,7 @@ import org.opensearch.index.get.GetResult;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
@@ -733,16 +734,16 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         AnomalyDetector detector2 = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId2, Arrays.asList(categoryField));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector2));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(eq(detectorId2), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(eq(detectorId2), eq(AnalysisType.AD), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(eq(detectorId), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(eq(detectorId), eq(AnalysisType.AD), any(ActionListener.class));
 
         doAnswer(invocation -> {
             MultiGetItemResponse[] items = new MultiGetItemResponse[2];

@@ -49,7 +49,6 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.settings.Settings;
@@ -58,6 +57,7 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.stats.StatNames;
 
 import com.google.common.collect.ImmutableList;
@@ -354,7 +354,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         String detectorId = realtimeResult.get(0);
         String jobId = realtimeResult.get(1);
         GetResponse jobDoc = getDoc(CommonName.JOB_INDEX, detectorId);
-        AnomalyDetectorJob job = toADJob(jobDoc);
+        Job job = toADJob(jobDoc);
         assertTrue(job.isEnabled());
         assertEquals(detectorId, job.getName());
 
@@ -423,7 +423,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         AnomalyDetectorJobRequest request = stopDetectorJobRequest(detectorId, false);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         GetResponse doc = getDoc(CommonName.JOB_INDEX, detectorId);
-        AnomalyDetectorJob job = toADJob(doc);
+        Job job = toADJob(doc);
         assertFalse(job.isEnabled());
         assertEquals(detectorId, job.getName());
 

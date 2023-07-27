@@ -55,7 +55,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
+    public static final Setting<TimeValue> AD_REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.request_timeout",
             LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT,
@@ -114,7 +114,9 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Integer> MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
+    // Use TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE
+    @Deprecated
+    public static final Setting<Integer> AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
         .intSetting(
             "plugins.anomaly_detection.max_retry_for_unresponsive_node",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
@@ -123,7 +125,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> COOLDOWN_MINUTES = Setting
+    public static final Setting<TimeValue> AD_COOLDOWN_MINUTES = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.cooldown_minutes",
             LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES,
@@ -131,7 +133,9 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> BACKOFF_MINUTES = Setting
+    // Use TimeSeriesSettings.BACKOFF_MINUTES
+    @Deprecated
+    public static final Setting<TimeValue> AD_BACKOFF_MINUTES = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.backoff_minutes",
             LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES,

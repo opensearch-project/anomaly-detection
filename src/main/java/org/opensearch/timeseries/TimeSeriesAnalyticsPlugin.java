@@ -38,7 +38,6 @@ import org.opensearch.ad.AnomalyDetectorJobRunner;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
@@ -49,14 +48,12 @@ import org.opensearch.ad.cluster.ClusterManagerEventListener;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.ratelimit.CheckPointMaintainRequestAdapter;
@@ -158,10 +155,7 @@ import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler;
 import org.opensearch.ad.transport.handler.MultiEntityResultHandler;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.SecurityClientUtil;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
@@ -199,10 +193,14 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ThrowingSupplierWrapper;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.watcher.ResourceWatcherService;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -347,8 +345,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
         this.client = client;
         this.threadPool = threadPool;
         Settings settings = environment.settings();
-        Throttler throttler = new Throttler(getClock());
-        this.clientUtil = new ClientUtil(settings, client, throttler, threadPool);
+        this.clientUtil = new ClientUtil(client);
         this.indexUtils = new IndexUtils(client, clientUtil, clusterService, indexNameExpressionResolver);
         this.nodeFilter = new DiscoveryNodeFilterer(clusterService);
         // convert from checked IOException to unchecked RuntimeException
@@ -373,8 +370,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             settings,
             clientUtil,
             getClock(),
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
+            clusterService,
+            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+            TimeSeriesSettings.BACKOFF_MINUTES
         );
         securityClientUtil = new SecurityClientUtil(stateManager, settings);
         SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
@@ -896,10 +895,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES,
                 LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_INITIAL_DELAY,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF,
-                AnomalyDetectorSettings.REQUEST_TIMEOUT,
-                AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
-                AnomalyDetectorSettings.COOLDOWN_MINUTES,
-                AnomalyDetectorSettings.BACKOFF_MINUTES,
+                AnomalyDetectorSettings.AD_REQUEST_TIMEOUT,
+                AnomalyDetectorSettings.AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+                AnomalyDetectorSettings.AD_COOLDOWN_MINUTES,
+                AnomalyDetectorSettings.AD_BACKOFF_MINUTES,
                 AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
                 AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF,
                 // result index rollover
@@ -979,7 +978,16 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 // ForecastSettings.FORECAST_MAX_HC_FORECASTERS,
                 ForecastSettings.FORECAST_INDEX_PRESSURE_SOFT_LIMIT,
                 ForecastSettings.FORECAST_INDEX_PRESSURE_HARD_LIMIT,
-                ForecastSettings.FORECAST_MAX_PRIMARY_SHARDS
+                ForecastSettings.FORECAST_MAX_PRIMARY_SHARDS,
+                // ======================================
+                // Common settings
+                // ======================================
+                // Fault tolerance
+                TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+                TimeSeriesSettings.BACKOFF_MINUTES,
+                TimeSeriesSettings.COOLDOWN_MINUTES,
+                // tasks
+                TimeSeriesSettings.MAX_CACHED_DELETED_TASKS
             );
         return unmodifiableList(
             Stream
@@ -997,7 +1005,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 AnomalyDetector.XCONTENT_REGISTRY,
                 AnomalyResult.XCONTENT_REGISTRY,
                 DetectorInternalState.XCONTENT_REGISTRY,
-                AnomalyDetectorJob.XCONTENT_REGISTRY,
+                Job.XCONTENT_REGISTRY,
                 Forecaster.XCONTENT_REGISTRY
             );
     }
@@ -1061,7 +1069,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
     public ScheduledJobParser getJobParser() {
         return (parser, id, jobDocVersion) -> {
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-            return AnomalyDetectorJob.parse(parser);
+            return Job.parse(parser);
         };
     }
 

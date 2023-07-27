@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
 
 import java.time.Clock;
 import java.util.ArrayList;
@@ -37,7 +37,6 @@ import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.ClusterAdminClient;
@@ -52,6 +51,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.PluginInfo;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.Sets;
@@ -109,8 +109,8 @@ public class HashRing {
         this.nodeFilter = nodeFilter;
         this.buildHashRingSemaphore = new Semaphore(1);
         this.clock = clock;
-        this.coolDownPeriodForRealtimeAD = COOLDOWN_MINUTES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownPeriodForRealtimeAD = it);
+        this.coolDownPeriodForRealtimeAD = AD_COOLDOWN_MINUTES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_COOLDOWN_MINUTES, it -> coolDownPeriodForRealtimeAD = it);
 
         this.lastUpdateForRealtimeAD = 0;
         this.client = client;
@@ -387,7 +387,7 @@ public class HashRing {
      * 1. There is node change event not consumed, and
      * 2. Have passed cool down period from last hash ring update time.
      *
-     * Check {@link org.opensearch.ad.settings.AnomalyDetectorSettings#COOLDOWN_MINUTES} about
+     * Check {@link org.opensearch.ad.settings.AnomalyDetectorSettings#AD_COOLDOWN_MINUTES} about
      * cool down settings.
      *
      * Why we need to wait for some cooldown period before rebuilding hash ring?

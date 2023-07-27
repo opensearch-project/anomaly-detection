@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.util;
+package org.opensearch.timeseries.util;
 
 import java.util.function.BiConsumer;
 
@@ -17,12 +17,13 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.ActionType;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 
 public class SecurityClientUtil {
     private static final String INJECTION_ID = "direct";
@@ -51,12 +52,21 @@ public class SecurityClientUtil {
         BiConsumer<Request, ActionListener<Response>> consumer,
         String detectorId,
         Client client,
+        AnalysisType context,
         ActionListener<Response> listener
     ) {
         ThreadContext threadContext = client.threadPool().getThreadContext();
-        try (ADSafeSecurityInjector injectSecurity = new ADSafeSecurityInjector(detectorId, settings, threadContext, nodeStateManager)) {
+        try (
+            TimeSeriesSafeSecurityInjector injectSecurity = new TimeSeriesSafeSecurityInjector(
+                detectorId,
+                settings,
+                threadContext,
+                nodeStateManager,
+                context
+            )
+        ) {
             injectSecurity
-                .injectUserRolesFromDetector(
+                .injectUserRolesFromConfig(
                     ActionListener
                         .wrap(
                             success -> consumer.accept(request, ActionListener.runBefore(listener, () -> injectSecurity.close())),
@@ -82,6 +92,7 @@ public class SecurityClientUtil {
         BiConsumer<Request, ActionListener<Response>> consumer,
         User user,
         Client client,
+        AnalysisType context,
         ActionListener<Response> listener
     ) {
         ThreadContext threadContext = client.threadPool().getThreadContext();
@@ -95,7 +106,15 @@ public class SecurityClientUtil {
         // client.execute/client.search and handles the responses (this can be a thread in the search thread pool).
         // Auto-close in try will restore the context in one thread; the explicit close injectSecurity will restore
         // the context in another thread. So we still need to put the injectSecurity inside try.
-        try (ADSafeSecurityInjector injectSecurity = new ADSafeSecurityInjector(INJECTION_ID, settings, threadContext, nodeStateManager)) {
+        try (
+            TimeSeriesSafeSecurityInjector injectSecurity = new TimeSeriesSafeSecurityInjector(
+                INJECTION_ID,
+                settings,
+                threadContext,
+                nodeStateManager,
+                context
+            )
+        ) {
             injectSecurity.injectUserRoles(user);
             consumer.accept(request, ActionListener.runBefore(listener, () -> injectSecurity.close()));
         }
@@ -117,12 +136,21 @@ public class SecurityClientUtil {
         Request request,
         User user,
         Client client,
+        AnalysisType context,
         ActionListener<Response> listener
     ) {
         ThreadContext threadContext = client.threadPool().getThreadContext();
 
         // use a hardcoded string as detector id that is only used in logging
-        try (ADSafeSecurityInjector injectSecurity = new ADSafeSecurityInjector(INJECTION_ID, settings, threadContext, nodeStateManager)) {
+        try (
+            TimeSeriesSafeSecurityInjector injectSecurity = new TimeSeriesSafeSecurityInjector(
+                INJECTION_ID,
+                settings,
+                threadContext,
+                nodeStateManager,
+                context
+            )
+        ) {
             injectSecurity.injectUserRoles(user);
             client.execute(action, request, ActionListener.runBefore(listener, () -> injectSecurity.close()));
         }

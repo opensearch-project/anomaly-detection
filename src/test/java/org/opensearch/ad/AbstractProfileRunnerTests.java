@@ -36,7 +36,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -46,6 +45,7 @@ import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {

@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.transport;
+package org.opensearch.timeseries.transport;
 
 import java.time.Clock;
 import java.util.concurrent.atomic.AtomicInteger;

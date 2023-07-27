@@ -13,12 +13,9 @@ package org.opensearch.ad.util;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.admin.indices.stats.IndicesStatsRequest;
-import org.opensearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
@@ -28,6 +25,7 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.timeseries.util.ClientUtil;
 
 public class IndexUtils {
     /**
@@ -108,25 +106,6 @@ public class IndexUtils {
         );
 
         return indexHealth.getStatus().name().toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * Gets the number of documents in an index.
-     *
-     * @deprecated
-     *
-     * @param indexName Name of the index
-     * @return The number of documents in an index. 0 is returned if the index does not exist. -1 is returned if the
-     * request fails.
-     */
-    @Deprecated
-    public Long getNumberOfDocumentsInIndex(String indexName) {
-        if (!clusterService.state().getRoutingTable().hasIndex(indexName)) {
-            return 0L;
-        }
-        IndicesStatsRequest indicesStatsRequest = new IndicesStatsRequest();
-        Optional<IndicesStatsResponse> response = clientUtil.timedRequest(indicesStatsRequest, logger, client.admin().indices()::stats);
-        return response.map(r -> r.getIndex(indexName).getPrimaries().docs.getCount()).orElse(-1L);
     }
 
     /**
