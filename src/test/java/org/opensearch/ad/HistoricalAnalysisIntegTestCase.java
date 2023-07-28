@@ -37,7 +37,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
@@ -57,6 +56,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 
 import com.google.common.collect.ImmutableList;
 
@@ -120,6 +120,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         }
     }
 
+    @Override
     public Feature maxValueFeature() throws IOException {
         AggregationBuilder aggregationBuilder = TestHelpers.parseAggregation("{\"test\":{\"max\":{\"field\":\"" + valueField + "\"}}}");
         return new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);
@@ -135,21 +136,15 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
     }
 
     public ADTask randomCreatedADTask(String taskId, AnomalyDetector detector, String detectorId, DateRange detectionDateRange) {
-        return randomADTask(taskId, detector, detectorId, detectionDateRange, ADTaskState.CREATED);
+        return randomADTask(taskId, detector, detectorId, detectionDateRange, TaskState.CREATED);
     }
 
-    public ADTask randomADTask(
-        String taskId,
-        AnomalyDetector detector,
-        String detectorId,
-        DateRange detectionDateRange,
-        ADTaskState state
-    ) {
+    public ADTask randomADTask(String taskId, AnomalyDetector detector, String detectorId, DateRange detectionDateRange, TaskState state) {
         ADTask.Builder builder = ADTask
             .builder()
             .taskId(taskId)
             .taskType(ADTaskType.HISTORICAL_SINGLE_ENTITY.name())
-            .detectorId(detectorId)
+            .configId(detectorId)
             .detectionDateRange(detectionDateRange)
             .detector(detector)
             .state(state.name())
@@ -158,12 +153,12 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
             .isLatest(true)
             .startedBy(randomAlphaOfLength(5))
             .executionStartTime(Instant.now().minus(randomLongBetween(10, 100), ChronoUnit.MINUTES));
-        if (ADTaskState.FINISHED == state) {
+        if (TaskState.FINISHED == state) {
             setPropertyForNotRunningTask(builder);
-        } else if (ADTaskState.FAILED == state) {
+        } else if (TaskState.FAILED == state) {
             setPropertyForNotRunningTask(builder);
             builder.error(randomAlphaOfLength(5));
-        } else if (ADTaskState.STOPPED == state) {
+        } else if (TaskState.STOPPED == state) {
             setPropertyForNotRunningTask(builder);
             builder.error(randomAlphaOfLength(5));
             builder.stoppedBy(randomAlphaOfLength(5));

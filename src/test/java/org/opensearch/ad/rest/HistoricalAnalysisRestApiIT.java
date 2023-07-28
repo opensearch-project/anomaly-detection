@@ -34,7 +34,6 @@ import org.opensearch.ad.HistoricalAnalysisRestTestCase;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -42,6 +41,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -118,8 +118,8 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         // get task profile
         ADTaskProfile adTaskProfile = waitUntilGetTaskProfile(detectorId);
         if (categoryFieldSize > 0) {
-            if (!ADTaskState.RUNNING.name().equals(adTaskProfile.getAdTask().getState())) {
-                adTaskProfile = (ADTaskProfile) waitUntilTaskReachState(detectorId, ImmutableSet.of(ADTaskState.RUNNING.name())).get(0);
+            if (!TaskState.RUNNING.name().equals(adTaskProfile.getAdTask().getState())) {
+                adTaskProfile = (ADTaskProfile) waitUntilTaskReachState(detectorId, ImmutableSet.of(TaskState.RUNNING.name())).get(0);
             }
             assertEquals((int) Math.pow(categoryFieldDocCount, categoryFieldSize), adTaskProfile.getTotalEntitiesCount().intValue());
             assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
@@ -172,7 +172,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         assertEquals(RestStatus.OK, TestHelpers.restStatus(stopDetectorResponse));
 
         // get task profile
-        checkIfTaskCanFinishCorrectly(detectorId, taskId, ImmutableSet.of(ADTaskState.STOPPED.name()));
+        checkIfTaskCanFinishCorrectly(detectorId, taskId, ImmutableSet.of(TaskState.STOPPED.name()));
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 1);
 
         waitUntilTaskDone(detectorId);

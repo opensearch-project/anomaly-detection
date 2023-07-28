@@ -32,7 +32,6 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
@@ -53,6 +52,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -346,7 +346,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     Job job = Job.parse(parser);
                     if (!job.isEnabled()) {
-                        adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, transportService, listener);
+                        adTaskManager.stopLatestRealtimeTask(detectorId, TaskState.STOPPED, null, transportService, listener);
                     } else {
                         Job newJob = new Job(
                             job.getName(),
@@ -393,14 +393,14 @@ public class IndexAnomalyDetectorJobActionHandler {
                     logger.info("AD model deleted successfully for detector {}", detectorId);
                     // StopDetectorTransportAction will send out DeleteModelAction which will clear all realtime cache.
                     // Pass null transport service to method "stopLatestRealtimeTask" to not re-clear coordinating node cache.
-                    adTaskManager.stopLatestRealtimeTask(detectorId, ADTaskState.STOPPED, null, null, listener);
+                    adTaskManager.stopLatestRealtimeTask(detectorId, TaskState.STOPPED, null, null, listener);
                 } else {
                     logger.error("Failed to delete AD model for detector {}", detectorId);
                     // If failed to clear all realtime cache, will try to re-clear coordinating node cache.
                     adTaskManager
                         .stopLatestRealtimeTask(
                             detectorId,
-                            ADTaskState.FAILED,
+                            TaskState.FAILED,
                             new OpenSearchStatusException("Failed to delete AD model", RestStatus.INTERNAL_SERVER_ERROR),
                             transportService,
                             listener
@@ -415,7 +415,7 @@ public class IndexAnomalyDetectorJobActionHandler {
                 adTaskManager
                     .stopLatestRealtimeTask(
                         detectorId,
-                        ADTaskState.FAILED,
+                        TaskState.FAILED,
                         new OpenSearchStatusException("Failed to execute stop detector action", RestStatus.INTERNAL_SERVER_ERROR),
                         transportService,
                         listener

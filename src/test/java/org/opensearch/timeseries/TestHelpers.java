@@ -67,7 +67,6 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
@@ -113,6 +112,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.model.ForecastTask;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -136,6 +136,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.DataByFeatureId;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
@@ -143,6 +144,7 @@ import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
@@ -160,12 +162,12 @@ public class TestHelpers {
     public static final String AD_BASE_PREVIEW_URI = AD_BASE_DETECTORS_URI + "/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
-        .of(ADTaskState.CREATED.name(), ADTaskState.INIT.name(), ADTaskState.RUNNING.name());
+        .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name());
     // Task may fail if memory circuit breaker triggered.
     public static final Set<String> HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS = ImmutableSet
-        .of(ADTaskState.FINISHED.name(), ADTaskState.FAILED.name());
+        .of(TaskState.FINISHED.name(), TaskState.FAILED.name());
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_DONE_STATS = ImmutableSet
-        .of(ADTaskState.FAILED.name(), ADTaskState.FINISHED.name(), ADTaskState.STOPPED.name());
+        .of(TaskState.FAILED.name(), TaskState.FINISHED.name(), TaskState.STOPPED.name());
     private static final Logger logger = LogManager.getLogger(TestHelpers.class);
     public static final Random random = new Random(42);
 
@@ -1261,7 +1263,7 @@ public class TestHelpers {
     public static ADTask randomAdTask() throws IOException {
         return randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.RUNNING,
+            TaskState.RUNNING,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             randomAlphaOfLength(5),
             true
@@ -1271,7 +1273,7 @@ public class TestHelpers {
     public static ADTask randomAdTask(ADTaskType adTaskType) throws IOException {
         return randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.RUNNING,
+            TaskState.RUNNING,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
             randomAlphaOfLength(5),
             true,
@@ -1281,7 +1283,7 @@ public class TestHelpers {
 
     public static ADTask randomAdTask(
         String taskId,
-        ADTaskState state,
+        TaskState state,
         Instant executionEndTime,
         String stoppedBy,
         String detectorId,
@@ -1307,7 +1309,7 @@ public class TestHelpers {
             .builder()
             .taskId(taskId)
             .taskType(adTaskType.name())
-            .detectorId(detectorId)
+            .configId(detectorId)
             .detector(detector)
             .state(state.name())
             .taskProgress(0.5f)
@@ -1326,14 +1328,14 @@ public class TestHelpers {
         return task;
     }
 
-    public static ADTask randomAdTask(String taskId, ADTaskState state, Instant executionEndTime, String stoppedBy, boolean withDetector)
+    public static ADTask randomAdTask(String taskId, TaskState state, Instant executionEndTime, String stoppedBy, boolean withDetector)
         throws IOException {
         return randomAdTask(taskId, state, executionEndTime, stoppedBy, withDetector, ADTaskType.HISTORICAL_SINGLE_ENTITY);
     }
 
     public static ADTask randomAdTask(
         String taskId,
-        ADTaskState state,
+        TaskState state,
         Instant executionEndTime,
         String stoppedBy,
         boolean withDetector,
@@ -1364,7 +1366,7 @@ public class TestHelpers {
             .builder()
             .taskId(taskId)
             .taskType(adTaskType.name())
-            .detectorId(randomAlphaOfLength(5))
+            .configId(randomAlphaOfLength(5))
             .detector(detector)
             .entity(entity)
             .state(state.name())
@@ -1386,28 +1388,19 @@ public class TestHelpers {
 
     public static ADTask randomAdTask(
         String taskId,
-        ADTaskState state,
+        TaskState state,
         Instant executionEndTime,
         String stoppedBy,
         AnomalyDetector detector
     ) {
         executionEndTime = executionEndTime == null ? null : executionEndTime.truncatedTo(ChronoUnit.SECONDS);
-        Entity entity = null;
-        if (detector != null) {
-            if (detector.hasMultipleCategories()) {
-                Map<String, Object> attrMap = new HashMap<>();
-                detector.getCategoryFields().stream().forEach(f -> attrMap.put(f, randomAlphaOfLength(5)));
-                entity = Entity.createEntityByReordering(attrMap);
-            } else if (detector.isHighCardinality()) {
-                entity = Entity.createEntityByReordering(ImmutableMap.of(detector.getCategoryFields().get(0), randomAlphaOfLength(5)));
-            }
-        }
+        Entity entity = randomEntity(detector);
         String taskType = entity == null ? ADTaskType.HISTORICAL_SINGLE_ENTITY.name() : ADTaskType.HISTORICAL_HC_ENTITY.name();
         ADTask task = ADTask
             .builder()
             .taskId(taskId)
             .taskType(taskType)
-            .detectorId(randomAlphaOfLength(5))
+            .configId(randomAlphaOfLength(5))
             .detector(detector)
             .state(state.name())
             .taskProgress(0.5f)
@@ -1425,6 +1418,20 @@ public class TestHelpers {
             .entity(entity)
             .build();
         return task;
+    }
+
+    public static Entity randomEntity(Config config) {
+        Entity entity = null;
+        if (config != null) {
+            if (config.hasMultipleCategories()) {
+                Map<String, Object> attrMap = new HashMap<>();
+                config.getCategoryFields().stream().forEach(f -> attrMap.put(f, randomAlphaOfLength(5)));
+                entity = Entity.createEntityByReordering(attrMap);
+            } else if (config.isHighCardinality()) {
+                entity = Entity.createEntityByReordering(ImmutableMap.of(config.getCategoryFields().get(0), randomAlphaOfLength(5)));
+            }
+        }
+        return entity;
     }
 
     public static HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
@@ -1764,5 +1771,88 @@ public class TestHelpers {
             randomIntBetween(1, 20),
             randomImputationOption()
         );
+    }
+
+    public static class ForecastTaskBuilder {
+        private String configId = "config123";
+        private String taskId = "task123";
+        private String taskType = "FORECAST_HISTORICAL_HC_ENTITY";
+        private String state = "Running";
+        private Float taskProgress = 0.5f;
+        private Float initProgress = 0.1f;
+        private Instant currentPiece = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant executionStartTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant executionEndTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Boolean isLatest = true;
+        private String error = "No errors";
+        private String checkpointId = "checkpoint1";
+        private Instant lastUpdateTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private String startedBy = "user1";
+        private String stoppedBy = "user2";
+        private String coordinatingNode = "node1";
+        private String workerNode = "node2";
+        private Forecaster forecaster = TestHelpers.randomForecaster();
+        private Entity entity = TestHelpers.randomEntity(forecaster);
+        private String parentTaskId = "parentTask1";
+        private Integer estimatedMinutesLeft = 10;
+        protected User user = TestHelpers.randomUser();
+
+        private DateRange dateRange = new DateRange(Instant.ofEpochMilli(123), Instant.ofEpochMilli(456));
+
+        public ForecastTaskBuilder() throws IOException {
+            forecaster = TestHelpers.randomForecaster();
+        }
+
+        public static ForecastTaskBuilder newInstance() throws IOException {
+            return new ForecastTaskBuilder();
+        }
+
+        public ForecastTaskBuilder setForecaster(Forecaster associatedForecaster) {
+            this.forecaster = associatedForecaster;
+            return this;
+        }
+
+        public ForecastTaskBuilder setUser(User associatedUser) {
+            this.user = associatedUser;
+            return this;
+        }
+
+        public ForecastTaskBuilder setDateRange(DateRange associatedRange) {
+            this.dateRange = associatedRange;
+            return this;
+        }
+
+        public ForecastTaskBuilder setEntity(Entity associatedEntity) {
+            this.entity = associatedEntity;
+            return this;
+        }
+
+        public ForecastTask build() {
+            return new ForecastTask.Builder()
+                .configId(configId)
+                .taskId(taskId)
+                .lastUpdateTime(lastUpdateTime)
+                .startedBy(startedBy)
+                .stoppedBy(stoppedBy)
+                .error(error)
+                .state(state)
+                .taskProgress(taskProgress)
+                .initProgress(initProgress)
+                .currentPiece(currentPiece)
+                .executionStartTime(executionStartTime)
+                .executionEndTime(executionEndTime)
+                .isLatest(isLatest)
+                .taskType(taskType)
+                .checkpointId(checkpointId)
+                .coordinatingNode(coordinatingNode)
+                .workerNode(workerNode)
+                .entity(entity)
+                .parentTaskId(parentTaskId)
+                .estimatedMinutesLeft(estimatedMinutesLeft)
+                .user(user)
+                .forecaster(forecaster)
+                .dateRange(dateRange)
+                .build();
+        }
     }
 }

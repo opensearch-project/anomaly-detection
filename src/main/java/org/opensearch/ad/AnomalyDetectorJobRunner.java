@@ -32,7 +32,6 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
@@ -64,6 +63,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.util.SecurityUtil;
 
 import com.google.common.base.Throwables;
@@ -509,7 +509,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 executionStartTime,
                 error,
                 true,
-                ADTaskState.STOPPED.name(),
+                TaskState.STOPPED.name(),
                 recorder,
                 detector
             )
