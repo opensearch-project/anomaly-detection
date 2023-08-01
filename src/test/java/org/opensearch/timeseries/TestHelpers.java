@@ -1420,6 +1420,19 @@ public class TestHelpers {
         return task;
     }
 
+    /**
+     * Generates a random Entity based on the provided configuration.
+     *
+     * If the configuration has multiple categories, a new Entity is created with attributes
+     * populated with random alphanumeric strings of length 5.
+     *
+     * If the configuration is marked as high cardinality and does not have multiple categories,
+     * a new Entity is created with a single attribute using the first category field and a random
+     * alphanumeric string of length 5.
+     *
+     * @param config The configuration object containing information about a time series analysis.
+     * @return A randomly generated Entity based on the configuration, or null if the config is null.
+     */
     public static Entity randomEntity(Config config) {
         Entity entity = null;
         if (config != null) {
