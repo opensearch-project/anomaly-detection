@@ -201,10 +201,10 @@ public abstract class TimeSeriesTask implements ToXContentObject, Writeable {
     }
 
     /**
-     * Get detector level task id. If a task has no parent task, the task is detector level task.
-     * @return detector level task id
+     * Get config level task id. If a task has no parent task, the task is config level task.
+     * @return config level task id
      */
-    public String getDetectorLevelTaskId() {
+    public String getConfigLevelTaskId() {
         return getParentTaskId() != null ? getParentTaskId() : getTaskId();
     }
 
@@ -442,5 +442,7 @@ public abstract class TimeSeriesTask implements ToXContentObject, Writeable {
 
     public abstract boolean isEntityTask();
 
-    public abstract String getEntityModelId();
+    public String getEntityModelId() {
+        return entity == null ? null : entity.getModelId(configId).orElse(null);
+    }
 }

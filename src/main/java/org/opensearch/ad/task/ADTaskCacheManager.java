@@ -189,7 +189,7 @@ public class ADTaskCacheManager {
         taskCache.getCacheMemorySize().set(neededCacheSize);
         batchTaskCaches.put(taskId, taskCache);
         if (adTask.isEntityTask()) {
-            ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, adTask.getDetectorLevelTaskId());
+            ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, adTask.getConfigLevelTaskId());
             if (hcBatchTaskRunState != null) {
                 hcBatchTaskRunState.setLastTaskRunTimeInMillis(Instant.now().toEpochMilli());
             }

@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.forecast.model;
@@ -67,21 +61,18 @@ public class ForecastTask extends TimeSeriesTask {
         } else {
             user = null;
         }
-        // Below are new fields added since AD 1.1
-        if (input.available() > 0) {
-            if (input.readBoolean()) {
-                this.dateRange = new DateRange(input);
-            } else {
-                this.dateRange = null;
-            }
-            if (input.readBoolean()) {
-                this.entity = new Entity(input);
-            } else {
-                this.entity = null;
-            }
-            this.parentTaskId = input.readOptionalString();
-            this.estimatedMinutesLeft = input.readOptionalInt();
+        if (input.readBoolean()) {
+            this.dateRange = new DateRange(input);
+        } else {
+            this.dateRange = null;
         }
+        if (input.readBoolean()) {
+            this.entity = new Entity(input);
+        } else {
+            this.entity = null;
+        }
+        this.parentTaskId = input.readOptionalString();
+        this.estimatedMinutesLeft = input.readOptionalInt();
     }
 
     @Override
@@ -390,11 +381,6 @@ public class ForecastTask extends TimeSeriesTask {
 
     public DateRange getDateRange() {
         return dateRange;
-    }
-
-    @Override
-    public String getEntityModelId() {
-        return entity == null ? null : entity.getModelId(configId).orElse(null);
     }
 
     public void setDateRange(DateRange dateRange) {

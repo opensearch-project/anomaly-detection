@@ -399,9 +399,4 @@ public class ADTask extends TimeSeriesTask {
     public void setDetectionDateRange(DateRange detectionDateRange) {
         this.detectionDateRange = detectionDateRange;
     }
-
-    @Override
-    public String getEntityModelId() {
-        return entity == null ? null : entity.getModelId(getConfigId()).orElse(null);
-    }
 }

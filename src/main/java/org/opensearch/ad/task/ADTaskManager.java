@@ -2292,7 +2292,7 @@ public class ADTaskManager {
     public void setHCDetectorTaskDone(ADTask adTask, TaskState state, ActionListener<AnomalyDetectorJobResponse> listener) {
         String detectorId = adTask.getConfigId();
         String taskId = adTask.isEntityTask() ? adTask.getParentTaskId() : adTask.getTaskId();
-        String detectorTaskId = adTask.getDetectorLevelTaskId();
+        String detectorTaskId = adTask.getConfigLevelTaskId();
 
         ActionListener<UpdateResponse> wrappedListener = ActionListener.wrap(response -> {
             logger.info("Historical HC detector done with state: {}. Remove from cache, detector id:{}", state.name(), detectorId);

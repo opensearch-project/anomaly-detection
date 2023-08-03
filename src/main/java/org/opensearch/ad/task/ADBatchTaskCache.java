@@ -57,7 +57,7 @@ public class ADBatchTaskCache {
     protected ADBatchTaskCache(ADTask adTask) {
         this.detectorId = adTask.getConfigId();
         this.taskId = adTask.getTaskId();
-        this.detectorTaskId = adTask.getDetectorLevelTaskId();
+        this.detectorTaskId = adTask.getConfigLevelTaskId();
         this.entity = adTask.getEntity();
 
         AnomalyDetector detector = adTask.getDetector();

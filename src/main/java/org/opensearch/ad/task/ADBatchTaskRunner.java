@@ -798,7 +798,7 @@ public class ADBatchTaskRunner {
 
     private ActionListener<String> internalBatchTaskListener(ADTask adTask, TransportService transportService) {
         String taskId = adTask.getTaskId();
-        String detectorTaskId = adTask.getDetectorLevelTaskId();
+        String detectorTaskId = adTask.getConfigLevelTaskId();
         String detectorId = adTask.getConfigId();
         ActionListener<String> listener = ActionListener.wrap(response -> {
             // If batch task finished normally, remove task from cache and decrease executing task count by 1.
@@ -1101,7 +1101,7 @@ public class ADBatchTaskRunner {
                     : "No data in current detection window";
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getConfigId(),
-                    adTask.getDetectorLevelTaskId(),
+                    adTask.getConfigLevelTaskId(),
                     featureData,
                     Instant.ofEpochMilli(intervalEndTime - interval),
                     Instant.ofEpochMilli(intervalEndTime),
@@ -1128,7 +1128,7 @@ public class ADBatchTaskRunner {
                     .fromRawTRCFResult(
                         adTask.getConfigId(),
                         adTask.getDetector().getIntervalInMilliseconds(),
-                        adTask.getDetectorLevelTaskId(),
+                        adTask.getConfigLevelTaskId(),
                         score,
                         descriptor.getAnomalyGrade(),
                         descriptor.getDataConfidence(),
@@ -1249,7 +1249,7 @@ public class ADBatchTaskRunner {
     ) {
         String taskId = adTask.getTaskId();
         String detectorId = adTask.getConfigId();
-        String detectorTaskId = adTask.getDetectorLevelTaskId();
+        String detectorTaskId = adTask.getConfigLevelTaskId();
         float initProgress = calculateInitProgress(taskId);
         String taskState = initProgress >= 1.0f ? TaskState.RUNNING.name() : TaskState.INIT.name();
         logger.debug("Init progress: {}, taskState:{}, task id: {}", initProgress, taskState, taskId);
@@ -1362,7 +1362,7 @@ public class ADBatchTaskRunner {
     private void checkIfADTaskCancelledAndCleanupCache(ADTask adTask) {
         String taskId = adTask.getTaskId();
         String detectorId = adTask.getConfigId();
-        String detectorTaskId = adTask.getDetectorLevelTaskId();
+        String detectorTaskId = adTask.getConfigLevelTaskId();
         // refresh latest HC task run time
         adTaskCacheManager.refreshLatestHCTaskRunTime(detectorId);
         if (adTask.getDetector().isHighCardinality()
