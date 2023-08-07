@@ -40,6 +40,17 @@ public final class ForecastSettings {
         );
 
     // ======================================
+    // cleanup resouce setting
+    // ======================================
+    public static final Setting<Boolean> DELETE_FORECAST_RESULT_WHEN_DELETE_FORECASTER = Setting
+        .boolSetting(
+            "plugins.forecast.delete_forecast_result_when_delete_forecaster",
+            false,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+    // ======================================
     // resource constraint
     // ======================================
     public static final Setting<Integer> MAX_SINGLE_STREAM_FORECASTERS = Setting

@@ -15,9 +15,9 @@ import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.TASK_TYPE_FIELD;
-import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_DETECTOR_UPPER_LIMIT;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.model.TaskType.taskTypeToString;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
@@ -39,7 +39,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -59,6 +58,7 @@ import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 /**
@@ -245,7 +245,7 @@ public class ADDataMigrator {
                     Instant now = Instant.now();
                     String userName = job.getUser() != null ? job.getUser().getName() : null;
                     ADTask adTask = new ADTask.Builder()
-                        .detectorId(detector.getId())
+                        .configId(detector.getId())
                         .detector(detector)
                         .error(error)
                         .isLatest(true)
@@ -253,7 +253,7 @@ public class ADDataMigrator {
                         .executionStartTime(now)
                         .taskProgress(0.0f)
                         .initProgress(0.0f)
-                        .state(ADTaskState.CREATED.name())
+                        .state(TaskState.CREATED.name())
                         .lastUpdateTime(now)
                         .startedBy(userName)
                         .coordinatingNode(null)

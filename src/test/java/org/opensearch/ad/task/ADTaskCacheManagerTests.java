@@ -35,7 +35,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -46,6 +45,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.model.TaskState;
 
 import com.google.common.collect.ImmutableList;
 
@@ -94,7 +94,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         adTaskCacheManager.add(adTask);
         assertEquals(1, adTaskCacheManager.size());
         assertTrue(adTaskCacheManager.contains(adTask.getTaskId()));
-        assertTrue(adTaskCacheManager.containsTaskOfDetector(adTask.getId()));
+        assertTrue(adTaskCacheManager.containsTaskOfDetector(adTask.getConfigId()));
         assertNotNull(adTaskCacheManager.getTRcfModel(adTask.getTaskId()));
         assertNotNull(adTaskCacheManager.getShingle(adTask.getTaskId()));
         assertFalse(adTaskCacheManager.isThresholdModelTrained(adTask.getTaskId()));
@@ -113,10 +113,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adTask2 = TestHelpers
             .randomAdTask(
                 randomAlphaOfLength(5),
-                ADTaskState.INIT,
+                TaskState.INIT,
                 adTask1.getExecutionEndTime(),
                 adTask1.getStoppedBy(),
-                adTask1.getId(),
+                adTask1.getConfigId(),
                 adTask1.getDetector(),
                 ADTaskType.HISTORICAL_SINGLE_ENTITY
             );
@@ -137,7 +137,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adTask1 = TestHelpers
             .randomAdTask(
                 randomAlphaOfLength(5),
-                ADTaskState.CREATED,
+                TaskState.CREATED,
                 Instant.now(),
                 null,
                 detector.getId(),
@@ -147,7 +147,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adTask2 = TestHelpers
             .randomAdTask(
                 randomAlphaOfLength(5),
-                ADTaskState.CREATED,
+                TaskState.CREATED,
                 Instant.now(),
                 null,
                 detector.getId(),
@@ -223,8 +223,8 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
         ADTask adTask = TestHelpers.randomAdTask();
         adTaskCacheManager.add(adTask);
-        String detectorId = adTask.getId();
-        String detectorTaskId = adTask.getId();
+        String detectorId = adTask.getConfigId();
+        String detectorTaskId = adTask.getConfigId();
         String reason = randomAlphaOfLength(10);
         String userName = randomAlphaOfLength(5);
         ADTaskCancellationState state = adTaskCacheManager.cancelByDetectorId(detectorId, detectorTaskId, reason, userName);
@@ -310,7 +310,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
     public void testRealtimeTaskCache() {
         String detectorId1 = randomAlphaOfLength(10);
-        String newState = ADTaskState.INIT.name();
+        String newState = TaskState.INIT.name();
         Float newInitProgress = 0.0f;
         String newError = randomAlphaOfLength(5);
         assertTrue(adTaskCacheManager.isRealtimeTaskChangeNeeded(detectorId1, newState, newInitProgress, newError));
@@ -328,7 +328,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         adTaskCacheManager.updateRealtimeTaskCache(detectorId2, newState, newInitProgress, newError);
         assertEquals(2, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache().length);
 
-        newState = ADTaskState.RUNNING.name();
+        newState = TaskState.RUNNING.name();
         newInitProgress = 1.0f;
         newError = "test error";
         assertTrue(adTaskCacheManager.isRealtimeTaskChangeNeeded(detectorId1, newState, newInitProgress, newError));
@@ -354,7 +354,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertNull(realtimeTaskCache.getError());
         assertNull(realtimeTaskCache.getInitProgress());
 
-        String state = ADTaskState.RUNNING.name();
+        String state = TaskState.RUNNING.name();
         Float initProgress = 0.1f;
         String error = randomAlphaOfLength(5);
         adTaskCacheManager.updateRealtimeTaskCache(detectorId, state, initProgress, error);
@@ -363,7 +363,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(error, realtimeTaskCache.getError());
         assertEquals(initProgress, realtimeTaskCache.getInitProgress());
 
-        state = ADTaskState.STOPPED.name();
+        state = TaskState.STOPPED.name();
         adTaskCacheManager.updateRealtimeTaskCache(detectorId, state, initProgress, error);
         realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         assertNull(realtimeTaskCache);
@@ -434,7 +434,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adDetectorTask = TestHelpers
             .randomAdTask(
                 randomAlphaOfLength(5),
-                ADTaskState.CREATED,
+                TaskState.CREATED,
                 Instant.now(),
                 null,
                 detectorId,
@@ -444,7 +444,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         ADTask adEntityTask = TestHelpers
             .randomAdTask(
                 randomAlphaOfLength(5),
-                ADTaskState.CREATED,
+                TaskState.CREATED,
                 Instant.now(),
                 null,
                 detectorId,
@@ -621,11 +621,11 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
         ADHCBatchTaskRunState state = adTaskCacheManager.getOrCreateHCDetectorTaskStateCache(detectorId, detectorTaskId);
         assertTrue(adTaskCacheManager.detectorTaskStateExists(detectorId, detectorTaskId));
-        assertEquals(ADTaskState.INIT.name(), state.getDetectorTaskState());
+        assertEquals(TaskState.INIT.name(), state.getDetectorTaskState());
         assertFalse(state.expired());
 
-        state.setDetectorTaskState(ADTaskState.RUNNING.name());
-        assertEquals(ADTaskState.RUNNING.name(), adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));
+        state.setDetectorTaskState(TaskState.RUNNING.name());
+        assertEquals(TaskState.RUNNING.name(), adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));
 
         String cancelReason = randomAlphaOfLength(5);
         String cancelledBy = randomAlphaOfLength(5);
@@ -647,7 +647,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
     public void testUpdateDetectorTaskState() {
         String detectorId = randomAlphaOfLength(5);
         String detectorTaskId = randomAlphaOfLength(5);
-        String newState = ADTaskState.RUNNING.name();
+        String newState = TaskState.RUNNING.name();
 
         adTaskCacheManager.updateDetectorTaskState(detectorId, detectorTaskId, newState);
         assertEquals(newState, adTaskCacheManager.getDetectorTaskState(detectorId, detectorTaskId));

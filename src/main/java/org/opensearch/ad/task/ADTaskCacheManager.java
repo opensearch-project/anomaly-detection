@@ -38,7 +38,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -47,6 +46,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
@@ -171,7 +171,7 @@ public class ADTaskCacheManager {
      */
     public synchronized void add(ADTask adTask) {
         String taskId = adTask.getTaskId();
-        String detectorId = adTask.getId();
+        String detectorId = adTask.getConfigId();
         if (contains(taskId)) {
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
@@ -189,7 +189,7 @@ public class ADTaskCacheManager {
         taskCache.getCacheMemorySize().set(neededCacheSize);
         batchTaskCaches.put(taskId, taskCache);
         if (adTask.isEntityTask()) {
-            ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, adTask.getDetectorLevelTaskId());
+            ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, adTask.getConfigLevelTaskId());
             if (hcBatchTaskRunState != null) {
                 hcBatchTaskRunState.setLastTaskRunTimeInMillis(Instant.now().toEpochMilli());
             }
@@ -1035,7 +1035,7 @@ public class ADTaskCacheManager {
             String oldState = realtimeTaskCache.getState();
             if (newState != null
                 && !newState.equals(oldState)
-                && !(ADTaskState.INIT.name().equals(newState) && ADTaskState.RUNNING.name().equals(oldState))) {
+                && !(TaskState.INIT.name().equals(newState) && TaskState.RUNNING.name().equals(oldState))) {
                 stateChangeNeeded = true;
             }
             boolean initProgressChangeNeeded = false;
@@ -1084,7 +1084,7 @@ public class ADTaskCacheManager {
             if (newError != null) {
                 realtimeTaskCache.setError(newError);
             }
-            if (newState != null && !ADTaskState.NOT_ENDED_STATES.contains(newState)) {
+            if (newState != null && !TaskState.NOT_ENDED_STATES.contains(newState)) {
                 // If task is done, will remove its realtime task cache.
                 logger.info("Realtime task done with state {}, remove RT task cache for detector ", newState, detectorId);
                 removeRealtimeTaskCache(detectorId);

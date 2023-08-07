@@ -1,15 +1,9 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.ad.model;
+package org.opensearch.forecast.model;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
@@ -29,28 +23,24 @@ import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
 
-/**
- * One anomaly detection task means one detector starts to run until stopped.
- */
-public class ADTask extends TimeSeriesTask {
+public class ForecastTask extends TimeSeriesTask {
+    public static final String FORECASTER_ID_FIELD = "forecaster_id";
+    public static final String FORECASTER_FIELD = "forecaster";
+    public static final String DATE_RANGE_FIELD = "date_range";
 
-    public static final String DETECTOR_ID_FIELD = "detector_id";
-    public static final String DETECTOR_FIELD = "detector";
-    public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
+    private Forecaster forecaster = null;
+    private DateRange dateRange = null;
 
-    private AnomalyDetector detector = null;
-    private DateRange detectionDateRange = null;
+    private ForecastTask() {}
 
-    private ADTask() {}
-
-    public ADTask(StreamInput input) throws IOException {
+    public ForecastTask(StreamInput input) throws IOException {
         this.taskId = input.readOptionalString();
         this.taskType = input.readOptionalString();
         this.configId = input.readOptionalString();
         if (input.readBoolean()) {
-            this.detector = new AnomalyDetector(input);
+            this.forecaster = new Forecaster(input);
         } else {
-            this.detector = null;
+            this.forecaster = null;
         }
         this.state = input.readOptionalString();
         this.taskProgress = input.readOptionalFloat();
@@ -71,21 +61,18 @@ public class ADTask extends TimeSeriesTask {
         } else {
             user = null;
         }
-        // Below are new fields added since AD 1.1
-        if (input.available() > 0) {
-            if (input.readBoolean()) {
-                this.detectionDateRange = new DateRange(input);
-            } else {
-                this.detectionDateRange = null;
-            }
-            if (input.readBoolean()) {
-                this.entity = new Entity(input);
-            } else {
-                this.entity = null;
-            }
-            this.parentTaskId = input.readOptionalString();
-            this.estimatedMinutesLeft = input.readOptionalInt();
+        if (input.readBoolean()) {
+            this.dateRange = new DateRange(input);
+        } else {
+            this.dateRange = null;
         }
+        if (input.readBoolean()) {
+            this.entity = new Entity(input);
+        } else {
+            this.entity = null;
+        }
+        this.parentTaskId = input.readOptionalString();
+        this.estimatedMinutesLeft = input.readOptionalInt();
     }
 
     @Override
@@ -93,9 +80,9 @@ public class ADTask extends TimeSeriesTask {
         out.writeOptionalString(taskId);
         out.writeOptionalString(taskType);
         out.writeOptionalString(configId);
-        if (detector != null) {
+        if (forecaster != null) {
             out.writeBoolean(true);
-            detector.writeTo(out);
+            forecaster.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
@@ -119,10 +106,10 @@ public class ADTask extends TimeSeriesTask {
         } else {
             out.writeBoolean(false); // user does not exist
         }
-        // Only forward AD task to nodes with same version, so it's ok to write these new fields.
-        if (detectionDateRange != null) {
+        // Only forward forecast task to nodes with same version, so it's ok to write these new fields.
+        if (dateRange != null) {
             out.writeBoolean(true);
-            detectionDateRange.writeTo(out);
+            dateRange.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
@@ -142,54 +129,53 @@ public class ADTask extends TimeSeriesTask {
 
     @Override
     public boolean isEntityTask() {
-        return ADTaskType.HISTORICAL_HC_ENTITY.name().equals(taskType);
+        return ForecastTaskType.FORECAST_HISTORICAL_HC_ENTITY.name().equals(taskType);
     }
 
     public static class Builder extends TimeSeriesTask.Builder<Builder> {
-        private AnomalyDetector detector = null;
-        private DateRange detectionDateRange = null;
+        private Forecaster forecaster = null;
+        private DateRange dateRange = null;
 
         public Builder() {}
 
-        public Builder detector(AnomalyDetector detector) {
-            this.detector = detector;
+        public Builder forecaster(Forecaster forecaster) {
+            this.forecaster = forecaster;
             return this;
         }
 
-        public Builder detectionDateRange(DateRange detectionDateRange) {
-            this.detectionDateRange = detectionDateRange;
+        public Builder dateRange(DateRange dateRange) {
+            this.dateRange = dateRange;
             return this;
         }
 
-        public ADTask build() {
-            ADTask adTask = new ADTask();
-            adTask.taskId = this.taskId;
-            adTask.lastUpdateTime = this.lastUpdateTime;
-            adTask.error = this.error;
-            adTask.state = this.state;
-            adTask.configId = this.configId;
-            adTask.taskProgress = this.taskProgress;
-            adTask.initProgress = this.initProgress;
-            adTask.currentPiece = this.currentPiece;
-            adTask.executionStartTime = this.executionStartTime;
-            adTask.executionEndTime = this.executionEndTime;
-            adTask.isLatest = this.isLatest;
-            adTask.taskType = this.taskType;
-            adTask.checkpointId = this.checkpointId;
-            adTask.detector = this.detector;
-            adTask.startedBy = this.startedBy;
-            adTask.stoppedBy = this.stoppedBy;
-            adTask.coordinatingNode = this.coordinatingNode;
-            adTask.workerNode = this.workerNode;
-            adTask.detectionDateRange = this.detectionDateRange;
-            adTask.entity = this.entity;
-            adTask.parentTaskId = this.parentTaskId;
-            adTask.estimatedMinutesLeft = this.estimatedMinutesLeft;
-            adTask.user = this.user;
+        public ForecastTask build() {
+            ForecastTask forecastTask = new ForecastTask();
+            forecastTask.taskId = this.taskId;
+            forecastTask.lastUpdateTime = this.lastUpdateTime;
+            forecastTask.error = this.error;
+            forecastTask.state = this.state;
+            forecastTask.configId = this.configId;
+            forecastTask.taskProgress = this.taskProgress;
+            forecastTask.initProgress = this.initProgress;
+            forecastTask.currentPiece = this.currentPiece;
+            forecastTask.executionStartTime = this.executionStartTime;
+            forecastTask.executionEndTime = this.executionEndTime;
+            forecastTask.isLatest = this.isLatest;
+            forecastTask.taskType = this.taskType;
+            forecastTask.checkpointId = this.checkpointId;
+            forecastTask.forecaster = this.forecaster;
+            forecastTask.startedBy = this.startedBy;
+            forecastTask.stoppedBy = this.stoppedBy;
+            forecastTask.coordinatingNode = this.coordinatingNode;
+            forecastTask.workerNode = this.workerNode;
+            forecastTask.dateRange = this.dateRange;
+            forecastTask.entity = this.entity;
+            forecastTask.parentTaskId = this.parentTaskId;
+            forecastTask.estimatedMinutesLeft = this.estimatedMinutesLeft;
+            forecastTask.user = this.user;
 
-            return adTask;
+            return forecastTask;
         }
-
     }
 
     @Override
@@ -197,28 +183,28 @@ public class ADTask extends TimeSeriesTask {
         XContentBuilder xContentBuilder = builder.startObject();
         xContentBuilder = super.toXContent(xContentBuilder, params);
         if (configId != null) {
-            xContentBuilder.field(DETECTOR_ID_FIELD, configId);
+            xContentBuilder.field(FORECASTER_ID_FIELD, configId);
         }
-        if (detector != null) {
-            xContentBuilder.field(DETECTOR_FIELD, detector);
+        if (forecaster != null) {
+            xContentBuilder.field(FORECASTER_FIELD, forecaster);
         }
-        if (detectionDateRange != null) {
-            xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
+        if (dateRange != null) {
+            xContentBuilder.field(DATE_RANGE_FIELD, dateRange);
         }
         return xContentBuilder.endObject();
     }
 
-    public static ADTask parse(XContentParser parser) throws IOException {
+    public static ForecastTask parse(XContentParser parser) throws IOException {
         return parse(parser, null);
     }
 
-    public static ADTask parse(XContentParser parser, String taskId) throws IOException {
+    public static ForecastTask parse(XContentParser parser, String taskId) throws IOException {
         Instant lastUpdateTime = null;
         String startedBy = null;
         String stoppedBy = null;
         String error = null;
         String state = null;
-        String detectorId = null;
+        String configId = null;
         Float taskProgress = null;
         Float initProgress = null;
         Instant currentPiece = null;
@@ -227,11 +213,11 @@ public class ADTask extends TimeSeriesTask {
         Boolean isLatest = null;
         String taskType = null;
         String checkpointId = null;
-        AnomalyDetector detector = null;
+        Forecaster forecaster = null;
         String parsedTaskId = taskId;
         String coordinatingNode = null;
         String workerNode = null;
-        DateRange detectionDateRange = null;
+        DateRange dateRange = null;
         Entity entity = null;
         String parentTaskId = null;
         Integer estimatedMinutesLeft = null;
@@ -243,73 +229,73 @@ public class ADTask extends TimeSeriesTask {
             parser.nextToken();
 
             switch (fieldName) {
-                case TimeSeriesTask.LAST_UPDATE_TIME_FIELD:
+                case LAST_UPDATE_TIME_FIELD:
                     lastUpdateTime = ParseUtils.toInstant(parser);
                     break;
-                case TimeSeriesTask.STARTED_BY_FIELD:
+                case STARTED_BY_FIELD:
                     startedBy = parser.text();
                     break;
-                case TimeSeriesTask.STOPPED_BY_FIELD:
+                case STOPPED_BY_FIELD:
                     stoppedBy = parser.text();
                     break;
-                case TimeSeriesTask.ERROR_FIELD:
+                case ERROR_FIELD:
                     error = parser.text();
                     break;
-                case TimeSeriesTask.STATE_FIELD:
+                case STATE_FIELD:
                     state = parser.text();
                     break;
-                case DETECTOR_ID_FIELD:
-                    detectorId = parser.text();
+                case FORECASTER_ID_FIELD:
+                    configId = parser.text();
                     break;
-                case TimeSeriesTask.TASK_PROGRESS_FIELD:
+                case TASK_PROGRESS_FIELD:
                     taskProgress = parser.floatValue();
                     break;
-                case TimeSeriesTask.INIT_PROGRESS_FIELD:
+                case INIT_PROGRESS_FIELD:
                     initProgress = parser.floatValue();
                     break;
-                case TimeSeriesTask.CURRENT_PIECE_FIELD:
+                case CURRENT_PIECE_FIELD:
                     currentPiece = ParseUtils.toInstant(parser);
                     break;
-                case TimeSeriesTask.EXECUTION_START_TIME_FIELD:
+                case EXECUTION_START_TIME_FIELD:
                     executionStartTime = ParseUtils.toInstant(parser);
                     break;
-                case TimeSeriesTask.EXECUTION_END_TIME_FIELD:
+                case EXECUTION_END_TIME_FIELD:
                     executionEndTime = ParseUtils.toInstant(parser);
                     break;
-                case TimeSeriesTask.IS_LATEST_FIELD:
+                case IS_LATEST_FIELD:
                     isLatest = parser.booleanValue();
                     break;
-                case TimeSeriesTask.TASK_TYPE_FIELD:
+                case TASK_TYPE_FIELD:
                     taskType = parser.text();
                     break;
-                case TimeSeriesTask.CHECKPOINT_ID_FIELD:
+                case CHECKPOINT_ID_FIELD:
                     checkpointId = parser.text();
                     break;
-                case DETECTOR_FIELD:
-                    detector = AnomalyDetector.parse(parser);
+                case FORECASTER_FIELD:
+                    forecaster = Forecaster.parse(parser);
                     break;
-                case TimeSeriesTask.TASK_ID_FIELD:
+                case TASK_ID_FIELD:
                     parsedTaskId = parser.text();
                     break;
-                case TimeSeriesTask.COORDINATING_NODE_FIELD:
+                case COORDINATING_NODE_FIELD:
                     coordinatingNode = parser.text();
                     break;
-                case TimeSeriesTask.WORKER_NODE_FIELD:
+                case WORKER_NODE_FIELD:
                     workerNode = parser.text();
                     break;
-                case DETECTION_DATE_RANGE_FIELD:
-                    detectionDateRange = DateRange.parse(parser);
+                case DATE_RANGE_FIELD:
+                    dateRange = DateRange.parse(parser);
                     break;
-                case TimeSeriesTask.ENTITY_FIELD:
+                case ENTITY_FIELD:
                     entity = Entity.parse(parser);
                     break;
-                case TimeSeriesTask.PARENT_TASK_ID_FIELD:
+                case PARENT_TASK_ID_FIELD:
                     parentTaskId = parser.text();
                     break;
-                case TimeSeriesTask.ESTIMATED_MINUTES_LEFT_FIELD:
+                case ESTIMATED_MINUTES_LEFT_FIELD:
                     estimatedMinutesLeft = parser.intValue();
                     break;
-                case TimeSeriesTask.USER_FIELD:
+                case USER_FIELD:
                     user = User.parse(parser);
                     break;
                 default:
@@ -317,27 +303,28 @@ public class ADTask extends TimeSeriesTask {
                     break;
             }
         }
-        AnomalyDetector anomalyDetector = detector == null
+        Forecaster copyForecaster = forecaster == null
             ? null
-            : new AnomalyDetector(
-                detectorId,
-                detector.getVersion(),
-                detector.getName(),
-                detector.getDescription(),
-                detector.getTimeField(),
-                detector.getIndices(),
-                detector.getFeatureAttributes(),
-                detector.getFilterQuery(),
-                detector.getInterval(),
-                detector.getWindowDelay(),
-                detector.getShingleSize(),
-                detector.getUiMetadata(),
-                detector.getSchemaVersion(),
-                detector.getLastUpdateTime(),
-                detector.getCategoryFields(),
-                detector.getUser(),
-                detector.getCustomResultIndex(),
-                detector.getImputationOption()
+            : new Forecaster(
+                configId,
+                forecaster.getVersion(),
+                forecaster.getName(),
+                forecaster.getDescription(),
+                forecaster.getTimeField(),
+                forecaster.getIndices(),
+                forecaster.getFeatureAttributes(),
+                forecaster.getFilterQuery(),
+                forecaster.getInterval(),
+                forecaster.getWindowDelay(),
+                forecaster.getShingleSize(),
+                forecaster.getUiMetadata(),
+                forecaster.getSchemaVersion(),
+                forecaster.getLastUpdateTime(),
+                forecaster.getCategoryFields(),
+                forecaster.getUser(),
+                forecaster.getCustomResultIndex(),
+                forecaster.getHorizon(),
+                forecaster.getImputationOption()
             );
         return new Builder()
             .taskId(parsedTaskId)
@@ -346,7 +333,7 @@ public class ADTask extends TimeSeriesTask {
             .stoppedBy(stoppedBy)
             .error(error)
             .state(state)
-            .configId(detectorId)
+            .configId(configId)
             .taskProgress(taskProgress)
             .initProgress(initProgress)
             .currentPiece(currentPiece)
@@ -357,8 +344,8 @@ public class ADTask extends TimeSeriesTask {
             .checkpointId(checkpointId)
             .coordinatingNode(coordinatingNode)
             .workerNode(workerNode)
-            .detector(anomalyDetector)
-            .detectionDateRange(detectionDateRange)
+            .forecaster(copyForecaster)
+            .dateRange(dateRange)
             .entity(entity)
             .parentTaskId(parentTaskId)
             .estimatedMinutesLeft(estimatedMinutesLeft)
@@ -373,30 +360,30 @@ public class ADTask extends TimeSeriesTask {
             return true;
         if (other == null || getClass() != other.getClass())
             return false;
-        ADTask that = (ADTask) other;
+        ForecastTask that = (ForecastTask) other;
         return super.equals(that)
-            && Objects.equal(getDetector(), that.getDetector())
-            && Objects.equal(getDetectionDateRange(), that.getDetectionDateRange());
+            && Objects.equal(getForecaster(), that.getForecaster())
+            && Objects.equal(getDateRange(), that.getDateRange());
     }
 
     @Generated
     @Override
     public int hashCode() {
         int superHashCode = super.hashCode();
-        int hash = Objects.hashCode(configId, detector, detectionDateRange);
+        int hash = Objects.hashCode(configId, forecaster, dateRange);
         hash += 89 * superHashCode;
         return hash;
     }
 
-    public AnomalyDetector getDetector() {
-        return detector;
+    public Forecaster getForecaster() {
+        return forecaster;
     }
 
-    public DateRange getDetectionDateRange() {
-        return detectionDateRange;
+    public DateRange getDateRange() {
+        return dateRange;
     }
 
-    public void setDetectionDateRange(DateRange detectionDateRange) {
-        this.detectionDateRange = detectionDateRange;
+    public void setDateRange(DateRange dateRange) {
+        this.dateRange = dateRange;
     }
 }

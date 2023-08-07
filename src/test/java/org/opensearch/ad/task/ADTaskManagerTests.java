@@ -87,7 +87,6 @@ import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.ADTaskProfile;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
@@ -104,11 +103,11 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.transport.TransportAddress;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.index.Index;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.xcontent.ToXContent;
@@ -129,6 +128,7 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
@@ -450,7 +450,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testCheckTaskSlotsWithNoAvailableTaskSlots() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
@@ -475,7 +475,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testCheckTaskSlotsWithAvailableTaskSlotsForHC() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
@@ -494,7 +494,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testCheckTaskSlotsWithAvailableTaskSlotsForSingleEntityDetector() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of())
@@ -512,7 +512,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testCheckTaskSlotsWithAvailableTaskSlotsAndNoEntity() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
@@ -530,7 +530,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testCheckTaskSlotsWithAvailableTaskSlotsForScale() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
@@ -562,7 +562,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testParseEntityForSingleCategoryHC() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers.randomAnomalyDetectorUsingCategoryFields(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)))
@@ -575,7 +575,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testParseEntityForMultiCategoryHC() throws IOException {
         ADTask adTask = randomAdTask(
             randomAlphaOfLength(5),
-            ADTaskState.INIT,
+            TaskState.INIT,
             Instant.now(),
             randomAlphaOfLength(5),
             TestHelpers
@@ -715,7 +715,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     @SuppressWarnings("unchecked")
     public void testUpdateLatestRealtimeTaskOnCoordinatingNode() {
         String detectorId = randomAlphaOfLength(5);
-        String state = ADTaskState.RUNNING.name();
+        String state = TaskState.RUNNING.name();
         Long rcfTotalUpdates = randomLongBetween(200, 1000);
         Long detectorIntervalInMinutes = 1L;
         String error = randomAlphaOfLength(5);
@@ -1031,10 +1031,10 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .builder()
             .taskId(randomAlphaOfLength(5))
             .taskType(ADTaskType.HISTORICAL_HC_DETECTOR.name())
-            .detectorId(randomAlphaOfLength(5))
+            .configId(randomAlphaOfLength(5))
             .detector(detector)
             .entity(null)
-            .state(ADTaskState.RUNNING.name())
+            .state(TaskState.RUNNING.name())
             .taskProgress(0.5f)
             .initProgress(1.0f)
             .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))
@@ -1097,10 +1097,10 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             .builder()
             .taskId(historicalTaskId)
             .taskType(ADTaskType.HISTORICAL_HC_DETECTOR.name())
-            .detectorId(randomAlphaOfLength(5))
+            .configId(randomAlphaOfLength(5))
             .detector(detector)
             .entity(null)
-            .state(ADTaskState.RUNNING.name())
+            .state(TaskState.RUNNING.name())
             .taskProgress(0.5f)
             .initProgress(1.0f)
             .currentPiece(Instant.now().truncatedTo(ChronoUnit.SECONDS).minus(randomIntBetween(1, 100), ChronoUnit.MINUTES))

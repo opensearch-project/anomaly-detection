@@ -46,7 +46,6 @@ import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Client;
@@ -58,6 +57,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.stats.StatNames;
 
 import com.google.common.collect.ImmutableList;
@@ -180,7 +180,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             assertTrue(HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(adTask.getState()));
             assertEquals(categoryField, adTask.getDetector().getCategoryFields().get(0));
 
-            if (ADTaskState.FINISHED.name().equals(adTask.getState())) {
+            if (TaskState.FINISHED.name().equals(adTask.getState())) {
                 List<ADTask> adTasks = searchADTasks(detectorId, true, 100);
                 assertEquals(4, adTasks.size());
                 List<ADTask> entityTasks = adTasks
@@ -236,7 +236,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             assertEquals(categoryField, adTask.getDetector().getCategoryFields().get(0));
             assertEquals(ipField, adTask.getDetector().getCategoryFields().get(1));
 
-            if (ADTaskState.FINISHED.name().equals(adTask.getState())) {
+            if (TaskState.FINISHED.name().equals(adTask.getState())) {
                 List<ADTask> adTasks = searchADTasks(detectorId, taskId, true, 100);
                 assertEquals(5, adTasks.size());
                 List<ADTask> entityTasks = adTasks
@@ -297,8 +297,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         List<ADTask> adTasks = searchADTasks(detectorId, null, 100);
 
         assertEquals(1, adTasks.size());
-        assertTrue(adTasks.get(0).getLatest());
-        assertNotEquals(ADTaskState.FAILED.name(), adTasks.get(0).getState());
+        assertTrue(adTasks.get(0).isLatest());
+        assertNotEquals(TaskState.FAILED.name(), adTasks.get(0).getState());
     }
 
     // TODO: fix this flaky test case
@@ -309,8 +309,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         String detectorId = createDetector(detector);
 
         createDetectionStateIndex();
-        List<ADTaskState> states = ImmutableList.of(ADTaskState.FAILED, ADTaskState.FINISHED, ADTaskState.STOPPED);
-        for (ADTaskState state : states) {
+        List<TaskState> states = ImmutableList.of(TaskState.FAILED, TaskState.FINISHED, TaskState.STOPPED);
+        for (TaskState state : states) {
             ADTask task = randomADTask(randomAlphaOfLength(5), detector, detectorId, dateRange, state);
             createADTask(task);
         }
@@ -431,13 +431,13 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertEquals(1, adTasks.size());
         assertEquals(ADTaskType.REALTIME_SINGLE_ENTITY.name(), adTasks.get(0).getTaskType());
         assertNotEquals(jobId, adTasks.get(0).getTaskId());
-        assertEquals(ADTaskState.STOPPED.name(), adTasks.get(0).getState());
+        assertEquals(TaskState.STOPPED.name(), adTasks.get(0).getState());
     }
 
     public void testStopHistoricalDetector() throws IOException, InterruptedException {
         updateTransientSettings(ImmutableMap.of(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5));
         ADTask adTask = startHistoricalAnalysis(startTime, endTime);
-        assertEquals(ADTaskState.INIT.name(), adTask.getState());
+        assertEquals(TaskState.INIT.name(), adTask.getState());
         assertNull(adTask.getStartedBy());
         assertNull(adTask.getUser());
         waitUntil(() -> {
@@ -447,7 +447,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
                 if (taskRunning) {
                     // It's possible that the task not started on worker node yet. Recancel it to make sure
                     // task cancelled.
-                    AnomalyDetectorJobRequest request = stopDetectorJobRequest(adTask.getId(), true);
+                    AnomalyDetectorJobRequest request = stopDetectorJobRequest(adTask.getConfigId(), true);
                     client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
                 }
                 return !taskRunning;
@@ -456,13 +456,13 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             }
         }, 20, TimeUnit.SECONDS);
         ADTask stoppedTask = getADTask(adTask.getTaskId());
-        assertEquals(ADTaskState.STOPPED.name(), stoppedTask.getState());
+        assertEquals(TaskState.STOPPED.name(), stoppedTask.getState());
         assertEquals(0, getExecutingADTask());
     }
 
     public void testProfileHistoricalDetector() throws IOException, InterruptedException {
         ADTask adTask = startHistoricalAnalysis(startTime, endTime);
-        GetAnomalyDetectorRequest request = taskProfileRequest(adTask.getId());
+        GetAnomalyDetectorRequest request = taskProfileRequest(adTask.getConfigId());
         GetAnomalyDetectorResponse response = client().execute(GetAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
         assertTrue(response.getDetectorProfile().getAdTaskProfile() != null);
 
@@ -479,7 +479,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         assertNull(response.getDetectorProfile().getAdTaskProfile().getNodeId());
         ADTask profileAdTask = response.getDetectorProfile().getAdTaskProfile().getAdTask();
         assertEquals(finishedTask.getTaskId(), profileAdTask.getTaskId());
-        assertEquals(finishedTask.getId(), profileAdTask.getId());
+        assertEquals(finishedTask.getConfigId(), profileAdTask.getConfigId());
         assertEquals(finishedTask.getDetector(), profileAdTask.getDetector());
         assertEquals(finishedTask.getState(), profileAdTask.getState());
     }
@@ -488,8 +488,8 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         ADTask adTask1 = startHistoricalAnalysis(startTime, endTime);
         ADTask adTask2 = startHistoricalAnalysis(startTime, endTime);
 
-        GetAnomalyDetectorRequest request1 = taskProfileRequest(adTask1.getId());
-        GetAnomalyDetectorRequest request2 = taskProfileRequest(adTask2.getId());
+        GetAnomalyDetectorRequest request1 = taskProfileRequest(adTask1.getConfigId());
+        GetAnomalyDetectorRequest request2 = taskProfileRequest(adTask2.getConfigId());
         GetAnomalyDetectorResponse response1 = client().execute(GetAnomalyDetectorAction.INSTANCE, request1).actionGet(10000);
         GetAnomalyDetectorResponse response2 = client().execute(GetAnomalyDetectorAction.INSTANCE, request2).actionGet(10000);
         ADTaskProfile taskProfile1 = response1.getDetectorProfile().getAdTaskProfile();
