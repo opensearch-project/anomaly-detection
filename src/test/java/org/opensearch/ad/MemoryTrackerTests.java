@@ -33,6 +33,7 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class MemoryTrackerTests extends OpenSearchTestCase {
@@ -109,6 +110,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .internalShinglingEnabled(true)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
 
         detector = mock(AnomalyDetector.class);
@@ -152,6 +156,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(shingleSize)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(603708, tracker.estimateTRCFModelSize(rcf2));
         assertTrue(tracker.isHostingAllowed(detectorId, rcf2));
@@ -171,6 +178,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(false)
             // same with dimension for opportunistic memory saving
             .shingleSize(1)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(1685208, tracker.estimateTRCFModelSize(rcf3));
 
@@ -188,6 +198,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(1)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(521304, tracker.estimateTRCFModelSize(rcf4));
 
@@ -205,6 +218,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(2)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(467340, tracker.estimateTRCFModelSize(rcf5));
 
@@ -222,6 +238,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(4)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(603676, tracker.estimateTRCFModelSize(rcf6));
 
@@ -239,6 +258,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(16)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(401481, tracker.estimateTRCFModelSize(rcf7));
 
@@ -256,6 +278,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(32)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(1040432, tracker.estimateTRCFModelSize(rcf8));
 
@@ -273,6 +298,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(64)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         assertEquals(1040688, tracker.estimateTRCFModelSize(rcf9));
 
@@ -290,6 +318,9 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(65)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
         expectThrows(IllegalArgumentException.class, () -> tracker.estimateTRCFModelSize(rcf10));
     }

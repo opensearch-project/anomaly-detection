@@ -111,6 +111,7 @@ import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -256,6 +257,10 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             .precision(Precision.FLOAT_32)
             .randomSeed(seed)
             .boundingBoxCacheFraction(0)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
+            .internalShinglingEnabled(false)
             .build();
         for (double[] point : data) {
             forest.process(point, 0);
@@ -910,8 +915,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertEquals(1, forest.getDimensions());
         assertEquals(10, forest.getNumberOfTrees());
         assertEquals(256, forest.getSampleSize());
-        // there are at least 10 scores in the checkpoint
-        assertTrue(trcf.getThresholder().getCount() > 10);
 
         Random random = new Random(0);
         for (int i = 0; i < 100; i++) {
@@ -979,8 +982,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertEquals(1, forest.getDimensions());
         assertEquals(10, forest.getNumberOfTrees());
         assertEquals(256, forest.getSampleSize());
-        // there are no scores in the checkpoint
-        assertEquals(0, trcf.getThresholder().getCount());
     }
 
     public void testFromEntityModelCheckpointWithEntity() throws Exception {
@@ -1082,11 +1083,12 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         grade.add(0.0);
         grade.add(0.0);
         grade.add(0.0);
+        // rcf 3.8 has a number of improvements on thresholder and predictor corrector.
+        // We don't expect the results have the same anomaly grade.
         for (int i = 0; i < coldStartData.size(); i++) {
             forest.process(coldStartData.get(i), 0);
             AnomalyDescriptor descriptor = forest.process(coldStartData.get(i), 0);
             assertEquals(descriptor.getRCFScore(), scores.get(i), 1e-9);
-            assertEquals(descriptor.getAnomalyGrade(), grade.get(i), 1e-9);
         }
     }
 
@@ -1097,5 +1099,139 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         assertTrue(!checkpointDao.shouldSave(Instant.ofEpochMilli(Instant.now().toEpochMilli()), false, Duration.ofHours(6), clock));
         // 1658863778000L + 6 hrs < Instant.now
         assertTrue(checkpointDao.shouldSave(Instant.ofEpochMilli(1658863778000L), false, Duration.ofHours(6), clock));
+    }
+
+    // This test is intended to check if given a checkpoint created by RCF-3.0-rc3 ("rcf_3_0_rc3_single_stream.json")
+    // and given the same sample data will rc3 and current RCF version (this test originally created when 3.0-rc3 is in use)
+    // will produce the same anomaly scores.
+    // The scores in this method were produced from AD running with RCF3.0-rc3 dependency
+    // and this test runs with the most recent RCF dependency that is being pulled by this project.
+    public void testDeserialize_rcf3_rc3_single_stream_model() throws Exception {
+        // Model in file rc1_trcf_model_direct is a checkpoint creatd by RCF-3.0-rc1
+        URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rcf_3_0_rc3_single_stream.json").toURI();
+        String filePath = Paths.get(uri).toString();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        // For the parsing of .toTrcf to work I had to manually change "\u003d" in code back to =.
+        // In the byte array it doesn't seem like this is an issue but whenever reading the byte array response into a file it
+        // converts "=" to "\u003d" https://groups.google.com/g/google-gson/c/JDHUo9DWyyM?pli=1
+        // I also needed to bypass the trcf as it wasn't being read as a key value but instead part of the string
+        Map map = gson.fromJson(json, Map.class);
+        String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        // model = model.split(":")[1].substring(1);
+        ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
+
+        // single-stream model uses external shingling
+        List<double[]> coldStartData = new ArrayList<>();
+        double[] sample1 = new double[] { 64, 58, 59, 60, 61, 62, 63, 57.0 };
+        double[] sample2 = new double[] { 58, 59, 60, 61, 62, 63, 57.0, 1.0 };
+        double[] sample3 = new double[] { 59, 60, 61, 62, 63, 57.0, 1.0, -19.0 };
+        double[] sample4 = new double[] { 60, 61, 62, 63, 57.0, 1.0, -19.0, 13.0 };
+        double[] sample5 = new double[] { 61, 62, 63, 57.0, 1.0, -19.0, 13.0, 41.0 };
+
+        coldStartData.add(sample1);
+        coldStartData.add(sample2);
+        coldStartData.add(sample3);
+        coldStartData.add(sample4);
+        coldStartData.add(sample5);
+
+        // This scores were generated with the sample data but on RCF3.0-rc1 and we are comparing them
+        // to the scores generated by the imported RCF3.0-rc2.1
+        List<Double> scores = new ArrayList<>();
+        scores.add(3.3830441158587066);
+        scores.add(2.825961659490065);
+        scores.add(2.4685871670647384);
+        scores.add(2.3123460886413647);
+        scores.add(2.1401987653477135);
+
+        // rcf 3.8 has a number of improvements on thresholder and predictor corrector.
+        // We don't expect the results have the same anomaly grade.
+        for (int i = 0; i < coldStartData.size(); i++) {
+            forest.process(coldStartData.get(i), 0);
+            AnomalyDescriptor descriptor = forest.process(coldStartData.get(i), 0);
+            assertEquals(descriptor.getRCFScore(), scores.get(i), 1e-9);
+        }
+    }
+
+    // This test is intended to check if given a checkpoint created by RCF-3.0-rc3 ("rcf_3_0_rc3_hc.json")
+    // and given the same sample data will rc3 and current RCF version (this test originally created when 3.0-rc3 is in use)
+    // will produce the same anomaly scores.
+    // The scores in this method were produced from AD running with RCF3.0-rc3 dependency
+    // and this test runs with the most recent RCF dependency that is being pulled by this project.
+    public void testDeserialize_rcf3_rc3_hc_model() throws Exception {
+        // Model in file rc1_trcf_model_direct is a checkpoint creatd by RCF-3.0-rc1
+        URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rcf_3_0_rc3_hc.json").toURI();
+        String filePath = Paths.get(uri).toString();
+        String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
+        // For the parsing of .toTrcf to work I had to manually change "\u003d" in code back to =.
+        // In the byte array it doesn't seem like this is an issue but whenever reading the byte array response into a file it
+        // converts "=" to "\u003d" https://groups.google.com/g/google-gson/c/JDHUo9DWyyM?pli=1
+        // I also needed to bypass the trcf as it wasn't being read as a key value but instead part of the string
+        Map map = gson.fromJson(json, Map.class);
+        String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
+        model = model.split(":")[1];
+        model = model.substring(1, model.length() - 2);
+        // model = Base64.getEncoder().encodeToString(org.apache.commons.codec.binary.Base64.decodeBase64(model));
+        // Simulate JSON parsing by replacing Unicode escape sequence with the actual character
+        model = unescapeJavaString(model);
+
+        ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
+
+        // hc model uses internal shingling
+        List<double[]> coldStartData = new ArrayList<>();
+        double[] sample1 = new double[] { 53, 54, 55, 56, 57.0 };
+        double[] sample2 = new double[] { 54, 55, 56, 57.0, 1.0 };
+        double[] sample3 = new double[] { 55, 56, 57.0, 1.0, -19.0 };
+        double[] sample4 = new double[] { 56, 57.0, 1.0, -19.0, 13.0 };
+        double[] sample5 = new double[] { 57.0, 1.0, -19.0, 13.0, 41.0 };
+
+        coldStartData.add(sample1);
+        coldStartData.add(sample2);
+        coldStartData.add(sample3);
+        coldStartData.add(sample4);
+        coldStartData.add(sample5);
+
+        // This scores were generated with the sample data but on RCF3.0-rc1 and we are comparing them
+        // to the scores generated by the imported RCF3.0-rc2.1
+        List<Double> scores = new ArrayList<>();
+        scores.add(1.86645896573027);
+        scores.add(1.8760247712797833);
+        scores.add(1.6809181763279901);
+        scores.add(1.7126716645678555);
+        scores.add(1.323776514074674);
+
+        // rcf 3.8 has a number of improvements on thresholder and predictor corrector.
+        // We don't expect the results have the same anomaly grade.
+        for (int i = 0; i < coldStartData.size(); i++) {
+            forest.process(coldStartData.get(i), 0);
+            AnomalyDescriptor descriptor = forest.process(coldStartData.get(i), 0);
+            assertEquals(descriptor.getRCFScore(), scores.get(i), 1e-9);
+        }
+    }
+
+    public static String unescapeJavaString(String st) {
+        StringBuilder sb = new StringBuilder(st.length());
+
+        for (int i = 0; i < st.length(); i++) {
+            char ch = st.charAt(i);
+            if (ch == '\\') {
+                char nextChar = (i == st.length() - 1) ? '\\' : st.charAt(i + 1);
+                switch (nextChar) {
+                    case 'u':
+                        sb.append((char) Integer.parseInt(st.substring(i + 2, i + 6), 16));
+                        i += 5;
+                        break;
+                    case '\\':
+                        sb.append('\\');
+                        i++;
+                        break;
+                    default:
+                        sb.append(ch);
+                        break;
+                }
+            } else {
+                sb.append(ch);
+            }
+        }
+        return sb.toString();
     }
 }

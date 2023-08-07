@@ -61,6 +61,7 @@ import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
@@ -375,17 +376,18 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             // overlapping x3, x4, and only store x5, x6.
             .shingleSize(shingleSize)
             .internalShinglingEnabled(true)
-            .anomalyRate(1 - this.thresholdMinPvalue);
+            .anomalyRate(1 - this.thresholdMinPvalue)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true);
 
         if (rcfSeed > 0) {
             rcfBuilder.randomSeed(rcfSeed);
         }
         ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(rcfBuilder);
-
         while (!dataPoints.isEmpty()) {
             trcf.process(dataPoints.poll(), 0);
         }
-
         EntityModel model = entityState.getModel();
         if (model == null) {
             model = new EntityModel(entity, new ArrayDeque<>(), null);
