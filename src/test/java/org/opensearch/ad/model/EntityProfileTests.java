@@ -17,7 +17,6 @@ import java.io.IOException;
 
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
@@ -38,7 +37,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
 
         XContentBuilder builder = jsonBuilder();
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         assertEquals("INIT", JsonDeserializer.getTextValue(json, ADCommonName.STATE));
 
@@ -46,7 +45,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
 
         builder = jsonBuilder();
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        json = Strings.toString(builder);
+        json = builder.toString();
 
         assertTrue(false == JsonDeserializer.hasChildNode(json, ADCommonName.STATE));
     }
@@ -56,7 +55,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
 
         XContentBuilder builder = jsonBuilder();
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         assertEquals("INIT", JsonDeserializer.getTextValue(json, ADCommonName.STATE));
 
@@ -64,7 +63,7 @@ public class EntityProfileTests extends AbstractTimeSeriesTest {
 
         builder = jsonBuilder();
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        json = Strings.toString(builder);
+        json = builder.toString();
 
         assertTrue(false == JsonDeserializer.hasChildNode(json, ADCommonName.STATE));
     }

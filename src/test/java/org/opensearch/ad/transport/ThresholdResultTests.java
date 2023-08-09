@@ -32,7 +32,6 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -117,7 +116,7 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getDoubleValue(json, ADCommonName.ANOMALY_GRADE_JSON_KEY), response.getAnomalyGrade(), 0.001);
         assertEquals(JsonDeserializer.getDoubleValue(json, ADCommonName.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
     }
@@ -148,7 +147,7 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
         assertEquals(JsonDeserializer.getDoubleValue(json, ADCommonName.RCF_SCORE_JSON_KEY), request.getRCFScore(), 0.001);
     }

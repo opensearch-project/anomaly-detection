@@ -49,7 +49,6 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -233,7 +232,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.RCF_SCORE_JSON_KEY), response.getRCFScore(), 0.001);
         assertEquals(JsonDeserializer.getDoubleValue(json, RCFResultResponse.FOREST_SIZE_JSON_KEY), response.getForestSize(), 0.001);
         assertTrue(
@@ -267,7 +266,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
         assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, ADCommonName.FEATURE_JSON_KEY), request.getFeatures(), 0.001);
     }
