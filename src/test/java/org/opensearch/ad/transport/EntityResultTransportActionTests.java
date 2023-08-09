@@ -74,7 +74,6 @@ import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -357,7 +356,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), detectorId);
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.START_JSON_KEY), start);
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.END_JSON_KEY), end);

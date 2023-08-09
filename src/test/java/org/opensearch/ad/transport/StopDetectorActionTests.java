@@ -19,7 +19,6 @@ import org.junit.Test;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -94,7 +93,7 @@ public class StopDetectorActionTests extends OpenSearchIntegTestCase {
         XContentBuilder builder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
         stopDetectorResponse.toXContent(builder, ToXContent.EMPTY_PARAMS);
         assertNotNull(builder);
-        String jsonStr = Strings.toString(builder);
+        String jsonStr = builder.toString();
         assertEquals("{\"success\":true}", jsonStr);
     }
 }

@@ -15,7 +15,6 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 
-import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
@@ -33,14 +32,14 @@ public class ModelProfileTests extends AbstractTimeSeriesTest {
             0
         );
         XContentBuilder builder = getBuilder(profile1);
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertTrue(JsonDeserializer.hasChildNode(json, CommonName.ENTITY_KEY));
         assertFalse(JsonDeserializer.hasChildNode(json, CommonName.MODEL_SIZE_IN_BYTES));
 
         ModelProfile profile2 = new ModelProfile(randomAlphaOfLength(5), null, 1);
 
         builder = getBuilder(profile2);
-        json = Strings.toString(builder);
+        json = builder.toString();
 
         assertFalse(JsonDeserializer.hasChildNode(json, CommonName.ENTITY_KEY));
         assertTrue(JsonDeserializer.hasChildNode(json, CommonName.MODEL_SIZE_IN_BYTES));

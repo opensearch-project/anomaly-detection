@@ -47,7 +47,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -185,7 +184,7 @@ public class DeleteTests extends AbstractTimeSeriesTest {
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), requestSupplier.get());
     }
 

@@ -90,7 +90,6 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -1016,7 +1015,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         XContentBuilder builder = jsonBuilder();
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         Function<JsonElement, FeatureData> function = (s) -> {
             try {
                 String featureId = JsonDeserializer.getTextValue(s, FeatureData.FEATURE_ID_FIELD);
@@ -1065,7 +1064,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         XContentBuilder builder = jsonBuilder();
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
-        String json = Strings.toString(builder);
+        String json = builder.toString();
         assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.START_JSON_KEY), request.getStart());
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.END_JSON_KEY), request.getEnd());
