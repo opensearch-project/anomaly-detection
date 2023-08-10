@@ -33,9 +33,9 @@ import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.model.Feature;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregationBuilder;
 
 import com.google.common.collect.ImmutableList;

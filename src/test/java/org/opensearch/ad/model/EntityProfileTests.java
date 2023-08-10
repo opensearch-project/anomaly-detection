@@ -18,7 +18,6 @@ import java.io.IOException;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.CommonName;
-import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 
@@ -38,7 +37,7 @@ public class EntityProfileTests extends AbstractADTest {
 
         XContentBuilder builder = jsonBuilder();
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
 
@@ -46,7 +45,7 @@ public class EntityProfileTests extends AbstractADTest {
 
         builder = jsonBuilder();
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        json = Strings.toString(builder);
+        json = builder.toString();
 
         assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
     }
@@ -56,7 +55,7 @@ public class EntityProfileTests extends AbstractADTest {
 
         XContentBuilder builder = jsonBuilder();
         profile1.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         assertEquals("INIT", JsonDeserializer.getTextValue(json, CommonName.STATE));
 
@@ -64,7 +63,7 @@ public class EntityProfileTests extends AbstractADTest {
 
         builder = jsonBuilder();
         profile2.toXContent(builder, ToXContent.EMPTY_PARAMS);
-        json = Strings.toString(builder);
+        json = builder.toString();
 
         assertTrue(false == JsonDeserializer.hasChildNode(json, CommonName.STATE));
     }

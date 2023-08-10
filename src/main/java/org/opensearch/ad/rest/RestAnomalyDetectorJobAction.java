@@ -17,7 +17,7 @@ import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
 import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
 import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
 import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.util.List;

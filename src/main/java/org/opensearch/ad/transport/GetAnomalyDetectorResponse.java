@@ -20,11 +20,11 @@ import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.rest.RestStatus;
 
 public class GetAnomalyDetectorResponse extends ActionResponse implements ToXContentObject {
     public static final String DETECTOR_PROFILE = "detectorProfile";

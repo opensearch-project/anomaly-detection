@@ -35,10 +35,9 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
@@ -152,7 +151,7 @@ public class ProfileTests extends OpenSearchTestCase {
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
         profileNodeResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         for (Map.Entry<String, Long> profile : modelSizeMap1.entrySet()) {
             assertEquals(
@@ -228,7 +227,7 @@ public class ProfileTests extends OpenSearchTestCase {
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
         profileResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         logger.info("JSON: " + json);
 

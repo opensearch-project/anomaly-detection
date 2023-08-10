@@ -26,10 +26,10 @@ import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
+import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.rest.RestStatus;
 
 public class ExceptionUtil {
     // a positive cache of retriable error rest status

@@ -41,10 +41,9 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
@@ -117,7 +116,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
         adStatsNodeResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         for (Map.Entry<String, Object> stat : stats.entrySet()) {
             assertEquals("toXContent does not work", JsonDeserializer.getTextValue(json, stat.getKey()), stat.getValue());
@@ -164,7 +163,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
         adStatsNodeResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         for (Map.Entry<String, Object> stat : stats.entrySet()) {
             if (stat.getKey().equals(ModelState.LAST_CHECKPOINT_TIME_KEY) || stat.getKey().equals(ModelState.LAST_USED_TIME_KEY)) {
@@ -236,7 +235,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
         adStatsNodesResponse.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject();
-        String json = Strings.toString(builder);
+        String json = builder.toString();
 
         logger.info("JSON: " + json);
 
@@ -260,7 +259,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         ADStatsNodesResponse readRequest = new ADStatsNodesResponse(streamInput);
 
         builder = jsonBuilder();
-        String readJson = Strings.toString(readRequest.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject());
+        String readJson = readRequest.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject().toString();
         assertEquals("Serialization fails", readJson, json);
     }
 }

@@ -67,7 +67,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         settingCommand.endObject();
         settingCommand.endObject();
         Request request = new Request("PUT", "/_cluster/settings");
-        request.setJsonEntity(org.opensearch.common.Strings.toString(settingCommand));
+        request.setJsonEntity(settingCommand.toString());
 
         adminClient().performRequest(request);
     }

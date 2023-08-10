@@ -16,8 +16,8 @@ import java.util.Set;
 
 import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 
 /**
  *  Class representing a nodes's profile request

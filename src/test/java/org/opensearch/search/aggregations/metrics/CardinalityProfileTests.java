@@ -46,10 +46,9 @@ import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.BigArrays;
+import org.opensearch.common.util.BitMixer;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.InternalAggregations;
-
-import com.carrotsearch.hppc.BitMixer;
 
 /**
  * Run tests in ES package since InternalCardinality has only package private constructors

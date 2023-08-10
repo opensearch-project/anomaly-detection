@@ -72,11 +72,12 @@ import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
+import org.opensearch.common.util.BitMixer;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
+import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -93,6 +94,7 @@ import org.opensearch.search.aggregations.bucket.filter.InternalFilters.Internal
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregator;
 import org.opensearch.search.aggregations.metrics.AbstractHyperLogLog;
 import org.opensearch.search.aggregations.metrics.AbstractHyperLogLogPlusPlus;
 import org.opensearch.search.aggregations.metrics.HyperLogLogPlusPlus;
@@ -101,7 +103,6 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
 
-import com.carrotsearch.hppc.BitMixer;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -254,15 +255,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractADTest {
             SearchFeatureDao.AGG_NAME_TOP,
             InternalOrder.key(false),
             BucketOrder.count(false),
-            1,
-            0,
             Collections.emptyMap(),
             DocValueFormat.RAW,
             1,
             false,
             0,
             stringBuckets,
-            0
+            0,
+            new TermsAggregator.BucketCountThresholds(1, 0, 1, 0)
         );
 
         InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(termsAgg));

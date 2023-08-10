@@ -21,7 +21,7 @@ import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamInput;
 
 public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
 

@@ -18,8 +18,8 @@ import java.util.Optional;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 
 public class ADResultBulkResponse extends ActionResponse {
     public static final String RETRY_REQUESTS_JSON_KEY = "retry_requests";
