@@ -398,7 +398,7 @@ public class AnomalyResult extends IndexableResult {
             detectorId,
             taskId,
             rcfScore,
-            grade,
+            Math.max(0, grade),
             confidence,
             featureData,
             dataStartTime,

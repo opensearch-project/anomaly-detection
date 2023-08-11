@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -55,6 +54,7 @@ import org.opensearch.ad.transport.RCFPollingResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.index.IndexNotFoundException;

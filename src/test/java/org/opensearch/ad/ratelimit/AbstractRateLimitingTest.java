@@ -22,8 +22,8 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;

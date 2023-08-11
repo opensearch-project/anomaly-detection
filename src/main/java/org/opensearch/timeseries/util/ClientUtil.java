@@ -13,12 +13,12 @@ package org.opensearch.timeseries.util;
 
 import java.util.function.BiConsumer;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
 import org.opensearch.action.ActionType;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 
 public class ClientUtil {
     private Client client;
