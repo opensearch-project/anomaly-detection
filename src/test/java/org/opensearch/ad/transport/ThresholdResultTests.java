@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.util.Collections;
 
 import org.hamcrest.Matchers;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
@@ -34,6 +33,7 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;

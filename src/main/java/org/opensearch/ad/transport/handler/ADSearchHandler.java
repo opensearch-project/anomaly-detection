@@ -20,7 +20,6 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionList
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -29,6 +28,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.action.ActionListener;
 
 /**
  * Handle general search request, check user role and return search response.

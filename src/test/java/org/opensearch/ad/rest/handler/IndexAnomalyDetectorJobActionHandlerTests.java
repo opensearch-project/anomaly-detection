@@ -28,7 +28,6 @@ import java.util.Arrays;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
@@ -51,6 +50,7 @@ import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
 import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.test.OpenSearchTestCase;

@@ -50,7 +50,6 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponse.Clusters;
@@ -67,6 +66,7 @@ import org.opensearch.common.time.DateFormatter;
 import org.opensearch.common.util.BitMixer;
 import org.opensearch.common.util.MockBigArrays;
 import org.opensearch.common.util.MockPageCacheRecycler;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.index.query.QueryBuilders;
@@ -86,6 +86,7 @@ import org.opensearch.search.aggregations.bucket.filter.InternalFilters.Internal
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregator;
 import org.opensearch.search.aggregations.metrics.AbstractHyperLogLog;
 import org.opensearch.search.aggregations.metrics.AbstractHyperLogLogPlusPlus;
 import org.opensearch.search.aggregations.metrics.HyperLogLogPlusPlus;
@@ -256,15 +257,14 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             SearchFeatureDao.AGG_NAME_TOP,
             InternalOrder.key(false),
             BucketOrder.count(false),
-            1,
-            0,
             Collections.emptyMap(),
             DocValueFormat.RAW,
             1,
             false,
             0,
             stringBuckets,
-            0
+            0,
+            new TermsAggregator.BucketCountThresholds(1, 0, 1, 0)
         );
 
         InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(termsAgg));

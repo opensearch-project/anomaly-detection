@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.model.Mergeable;
+import org.opensearch.core.action.ActionListener;
 
 /**
  * A listener wrapper to help send multiple requests asynchronously and return one final responses together

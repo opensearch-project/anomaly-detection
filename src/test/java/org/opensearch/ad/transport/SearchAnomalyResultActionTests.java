@@ -32,7 +32,6 @@ import java.util.List;
 import org.apache.lucene.util.BytesRef;
 import org.junit.Before;
 import org.junit.Test;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.MultiSearchResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -50,12 +49,14 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.InternalOrder;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregator;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
@@ -157,15 +158,14 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
             "result_index",
             InternalOrder.key(false),
             BucketOrder.count(false),
-            1,
-            0,
             Collections.emptyMap(),
             DocValueFormat.RAW,
             1,
             false,
             0,
             ImmutableList.of(),
-            0
+            0,
+            new TermsAggregator.BucketCountThresholds(1, 0, 1, 0)
         );
         List<Aggregation> list = new ArrayList<>();
         list.add(resultIndicesAgg);
@@ -191,15 +191,14 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
             "result_index",
             InternalOrder.key(false),
             BucketOrder.count(false),
-            1,
-            0,
             Collections.emptyMap(),
             DocValueFormat.RAW,
             1,
             false,
             0,
             null,
-            0
+            0,
+            new TermsAggregator.BucketCountThresholds(1, 0, 1, 0)
         );
         List<Aggregation> list = new ArrayList<>();
         list.add(resultIndicesAgg);
@@ -244,15 +243,14 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
             "result_index",
             InternalOrder.key(false),
             BucketOrder.count(false),
-            1,
-            0,
             Collections.emptyMap(),
             DocValueFormat.RAW,
             1,
             false,
             0,
             createBuckets(),
-            0
+            0,
+            new TermsAggregator.BucketCountThresholds(1, 0, 1, 0)
         );
         List<Aggregation> list = new ArrayList<>();
         list.add(resultIndicesAgg);

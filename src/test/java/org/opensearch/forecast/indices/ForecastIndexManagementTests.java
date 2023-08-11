@@ -23,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.opensearch.action.admin.indices.get.GetIndexResponse;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;

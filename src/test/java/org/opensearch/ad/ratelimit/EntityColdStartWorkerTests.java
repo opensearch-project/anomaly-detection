@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.Random;
 
 import org.opensearch.OpenSearchStatusException;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.EntityColdStarter;
@@ -38,6 +37,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.rest.RestStatus;
 

@@ -19,10 +19,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.mockito.ArgumentCaptor;
-import org.opensearch.action.ActionListener;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.common.exception.EndRunException;
