@@ -426,7 +426,7 @@ public class AnomalyResult implements ToXContentObject, Writeable {
             detectorId,
             taskId,
             rcfScore,
-            grade,
+            Math.max(0, grade),
             confidence,
             featureData,
             dataStartTime,
