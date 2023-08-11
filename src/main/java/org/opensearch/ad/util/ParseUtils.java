@@ -20,7 +20,7 @@ import static org.opensearch.ad.constant.CommonName.FEATURE_AGGS;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_END;
 import static org.opensearch.ad.model.AnomalyDetector.QUERY_PARAM_PERIOD_START;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PIECE_SIZE;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
 
@@ -56,11 +56,11 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.ParsingException;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.IndexNotFoundException;
@@ -83,7 +83,6 @@ import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuild
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
-import com.carrotsearch.hppc.DoubleArrayList;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -735,12 +734,12 @@ public final class ParseUtils {
     }
 
     public static double[] parseDoubleArray(XContentParser parser) throws IOException {
-        DoubleArrayList oldValList = new DoubleArrayList();
+        final List<Double> oldValList = new ArrayList<>();
         ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
             oldValList.add(parser.doubleValue());
         }
-        return oldValList.toArray();
+        return oldValList.stream().mapToDouble(Double::doubleValue).toArray();
     }
 
     public static List<String> parseAggregationRequest(XContentParser parser) throws IOException {

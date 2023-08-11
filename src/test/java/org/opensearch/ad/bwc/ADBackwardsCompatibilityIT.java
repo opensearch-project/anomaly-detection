@@ -50,7 +50,7 @@ import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import com.google.common.collect.ImmutableList;

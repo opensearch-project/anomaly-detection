@@ -32,8 +32,8 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.io.stream.NotSerializableExceptionWrapper;
 import org.opensearch.test.OpenSearchIntegTestCase;
 
 import com.google.common.collect.ImmutableList;

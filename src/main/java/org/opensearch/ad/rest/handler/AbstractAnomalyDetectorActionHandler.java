@@ -18,7 +18,7 @@ import static org.opensearch.ad.util.ParseUtils.listEqualsWithoutConsideringOrde
 import static org.opensearch.ad.util.ParseUtils.parseAggregators;
 import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.ad.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -78,13 +78,13 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestStatus;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.transport.TransportService;
@@ -608,10 +608,10 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
             // example getMappingsResponse:
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={service=FieldMappingMetadata{fullName='service',
-            // source=org.opensearch.common.bytes.BytesArray@7ba87dbd}}}}}
+            // source=org.opensearch.core.common.bytes.BytesArray@7ba87dbd}}}}}
             // for nested field, it would be
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
-            // source=org.opensearch.common.bytes.BytesArray@8fb4de08}}}}}
+            // source=org.opensearch.core.common.bytes.BytesArray@8fb4de08}}}}}
             boolean foundField = false;
 
             // Review why the change from FieldMappingMetadata to GetFieldMappingsResponse.FieldMappingMetadata
@@ -621,7 +621,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
                 for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
                     // example output:
                     // host_nest.host2=FieldMappingMetadata{fullName='host_nest.host2',
-                    // source=org.opensearch.common.bytes.BytesArray@8fb4de08}
+                    // source=org.opensearch.core.common.bytes.BytesArray@8fb4de08}
 
                     // Review why the change from FieldMappingMetadata to GetFieldMappingsResponse.FieldMappingMetadata
 

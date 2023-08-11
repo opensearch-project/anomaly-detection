@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,13 +29,13 @@ import org.opensearch.ad.annotation.Generated;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.Numbers;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.hash.MurmurHash3;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
