@@ -126,9 +126,9 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.10.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.0-rc3'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.0-rc3'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.0-rc3'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:3.8.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:3.8.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:3.8.0'
 
     // we inherit jackson-core from opensearch core
     implementation "com.fasterxml.jackson.core:jackson-databind:2.14.1"

@@ -28,6 +28,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.timeseries.model.Entity;
 
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
@@ -108,6 +109,9 @@ public class MLUtil {
                 .parallelExecutionEnabled(false)
                 .internalShinglingEnabled(true)
                 .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+                .transformMethod(TransformMethod.NORMALIZE)
+                .alertOnce(true)
+                .autoAdjust(true)
         );
         for (int i = 0; i < numDataPoints; i++) {
             trcf.process(new double[] { random.nextDouble() }, i);
