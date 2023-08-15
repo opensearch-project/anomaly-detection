@@ -54,7 +54,7 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
@@ -75,14 +75,10 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
-import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.modules.junit4.PowerMockRunnerDelegate;
-
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
@@ -91,8 +87,7 @@ import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
 
-@RunWith(PowerMockRunner.class)
-@PowerMockRunnerDelegate(JUnitParamsRunner.class)
+@RunWith(JUnitParamsRunner.class)
 @SuppressWarnings("unchecked")
 public class ModelManagerTests {
 
@@ -141,7 +136,6 @@ public class ModelManagerTests {
     private double thresholdMinPvalue;
     private int minPreviewSize;
     private Duration modelTtl;
-    private Duration checkpointInterval;
     private ThresholdedRandomCutForest rcf;
 
     @Mock
@@ -159,7 +153,6 @@ public class ModelManagerTests {
     private double[] attribution;
     private double[] point;
     private DiVector attributionVec;
-    private ClusterSettings clusterSettings;
 
     @Mock
     private ActionListener<ThresholdingResult> rcfResultListener;
@@ -184,11 +177,10 @@ public class ModelManagerTests {
         numSamples = 10;
         numFeatures = 1;
         rcfTimeDecay = 1.0 / 1024;
-        numMinSamples = 1;
+        numMinSamples = 32;
         thresholdMinPvalue = 0.95;
         minPreviewSize = 500;
         modelTtl = Duration.ofHours(1);
-        checkpointInterval = Duration.ofHours(1);
         shingleSize = 1;
         attribution = new double[] { 1, 1 };
         attributionVec = new DiVector(attribution.length);
@@ -198,7 +190,7 @@ public class ModelManagerTests {
         }
         point = new double[] { 2 };
 
-        rcf = spy(ThresholdedRandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build());
+        rcf = mock(ThresholdedRandomCutForest.class);
         double score = 11.;
 
         double confidence = 0.091353632;
@@ -407,6 +399,8 @@ public class ModelManagerTests {
 
     @Test
     public void getRcfResult_throwToListener_whenHeapLimitExceed() {
+        rcf = ThresholdedRandomCutForest.builder().dimensions(numFeatures).sampleSize(numSamples).numberOfTrees(numTrees).build();
+
         doAnswer(invocation -> {
             ActionListener<Optional<ThresholdedRandomCutForest>> listener = invocation.getArgument(1);
             listener.onResponse(Optional.of(rcf));

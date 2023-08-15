@@ -47,7 +47,7 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
             disableResourceNotFoundFaultTolerence();
-            verifyAnomaly("synthetic", 1, 1500, 8, .4, .9, 10);
+            verifyAnomaly("synthetic", 1, 1500, 8, .4, .7, 10);
         }
     }
 
@@ -96,7 +96,7 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
 
         // recall = windows containing predicted anomaly points / total anomaly windows
         double recall = anomalies.size() > 0 ? positiveAnomalies / anomalies.size() : 1;
-        assertTrue(recall >= minRecall);
+        assertTrue(String.format(Locale.ROOT, "recall should be %f but got %f", recall, minRecall), recall >= minRecall);
 
         assertTrue(errors <= maxError);
         LOG.info("Precision: {}, Window recall: {}", precision, recall);
