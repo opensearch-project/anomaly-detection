@@ -1107,7 +1107,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     // The scores in this method were produced from AD running with RCF3.0-rc3 dependency
     // and this test runs with the most recent RCF dependency that is being pulled by this project.
     public void testDeserialize_rcf3_rc3_single_stream_model() throws Exception {
-        // Model in file rc1_trcf_model_direct is a checkpoint creatd by RCF-3.0-rc1
+        // Model in file rcf_3_0_rc3_single_stream.json is a checkpoint creatd by RCF-3.0-rc3
+        // I generate the json response file using Postman's Send and Download
         URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rcf_3_0_rc3_single_stream.json").toURI();
         String filePath = Paths.get(uri).toString();
         String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
@@ -1117,7 +1118,6 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         // I also needed to bypass the trcf as it wasn't being read as a key value but instead part of the string
         Map map = gson.fromJson(json, Map.class);
         String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
-        // model = model.split(":")[1].substring(1);
         ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
 
         // single-stream model uses external shingling
@@ -1158,7 +1158,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
     // The scores in this method were produced from AD running with RCF3.0-rc3 dependency
     // and this test runs with the most recent RCF dependency that is being pulled by this project.
     public void testDeserialize_rcf3_rc3_hc_model() throws Exception {
-        // Model in file rc1_trcf_model_direct is a checkpoint creatd by RCF-3.0-rc1
+        // Model in rcf_3_0_rc3_hc.json is a checkpoint creatd by RCF-3.0-rc3
+        // I generate the json response file using Postman's Send and Download
         URI uri = ClassLoader.getSystemResource("org/opensearch/ad/ml/rcf_3_0_rc3_hc.json").toURI();
         String filePath = Paths.get(uri).toString();
         String json = Files.readString(Paths.get(filePath), Charset.defaultCharset());
@@ -1170,8 +1171,8 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         String model = (String) ((Map) ((Map) ((ArrayList) ((Map) map.get("hits")).get("hits")).get(0)).get("_source")).get("modelV2");
         model = model.split(":")[1];
         model = model.substring(1, model.length() - 2);
-        // model = Base64.getEncoder().encodeToString(org.apache.commons.codec.binary.Base64.decodeBase64(model));
         // Simulate JSON parsing by replacing Unicode escape sequence with the actual character
+        // Without escaping Java string, we experience model corruption exception.
         model = unescapeJavaString(model);
 
         ThresholdedRandomCutForest forest = checkpointDao.toTrcf(model);
