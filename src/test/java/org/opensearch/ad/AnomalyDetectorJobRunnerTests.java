@@ -22,8 +22,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_MIN_SAMPLES;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -84,6 +84,7 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
@@ -92,6 +93,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -553,7 +555,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
             Collections.singletonList(new FeatureData("123", "abc", 0d)),
             randomAlphaOfLength(4),
             // not fully initialized
-            Long.valueOf(AnomalyDetectorSettings.NUM_MIN_SAMPLES - 1),
+            Long.valueOf(TimeSeriesSettings.NUM_MIN_SAMPLES - 1),
             randomLong(),
             // not an HC detector
             false,
@@ -716,7 +718,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
         Settings settings = Settings
             .builder()
             .put(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.getKey(), 2)
-            .put(AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS.getKey(), 100)
+            .put(TimeSeriesSettings.MAX_CACHED_DELETED_TASKS.getKey(), 100)
             .build();
 
         clusterService = mock(ClusterService.class);
@@ -725,7 +727,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
             Collections
                 .unmodifiableSet(
                     new HashSet<>(
-                        Arrays.asList(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS)
+                        Arrays.asList(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, TimeSeriesSettings.MAX_CACHED_DELETED_TASKS)
                     )
                 )
         );

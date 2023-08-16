@@ -43,7 +43,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.settings.ADEnabledSetting;
@@ -56,6 +55,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
@@ -213,16 +213,16 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .dimensions(inputDimension * detector.getShingleSize())
             .precision(Precision.FLOAT_32)
             .randomSeed(rcfSeed)
-            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
+            .numberOfTrees(TimeSeriesSettings.NUM_TREES)
             .shingleSize(detector.getShingleSize())
             .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
-            .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
+            .timeDecay(TimeSeriesSettings.TIME_DECAY)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(0.125d)
             .parallelExecutionEnabled(false)
-            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+            .sampleSize(TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
             .internalShinglingEnabled(true)
-            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+            .anomalyRate(1 - TimeSeriesSettings.THRESHOLD_MIN_PVALUE)
             .transformMethod(TransformMethod.NORMALIZE)
             .alertOnce(true)
             .autoAdjust(true)
@@ -511,16 +511,16 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .dimensions(dimensions)
             .precision(Precision.FLOAT_32)
             .randomSeed(rcfSeed)
-            .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
+            .numberOfTrees(TimeSeriesSettings.NUM_TREES)
             .shingleSize(detector.getShingleSize())
             .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
-            .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
+            .timeDecay(TimeSeriesSettings.TIME_DECAY)
             .outputAfter(numMinSamples)
             .initialAcceptFraction(0.125d)
             .parallelExecutionEnabled(false)
-            .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+            .sampleSize(TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
             .internalShinglingEnabled(true)
-            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+            .anomalyRate(1 - TimeSeriesSettings.THRESHOLD_MIN_PVALUE)
             .transformMethod(TransformMethod.NORMALIZE)
             .alertOnce(true)
             .autoAdjust(true);
@@ -555,7 +555,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
     @SuppressWarnings("unchecked")
     private void accuracyTemplate(int detectorIntervalMins, float precisionThreshold, float recallThreshold) throws Exception {
         int baseDimension = 2;
-        int dataSize = 20 * AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
+        int dataSize = 20 * TimeSeriesSettings.NUM_SAMPLES_PER_TREE;
         int trainTestSplit = 300;
         // detector interval
         int interval = detectorIntervalMins;
@@ -705,34 +705,34 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             clock,
             threadPool,
             stateManager,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             imputer,
             searchFeatureDao,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             settings,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            TimeSeriesSettings.MAX_COLD_START_ROUNDS
         );
 
         modelManager = new ModelManager(
             mock(CheckpointDao.class),
             mock(Clock.class),
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.TIME_DECAY,
-            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_MIN_SAMPLES,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
             entityColdStarter,
             mock(FeatureManager.class),
             mock(MemoryTracker.class),

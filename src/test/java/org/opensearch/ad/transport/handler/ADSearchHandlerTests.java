@@ -17,7 +17,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import org.junit.Before;
@@ -50,8 +50,8 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        settings = Settings.builder().put(FILTER_BY_BACKEND_ROLES.getKey(), false).build();
-        clusterSettings = clusterSetting(settings, FILTER_BY_BACKEND_ROLES);
+        settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), false).build();
+        clusterSettings = clusterSetting(settings, AD_FILTER_BY_BACKEND_ROLES);
         clusterService = new ClusterService(settings, clusterSettings, null);
         client = mock(Client.class);
         searchHandler = new ADSearchHandler(settings, clusterService, client);
@@ -74,7 +74,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
     }
 
     public void testFilterEnabledWithWrongSearch() {
-        settings = Settings.builder().put(FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         clusterService = new ClusterService(settings, clusterSettings, null);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);
@@ -83,7 +83,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
     }
 
     public void testFilterEnabled() {
-        settings = Settings.builder().put(FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         clusterService = new ClusterService(settings, clusterSettings, null);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);

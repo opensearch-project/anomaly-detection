@@ -15,7 +15,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -30,7 +29,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.opensearch.Version;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
@@ -47,6 +45,7 @@ import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
@@ -96,7 +95,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        numMinSamples = AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+        numMinSamples = TimeSeriesSettings.NUM_MIN_SAMPLES;
 
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
@@ -126,7 +125,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
         nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         nodestateSetting.add(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE);
         nodestateSetting.add(TimeSeriesSettings.BACKOFF_MINUTES);
-        nodestateSetting.add(CHECKPOINT_SAVING_FREQ);
+        nodestateSetting.add(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ);
         clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
 
         discoveryNode = new DiscoveryNode(
@@ -145,7 +144,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             settings,
             clientUtil,
             clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             clusterService,
             TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
             TimeSeriesSettings.BACKOFF_MINUTES
@@ -168,7 +167,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             threadPool,
             TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
         );
@@ -180,21 +179,21 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             clock,
             threadPool,
             stateManager,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             imputer,
             searchFeatureDao,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             settings,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            TimeSeriesSettings.MAX_COLD_START_ROUNDS
         );
 
         detectorId = "123";
@@ -215,14 +214,14 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
         modelManager = new ModelManager(
             mock(CheckpointDao.class),
             mock(Clock.class),
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.TIME_DECAY,
-            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_MIN_SAMPLES,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
             entityColdStarter,
             mock(FeatureManager.class),
             mock(MemoryTracker.class),

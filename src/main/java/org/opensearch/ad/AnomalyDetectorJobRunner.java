@@ -112,7 +112,7 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
 
     public void setSettings(Settings settings) {
         this.settings = settings;
-        this.maxRetryForEndRunException = AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings);
+        this.maxRetryForEndRunException = AnomalyDetectorSettings.AD_MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings);
     }
 
     public void setAdTaskManager(ADTaskManager adTaskManager) {

@@ -46,7 +46,6 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.ADIndexManagement;
@@ -73,6 +72,7 @@ import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.RestHandlerUtils;
@@ -88,7 +88,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private FeatureManager featureManager;
     private ModelManager modelManager;
     private Task task;
-    private ADCircuitBreakerService circuitBreaker;
+    private CircuitBreakerService circuitBreaker;
 
     @Override
     @Before
@@ -104,8 +104,8 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
                         Arrays
                             .asList(
                                 AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
-                                AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
-                                AnomalyDetectorSettings.PAGE_SIZE,
+                                AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
+                                AnomalyDetectorSettings.AD_PAGE_SIZE,
                                 AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW
                             )
                     )
@@ -130,7 +130,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         featureManager = mock(FeatureManager.class);
         modelManager = mock(ModelManager.class);
         runner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
-        circuitBreaker = mock(ADCircuitBreakerService.class);
+        circuitBreaker = mock(CircuitBreakerService.class);
         when(circuitBreaker.isOpen()).thenReturn(false);
         action = new PreviewAnomalyDetectorTransportAction(
             Settings.EMPTY,
@@ -278,7 +278,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     @Test
     public void testPreviewTransportActionNoContext() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         Client client = mock(Client.class);
         ThreadContext threadContext = new ThreadContext(settings);
         threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");

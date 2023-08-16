@@ -25,8 +25,6 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.MemoryTracker.Origin;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.InitProgressProfile;
@@ -36,6 +34,8 @@ import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.timeseries.ExpiringState;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.MemoryTracker.Origin;
 
 /**
  * We use a layered cache to manage active entities’ states.  We have a two-level
@@ -159,7 +159,7 @@ public class CacheBuffer implements ExpiringState {
             // Since we have already considered them while allocating CacheBuffer,
             // skip bookkeeping.
             if (!sharedCacheEmpty()) {
-                memoryTracker.consumeMemory(memoryConsumptionPerEntity, false, Origin.HC_DETECTOR);
+                memoryTracker.consumeMemory(memoryConsumptionPerEntity, false, Origin.REAL_TIME_DETECTOR);
             }
         } else {
             update(entityModelId);
@@ -267,7 +267,7 @@ public class CacheBuffer implements ExpiringState {
         if (valueRemoved != null) {
             if (!reserved) {
                 // release in shared memory
-                memoryTracker.releaseMemory(memoryConsumptionPerEntity, false, Origin.HC_DETECTOR);
+                memoryTracker.releaseMemory(memoryConsumptionPerEntity, false, Origin.REAL_TIME_DETECTOR);
             }
 
             EntityModel modelRemoved = valueRemoved.getModel();
@@ -460,9 +460,9 @@ public class CacheBuffer implements ExpiringState {
         // not a problem as we are releasing memory in MemoryTracker.
         // The newly added one loses references and soon GC will collect it.
         // We have memory tracking correction to fix incorrect memory usage record.
-        memoryTracker.releaseMemory(getReservedBytes(), true, Origin.HC_DETECTOR);
+        memoryTracker.releaseMemory(getReservedBytes(), true, Origin.REAL_TIME_DETECTOR);
         if (!sharedCacheEmpty()) {
-            memoryTracker.releaseMemory(getBytesInSharedCache(), false, Origin.HC_DETECTOR);
+            memoryTracker.releaseMemory(getBytesInSharedCache(), false, Origin.REAL_TIME_DETECTOR);
         }
         items.clear();
         priorityTracker.clearPriority();

@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -49,6 +48,8 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
 public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
@@ -69,7 +70,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                                AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
                                 AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_CONCURRENCY,
                                 AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_BATCH_SIZE
                             )
@@ -85,23 +86,23 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
 
         resultWriteQueue = new ResultWriteWorker(
             Integer.MAX_VALUE,
-            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            TimeSeriesSettings.RESULT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             threadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             resultHandler,
             xContentRegistry(),
             nodeStateManager,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            TimeSeriesSettings.HOURLY_MAINTENANCE
         );
 
         detectResult = TestHelpers.randomHCADAnomalyDetectResult(0.8, Double.NaN, null);

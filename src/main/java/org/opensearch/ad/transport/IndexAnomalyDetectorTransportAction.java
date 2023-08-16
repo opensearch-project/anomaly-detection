@@ -13,7 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_CREATE_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_UPDATE_DETECTOR;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
@@ -86,8 +86,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.xContentRegistry = xContentRegistry;
         this.adTaskManager = adTaskManager;
         this.searchFeatureDao = searchFeatureDao;
-        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.settings = settings;
     }
 

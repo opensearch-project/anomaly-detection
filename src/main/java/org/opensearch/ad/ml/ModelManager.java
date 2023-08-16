@@ -33,17 +33,16 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ad.DetectorModelSize;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.model.Entity;
@@ -624,7 +623,7 @@ public class ModelManager implements DetectorModelSize {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .anomalyRate(1 - this.thresholdMinPvalue)
             .transformMethod(TransformMethod.NORMALIZE)

@@ -11,8 +11,6 @@
 
 package org.opensearch.ad.settings;
 
-import java.time.Duration;
-
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -25,7 +23,7 @@ public final class AnomalyDetectorSettings {
     private AnomalyDetectorSettings() {}
 
     public static final int MAX_DETECTOR_UPPER_LIMIT = 10000;
-    public static final Setting<Integer> MAX_SINGLE_ENTITY_ANOMALY_DETECTORS = Setting
+    public static final Setting<Integer> AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS = Setting
         .intSetting(
             "plugins.anomaly_detection.max_anomaly_detectors",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
@@ -35,7 +33,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Integer> MAX_MULTI_ENTITY_ANOMALY_DETECTORS = Setting
+    public static final Setting<Integer> AD_MAX_HC_ANOMALY_DETECTORS = Setting
         .intSetting(
             "plugins.anomaly_detection.max_multi_entity_anomaly_detectors",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
@@ -114,7 +112,11 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    // Use TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE
+    /**
+     * @deprecated This setting is deprecated because we need to manage fault tolerance for
+     * multiple analysis such as AD and forecasting.
+     * Use TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE instead.
+     */
     @Deprecated
     public static final Setting<Integer> AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
         .intSetting(
@@ -125,6 +127,12 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    /**
+     * @deprecated This setting is deprecated because we need to manage fault tolerance for
+     * multiple analysis such as AD and forecasting.
+     * Use TimeSeriesSettings.COOLDOWN_MINUTES instead.
+     */
+    @Deprecated
     public static final Setting<TimeValue> AD_COOLDOWN_MINUTES = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.cooldown_minutes",
@@ -133,7 +141,11 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    // Use TimeSeriesSettings.BACKOFF_MINUTES
+    /**
+     * @deprecated This setting is deprecated because we need to manage fault tolerance for
+     * multiple analysis such as AD and forecasting.
+     * Use TimeSeriesSettings.BACKOFF_MINUTES instead.
+     */
     @Deprecated
     public static final Setting<TimeValue> AD_BACKOFF_MINUTES = Setting
         .positiveTimeSetting(
@@ -160,7 +172,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Integer> MAX_RETRY_FOR_END_RUN_EXCEPTION = Setting
+    public static final Setting<Integer> AD_MAX_RETRY_FOR_END_RUN_EXCEPTION = Setting
         .intSetting(
             "plugins.anomaly_detection.max_retry_for_end_run_exception",
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION,
@@ -169,10 +181,10 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Boolean> FILTER_BY_BACKEND_ROLES = Setting
+    public static final Setting<Boolean> AD_FILTER_BY_BACKEND_ROLES = Setting
         .boolSetting(
             "plugins.anomaly_detection.filter_by_backend_roles",
-            LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+            LegacyOpenDistroAnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
@@ -181,14 +193,12 @@ public final class AnomalyDetectorSettings {
     public static final String ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE = "mappings/anomaly-detection-state.json";
     public static final String CHECKPOINT_INDEX_MAPPING_FILE = "mappings/anomaly-checkpoint.json";
 
-    public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
-
     // saving checkpoint every 12 hours.
     // To support 1 million entities in 36 data nodes, each node has roughly 28K models.
     // In each hour, we roughly need to save 2400 models. Since each model saving can
-    // take about 1 seconds (default value of AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_SECS)
+    // take about 1 seconds (default value of AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS)
     // we can use up to 2400 seconds to finish saving checkpoints.
-    public static final Setting<TimeValue> CHECKPOINT_SAVING_FREQ = Setting
+    public static final Setting<TimeValue> AD_CHECKPOINT_SAVING_FREQ = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.checkpoint_saving_freq",
             TimeValue.timeValueHours(12),
@@ -196,7 +206,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<TimeValue> CHECKPOINT_TTL = Setting
+    public static final Setting<TimeValue> AD_CHECKPOINT_TTL = Setting
         .positiveTimeSetting(
             "plugins.anomaly_detection.checkpoint_ttl",
             TimeValue.timeValueDays(7),
@@ -207,51 +217,15 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // ML parameters
     // ======================================
-    // RCF
-    public static final int NUM_SAMPLES_PER_TREE = 256;
-
-    public static final int NUM_TREES = 30;
-
-    public static final int TRAINING_SAMPLE_INTERVAL = 64;
-
-    public static final double TIME_DECAY = 0.0001;
-
-    // If we have 32 + shingleSize (hopefully recent) values, RCF can get up and running. It will be noisy —
-    // there is a reason that default size is 256 (+ shingle size), but it may be more useful for people to
-    /// start seeing some results.
-    public static final int NUM_MIN_SAMPLES = 32;
-
-    // The threshold for splitting RCF models in single-stream detectors.
-    // The smallest machine in the Amazon managed service has 1GB heap.
-    // With the setting, the desired model size there is of 2 MB.
-    // By default, we can have at most 5 features. Since the default shingle size
-    // is 8, we have at most 40 dimensions in RCF. In our current RCF setting,
-    // 30 trees, and bounding box cache ratio 0, 40 dimensions use 449KB.
-    // Users can increase the number of features to 10 and shingle size to 60,
-    // 30 trees, bounding box cache ratio 0, 600 dimensions use 1.8 MB.
-    // Since these sizes are smaller than the threshold 2 MB, we won't split models
-    // even in the smallest machine.
-    public static final double DESIRED_MODEL_SIZE_PERCENTAGE = 0.002;
-
-    public static final Setting<Double> MODEL_MAX_SIZE_PERCENTAGE = Setting
+    public static final Setting<Double> AD_MODEL_MAX_SIZE_PERCENTAGE = Setting
         .doubleSetting(
             "plugins.anomaly_detection.model_max_size_percent",
             LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
             0,
-            0.7,
+            0.9,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
-
-    // for a batch operation, we want all of the bounding box in-place for speed
-    public static final double BATCH_BOUNDING_BOX_CACHE_RATIO = 1;
-
-    // Thresholding
-    public static final double THRESHOLD_MIN_PVALUE = 0.995;
-
-    public static final double THRESHOLD_MAX_RANK_ERROR = 0.0001;
-
-    public static final double THRESHOLD_MAX_SCORE = 8;
 
     public static final int THRESHOLD_NUM_LOGNORMAL_QUANTILES = 400;
 
@@ -272,9 +246,6 @@ public final class AnomalyDetectorSettings {
 
     // shingling
     public static final double MAX_SHINGLE_PROPORTION_MISSING = 0.25;
-
-    // AD JOB
-    public static final long DEFAULT_AD_JOB_LOC_DURATION_SECONDS = 60;
 
     // Thread pool
     public static final int AD_THEAD_POOL_QUEUE_SIZE = 1000;
@@ -297,7 +268,7 @@ public final class AnomalyDetectorSettings {
      * Other detectors cannot use space reserved by a detector's dedicated cache.
      * DEDICATED_CACHE_SIZE is a setting to make dedicated cache's size flexible.
      * When that setting is changed, if the size decreases, we will release memory
-     * if required (e.g., when a user also decreased AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
+     * if required (e.g., when a user also decreased AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE,
      * the max memory percentage that AD can use);
      * if the size increases, we may reject the setting change if we cannot fulfill
      * that request (e.g., when it will uses more memory than allowed for AD).
@@ -309,24 +280,12 @@ public final class AnomalyDetectorSettings {
      * where 3.2 GB is from 10% memory limit of AD plugin.
      * That's why I am using 60_000 as the max limit.
      */
-    public static final Setting<Integer> DEDICATED_CACHE_SIZE = Setting
+    public static final Setting<Integer> AD_DEDICATED_CACHE_SIZE = Setting
         .intSetting("plugins.anomaly_detection.dedicated_cache_size", 10, 0, 60_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // We only keep priority (4 bytes float) in inactive cache. 1 million priorities
     // take up 4 MB.
     public static final int MAX_INACTIVE_ENTITIES = 1_000_000;
-
-    // Increase the value will adding pressure to indexing anomaly results and our feature query
-    // OpenSearch-only setting as previous the legacy default is too low (1000)
-    public static final Setting<Integer> MAX_ENTITIES_PER_QUERY = Setting
-        .intSetting(
-            "plugins.anomaly_detection.max_entities_per_query",
-            1_000_000,
-            0,
-            2_000_000,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
-        );
 
     // save partial zero-anomaly grade results after indexing pressure reaching the limit
     // Opendistro version has similar setting. I lowered the value to make room
@@ -365,12 +324,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    // max entity value's length
-    public static int MAX_ENTITY_LENGTH = 256;
-
-    // number of bulk checkpoints per second
-    public static double CHECKPOINT_BULK_PER_SECOND = 0.02;
-
     // ======================================
     // Historical analysis
     // ======================================
@@ -386,6 +339,8 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    // Use TimeSeriesSettings.MAX_CACHED_DELETED_TASKS for both AD and forecasting
+    @Deprecated
     // Maximum number of deleted tasks can keep in cache.
     public static final Setting<Integer> MAX_CACHED_DELETED_TASKS = Setting
         .intSetting(
@@ -459,7 +414,7 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // the percentage of heap usage allowed for queues holding small requests
     // set it to 0 to disable the queue
-    public static final Setting<Float> COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT = Setting
+    public static final Setting<Float> AD_COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT = Setting
         .floatSetting(
             "plugins.anomaly_detection.cold_entity_queue_max_heap_percent",
             0.001f,
@@ -468,7 +423,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Float> CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT = Setting
+    public static final Setting<Float> AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT = Setting
         .floatSetting(
             "plugins.anomaly_detection.checkpoint_read_queue_max_heap_percent",
             0.001f,
@@ -477,7 +432,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Float> ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT = Setting
+    public static final Setting<Float> AD_ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT = Setting
         .floatSetting(
             "plugins.anomaly_detection.entity_cold_start_queue_max_heap_percent",
             0.001f,
@@ -488,7 +443,7 @@ public final class AnomalyDetectorSettings {
 
     // the percentage of heap usage allowed for queues holding large requests
     // set it to 0 to disable the queue
-    public static final Setting<Float> CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT = Setting
+    public static final Setting<Float> AD_CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT = Setting
         .floatSetting(
             "plugins.anomaly_detection.checkpoint_write_queue_max_heap_percent",
             0.01f,
@@ -497,7 +452,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Float> RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT = Setting
+    public static final Setting<Float> AD_RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT = Setting
         .floatSetting(
             "plugins.anomaly_detection.result_write_queue_max_heap_percent",
             0.01f,
@@ -506,7 +461,7 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Setting<Float> CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT = Setting
+    public static final Setting<Float> AD_CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT = Setting
         .floatSetting(
             "plugins.anomaly_detection.checkpoint_maintain_queue_max_heap_percent",
             0.001f,
@@ -518,7 +473,7 @@ public final class AnomalyDetectorSettings {
     // expected execution time per cold entity request. This setting controls
     // the speed of cold entity requests execution. The larger, the faster, and
     // the more performance impact to customers' workload.
-    public static final Setting<Integer> EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS = Setting
+    public static final Setting<Integer> AD_EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS = Setting
         .intSetting(
             "plugins.anomaly_detection.expected_cold_entity_execution_time_in_millisecs",
             3000,
@@ -542,72 +497,9 @@ public final class AnomalyDetectorSettings {
         );
 
     /**
-     * EntityRequest has entityName (# category fields * 256, the recommended limit
-     * of a keyword field length), model Id (roughly 256 bytes), and QueuedRequest
-     * fields including detector Id(roughly 128 bytes), expirationEpochMs (long,
-     *  8 bytes), and priority (12 bytes).
-     * Plus Java object size (12 bytes), we have roughly 928 bytes per request
-     * assuming we have 2 categorical fields (plan to support 2 categorical fields now).
-     * We don't want the total size exceeds 0.1% of the heap.
-     * We can have at most 0.1% heap / 928 = heap / 928,000.
-     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
-     * 10^ 6 / 928 = 1078
-     */
-    public static int ENTITY_REQUEST_SIZE_IN_BYTES = 928;
-
-    /**
-     * EntityFeatureRequest consists of EntityRequest (928 bytes, read comments
-     * of ENTITY_COLD_START_QUEUE_SIZE_CONSTANT), pointer to current feature
-     * (8 bytes), and dataStartTimeMillis (8 bytes).  We have roughly
-     * 928 + 16 = 944 bytes per request.
-     *
-     * We don't want the total size exceeds 0.1% of the heap.
-     * We should have at most 0.1% heap / 944 = heap / 944,000
-     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
-     * 10^ 6 / 944 = 1059
-     */
-    public static int ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES = 944;
-
-    /**
-     * ResultWriteRequest consists of index request (roughly 1KB), and QueuedRequest
-     * fields (148 bytes, read comments of ENTITY_REQUEST_SIZE_CONSTANT).
-     * Plus Java object size (12 bytes), we have roughly 1160 bytes per request
-     *
-     * We don't want the total size exceeds 1% of the heap.
-     * We should have at most 1% heap / 1148 = heap / 116,000
-     * For t3.small, 1% heap is of 10MB. The queue's size is up to
-     * 10^ 7 / 1160 = 8621
-     */
-    public static int RESULT_WRITE_QUEUE_SIZE_IN_BYTES = 1160;
-
-    /**
-     * CheckpointWriteRequest consists of IndexRequest (200 KB), and QueuedRequest
-     * fields (148 bytes, read comments of ENTITY_REQUEST_SIZE_CONSTANT).
-     * The total is roughly 200 KB per request.
-     *
-     * We don't want the total size exceeds 1% of the heap.
-     * We should have at most 1% heap / 200KB = heap / 20,000,000
-     * For t3.small, 1% heap is of 10MB. The queue's size is up to
-     * 10^ 7 / 2.0 * 10^5 = 50
-     */
-    public static int CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES = 200_000;
-
-    /**
-     * CheckpointMaintainRequest has model Id (roughly 256 bytes), and QueuedRequest
-     * fields including detector Id(roughly 128 bytes), expirationEpochMs (long,
-     *  8 bytes), and priority (12 bytes).
-     * Plus Java object size (12 bytes), we have roughly 416 bytes per request.
-     * We don't want the total size exceeds 0.1% of the heap.
-     * We can have at most 0.1% heap / 416 = heap / 416,000.
-     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
-     * 10^ 6 / 416 = 2403
-     */
-    public static int CHECKPOINT_MAINTAIN_REQUEST_SIZE_IN_BYTES = 416;
-
-    /**
      * Max concurrent entity cold starts per node
      */
-    public static final Setting<Integer> ENTITY_COLD_START_QUEUE_CONCURRENCY = Setting
+    public static final Setting<Integer> AD_ENTITY_COLD_START_QUEUE_CONCURRENCY = Setting
         .intSetting(
             "plugins.anomaly_detection.entity_cold_start_queue_concurrency",
             1,
@@ -700,48 +592,55 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    public static final Duration QUEUE_MAINTENANCE = Duration.ofMinutes(10);
+    /**
+     * EntityRequest has entityName (# category fields * 256, the recommended limit
+     * of a keyword field length), model Id (roughly 256 bytes), and QueuedRequest
+     * fields including detector Id(roughly 128 bytes), expirationEpochMs (long,
+     *  8 bytes), and priority (12 bytes).
+     * Plus Java object size (12 bytes), we have roughly 928 bytes per request
+     * assuming we have 2 categorical fields (plan to support 2 categorical fields now).
+     * We don't want the total size exceeds 0.1% of the heap.
+     * We can have at most 0.1% heap / 928 = heap / 928,000.
+     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
+     * 10^ 6 / 928 = 1078
+     */
+    // to be replaced by TimeSeriesSettings.FEATURE_REQUEST_SIZE_IN_BYTES
+    @Deprecated
+    public static int ENTITY_REQUEST_SIZE_IN_BYTES = 928;
 
-    public static final float MAX_QUEUED_TASKS_RATIO = 0.5f;
-
-    public static final float MEDIUM_SEGMENT_PRUNE_RATIO = 0.1f;
-
-    public static final float LOW_SEGMENT_PRUNE_RATIO = 0.3f;
-
-    // expensive maintenance (e.g., queue maintenance) with 1/10000 probability
-    public static final int MAINTENANCE_FREQ_CONSTANT = 10000;
-
-    // ======================================
-    // Checkpoint setting
-    // ======================================
-    // we won't accept a checkpoint larger than 30MB. Or we risk OOM.
-    // For reference, in RCF 1.0, the checkpoint of a RCF with 50 trees, 10 dimensions,
-    // 256 samples is of 3.2MB.
-    // In compact rcf, the same RCF is of 163KB.
-    // Since we allow at most 5 features, and the default shingle size is 8 and default
-    // tree number size is 100, we can have at most 25.6 MB in RCF 1.0.
-    // It is possible that cx increases the max features or shingle size, but we don't want
-    // to risk OOM for the flexibility.
-    public static final int MAX_CHECKPOINT_BYTES = 30_000_000;
-
-    // Sets the cap on the number of buffer that can be allocated by the rcf deserialization
-    // buffer pool. Each buffer is of 512 bytes. Memory occupied by 20 buffers is 10.24 KB.
-    public static final int MAX_TOTAL_RCF_SERIALIZATION_BUFFERS = 20;
-
-    // the size of the buffer used for rcf deserialization
-    public static final int SERIALIZATION_BUFFER_BYTES = 512;
+    /**
+     * EntityFeatureRequest consists of EntityRequest (928 bytes, read comments
+     * of ENTITY_COLD_START_QUEUE_SIZE_CONSTANT), pointer to current feature
+     * (8 bytes), and dataStartTimeMillis (8 bytes).  We have roughly
+     * 928 + 16 = 944 bytes per request.
+     *
+     * We don't want the total size exceeds 0.1% of the heap.
+     * We should have at most 0.1% heap / 944 = heap / 944,000
+     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
+     * 10^ 6 / 944 = 1059
+     */
+    // to be replaced by TimeSeriesSettings.FEATURE_REQUEST_SIZE_IN_BYTES
+    @Deprecated
+    public static int ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES = 944;
 
     // ======================================
     // pagination setting
     // ======================================
     // pagination size
-    public static final Setting<Integer> PAGE_SIZE = Setting
+    public static final Setting<Integer> AD_PAGE_SIZE = Setting
         .intSetting("plugins.anomaly_detection.page_size", 1_000, 0, 10_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
-    // within an interval, how many percents are used to process requests.
-    // 1.0 means we use all of the detection interval to process requests.
-    // to ensure we don't block next interval, it is better to set it less than 1.0.
-    public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.9f;
+    // Increase the value will adding pressure to indexing anomaly results and our feature query
+    // OpenSearch-only setting as previous the legacy default is too low (1000)
+    public static final Setting<Integer> AD_MAX_ENTITIES_PER_QUERY = Setting
+        .intSetting(
+            "plugins.anomaly_detection.max_entities_per_query",
+            1_000_000,
+            0,
+            2_000_000,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
     // ======================================
     // preview setting
@@ -792,7 +691,7 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // the max number of models to return per node.
     // the setting is used to limit resource usage due to showing models
-    public static final Setting<Integer> MAX_MODEL_SIZE_PER_NODE = Setting
+    public static final Setting<Integer> AD_MAX_MODEL_SIZE_PER_NODE = Setting
         .intSetting(
             "plugins.anomaly_detection.max_model_size_per_node",
             100,
@@ -801,20 +700,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         );
-
-    // profile API needs to report total entities. We can use cardinality aggregation for a single-category field.
-    // But we cannot do that for multi-category fields as it requires scripting to generate run time fields,
-    // which is expensive. We work around the problem by using a composite query to find the first 10_000 buckets.
-    // Generally, traversing all buckets/combinations can't be done without visiting all matches, which is costly
-    // for data with many entities. Given that it is often enough to have a lower bound of the number of entities,
-    // such as "there are at least 10000 entities", the default is set to 10,000. That is, requests will count the
-    // total entities up to 10,000.
-    public static final int MAX_TOTAL_ENTITIES_TO_TRACK = 10_000;
-
-    // ======================================
-    // Cold start setting
-    // ======================================
-    public static int MAX_COLD_START_ROUNDS = 2;
 
     // ======================================
     // Validate Detector API setting

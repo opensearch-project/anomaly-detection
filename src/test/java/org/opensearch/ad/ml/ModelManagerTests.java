@@ -54,8 +54,6 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -69,14 +67,17 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import test.org.opensearch.ad.util.MLUtil;
@@ -163,7 +164,7 @@ public class ModelManagerTests {
     private Instant now;
 
     @Mock
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
 
     private String modelId = "modelId";
 
@@ -235,7 +236,7 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
                 memoryTracker,
@@ -409,13 +410,7 @@ public class ModelManagerTests {
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
 
-        MemoryTracker memoryTracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            null,
-            adCircuitBreakerService
-        );
+        MemoryTracker memoryTracker = new MemoryTracker(jvmService, modelMaxSizePercentage, null, adCircuitBreakerService);
 
         ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
 
@@ -431,7 +426,7 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
                 memoryTracker,
@@ -923,7 +918,7 @@ public class ModelManagerTests {
             AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             threadPool,
             TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
         );
@@ -934,20 +929,20 @@ public class ModelManagerTests {
             clock,
             threadPool,
             stateManager,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             interpolator,
             searchFeatureDao,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             settings,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            TimeSeriesSettings.MAX_COLD_START_ROUNDS
         );
 
         modelManager = spy(
@@ -961,7 +956,7 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
                 memoryTracker,

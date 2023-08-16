@@ -58,7 +58,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                             LegacyOpenDistroAnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT,
                             LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
-                            LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                            LegacyOpenDistroAnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
                             LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
                             LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                             LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
@@ -77,8 +77,8 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                 .containsAll(
                     Arrays
                         .asList(
-                            AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
-                            AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS,
+                            AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                            AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS,
                             AnomalyDetectorSettings.MAX_ANOMALY_FEATURES,
                             AnomalyDetectorSettings.AD_REQUEST_TIMEOUT,
                             AnomalyDetectorSettings.DETECTION_INTERVAL,
@@ -91,33 +91,33 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                             AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
                             AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF,
                             AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                            AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
+                            AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE,
+                            AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY,
                             AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
                             AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT,
                             AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT,
                             AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS,
-                            AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                            AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
                             AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                             AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
                             AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR,
                             AnomalyDetectorSettings.BATCH_TASK_PIECE_SIZE,
                             AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_CONCURRENCY,
                             AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
-                            AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY,
+                            AnomalyDetectorSettings.AD_ENTITY_COLD_START_QUEUE_CONCURRENCY,
                             AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_CONCURRENCY,
                             AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE,
                             AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
                             AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_BATCH_SIZE,
-                            AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
-                            AnomalyDetectorSettings.COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
-                            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
-                            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                            AnomalyDetectorSettings.RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
-                            AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
-                            AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
-                            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-                            AnomalyDetectorSettings.PAGE_SIZE,
+                            AnomalyDetectorSettings.AD_DEDICATED_CACHE_SIZE,
+                            AnomalyDetectorSettings.AD_COLD_ENTITY_QUEUE_MAX_HEAP_PERCENT,
+                            AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+                            AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                            AnomalyDetectorSettings.AD_RESULT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                            AnomalyDetectorSettings.AD_ENTITY_COLD_START_QUEUE_MAX_HEAP_PERCENT,
+                            AnomalyDetectorSettings.AD_EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
+                            AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY,
+                            AnomalyDetectorSettings.AD_PAGE_SIZE,
                             TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
                             TimeSeriesSettings.BACKOFF_MINUTES
                         )
@@ -127,11 +127,11 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
 
     public void testAllLegacyOpenDistroSettingsFallback() {
         assertEquals(
-            AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(Settings.EMPTY)
         );
         assertEquals(
@@ -179,7 +179,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(Settings.EMPTY)
         );
         // MAX_ENTITIES_FOR_PREVIEW does not use legacy setting
@@ -191,8 +191,8 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS.get(Settings.EMPTY)
         );
         assertEquals(
-            AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(Settings.EMPTY),
-            LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(Settings.EMPTY)
+            AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(Settings.EMPTY),
+            LegacyOpenDistroAnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(Settings.EMPTY)
         );
         assertEquals(
             AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.get(Settings.EMPTY),
@@ -218,11 +218,11 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(10));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_anomaly_detectors", 99).build();
-        assertEquals(AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(99));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(99));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(1000));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_multi_entity_anomaly_detectors", 98).build();
-        assertEquals(AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(98));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS.get(settings), Integer.valueOf(98));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(10));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_anomaly_features", 7).build();
@@ -282,19 +282,19 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings), Integer.valueOf(3));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_retry_for_end_run_exception", 86).build();
-        assertEquals(AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(86));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(86));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(6));
 
         settings = Settings.builder().put("plugins.anomaly_detection.filter_by_backend_roles", true).build();
-        assertEquals(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(true));
-        assertEquals(LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(false));
+        assertEquals(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(true));
+        assertEquals(LegacyOpenDistroAnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(false));
 
         settings = Settings.builder().put("plugins.anomaly_detection.model_max_size_percent", 0.3).build();
-        assertEquals(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.3));
+        assertEquals(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.3));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.1));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_entities_per_query", 83).build();
-        assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(settings), Integer.valueOf(83));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY.get(settings), Integer.valueOf(83));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY.get(settings), Integer.valueOf(1000));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_entities_for_preview", 22).build();
@@ -361,8 +361,8 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             .put("opendistro.anomaly_detection.batch_task_piece_interval_seconds", 26)
             .build();
 
-        assertEquals(AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(1));
-        assertEquals(AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(2));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(1));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS.get(settings), Integer.valueOf(2));
         assertEquals(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings), Integer.valueOf(3));
         assertEquals(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(4));
         assertEquals(AnomalyDetectorSettings.DETECTION_INTERVAL.get(settings), TimeValue.timeValueMinutes(5));
@@ -378,9 +378,9 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         assertEquals(TimeSeriesSettings.BACKOFF_MINUTES.get(settings), TimeValue.timeValueMinutes(12));
         assertEquals(AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY.get(settings), TimeValue.timeValueMillis(13));
         assertEquals(AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF.get(settings), Integer.valueOf(14));
-        assertEquals(AnomalyDetectorSettings.MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(15));
-        assertEquals(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(true));
-        assertEquals(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.6D));
+        assertEquals(AnomalyDetectorSettings.AD_MAX_RETRY_FOR_END_RUN_EXCEPTION.get(settings), Integer.valueOf(15));
+        assertEquals(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings), Boolean.valueOf(true));
+        assertEquals(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE.get(settings), Double.valueOf(0.6D));
         // MAX_ENTITIES_FOR_PREVIEW uses default instead of legacy fallback
         assertEquals(AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW.get(settings), Integer.valueOf(5));
         // INDEX_PRESSURE_SOFT_LIMIT uses default instead of legacy fallback
@@ -412,7 +412,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
                 LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
                 LegacyOpenDistroAnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_PRIMARY_SHARDS,
-                LegacyOpenDistroAnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES,
+                LegacyOpenDistroAnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_CACHE_MISS_HANDLING_PER_SECOND,
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                 LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,

@@ -11,8 +11,8 @@
 
 package org.opensearch.timeseries.model;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.DEFAULT_JOB_LOC_DURATION_SECONDS;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -175,7 +175,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
         Instant enabledTime = null;
         Instant disabledTime = null;
         Instant lastUpdateTime = null;
-        Long lockDurationSeconds = DEFAULT_AD_JOB_LOC_DURATION_SECONDS;
+        Long lockDurationSeconds = DEFAULT_JOB_LOC_DURATION_SECONDS;
         User user = null;
         String resultIndex = null;
 

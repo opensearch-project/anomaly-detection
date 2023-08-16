@@ -19,9 +19,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.task.ADTaskCacheManager.TASK_RETRY_LIMIT;
+import static org.opensearch.timeseries.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -33,7 +33,6 @@ import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -42,10 +41,13 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.task.RealtimeTaskCache;
 
 import com.google.common.collect.ImmutableList;
 
@@ -63,7 +65,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         settings = Settings
             .builder()
             .put(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.getKey(), 2)
-            .put(AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS.getKey(), 100)
+            .put(TimeSeriesSettings.MAX_CACHED_DELETED_TASKS.getKey(), 100)
             .build();
 
         clusterService = mock(ClusterService.class);
@@ -72,7 +74,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
             Collections
                 .unmodifiableSet(
                     new HashSet<>(
-                        Arrays.asList(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS)
+                        Arrays.asList(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE, TimeSeriesSettings.MAX_CACHED_DELETED_TASKS)
                     )
                 )
         );
@@ -349,7 +351,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         String detectorId = randomAlphaOfLength(5);
         adTaskCacheManager.initRealtimeTaskCache(detectorId, 60_000);
         adTaskCacheManager.updateRealtimeTaskCache(detectorId, null, null, null);
-        ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        RealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         assertNull(realtimeTaskCache.getState());
         assertNull(realtimeTaskCache.getError());
         assertNull(realtimeTaskCache.getInitProgress());
@@ -379,10 +381,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
     public void testDeletedTask() {
         String taskId = randomAlphaOfLength(10);
-        adTaskCacheManager.addDeletedDetectorTask(taskId);
-        assertTrue(adTaskCacheManager.hasDeletedDetectorTask());
-        assertEquals(taskId, adTaskCacheManager.pollDeletedDetectorTask());
-        assertFalse(adTaskCacheManager.hasDeletedDetectorTask());
+        adTaskCacheManager.addDeletedTask(taskId);
+        assertTrue(adTaskCacheManager.hasDeletedTask());
+        assertEquals(taskId, adTaskCacheManager.pollDeletedTask());
+        assertFalse(adTaskCacheManager.hasDeletedTask());
     }
 
     public void testAcquireTaskUpdatingSemaphore() throws IOException, InterruptedException {
@@ -527,7 +529,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
     public void testRefreshRealtimeJobRunTime() throws InterruptedException {
         String detectorId = randomAlphaOfLength(5);
         adTaskCacheManager.initRealtimeTaskCache(detectorId, 1_000);
-        ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        RealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         assertFalse(realtimeTaskCache.expired());
         Thread.sleep(3_000);
         assertTrue(realtimeTaskCache.expired());
@@ -537,10 +539,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
     public void testAddDeletedDetector() {
         String detectorId = randomAlphaOfLength(5);
-        adTaskCacheManager.addDeletedDetector(detectorId);
-        String polledDetectorId = adTaskCacheManager.pollDeletedDetector();
+        adTaskCacheManager.addDeletedConfig(detectorId);
+        String polledDetectorId = adTaskCacheManager.pollDeletedConfig();
         assertEquals(detectorId, polledDetectorId);
-        assertNull(adTaskCacheManager.pollDeletedDetector());
+        assertNull(adTaskCacheManager.pollDeletedConfig());
     }
 
     public void testAddPendingEntitiesWithEmptyList() throws IOException {

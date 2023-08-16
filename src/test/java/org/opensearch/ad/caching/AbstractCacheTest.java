@@ -22,16 +22,16 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import org.junit.Before;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 public class AbstractCacheTest extends AbstractTimeSeriesTest {
     protected String modelId1, modelId2, modelId3, modelId4;
@@ -94,7 +94,7 @@ public class AbstractCacheTest extends AbstractTimeSeriesTest {
             memoryPerEntity,
             memoryTracker,
             clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             detectorId,
             checkpointWriteQueue,
             checkpointMaintainQueue,

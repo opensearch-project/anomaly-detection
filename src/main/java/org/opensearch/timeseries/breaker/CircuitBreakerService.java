@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.breaker;
+package org.opensearch.timeseries.breaker;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -20,23 +20,23 @@ import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.monitor.jvm.JvmService;
 
 /**
- * Class {@code ADCircuitBreakerService} provide storing, retrieving circuit breakers functions.
+ * Class {@code CircuitBreakerService} provide storing, retrieving circuit breakers functions.
  *
  * This service registers internal system breakers and provide API for users to register their own breakers.
  */
-public class ADCircuitBreakerService {
+public class CircuitBreakerService {
 
     private final ConcurrentMap<String, CircuitBreaker> breakers = new ConcurrentHashMap<>();
     private final JvmService jvmService;
 
-    private static final Logger logger = LogManager.getLogger(ADCircuitBreakerService.class);
+    private static final Logger logger = LogManager.getLogger(CircuitBreakerService.class);
 
     /**
      * Constructor.
      *
      * @param jvmService jvm info
      */
-    public ADCircuitBreakerService(JvmService jvmService) {
+    public CircuitBreakerService(JvmService jvmService) {
         this.jvmService = jvmService;
     }
 
@@ -67,7 +67,7 @@ public class ADCircuitBreakerService {
      *
      * @return ADCircuitBreakerService
      */
-    public ADCircuitBreakerService init() {
+    public CircuitBreakerService init() {
         // Register memory circuit breaker
         registerBreaker(BreakerName.MEM.getName(), new MemoryCircuitBreaker(this.jvmService));
         logger.info("Registered memory breaker.");

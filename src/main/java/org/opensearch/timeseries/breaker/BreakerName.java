@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.breaker;
+package org.opensearch.timeseries.breaker;
 
 public enum BreakerName {
 

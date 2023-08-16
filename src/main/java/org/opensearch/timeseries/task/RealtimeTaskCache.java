@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.task;
+package org.opensearch.timeseries.task;
 
 import java.time.Instant;
 
@@ -21,7 +21,7 @@ import java.time.Instant;
  * 4. last job run time
  * 5. detector interval
  */
-public class ADRealtimeTaskCache {
+public class RealtimeTaskCache {
 
     // task state
     private String state;
@@ -42,7 +42,7 @@ public class ADRealtimeTaskCache {
     // To avoid repeated query when there is no data, record whether we have done that or not.
     private boolean queriedResultIndex;
 
-    public ADRealtimeTaskCache(String state, Float initProgress, String error, long detectorIntervalInMillis) {
+    public RealtimeTaskCache(String state, Float initProgress, String error, long detectorIntervalInMillis) {
         this.state = state;
         this.initProgress = initProgress;
         this.error = error;

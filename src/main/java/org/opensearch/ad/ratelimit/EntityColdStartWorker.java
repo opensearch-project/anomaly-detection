@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_ENTITY_COLD_START_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -23,7 +23,6 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.EntityModel;
@@ -37,6 +36,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 /**
@@ -61,7 +61,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -90,7 +90,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            ENTITY_COLD_START_QUEUE_CONCURRENCY,
+            AD_ENTITY_COLD_START_QUEUE_CONCURRENCY,
             executionTtl,
             stateTtl,
             nodeStateManager

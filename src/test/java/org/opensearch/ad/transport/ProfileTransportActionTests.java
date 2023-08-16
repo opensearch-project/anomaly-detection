@@ -114,7 +114,7 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
     }
 
     private void setUpModelSize(int maxModel) {
-        Settings nodeSettings = Settings.builder().put(AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE.getKey(), maxModel).build();
+        Settings nodeSettings = Settings.builder().put(AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE.getKey(), maxModel).build();
         internalCluster().startNode(nodeSettings);
     }
 

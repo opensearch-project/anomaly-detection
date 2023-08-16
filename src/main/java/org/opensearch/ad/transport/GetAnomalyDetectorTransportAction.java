@@ -13,7 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
@@ -67,6 +67,7 @@ import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -123,8 +124,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
 
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
-        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.transportService = transportService;
         this.adTaskManager = adTaskManager;
     }
@@ -169,7 +170,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         client,
                         clientUtil,
                         xContentRegistry,
-                        AnomalyDetectorSettings.NUM_MIN_SAMPLES
+                        TimeSeriesSettings.NUM_MIN_SAMPLES
                     );
                     profileRunner
                         .profile(
@@ -209,7 +210,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         clientUtil,
                         xContentRegistry,
                         nodeFilter,
-                        AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+                        TimeSeriesSettings.NUM_MIN_SAMPLES,
                         transportService,
                         adTaskManager
                     );

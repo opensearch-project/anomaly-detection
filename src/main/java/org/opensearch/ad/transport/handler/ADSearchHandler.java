@@ -12,7 +12,7 @@
 package org.opensearch.ad.transport.handler;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_SEARCH;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
@@ -40,8 +40,8 @@ public class ADSearchHandler {
 
     public ADSearchHandler(Settings settings, ClusterService clusterService, Client client) {
         this.client = client;
-        filterEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
+        filterEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
 
     /**

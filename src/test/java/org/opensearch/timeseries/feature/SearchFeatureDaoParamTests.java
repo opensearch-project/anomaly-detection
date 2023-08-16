@@ -51,7 +51,6 @@ import org.opensearch.action.search.MultiSearchResponse.Item;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.action.ActionFuture;
@@ -80,6 +79,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.powermock.api.mockito.PowerMockito;
@@ -179,7 +179,7 @@ public class SearchFeatureDaoParamTests {
         }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         searchFeatureDao = spy(
-            new SearchFeatureDao(client, xContent, imputer, clientUtil, settings, null, AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
+            new SearchFeatureDao(client, xContent, imputer, clientUtil, settings, null, TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
         );
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);

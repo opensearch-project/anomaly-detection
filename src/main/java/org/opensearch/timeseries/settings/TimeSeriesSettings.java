@@ -197,4 +197,16 @@ public class TimeSeriesSettings {
     // JOB
     // ======================================
     public static final long DEFAULT_JOB_LOC_DURATION_SECONDS = 60;
+
+    // ======================================
+    // stats/profile API setting
+    // ======================================
+    // profile API needs to report total entities. We can use cardinality aggregation for a single-category field.
+    // But we cannot do that for multi-category fields as it requires scripting to generate run time fields,
+    // which is expensive. We work around the problem by using a composite query to find the first 10_000 buckets.
+    // Generally, traversing all buckets/combinations can't be done without visiting all matches, which is costly
+    // for data with many entities. Given that it is often enough to have a lower bound of the number of entities,
+    // such as "there are at least 10000 entities", the default is set to 10,000. That is, requests will count the
+    // total entities up to 10,000.
+    public static final int MAX_TOTAL_ENTITIES_TO_TRACK = 10_000;
 }
