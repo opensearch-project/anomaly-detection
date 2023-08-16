@@ -27,7 +27,6 @@ import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_IN
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.opensearch.ResourceAlreadyExistsException;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.NoShardAvailableActionException;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.get.GetResponse;
@@ -40,6 +39,7 @@ import org.opensearch.ad.indices.AnomalyDetectionIndices;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;

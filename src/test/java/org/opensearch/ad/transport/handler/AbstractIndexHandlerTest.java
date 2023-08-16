@@ -25,7 +25,6 @@ import org.junit.BeforeClass;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ResourceAlreadyExistsException;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.TestHelpers;
@@ -42,6 +41,7 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 public abstract class AbstractIndexHandlerTest extends AbstractADTest {

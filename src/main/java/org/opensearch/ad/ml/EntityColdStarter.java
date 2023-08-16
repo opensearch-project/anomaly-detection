@@ -35,7 +35,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.CleanState;
@@ -56,6 +55,7 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 import com.amazon.randomcutforest.config.Precision;

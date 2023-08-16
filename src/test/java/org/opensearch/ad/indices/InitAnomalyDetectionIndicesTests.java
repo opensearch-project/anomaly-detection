@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.HashSet;
 
 import org.mockito.ArgumentCaptor;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
@@ -45,6 +44,7 @@ import org.opensearch.cluster.routing.RoutingTable;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 public class InitAnomalyDetectionIndicesTests extends AbstractADTest {

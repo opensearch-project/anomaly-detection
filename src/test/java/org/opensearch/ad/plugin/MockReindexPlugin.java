@@ -19,9 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.search.SearchRequest;
@@ -33,6 +31,8 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.BulkByScrollTask;

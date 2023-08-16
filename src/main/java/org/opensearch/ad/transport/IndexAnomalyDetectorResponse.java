@@ -13,9 +13,9 @@ package org.opensearch.ad.transport;
 
 import java.io.IOException;
 
-import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.util.RestHandlerUtils;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.rest.RestStatus;

@@ -27,7 +27,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
 import org.opensearch.cluster.ClusterChangedEvent;
@@ -37,6 +36,7 @@ import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.gateway.GatewayService;
 
 public class ADClusterEventListenerTests extends AbstractADTest {

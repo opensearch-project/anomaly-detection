@@ -19,10 +19,10 @@ import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.EntityAnomalyResult;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class MultiResponsesDelegateActionListenerTests extends OpenSearchTestCase {

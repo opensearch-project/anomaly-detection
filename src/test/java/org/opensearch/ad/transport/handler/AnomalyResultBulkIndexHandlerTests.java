@@ -25,7 +25,6 @@ import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
 import java.io.IOException;
 import java.time.Clock;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BulkAction;
@@ -43,6 +42,7 @@ import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.Index;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.engine.VersionConflictEngineException;

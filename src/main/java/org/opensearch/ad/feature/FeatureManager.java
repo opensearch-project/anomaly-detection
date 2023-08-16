@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.ad.CleanState;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -46,6 +45,7 @@ import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 /**

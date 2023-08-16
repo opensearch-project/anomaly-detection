@@ -32,7 +32,6 @@ import java.util.Set;
 import org.junit.Before;
 import org.opensearch.Build;
 import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
@@ -50,6 +49,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.plugins.PluginInfo;
 
 import com.google.common.collect.ImmutableList;

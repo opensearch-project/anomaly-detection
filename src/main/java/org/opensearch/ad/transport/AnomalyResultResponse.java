@@ -19,10 +19,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.opensearch.action.ActionResponse;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;

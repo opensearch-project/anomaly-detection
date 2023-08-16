@@ -54,7 +54,6 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.NodeStateManager;
@@ -77,8 +76,10 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
