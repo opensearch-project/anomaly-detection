@@ -27,6 +27,15 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
+/**
+ * Responsible for tracking and managing the memory consumption related to OpenSearch time series analysis.
+ * It offers functionalities to:
+ * - Track the total memory consumption and consumption per specific origin.
+ * - Monitor reserved memory bytes.
+ * - Decide if memory can be allocated based on the current usage and the heap limit.
+ * - Estimate the memory size for a ThresholdedRandomCutForest model based on various parameters.
+ *
+ */
 public class MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(MemoryTracker.class);
 
@@ -304,11 +313,21 @@ public class MemoryTracker {
     }
 
     /**
-     * This function derives from the old code: https://tinyurl.com/2eaabja6
+     * Determines if hosting is allowed based on the estimated size of a given ThresholdedRandomCutForest and
+     * the available memory resources.
      *
-     * @param configId Config Id
-     * @param trcf Thresholded random cut forest model
-     * @return true if there is enough memory; otherwise throw LimitExceededException.
+     * <p>This method synchronizes access to ensure that checks and operations related to resource availability
+     * are thread-safe.
+     *
+     * @param configId      The identifier for the configuration being checked. Used in error messages.
+     * @param trcf          The ThresholdedRandomCutForest to estimate the size for.
+     * @return              True if the system can allocate the required bytes to host the trcf.
+     * @throws LimitExceededException If the required memory for the trcf exceeds the available memory.
+     *
+     * <p>Usage example:
+     * <pre>{@code
+     * boolean canHost = isHostingAllowed("config123", myTRCF);
+     * }</pre>
      */
     public synchronized boolean isHostingAllowed(String configId, ThresholdedRandomCutForest trcf) {
         long requiredBytes = estimateTRCFModelSize(trcf);
