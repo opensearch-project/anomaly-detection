@@ -39,7 +39,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
@@ -64,6 +63,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.transport.TransportService;
 

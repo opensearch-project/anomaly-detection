@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchSecurityException;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.Features;
@@ -37,6 +36,7 @@ import org.opensearch.ad.model.Feature;
 import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.core.action.ActionListener;
 
 /**
  * Runner to trigger an anomaly detector.

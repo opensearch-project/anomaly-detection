@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ratelimit.RequestPriority;
@@ -31,6 +30,7 @@ import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
+import org.opensearch.core.action.ActionListener;
 
 public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
     private MultiEntityResultHandler handler;

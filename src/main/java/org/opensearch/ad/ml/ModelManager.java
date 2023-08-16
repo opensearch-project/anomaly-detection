@@ -32,7 +32,6 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.DetectorModelSize;
 import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.common.exception.ResourceNotFoundException;
@@ -46,9 +45,11 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
@@ -530,6 +531,10 @@ public class ModelManager implements DetectorModelSize {
             .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(detector.getShingleSize())
             .anomalyRate(1 - thresholdMinPvalue)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
+            .internalShinglingEnabled(false)
             .build();
         Arrays.stream(dataPoints).forEach(s -> trcf.process(s, 0));
 
@@ -620,6 +625,10 @@ public class ModelManager implements DetectorModelSize {
             .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .anomalyRate(1 - this.thresholdMinPvalue)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
+            .internalShinglingEnabled(false)
             .build();
         return Arrays.stream(dataPoints).map(point -> {
             AnomalyDescriptor descriptor = trcf.process(point, 0);

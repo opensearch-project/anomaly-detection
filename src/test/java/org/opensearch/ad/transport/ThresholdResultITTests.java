@@ -15,9 +15,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
-import org.opensearch.action.ActionFuture;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.AnomalyDetectorPlugin;
+import org.opensearch.common.action.ActionFuture;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 

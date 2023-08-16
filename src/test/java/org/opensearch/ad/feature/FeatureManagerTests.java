@@ -55,7 +55,6 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.ad.dataprocessor.Interpolator;
@@ -65,6 +64,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ArrayEqMatcher;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 @RunWith(JUnitParamsRunner.class)

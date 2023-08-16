@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.EndRunException;
@@ -48,6 +47,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
 

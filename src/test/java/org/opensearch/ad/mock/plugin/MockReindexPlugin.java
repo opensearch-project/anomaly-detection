@@ -16,9 +16,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
 import org.opensearch.action.bulk.BulkAction;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkRequestBuilder;
@@ -34,6 +32,8 @@ import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobTransportActionWit
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.BulkByScrollTask;

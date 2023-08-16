@@ -21,12 +21,12 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.Entity;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 
 public class AbstractRateLimitingTest extends AbstractADTest {

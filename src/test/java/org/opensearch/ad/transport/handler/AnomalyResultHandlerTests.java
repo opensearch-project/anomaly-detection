@@ -31,7 +31,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.NodeStateManager;
@@ -41,6 +40,7 @@ import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 
 public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {

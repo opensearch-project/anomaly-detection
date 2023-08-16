@@ -30,6 +30,7 @@ import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
@@ -80,6 +81,10 @@ public class ADBatchTaskCache {
             .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
+            .internalShinglingEnabled(false)
             .build();
 
         this.thresholdModelTrained = false;

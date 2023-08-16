@@ -26,9 +26,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.ActionListener;
 import org.opensearch.ad.AbstractADTest;
 import org.opensearch.ad.constant.CommonName;
+import org.opensearch.core.action.ActionListener;
 
 public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
 

@@ -18,13 +18,13 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.settings.EnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;

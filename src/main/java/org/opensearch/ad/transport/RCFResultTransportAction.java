@@ -18,7 +18,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.breaker.ADCircuitBreakerService;
@@ -30,6 +29,7 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.StatNames;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 

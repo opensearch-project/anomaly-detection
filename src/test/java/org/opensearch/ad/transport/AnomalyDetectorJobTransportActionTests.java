@@ -38,7 +38,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.OpenSearchStatusException;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
@@ -56,6 +55,7 @@ import org.opensearch.ad.stats.StatNames;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.test.OpenSearchIntegTestCase;
 

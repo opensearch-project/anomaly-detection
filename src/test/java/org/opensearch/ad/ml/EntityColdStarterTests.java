@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.MemoryTracker;
@@ -57,6 +56,7 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 
 import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
@@ -64,6 +64,7 @@ import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.MultiDimDataWithTime;
 
 import com.amazon.randomcutforest.config.Precision;
+import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
@@ -219,6 +220,9 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
             .internalShinglingEnabled(true)
             .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true)
             .build();
 
         for (int i = 0; i < coldStartData.size(); i++) {
@@ -513,7 +517,10 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             .parallelExecutionEnabled(false)
             .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
             .internalShinglingEnabled(true)
-            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE);
+            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+            .transformMethod(TransformMethod.NORMALIZE)
+            .alertOnce(true)
+            .autoAdjust(true);
         Tuple<Queue<double[]>, ThresholdedRandomCutForest> models = MLUtil.prepareModel(inputDimension, rcfConfig);
         Queue<double[]> samples = models.v1();
         ThresholdedRandomCutForest rcf = models.v2();

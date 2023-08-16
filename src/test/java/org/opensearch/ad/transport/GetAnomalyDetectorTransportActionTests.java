@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.*;
 import org.mockito.Mockito;
-import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.TestHelpers;
@@ -42,6 +41,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
