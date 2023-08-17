@@ -14,7 +14,6 @@ package org.opensearch.ad.transport;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyObject;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -181,7 +180,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             ActionListener<Features> listener = responseMock.getArgument(3);
             listener.onResponse(TestHelpers.randomFeatures());
             return null;
-        }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
+        }).when(featureManager).getPreviewFeatures(any(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
@@ -381,7 +380,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             ActionListener<Features> listener = responseMock.getArgument(3);
             listener.onResponse(TestHelpers.randomFeatures());
             return null;
-        }).when(featureManager).getPreviewFeatures(anyObject(), anyLong(), anyLong(), any());
+        }).when(featureManager).getPreviewFeatures(any(), anyLong(), anyLong(), any());
         action.doExecute(task, request, previewResponse);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }

@@ -495,8 +495,9 @@ public class SearchFeatureDao extends AbstractRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        final ActionListener<SearchResponse> searchResponseListener = ActionListener
-            .wrap(response -> { listener.onResponse(parseMinDataTime(response)); }, listener::onFailure);
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
+            listener.onResponse(parseMinDataTime(response));
+        }, listener::onFailure);
         // inject user role while searching.
         clientUtil
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
@@ -554,11 +555,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         logger.debug("Batch query for detector {}: {} ", detector.getId(), searchSourceBuilder);
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-        final ActionListener<SearchResponse> searchResponseListener = ActionListener
-            .wrap(
-                response -> { listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds())); },
-                listener::onFailure
-            );
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
+            listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds()));
+        }, listener::onFailure);
         // inject user role while searching.
         clientUtil
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(

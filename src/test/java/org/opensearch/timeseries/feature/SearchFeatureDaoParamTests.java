@@ -35,9 +35,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,8 +52,6 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
@@ -70,7 +65,6 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Percentile;
-import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -80,15 +74,10 @@ import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
-import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
-import com.google.gson.Gson;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 /**
  * Due to https://tinyurl.com/2y265s2w, tests with and without @Parameters annotation
@@ -96,10 +85,7 @@ import com.google.gson.Gson;
  * while SearchFeatureDaoTests do not use @Parameters.
  *
  */
-@PowerMockIgnore("javax.management.*")
-@RunWith(PowerMockRunner.class)
-@PowerMockRunnerDelegate(JUnitParamsRunner.class)
-@PrepareForTest({ ParseUtils.class, Gson.class })
+@RunWith(JUnitParamsRunner.class)
 public class SearchFeatureDaoParamTests {
 
     private SearchFeatureDao searchFeatureDao;
@@ -146,7 +132,6 @@ public class SearchFeatureDaoParamTests {
     private Clock clock;
 
     private SearchRequest searchRequest;
-    private SearchSourceBuilder searchSourceBuilder;
     private MultiSearchRequest multiSearchRequest;
     private IntervalTimeConfiguration detectionInterval;
     private String detectorId;
@@ -156,7 +141,7 @@ public class SearchFeatureDaoParamTests {
     @Before
     public void setup() throws Exception {
         MockitoAnnotations.initMocks(this);
-        PowerMockito.mockStatic(ParseUtils.class);
+        // PowerMockito.mockStatic(ParseUtils.class);
 
         imputer = new LinearUniformImputer(false);
 
@@ -192,8 +177,6 @@ public class SearchFeatureDaoParamTests {
         when(detector.getFilterQuery()).thenReturn(QueryBuilders.matchAllQuery());
         when(detector.getCategoryFields()).thenReturn(Collections.singletonList("a"));
 
-        searchSourceBuilder = SearchSourceBuilder
-            .fromXContent(XContentType.JSON.xContent().createParser(xContent, LoggingDeprecationHandler.INSTANCE, "{}"));
         searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0]));
 
         when(max.getName()).thenReturn(CommonName.AGG_NAME_MAX_TIME);
@@ -233,14 +216,13 @@ public class SearchFeatureDaoParamTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
         when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
         when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
         searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);

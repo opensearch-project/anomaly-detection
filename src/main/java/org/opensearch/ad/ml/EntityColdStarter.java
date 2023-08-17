@@ -248,19 +248,15 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
 
         boolean earlyExit = true;
         try {
-            DoorKeeper doorKeeper = doorKeepers
-                .computeIfAbsent(
-                    detectorId,
-                    id -> {
-                        // reset every 60 intervals
-                        return new DoorKeeper(
-                            TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
-                            TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
-                            detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
-                            clock
-                        );
-                    }
+            DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(detectorId, id -> {
+                // reset every 60 intervals
+                return new DoorKeeper(
+                    TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
+                    TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
+                    detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                    clock
                 );
+            });
 
             // Won't retry cold start within 60 intervals for an entity
             if (doorKeeper.mightContain(modelId)) {

@@ -5,24 +5,23 @@
 
 package org.opensearch.timeseries.dataprocessor;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.Arrays;
 
-import org.junit.jupiter.api.Test;
+import org.opensearch.test.OpenSearchTestCase;
 
-public class PreviousValueImputerTests {
-    @Test
-    void testSingleFeatureImpute() {
+public class PreviousValueImputerTests extends OpenSearchTestCase {
+    public void testSingleFeatureImpute() {
         PreviousValueImputer imputer = new PreviousValueImputer();
 
         double[] samples = { 1.0, Double.NaN, 3.0, Double.NaN, 5.0 };
         double[] expected = { 1.0, 1.0, 3.0, 3.0, 5.0 };
 
-        assertArrayEquals(expected, imputer.singleFeatureImpute(samples, 0), "Imputation failed");
+        assertTrue("Imputation failed", Arrays.equals(expected, imputer.singleFeatureImpute(samples, 0)));
 
         // The second test checks whether the method removes leading Double.NaN values from the array
         samples = new double[] { Double.NaN, 2.0, Double.NaN, 4.0 };
         expected = new double[] { Double.NaN, 2.0, 2.0, 4.0 };
 
-        assertArrayEquals(expected, imputer.singleFeatureImpute(samples, 0), "Imputation failed with leading NaN");
+        assertTrue("Imputation failed with leading NaN", Arrays.equals(expected, imputer.singleFeatureImpute(samples, 0)));
     }
 }

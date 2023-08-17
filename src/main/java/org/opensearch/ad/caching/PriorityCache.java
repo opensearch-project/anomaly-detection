@@ -133,12 +133,9 @@ public class PriorityCache implements EntityCache {
         Duration inactiveEntityTtl = DateUtils.toDuration(checkpointTtl.get(settings));
 
         this.inActiveEntities = createInactiveCache(inactiveEntityTtl, maxInactiveStates);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(
-                checkpointTtl,
-                it -> { this.inActiveEntities = createInactiveCache(DateUtils.toDuration(it), maxInactiveStates); }
-            );
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(checkpointTtl, it -> {
+            this.inActiveEntities = createInactiveCache(DateUtils.toDuration(it), maxInactiveStates);
+        });
 
         this.threadPool = threadPool;
         this.random = new Random(42);
@@ -163,19 +160,15 @@ public class PriorityCache implements EntityCache {
         // during maintenance period, stop putting new entries
         if (!maintenanceLock.isLocked() && modelState == null) {
             if (ADEnabledSetting.isDoorKeeperInCacheEnabled()) {
-                DoorKeeper doorKeeper = doorKeepers
-                    .computeIfAbsent(
-                        detectorId,
-                        id -> {
-                            // reset every 60 intervals
-                            return new DoorKeeper(
-                                TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                                TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
-                                detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
-                                clock
-                            );
-                        }
+                DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(detectorId, id -> {
+                    // reset every 60 intervals
+                    return new DoorKeeper(
+                        TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
+                        TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
+                        detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                        clock
                     );
+                });
 
                 // first hit, ignore
                 // since door keeper may get reset during maintenance, it is possible

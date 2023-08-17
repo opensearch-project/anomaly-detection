@@ -107,13 +107,9 @@ public class IndexCleanupTests extends AbstractTimeSeriesTest {
     public void testDeleteDocsBasedOnShardSizeWithCleanupNeededAsFalse() throws Exception {
         long maxShardSize = 1000;
         when(storeStats.getSizeInBytes()).thenReturn(maxShardSize - 1);
-        indexCleanup
-            .deleteDocsBasedOnShardSize(
-                "indexname",
-                maxShardSize,
-                null,
-                ActionListener.wrap(Assert::assertFalse, exception -> { throw new RuntimeException(exception); })
-            );
+        indexCleanup.deleteDocsBasedOnShardSize("indexname", maxShardSize, null, ActionListener.wrap(Assert::assertFalse, exception -> {
+            throw new RuntimeException(exception);
+        }));
     }
 
     public void testDeleteDocsBasedOnShardSizeIndexNotExisted() throws Exception {

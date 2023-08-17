@@ -101,9 +101,9 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
             historyRolloverPeriod = it;
             rescheduleRollover();
         });
-        this.clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_RESULT_HISTORY_RETENTION_PERIOD, it -> {
+            historyRetentionPeriod = it;
+        });
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
     }

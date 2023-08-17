@@ -150,11 +150,9 @@ public class ExceptionUtil {
      * @return the wrapped listener
      */
     public static <T> ActionListener<T> wrapListener(ActionListener<T> original, Exception exceptionToReturn, String detectorId) {
-        return ActionListener
-            .wrap(
-                r -> { original.onFailure(exceptionToReturn); },
-                e -> { original.onFailure(selectHigherPriorityException(exceptionToReturn, e)); }
-            );
+        return ActionListener.wrap(r -> { original.onFailure(exceptionToReturn); }, e -> {
+            original.onFailure(selectHigherPriorityException(exceptionToReturn, e));
+        });
     }
 
     /**

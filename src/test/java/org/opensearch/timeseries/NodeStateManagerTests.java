@@ -13,12 +13,11 @@ package org.opensearch.timeseries;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -235,7 +234,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
     public void testMaintenanceDoNothing() {
         stateManager.maintenance();
 
-        verifyZeroInteractions(clock);
+        verifyNoInteractions(clock);
     }
 
     public void testGetAnomalyDetector() throws IOException, InterruptedException {

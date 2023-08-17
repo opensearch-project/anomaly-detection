@@ -79,10 +79,10 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 
+import com.fasterxml.jackson.core.JsonParseException;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.fasterxml.jackson.core.JsonParseException;
 
 public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CheckpointReadWorker worker;

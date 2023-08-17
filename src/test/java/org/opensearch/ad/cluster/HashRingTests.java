@@ -208,7 +208,9 @@ public class HashRingTests extends ADUnitTestCase {
             .buildAndGetOwningNodeWithSameLocalAdVersion(
                 "testModelId",
                 node -> { assertTrue(node.isPresent()); },
-                ActionListener.wrap(r -> {}, e -> { assertFalse("Failed to build hash ring", true); })
+                ActionListener.wrap(r -> {}, e -> {
+                    assertFalse("Failed to build hash ring", true);
+                })
             );
     }
 

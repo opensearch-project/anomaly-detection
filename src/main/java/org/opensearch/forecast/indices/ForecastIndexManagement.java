@@ -98,9 +98,9 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
             historyRolloverPeriod = it;
             rescheduleRollover();
         });
-        this.clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(FORECAST_RESULT_HISTORY_RETENTION_PERIOD, it -> { historyRetentionPeriod = it; });
+        this.clusterService.getClusterSettings().addSettingsUpdateConsumer(FORECAST_RESULT_HISTORY_RETENTION_PERIOD, it -> {
+            historyRetentionPeriod = it;
+        });
 
         this.clusterService.getClusterSettings().addSettingsUpdateConsumer(FORECAST_MAX_PRIMARY_SHARDS, it -> maxPrimaryShards = it);
 

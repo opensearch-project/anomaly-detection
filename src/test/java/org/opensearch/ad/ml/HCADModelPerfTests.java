@@ -51,11 +51,11 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
-import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
-import test.org.opensearch.ad.util.MultiDimDataWithTime;
-
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
+
+import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
+import test.org.opensearch.ad.util.MultiDimDataWithTime;
 
 @TimeoutSuite(millis = 60 * TimeUnits.MINUTE) // rcf may be slow due to bounding box cache disabled
 public class HCADModelPerfTests extends AbstractCosineDataTest {

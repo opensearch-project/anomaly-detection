@@ -61,11 +61,8 @@ public class ClientUtil {
         Request request,
         ActionListener<Response> listener
     ) {
-        client
-            .execute(
-                action,
-                request,
-                ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> { listener.onFailure(exception); })
-            );
+        client.execute(action, request, ActionListener.wrap(response -> { listener.onResponse(response); }, exception -> {
+            listener.onFailure(exception);
+        }));
     }
 }

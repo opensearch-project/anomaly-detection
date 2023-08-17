@@ -13,12 +13,12 @@ package org.opensearch.ad.ml;
 
 import static org.junit.Assert.assertEquals;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.opensearch.ad.model.AnomalyResult;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @RunWith(JUnitParamsRunner.class)
 public class ThresholdingResultTests {

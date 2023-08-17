@@ -11,7 +11,7 @@ jobs:
   Build-ad-windows:
     strategy:
       matrix:
-        java: [ 11, 17 ]
+        java: [ 11, 17, 20 ]
     name: Build and Test Anomaly Detection Plugin on Windows
     runs-on: windows-latest
     steps:
@@ -39,7 +39,7 @@ jobs:
   Build-ad:
     strategy:
       matrix:
-        java: [11,17]
+        java: [11,17,20]
         os: [ubuntu-latest, macos-latest]
       fail-fast: false
 

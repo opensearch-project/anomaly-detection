@@ -43,9 +43,9 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.transport.TransportService;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class CronTransportActionTests extends AbstractTimeSeriesTest {
     private CronTransportAction action;

@@ -62,15 +62,15 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
-import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.MultiDimDataWithTime;
-
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
+
+import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.MultiDimDataWithTime;
 
 public class EntityColdStarterTests extends AbstractCosineDataTest {
 
