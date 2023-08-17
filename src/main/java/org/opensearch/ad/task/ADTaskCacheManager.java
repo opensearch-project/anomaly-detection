@@ -11,13 +11,10 @@
 
 package org.opensearch.ad.task;
 
-import static org.opensearch.ad.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 import static org.opensearch.ad.constant.ADCommonMessages.DETECTOR_IS_RUNNING;
 import static org.opensearch.ad.constant.ADCommonMessages.EXCEED_HISTORICAL_ANALYSIS_LIMIT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CACHED_DELETED_TASKS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
+import static org.opensearch.timeseries.MemoryTracker.Origin.HISTORICAL_SINGLE_ENTITY_DETECTOR;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,37 +24,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.model.Entity;
-import org.opensearch.timeseries.model.TaskState;
-import org.opensearch.transport.TransportService;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.task.TaskCacheManager;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 
-public class ADTaskCacheManager {
+public class ADTaskCacheManager extends TaskCacheManager {
     private final Logger logger = LogManager.getLogger(ADTaskCacheManager.class);
 
     private volatile Integer maxAdBatchTaskPerNode;
-    private volatile Integer maxCachedDeletedTask;
     private final MemoryTracker memoryTracker;
     private final int numberSize = 8;
     public static final int TASK_RETRY_LIMIT = 3;
@@ -89,19 +82,6 @@ public class ADTaskCacheManager {
      * <p>Key: detector id</p>
      */
     private Map<String, ADTaskSlotLimit> detectorTaskSlotLimit;
-    /**
-     * This field is to cache all realtime tasks on coordinating node.
-     * <p>Node: coordinating node</p>
-     * <p>Key is detector id</p>
-     */
-    private Map<String, ADRealtimeTaskCache> realtimeTaskCaches;
-    /**
-     * This field is to cache all deleted detector level tasks on coordinating node.
-     * Will try to clean up child task and AD result later.
-     * <p>Node: coordinating node</p>
-     * Check {@link ADTaskManager#cleanChildTasksAndADResultsOfDeletedTask()}
-     */
-    private Queue<String> deletedDetectorTasks;
 
     // ===================================================================
     // Fields below are caches on worker node
@@ -126,17 +106,6 @@ public class ADTaskCacheManager {
      */
     private Map<String, Map<String, ADHCBatchTaskRunState>> hcBatchTaskRunState;
 
-    // ===================================================================
-    // Fields below are caches on any data node serves delete detector
-    // request. Check ADTaskManager#deleteADResultOfDetector
-    // ===================================================================
-    /**
-     * This field is to cache deleted detector IDs. Hourly cron will poll this queue
-     * and clean AD results. Check {@link ADTaskManager#cleanADResultOfDeletedDetector()}
-     * <p>Node: any data node servers delete detector request</p>
-     */
-    private Queue<String> deletedDetectors;
-
     /**
      * Constructor to create AD task cache manager.
      *
@@ -145,17 +114,14 @@ public class ADTaskCacheManager {
      * @param memoryTracker AD memory tracker
      */
     public ADTaskCacheManager(Settings settings, ClusterService clusterService, MemoryTracker memoryTracker) {
+        super(settings, clusterService);
         this.maxAdBatchTaskPerNode = MAX_BATCH_TASK_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_BATCH_TASK_PER_NODE, it -> maxAdBatchTaskPerNode = it);
-        this.maxCachedDeletedTask = MAX_CACHED_DELETED_TASKS.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CACHED_DELETED_TASKS, it -> maxCachedDeletedTask = it);
         this.batchTaskCaches = new ConcurrentHashMap<>();
         this.memoryTracker = memoryTracker;
         this.detectorTasks = new ConcurrentHashMap<>();
         this.hcBatchTaskCaches = new ConcurrentHashMap<>();
-        this.realtimeTaskCaches = new ConcurrentHashMap<>();
-        this.deletedDetectorTasks = new ConcurrentLinkedQueue<>();
-        this.deletedDetectors = new ConcurrentLinkedQueue<>();
+
         this.detectorTaskSlotLimit = new ConcurrentHashMap<>();
         this.hcBatchTaskRunState = new ConcurrentHashMap<>();
         this.cleanExpiredHCBatchTaskRunStatesSemaphore = new Semaphore(1);
@@ -354,8 +320,8 @@ public class ADTaskCacheManager {
         return memoryTracker
             .estimateTRCFModelSize(
                 dimension,
-                NUM_TREES,
-                AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
+                TimeSeriesSettings.NUM_TREES,
+                TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
                 detector.getShingleSize().intValue(),
                 false
             ) + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
@@ -373,8 +339,7 @@ public class ADTaskCacheManager {
         RandomCutForest rcfForest = tRCF.getForest();
         int dimensions = rcfForest.getDimensions();
         int numberOfTrees = rcfForest.getNumberOfTrees();
-        return memoryTracker
-            .estimateTRCFModelSize(dimensions, numberOfTrees, AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO, 1, false);
+        return memoryTracker.estimateTRCFModelSize(dimensions, numberOfTrees, TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO, 1, false);
     }
 
     /**
@@ -483,7 +448,7 @@ public class ADTaskCacheManager {
         taskStateCache.setCancelReason(reason);
         taskStateCache.setCancelledBy(userName);
 
-        if (isNullOrEmpty(taskCaches)) {
+        if (ParseUtils.isNullOrEmpty(taskCaches)) {
             return ADTaskCancellationState.NOT_FOUND;
         }
 
@@ -1012,174 +977,6 @@ public class ADTaskCacheManager {
         }
     }
 
-    /**
-     * Check if realtime task field value change needed or not by comparing with cache.
-     * 1. If new field value is null, will consider changed needed to this field.
-     * 2. will consider the real time task change needed if
-     * 1) init progress is larger or the old init progress is null, or
-     * 2) if the state is different, and it is not changing from running to init.
-     *  for other fields, as long as field values changed, will consider the realtime
-     *  task change needed. We did this so that the init progress or state won't go backwards.
-     * 3. If realtime task cache not found, will consider the realtime task change needed.
-     *
-     * @param detectorId detector id
-     * @param newState new task state
-     * @param newInitProgress new init progress
-     * @param newError new error
-     * @return true if realtime task change needed.
-     */
-    public boolean isRealtimeTaskChangeNeeded(String detectorId, String newState, Float newInitProgress, String newError) {
-        if (realtimeTaskCaches.containsKey(detectorId)) {
-            ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
-            boolean stateChangeNeeded = false;
-            String oldState = realtimeTaskCache.getState();
-            if (newState != null
-                && !newState.equals(oldState)
-                && !(TaskState.INIT.name().equals(newState) && TaskState.RUNNING.name().equals(oldState))) {
-                stateChangeNeeded = true;
-            }
-            boolean initProgressChangeNeeded = false;
-            Float existingProgress = realtimeTaskCache.getInitProgress();
-            if (newInitProgress != null
-                && !newInitProgress.equals(existingProgress)
-                && (existingProgress == null || newInitProgress > existingProgress)) {
-                initProgressChangeNeeded = true;
-            }
-            boolean errorChanged = false;
-            if (newError != null && !newError.equals(realtimeTaskCache.getError())) {
-                errorChanged = true;
-            }
-            if (stateChangeNeeded || initProgressChangeNeeded || errorChanged) {
-                return true;
-            }
-            return false;
-        } else {
-            return true;
-        }
-    }
-
-    /**
-     * Update realtime task cache with new field values. If realtime task cache exist, update it
-     * directly if task is not done; if task is done, remove the detector's realtime task cache.
-     *
-     * If realtime task cache doesn't exist, will do nothing. Next realtime job run will re-init
-     * realtime task cache when it finds task cache not inited yet.
-     * Check {@link ADTaskManager#initRealtimeTaskCacheAndCleanupStaleCache(String, AnomalyDetector, TransportService, ActionListener)},
-     * {@link ADTaskManager#updateLatestRealtimeTaskOnCoordinatingNode(String, String, Long, Long, String, ActionListener)}
-     *
-     * @param detectorId detector id
-     * @param newState new task state
-     * @param newInitProgress new init progress
-     * @param newError new error
-     */
-    public void updateRealtimeTaskCache(String detectorId, String newState, Float newInitProgress, String newError) {
-        ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
-        if (realtimeTaskCache != null) {
-            if (newState != null) {
-                realtimeTaskCache.setState(newState);
-            }
-            if (newInitProgress != null) {
-                realtimeTaskCache.setInitProgress(newInitProgress);
-            }
-            if (newError != null) {
-                realtimeTaskCache.setError(newError);
-            }
-            if (newState != null && !TaskState.NOT_ENDED_STATES.contains(newState)) {
-                // If task is done, will remove its realtime task cache.
-                logger.info("Realtime task done with state {}, remove RT task cache for detector ", newState, detectorId);
-                removeRealtimeTaskCache(detectorId);
-            }
-        } else {
-            logger.debug("Realtime task cache is not inited yet for detector {}", detectorId);
-        }
-    }
-
-    public void initRealtimeTaskCache(String detectorId, long detectorIntervalInMillis) {
-        realtimeTaskCaches.put(detectorId, new ADRealtimeTaskCache(null, null, null, detectorIntervalInMillis));
-        logger.debug("Realtime task cache inited");
-    }
-
-    public void refreshRealtimeJobRunTime(String detectorId) {
-        ADRealtimeTaskCache taskCache = realtimeTaskCaches.get(detectorId);
-        if (taskCache != null) {
-            taskCache.setLastJobRunTime(Instant.now().toEpochMilli());
-        }
-    }
-
-    /**
-     * Get detector IDs from realtime task cache.
-     * @return array of detector id
-     */
-    public String[] getDetectorIdsInRealtimeTaskCache() {
-        return realtimeTaskCaches.keySet().toArray(new String[0]);
-    }
-
-    /**
-     * Remove detector's realtime task from cache.
-     * @param detectorId detector id
-     */
-    public void removeRealtimeTaskCache(String detectorId) {
-        if (realtimeTaskCaches.containsKey(detectorId)) {
-            logger.info("Delete realtime cache for detector {}", detectorId);
-            realtimeTaskCaches.remove(detectorId);
-        }
-    }
-
-    public ADRealtimeTaskCache getRealtimeTaskCache(String detectorId) {
-        return realtimeTaskCaches.get(detectorId);
-    }
-
-    /**
-     * Clear realtime task cache.
-     */
-    public void clearRealtimeTaskCache() {
-        realtimeTaskCaches.clear();
-    }
-
-    /**
-     * Add deleted task's id to deleted detector tasks queue.
-     * @param taskId task id
-     */
-    public void addDeletedDetectorTask(String taskId) {
-        if (deletedDetectorTasks.size() < maxCachedDeletedTask) {
-            deletedDetectorTasks.add(taskId);
-        }
-    }
-
-    /**
-     * Check if deleted task queue has items.
-     * @return true if has deleted detector task in cache
-     */
-    public boolean hasDeletedDetectorTask() {
-        return !deletedDetectorTasks.isEmpty();
-    }
-
-    /**
-     * Poll one deleted detector task.
-     * @return task id
-     */
-    public String pollDeletedDetectorTask() {
-        return this.deletedDetectorTasks.poll();
-    }
-
-    /**
-     * Add deleted detector's id to deleted detector queue.
-     * @param detectorId detector id
-     */
-    public void addDeletedDetector(String detectorId) {
-        if (deletedDetectors.size() < maxCachedDeletedTask) {
-            deletedDetectors.add(detectorId);
-        }
-    }
-
-    /**
-     * Poll one deleted detector.
-     * @return detector id
-     */
-    public String pollDeletedDetector() {
-        return this.deletedDetectors.poll();
-    }
-
     public String getDetectorTaskId(String detectorId) {
         return detectorTasks.get(detectorId);
     }
@@ -1317,7 +1114,7 @@ public class ADTaskCacheManager {
             for (Map.Entry<String, Map<String, ADHCBatchTaskRunState>> detectorRunStates : hcBatchTaskRunState.entrySet()) {
                 List<String> taskIdOfExpiredStates = new ArrayList<>();
                 String detectorId = detectorRunStates.getKey();
-                boolean noRunningTask = isNullOrEmpty(getTasksOfDetector(detectorId));
+                boolean noRunningTask = ParseUtils.isNullOrEmpty(getTasksOfDetector(detectorId));
                 Map<String, ADHCBatchTaskRunState> taskRunStates = detectorRunStates.getValue();
                 if (taskRunStates == null) {
                     // If detector's task run state is null, add detector id to detectorIdOfEmptyStates and remove it from
@@ -1362,32 +1159,4 @@ public class ADTaskCacheManager {
         }
     }
 
-    /**
-     * We query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
-     * To avoid repeated query when there is no data, record whether we have done that or not.
-     * @param id detector id
-     */
-    public void markResultIndexQueried(String id) {
-        ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(id);
-        // we initialize a real time cache at the beginning of AnomalyResultTransportAction if it
-        // cannot be found. If the cache is empty, we will return early and wait it for it to be
-        // initialized.
-        if (realtimeTaskCache != null) {
-            realtimeTaskCache.setQueriedResultIndex(true);
-        }
-    }
-
-    /**
-     * We query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
-     *
-     * @param id detector id
-     * @return whether we have queried result index or not.
-     */
-    public boolean hasQueriedResultIndex(String id) {
-        ADRealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(id);
-        if (realtimeTaskCache != null) {
-            return realtimeTaskCache.hasQueriedResultIndex();
-        }
-        return false;
-    }
 }

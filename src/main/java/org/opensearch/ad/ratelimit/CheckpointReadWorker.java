@@ -32,7 +32,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
@@ -53,6 +52,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Config;
@@ -91,7 +91,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,

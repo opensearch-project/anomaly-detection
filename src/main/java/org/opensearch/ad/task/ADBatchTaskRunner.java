@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.task;
 
-import static org.opensearch.ad.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
 import static org.opensearch.ad.constant.ADCommonMessages.NO_ELIGIBLE_NODE_TO_RUN_DETECTOR;
 import static org.opensearch.ad.model.ADTask.CURRENT_PIECE_FIELD;
 import static org.opensearch.ad.model.ADTask.EXECUTION_END_TIME_FIELD;
@@ -25,9 +24,10 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.stats.InternalStatNames.JVM_HEAP_USAGE;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
+import static org.opensearch.timeseries.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
 
@@ -49,7 +49,6 @@ import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.PriorityTracker;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonMessages;
@@ -92,6 +91,7 @@ import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
@@ -129,7 +129,7 @@ public class ADBatchTaskRunner {
     private final ADStats adStats;
     private final ClusterService clusterService;
     private final FeatureManager featureManager;
-    private final ADCircuitBreakerService adCircuitBreakerService;
+    private final CircuitBreakerService adCircuitBreakerService;
     private final ADTaskManager adTaskManager;
     private final AnomalyResultBulkIndexHandler anomalyResultBulkIndexHandler;
     private final ADIndexManagement anomalyDetectionIndices;
@@ -155,7 +155,7 @@ public class ADBatchTaskRunner {
         ClusterService clusterService,
         Client client,
         SecurityClientUtil clientUtil,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         FeatureManager featureManager,
         ADTaskManager adTaskManager,
         ADIndexManagement anomalyDetectionIndices,

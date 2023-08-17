@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE;
 
 import java.io.IOException;
 import java.util.List;
@@ -83,8 +83,8 @@ public class ProfileTransportAction extends TransportNodesAction<ProfileRequest,
         this.modelManager = modelManager;
         this.featureManager = featureManager;
         this.cacheProvider = cacheProvider;
-        this.numModelsToReturn = MAX_MODEL_SIZE_PER_NODE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
+        this.numModelsToReturn = AD_MAX_MODEL_SIZE_PER_NODE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_MAX_MODEL_SIZE_PER_NODE, it -> this.numModelsToReturn = it);
     }
 
     @Override

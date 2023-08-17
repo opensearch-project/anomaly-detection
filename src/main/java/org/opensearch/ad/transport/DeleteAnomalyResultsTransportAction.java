@@ -12,7 +12,7 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_DELETE_AD_RESULT;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -50,8 +50,8 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     ) {
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
-        filterEnabled = FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
+        filterEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
 
     @Override

@@ -50,7 +50,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.AnomalyDetectorJobRunnerTests;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
@@ -83,6 +82,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -103,7 +103,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     ActionFilters actionFilters;
     TransportService transportService;
     ModelManager manager;
-    ADCircuitBreakerService adCircuitBreakerService;
+    CircuitBreakerService adCircuitBreakerService;
     CheckpointDao checkpointDao;
     CacheProvider provider;
     EntityCache entityCache;
@@ -154,7 +154,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         actionFilters = mock(ActionFilters.class);
         transportService = mock(TransportService.class);
 
-        adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        adCircuitBreakerService = mock(CircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         checkpointDao = mock(CheckpointDao.class);
@@ -173,13 +173,13 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         settings = Settings
             .builder()
             .put(AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5))
-            .put(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ.getKey(), TimeValue.timeValueHours(12))
+            .put(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ.getKey(), TimeValue.timeValueHours(12))
             .build();
 
         clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         manager = new ModelManager(
@@ -192,7 +192,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             0,
             0,
             null,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
             mock(EntityColdStarter.class),
             null,
             null,
@@ -221,7 +221,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         entities.put(cacheMissEntityObj, cacheMissData);
         cacheHitEntityObj = Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), cacheHitEntity);
         entities.put(cacheHitEntityObj, cacheHitData);
-        tooLongEntity = randomAlphaOfLength(AnomalyDetectorSettings.MAX_ENTITY_LENGTH + 1);
+        tooLongEntity = randomAlphaOfLength(257);
         tooLongData = new double[] { 0.3 };
         entities.put(Entity.createSingleAttributeEntity(detector.getCategoryFields().get(0), tooLongEntity), tooLongData);
 

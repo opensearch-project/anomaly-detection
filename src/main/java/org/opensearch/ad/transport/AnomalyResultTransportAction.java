@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_PAGE_SIZE;
 import static org.opensearch.timeseries.constant.CommonMessages.INVALID_SEARCH_QUERY_MSG;
 
 import java.net.ConnectException;
@@ -42,7 +42,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.ThreadedActionListener;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
@@ -79,6 +78,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.ClientException;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
@@ -92,6 +92,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
@@ -124,7 +125,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
     private final ClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final ADStats adStats;
-    private final ADCircuitBreakerService adCircuitBreakerService;
+    private final CircuitBreakerService adCircuitBreakerService;
     private final ThreadPool threadPool;
     private final Client client;
     private final SecurityClientUtil clientUtil;
@@ -157,7 +158,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         HashRing hashRing,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ADStats adStats,
         ThreadPool threadPool,
         NamedXContentRegistry xContentRegistry,
@@ -184,13 +185,13 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         this.threadPool = threadPool;
         this.hcDetectors = new HashSet<>();
         this.xContentRegistry = xContentRegistry;
-        this.intervalRatioForRequest = AnomalyDetectorSettings.INTERVAL_RATIO_FOR_REQUESTS;
+        this.intervalRatioForRequest = TimeSeriesSettings.INTERVAL_RATIO_FOR_REQUESTS;
 
-        this.maxEntitiesPerInterval = MAX_ENTITIES_PER_QUERY.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerInterval = it);
+        this.maxEntitiesPerInterval = AD_MAX_ENTITIES_PER_QUERY.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_MAX_ENTITIES_PER_QUERY, it -> maxEntitiesPerInterval = it);
 
-        this.pageSize = PAGE_SIZE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(PAGE_SIZE, it -> pageSize = it);
+        this.pageSize = AD_PAGE_SIZE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_PAGE_SIZE, it -> pageSize = it);
         this.adTaskManager = adTaskManager;
     }
 

@@ -87,7 +87,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         clusterService = mock(ClusterService.class);
         clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
@@ -199,7 +199,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
 
     @Test
     public void testIndexTransportActionWithUserAndFilterOn() {
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.getKey(), true).build();
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         ThreadContext threadContext = new ThreadContext(settings);
         threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);

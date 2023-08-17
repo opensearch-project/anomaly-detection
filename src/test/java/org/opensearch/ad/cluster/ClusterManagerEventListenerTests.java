@@ -60,7 +60,7 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
         clusterService = mock(ClusterService.class);
         ClusterSettings settings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_TTL)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_CHECKPOINT_TTL)))
         );
         when(clusterService.getClusterSettings()).thenReturn(settings);
 
@@ -85,7 +85,7 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
             clock,
             clientUtil,
             nodeFilter,
-            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
             Settings.EMPTY
         );
     }

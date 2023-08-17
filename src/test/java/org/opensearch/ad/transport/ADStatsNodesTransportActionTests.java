@@ -13,7 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE;
 
 import java.time.Clock;
 import java.util.Arrays;
@@ -79,11 +79,11 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
         nodeStatName1 = "nodeStat1";
         nodeStatName2 = "nodeStat2";
 
-        Settings settings = Settings.builder().put(MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
+        Settings settings = Settings.builder().put(AD_MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
         ClusterService clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AD_MAX_MODEL_SIZE_PER_NODE)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 

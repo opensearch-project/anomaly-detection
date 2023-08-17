@@ -59,7 +59,7 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
         cache = mock(CacheProvider.class);
         checkpointDao = mock(CheckpointDao.class);
         indexName = ADCommonName.CHECKPOINT_INDEX_NAME;
-        checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
+        checkpointInterval = AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ;
         EntityCache entityCache = mock(EntityCache.class);
         when(cache.get()).thenReturn(entityCache);
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
@@ -67,7 +67,7 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
         clusterService = mock(ClusterService.class);
         ClusterSettings settings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ)))
         );
         when(clusterService.getClusterSettings()).thenReturn(settings);
         adapter = new CheckPointMaintainRequestAdapter(

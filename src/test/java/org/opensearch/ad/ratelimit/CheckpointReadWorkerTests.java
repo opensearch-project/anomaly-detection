@@ -45,7 +45,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.constant.ADCommonName;
@@ -74,8 +73,10 @@ import org.opensearch.threadpool.ThreadPoolStats.Stats;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 
 import test.org.opensearch.ad.util.MLUtil;
@@ -113,7 +114,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
                                 AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_CONCURRENCY,
                                 AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE
                             )
@@ -156,18 +157,18 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         worker = new CheckpointReadWorker(
             Integer.MAX_VALUE,
             AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             threadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             modelManager,
             checkpoint,
             coldstartQueue,
@@ -175,7 +176,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             nodeStateManager,
             anomalyDetectionIndices,
             cacheProvider,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             adStats
         );
@@ -535,18 +536,18 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         worker = new CheckpointReadWorker(
             Integer.MAX_VALUE,
             AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             threadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             modelManager,
             checkpoint,
             coldstartQueue,
@@ -554,7 +555,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             nodeStateManager,
             anomalyDetectionIndices,
             cacheProvider,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             adStats
         );
@@ -565,7 +566,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         assertEquals(CheckpointReadWorker.WORKER_NAME, worker.getWorkerName());
 
         // make RequestQueue.expired return true
-        when(clock.instant()).thenReturn(Instant.now().plusSeconds(AnomalyDetectorSettings.HOURLY_MAINTENANCE.getSeconds() + 1));
+        when(clock.instant()).thenReturn(Instant.now().plusSeconds(TimeSeriesSettings.HOURLY_MAINTENANCE.getSeconds() + 1));
 
         // removed the expired queue
         worker.maintenance();
@@ -587,18 +588,18 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         worker = new CheckpointReadWorker(
             2000,
             1,
-            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             threadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             modelManager,
             checkpoint,
             coldstartQueue,
@@ -606,7 +607,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             nodeStateManager,
             anomalyDetectionIndices,
             cacheProvider,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             adStats
         );
@@ -621,7 +622,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         Settings newSettings = Settings
             .builder()
-            .put(AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT.getKey(), "0.0001")
+            .put(AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT.getKey(), "0.0001")
             .build();
         Settings.Builder target = Settings.builder();
         clusterSettings.updateDynamicSettings(newSettings, target, Settings.builder(), "test");
@@ -634,24 +635,24 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     public void testOpenCircuitBreaker() {
         maintenanceSetup();
 
-        ADCircuitBreakerService breaker = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService breaker = mock(CircuitBreakerService.class);
         when(breaker.isOpen()).thenReturn(true);
 
         worker = new CheckpointReadWorker(
             Integer.MAX_VALUE,
             AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
+            AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
             breaker,
             threadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             modelManager,
             checkpoint,
             coldstartQueue,
@@ -659,7 +660,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             nodeStateManager,
             anomalyDetectionIndices,
             cacheProvider,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             adStats
         );

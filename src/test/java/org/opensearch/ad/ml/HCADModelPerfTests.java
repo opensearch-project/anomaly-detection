@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.lucene.tests.util.TimeUnits;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -43,6 +42,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
@@ -78,7 +78,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         int baseDimension,
         boolean anomalyIndependent
     ) throws Exception {
-        int dataSize = 20 * AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
+        int dataSize = 20 * TimeSeriesSettings.NUM_SAMPLES_PER_TREE;
         int trainTestSplit = 300;
         // detector interval
         int interval = detectorIntervalMins;
@@ -126,7 +126,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
                 AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
                 AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-                AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+                TimeSeriesSettings.HOURLY_MAINTENANCE,
                 threadPool,
                 TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
             );
@@ -135,34 +135,34 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 clock,
                 threadPool,
                 stateManager,
-                AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-                AnomalyDetectorSettings.NUM_TREES,
-                AnomalyDetectorSettings.TIME_DECAY,
+                TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+                TimeSeriesSettings.NUM_TREES,
+                TimeSeriesSettings.TIME_DECAY,
                 numMinSamples,
                 AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
                 AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
                 imputer,
                 searchFeatureDao,
-                AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+                TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
                 featureManager,
                 settings,
-                AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+                TimeSeriesSettings.HOURLY_MAINTENANCE,
                 checkpointWriteQueue,
                 seed,
-                AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+                TimeSeriesSettings.MAX_COLD_START_ROUNDS
             );
 
             modelManager = new ModelManager(
                 mock(CheckpointDao.class),
                 mock(Clock.class),
-                AnomalyDetectorSettings.NUM_TREES,
-                AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-                AnomalyDetectorSettings.TIME_DECAY,
-                AnomalyDetectorSettings.NUM_MIN_SAMPLES,
-                AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+                TimeSeriesSettings.NUM_TREES,
+                TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+                TimeSeriesSettings.TIME_DECAY,
+                TimeSeriesSettings.NUM_MIN_SAMPLES,
+                TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
                 AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
-                AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                TimeSeriesSettings.HOURLY_MAINTENANCE,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 mock(FeatureManager.class),
                 mock(MemoryTracker.class),

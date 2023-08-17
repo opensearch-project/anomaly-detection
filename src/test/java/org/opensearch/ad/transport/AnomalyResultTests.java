@@ -65,7 +65,6 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
@@ -108,6 +107,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
@@ -149,7 +149,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private String adID;
     private String featureId;
     private String featureName;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     private ADStats adStats;
     private double confidence;
     private double anomalyGrade;
@@ -172,7 +172,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         super.setUp();
         super.setUpLog4jForJUnit(AnomalyResultTransportAction.class);
 
-        setupTestNodes(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.PAGE_SIZE);
+        setupTestNodes(AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.AD_PAGE_SIZE);
 
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
@@ -253,7 +253,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
 
         thresholdModelID = SingleStreamModelIdMapper.getThresholdModelId(adID); // "123-threshold";
         // when(normalModelPartitioner.getThresholdModelId(any(String.class))).thenReturn(thresholdModelID);
-        adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        adCircuitBreakerService = mock(CircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         ThreadPool threadPool = mock(ThreadPool.class);
@@ -460,8 +460,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         setupTestNodes(
             failureTransportInterceptor,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-            AnomalyDetectorSettings.PAGE_SIZE
+            AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY,
+            AnomalyDetectorSettings.AD_PAGE_SIZE
         );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
@@ -683,8 +683,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         setupTestNodes(
             failureTransportInterceptor,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-            AnomalyDetectorSettings.PAGE_SIZE
+            AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY,
+            AnomalyDetectorSettings.AD_PAGE_SIZE
         );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
@@ -735,7 +735,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
 
     public void testCircuitBreaker() {
 
-        ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService breakerService = mock(CircuitBreakerService.class);
         when(breakerService.isOpen()).thenReturn(true);
 
         // These constructors register handler in transport service

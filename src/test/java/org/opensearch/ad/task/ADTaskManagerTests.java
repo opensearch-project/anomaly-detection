@@ -129,6 +129,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.task.RealtimeTaskCache;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
@@ -823,14 +824,14 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCleanADResultOfDeletedDetectorWithNoDeletedDetector() {
-        when(adTaskCacheManager.pollDeletedDetector()).thenReturn(null);
+        when(adTaskCacheManager.pollDeletedConfig()).thenReturn(null);
         adTaskManager.cleanADResultOfDeletedDetector();
         verify(client, never()).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
     }
 
     public void testCleanADResultOfDeletedDetectorWithException() {
         String detectorId = randomAlphaOfLength(5);
-        when(adTaskCacheManager.pollDeletedDetector()).thenReturn(detectorId);
+        when(adTaskCacheManager.pollDeletedConfig()).thenReturn(detectorId);
 
         doAnswer(invocation -> {
             ActionListener<BulkByScrollResponse> listener = invocation.getArgument(2);
@@ -878,11 +879,11 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         );
         adTaskManager.cleanADResultOfDeletedDetector();
         verify(client, times(1)).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
-        verify(adTaskCacheManager, times(1)).addDeletedDetector(eq(detectorId));
+        verify(adTaskCacheManager, times(1)).addDeletedConfig(eq(detectorId));
 
         adTaskManager.cleanADResultOfDeletedDetector();
         verify(client, times(2)).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
-        verify(adTaskCacheManager, times(1)).addDeletedDetector(eq(detectorId));
+        verify(adTaskCacheManager, times(1)).addDeletedConfig(eq(detectorId));
     }
 
     public void testMaintainRunningHistoricalTasksWithOwningNodeIsNotLocalNode() {
@@ -987,11 +988,11 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         when(adTaskCacheManager.getDetectorIdsInRealtimeTaskCache()).thenReturn(new String[] { detectorId1, detectorId2, detectorId3 });
         when(adTaskCacheManager.getRealtimeTaskCache(detectorId1)).thenReturn(null);
 
-        ADRealtimeTaskCache cacheOfDetector2 = mock(ADRealtimeTaskCache.class);
+        RealtimeTaskCache cacheOfDetector2 = mock(RealtimeTaskCache.class);
         when(cacheOfDetector2.expired()).thenReturn(false);
         when(adTaskCacheManager.getRealtimeTaskCache(detectorId2)).thenReturn(cacheOfDetector2);
 
-        ADRealtimeTaskCache cacheOfDetector3 = mock(ADRealtimeTaskCache.class);
+        RealtimeTaskCache cacheOfDetector3 = mock(RealtimeTaskCache.class);
         when(cacheOfDetector3.expired()).thenReturn(true);
         when(adTaskCacheManager.getRealtimeTaskCache(detectorId3)).thenReturn(cacheOfDetector3);
 
@@ -1279,14 +1280,14 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCleanChildTasksAndADResultsOfDeletedTaskWithNoDeletedDetectorTask() {
-        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(false);
+        when(adTaskCacheManager.hasDeletedTask()).thenReturn(false);
         adTaskManager.cleanChildTasksAndADResultsOfDeletedTask();
         verify(client, never()).execute(any(), any(), any());
     }
 
     public void testCleanChildTasksAndADResultsOfDeletedTaskWithNullTask() {
-        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(true);
-        when(adTaskCacheManager.pollDeletedDetectorTask()).thenReturn(null);
+        when(adTaskCacheManager.hasDeletedTask()).thenReturn(true);
+        when(adTaskCacheManager.pollDeletedTask()).thenReturn(null);
         doAnswer(invocation -> {
             ActionListener<IndexResponse> actionListener = invocation.getArgument(2);
             actionListener.onFailure(new RuntimeException("test"));
@@ -1304,8 +1305,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCleanChildTasksAndADResultsOfDeletedTaskWithFailToDeleteADResult() {
-        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(true);
-        when(adTaskCacheManager.pollDeletedDetectorTask()).thenReturn(randomAlphaOfLength(5));
+        when(adTaskCacheManager.hasDeletedTask()).thenReturn(true);
+        when(adTaskCacheManager.pollDeletedTask()).thenReturn(randomAlphaOfLength(5));
         doAnswer(invocation -> {
             ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
             actionListener.onFailure(new RuntimeException("test"));
@@ -1323,8 +1324,8 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     }
 
     public void testCleanChildTasksAndADResultsOfDeletedTask() {
-        when(adTaskCacheManager.hasDeletedDetectorTask()).thenReturn(true);
-        when(adTaskCacheManager.pollDeletedDetectorTask()).thenReturn(randomAlphaOfLength(5)).thenReturn(null);
+        when(adTaskCacheManager.hasDeletedTask()).thenReturn(true);
+        when(adTaskCacheManager.pollDeletedTask()).thenReturn(randomAlphaOfLength(5)).thenReturn(null);
         doAnswer(invocation -> {
             ActionListener<BulkByScrollResponse> actionListener = invocation.getArgument(2);
             BulkByScrollResponse response = mock(BulkByScrollResponse.class);
@@ -1621,7 +1622,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         ExecutorFunction function = mock(ExecutorFunction.class);
         ActionListener<SearchResponse> listener = mock(ActionListener.class);
         adTaskManager.deleteTaskDocs(detectorId, searchRequest, function, listener);
-        verify(adTaskCacheManager, times(1)).addDeletedDetectorTask(anyString());
+        verify(adTaskCacheManager, times(1)).addDeletedTask(anyString());
         verify(function, times(1)).execute();
     }
 }

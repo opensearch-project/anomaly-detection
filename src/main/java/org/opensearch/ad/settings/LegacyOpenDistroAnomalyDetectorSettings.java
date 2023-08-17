@@ -170,7 +170,7 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
             Setting.Property.Deprecated
         );
 
-    public static final Setting<Boolean> FILTER_BY_BACKEND_ROLES = Setting
+    public static final Setting<Boolean> AD_FILTER_BY_BACKEND_ROLES = Setting
         .boolSetting(
             "opendistro.anomaly_detection.filter_by_backend_roles",
             false,

@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -44,6 +43,7 @@ import org.opensearch.timeseries.ExpiringState;
 import org.opensearch.timeseries.MaintenanceState;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 /**
@@ -175,7 +175,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     protected final ConcurrentSkipListMap<String, RequestQueue> requestQueues;
     private String lastSelectedRequestQueueId;
     protected Random random;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     protected ThreadPool threadPool;
     protected Instant cooldownStart;
     protected int coolDownMinutes;
@@ -194,7 +194,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,

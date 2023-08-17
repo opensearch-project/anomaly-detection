@@ -25,7 +25,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.transport.ADResultBulkRequest;
@@ -44,6 +43,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
@@ -60,7 +60,7 @@ public class ResultWriteWorker extends BatchWorker<ResultWriteRequest, ADResultB
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,

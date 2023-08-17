@@ -45,7 +45,6 @@ import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkItemResponse.Failure;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
@@ -64,7 +63,9 @@ import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -89,7 +90,7 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
                                 AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
                                 AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE
                             )
@@ -107,24 +108,24 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         // Integer.MAX_VALUE makes a huge heap
         worker = new CheckpointWriteWorker(
             Integer.MAX_VALUE,
-            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            TimeSeriesSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             threadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             checkpoint,
             ADCommonName.CHECKPOINT_INDEX_NAME,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            TimeSeriesSettings.HOURLY_MAINTENANCE
         );
 
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().build());
@@ -211,24 +212,24 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
         // create a worker to use mockThreadPool
         worker = new CheckpointWriteWorker(
             Integer.MAX_VALUE,
-            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
+            TimeSeriesSettings.CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES,
+            AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             mockThreadPool,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
-            AnomalyDetectorSettings.QUEUE_MAINTENANCE,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.QUEUE_MAINTENANCE,
             checkpoint,
             ADCommonName.CHECKPOINT_INDEX_NAME,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE
+            TimeSeriesSettings.HOURLY_MAINTENANCE
         );
 
         // our concurrency is 2, so first 2 requests cause two batches. And the

@@ -95,7 +95,6 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
@@ -103,6 +102,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ClientUtil;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
@@ -195,7 +195,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                 return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
                     @Override
                     public LinkedBuffer create() throws Exception {
-                        return LinkedBuffer.allocate(AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES);
+                        return LinkedBuffer.allocate(TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES);
                     }
 
                     @Override
@@ -205,11 +205,11 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
                 });
             }
         }));
-        serializeRCFBufferPool.setMaxTotal(AnomalyDetectorSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
-        serializeRCFBufferPool.setMaxIdle(AnomalyDetectorSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
+        serializeRCFBufferPool.setMaxTotal(TimeSeriesSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
+        serializeRCFBufferPool.setMaxIdle(TimeSeriesSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
         serializeRCFBufferPool.setMinIdle(0);
         serializeRCFBufferPool.setBlockWhenExhausted(false);
-        serializeRCFBufferPool.setTimeBetweenEvictionRuns(AnomalyDetectorSettings.HOURLY_MAINTENANCE);
+        serializeRCFBufferPool.setTimeBetweenEvictionRuns(TimeSeriesSettings.HOURLY_MAINTENANCE);
 
         anomalyRate = 0.005;
         checkpointDao = new CheckpointDao(
@@ -225,7 +225,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             indexUtil,
             maxCheckpointBytes,
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             anomalyRate
         );
 
@@ -693,7 +693,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             indexUtil,
             1, // make the max checkpoint size 1 byte only
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             anomalyRate
         );
 
@@ -730,7 +730,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             indexUtil,
             1, // make the max checkpoint size 1 byte only
             mockSerializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             anomalyRate
         );
 
@@ -755,7 +755,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             indexUtil,
             1, // make the max checkpoint size 1 byte only
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             anomalyRate
         );
 
@@ -803,7 +803,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             indexUtil,
             maxCheckpointBytes,
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             anomalyRate
         );
     }
@@ -940,7 +940,7 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
             indexUtil,
             100_000, // checkpoint_2.json is of 224603 bytes.
             serializeRCFBufferPool,
-            AnomalyDetectorSettings.SERIALIZATION_BUFFER_BYTES,
+            TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             anomalyRate
         );
         Optional<Entry<EntityModel, Instant>> result = checkpointDao.fromEntityModelCheckpoint(modelPair.getLeft(), this.modelId);

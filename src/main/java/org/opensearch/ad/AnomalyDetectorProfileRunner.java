@@ -39,7 +39,6 @@ import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.settings.ADNumericSetting;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ProfileAction;
 import org.opensearch.ad.transport.ProfileRequest;
@@ -70,6 +69,7 @@ import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
@@ -105,7 +105,7 @@ public class AnomalyDetectorProfileRunner extends AbstractProfileRunner {
         }
         this.transportService = transportService;
         this.adTaskManager = adTaskManager;
-        this.maxTotalEntitiesToTrack = AnomalyDetectorSettings.MAX_TOTAL_ENTITIES_TO_TRACK;
+        this.maxTotalEntitiesToTrack = TimeSeriesSettings.MAX_TOTAL_ENTITIES_TO_TRACK;
     }
 
     public void profile(String detectorId, ActionListener<DetectorProfile> listener, Set<DetectorProfileName> profilesToCollect) {

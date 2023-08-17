@@ -43,7 +43,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.ad.stats.InternalStatNames.AD_DETECTOR_ASSIGNED_BATCH_TASK_SLOT_COUNT;
 import static org.opensearch.ad.stats.InternalStatNames.AD_USED_BATCH_TASK_SLOT_COUNT;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
@@ -53,6 +52,7 @@ import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CON
 import static org.opensearch.timeseries.constant.CommonName.TASK_ID_FIELD;
 import static org.opensearch.timeseries.model.TaskState.NOT_ENDED_STATES;
 import static org.opensearch.timeseries.model.TaskType.taskTypeToString;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_MIN_SAMPLES;
 import static org.opensearch.timeseries.util.ExceptionUtil.getErrorMessage;
 import static org.opensearch.timeseries.util.ExceptionUtil.getShardsFailure;
 import static org.opensearch.timeseries.util.ParseUtils.isNullOrEmpty;
@@ -166,6 +166,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.task.RealtimeTaskCache;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportRequestOptions;
@@ -1686,7 +1687,7 @@ public class ADTaskManager {
                             if (!bulkItemResponse.isFailed()) {
                                 logger.debug("Add detector task into cache. Task id: {}", bulkItemResponse.getId());
                                 // add deleted task in cache and delete its child tasks and AD results
-                                adTaskCacheManager.addDeletedDetectorTask(bulkItemResponse.getId());
+                                adTaskCacheManager.addDeletedTask(bulkItemResponse.getId());
                             }
                         }
                     }
@@ -1716,11 +1717,11 @@ public class ADTaskManager {
      * Poll deleted detector task from cache and delete its child tasks and AD results.
      */
     public void cleanChildTasksAndADResultsOfDeletedTask() {
-        if (!adTaskCacheManager.hasDeletedDetectorTask()) {
+        if (!adTaskCacheManager.hasDeletedTask()) {
             return;
         }
         threadPool.schedule(() -> {
-            String taskId = adTaskCacheManager.pollDeletedDetectorTask();
+            String taskId = adTaskCacheManager.pollDeletedTask();
             if (taskId == null) {
                 return;
             }
@@ -1932,7 +1933,7 @@ public class ADTaskManager {
                 ActionListener
                     .wrap(response -> { logger.debug("Successfully deleted AD results of detector " + detectorId); }, exception -> {
                         logger.error("Failed to delete AD results of detector " + detectorId, exception);
-                        adTaskCacheManager.addDeletedDetector(detectorId);
+                        adTaskCacheManager.addDeletedConfig(detectorId);
                     })
             );
     }
@@ -1941,7 +1942,7 @@ public class ADTaskManager {
      * Clean AD results of deleted detector.
      */
     public void cleanADResultOfDeletedDetector() {
-        String detectorId = adTaskCacheManager.pollDeletedDetector();
+        String detectorId = adTaskCacheManager.pollDeletedConfig();
         if (detectorId != null) {
             deleteADResultOfDetector(detectorId);
         }
@@ -2805,7 +2806,7 @@ public class ADTaskManager {
     }
 
     public boolean skipUpdateHCRealtimeTask(String detectorId, String error) {
-        ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        RealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         return realtimeTaskCache != null
             && realtimeTaskCache.getInitProgress() != null
             && realtimeTaskCache.getInitProgress().floatValue() == 1.0
@@ -2813,7 +2814,7 @@ public class ADTaskManager {
     }
 
     public boolean isHCRealtimeTaskStartInitializing(String detectorId) {
-        ADRealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+        RealtimeTaskCache realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
         return realtimeTaskCache != null
             && realtimeTaskCache.getInitProgress() != null
             && realtimeTaskCache.getInitProgress().floatValue() > 0;
@@ -3077,7 +3078,7 @@ public class ADTaskManager {
         }
         for (int i = 0; i < detectorIds.length; i++) {
             String detectorId = detectorIds[i];
-            ADRealtimeTaskCache taskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
+            RealtimeTaskCache taskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
             if (taskCache != null && taskCache.expired()) {
                 adTaskCacheManager.removeRealtimeTaskCache(detectorId);
             }

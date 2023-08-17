@@ -24,8 +24,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.PAGE_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_PAGE_SIZE;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -66,7 +66,6 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
@@ -113,6 +112,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
@@ -153,7 +153,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
     private HashRing hashRing;
     private ClusterService clusterService;
     private IndexNameExpressionResolver indexNameResolver;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     private ADStats adStats;
     private ThreadPool mockThreadPool;
     private String detectorId;
@@ -227,8 +227,8 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         hashRing = mock(HashRing.class);
 
         Set<Setting<?>> anomalyResultSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        anomalyResultSetting.add(MAX_ENTITIES_PER_QUERY);
-        anomalyResultSetting.add(PAGE_SIZE);
+        anomalyResultSetting.add(AD_MAX_ENTITIES_PER_QUERY);
+        anomalyResultSetting.add(AD_PAGE_SIZE);
         anomalyResultSetting.add(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE);
         anomalyResultSetting.add(TimeSeriesSettings.BACKOFF_MINUTES);
         ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, anomalyResultSetting);
@@ -245,7 +245,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
 
         indexNameResolver = new IndexNameExpressionResolver(new ThreadContext(Settings.EMPTY));
 
-        adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        adCircuitBreakerService = mock(CircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
@@ -441,7 +441,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             settings,
             new ClientUtil(client),
             clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             clusterService,
             TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
             TimeSeriesSettings.BACKOFF_MINUTES
@@ -679,7 +679,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
 
         // we start support multi-category fields since 1.1
         // Set version to 1.1 will force the outbound/inbound message to use 1.1 version
-        setupTestNodes(entityResultInterceptor, 5, settings, Version.V_2_0_0, MAX_ENTITIES_PER_QUERY, PAGE_SIZE);
+        setupTestNodes(entityResultInterceptor, 5, settings, Version.V_2_0_0, AD_MAX_ENTITIES_PER_QUERY, AD_PAGE_SIZE);
 
         TransportService realTransportService = testNodes[0].transportService;
         ClusterService realClusterService = testNodes[0].clusterService;
@@ -754,7 +754,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             settings,
             clientUtil,
             clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             clusterService,
             TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
             TimeSeriesSettings.BACKOFF_MINUTES
@@ -768,7 +768,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(any(String.class)))
             .thenReturn(Optional.of(testNodes[1].discoveryNode()));
 
-        ADCircuitBreakerService openBreaker = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService openBreaker = mock(CircuitBreakerService.class);
         when(openBreaker.isOpen()).thenReturn(true);
 
         // register entity result action

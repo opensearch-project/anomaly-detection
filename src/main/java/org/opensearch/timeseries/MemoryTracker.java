@@ -9,9 +9,9 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE;
 
 import java.util.EnumMap;
 import java.util.Locale;
@@ -19,55 +19,57 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
- * Class to track AD memory usage.
+ * Responsible for tracking and managing the memory consumption related to OpenSearch time series analysis.
+ * It offers functionalities to:
+ * - Track the total memory consumption and consumption per specific origin.
+ * - Monitor reserved memory bytes.
+ * - Decide if memory can be allocated based on the current usage and the heap limit.
+ * - Estimate the memory size for a ThresholdedRandomCutForest model based on various parameters.
  *
  */
 public class MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(MemoryTracker.class);
 
     public enum Origin {
-        SINGLE_ENTITY_DETECTOR,
-        HC_DETECTOR,
+        REAL_TIME_DETECTOR,
         HISTORICAL_SINGLE_ENTITY_DETECTOR,
+        REAL_TIME_FORECASTER
     }
 
     // memory tracker for total consumption of bytes
-    private long totalMemoryBytes;
-    private final Map<Origin, Long> totalMemoryBytesByOrigin;
+    protected long totalMemoryBytes;
+    protected final Map<Origin, Long> totalMemoryBytesByOrigin;
     // reserved for models. Cannot be deleted at will.
-    private long reservedMemoryBytes;
-    private final Map<Origin, Long> reservedMemoryBytesByOrigin;
-    private long heapSize;
-    private long heapLimitBytes;
-    private long desiredModelSize;
+    protected long reservedMemoryBytes;
+    protected final Map<Origin, Long> reservedMemoryBytesByOrigin;
+    protected long heapSize;
+    protected long heapLimitBytes;
     // we observe threshold model uses a fixed size array and the size is the same
-    private int thresholdModelBytes;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    protected int thresholdModelBytes;
+    protected CircuitBreakerService timeSeriesCircuitBreakerService;
 
     /**
      * Constructor
      *
      * @param jvmService Service providing jvm info
      * @param modelMaxSizePercentage Percentage of heap for the max size of a model
-     * @param modelDesiredSizePercentage percentage of heap for the desired size of a model
      * @param clusterService Cluster service object
-     * @param adCircuitBreakerService Memory circuit breaker
+     * @param timeSeriesCircuitBreakerService Memory circuit breaker
      */
     public MemoryTracker(
         JvmService jvmService,
         double modelMaxSizePercentage,
-        double modelDesiredSizePercentage,
         ClusterService clusterService,
-        ADCircuitBreakerService adCircuitBreakerService
+        CircuitBreakerService timeSeriesCircuitBreakerService
     ) {
         this.totalMemoryBytes = 0;
         this.totalMemoryBytesByOrigin = new EnumMap<Origin, Long>(Origin.class);
@@ -75,40 +77,14 @@ public class MemoryTracker {
         this.reservedMemoryBytesByOrigin = new EnumMap<Origin, Long>(Origin.class);
         this.heapSize = jvmService.info().getMem().getHeapMax().getBytes();
         this.heapLimitBytes = (long) (heapSize * modelMaxSizePercentage);
-        this.desiredModelSize = (long) (heapSize * modelDesiredSizePercentage);
         if (clusterService != null) {
             clusterService
                 .getClusterSettings()
-                .addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
+                .addSettingsUpdateConsumer(AD_MODEL_MAX_SIZE_PERCENTAGE, it -> this.heapLimitBytes = (long) (heapSize * it));
         }
 
         this.thresholdModelBytes = 180_000;
-        this.adCircuitBreakerService = adCircuitBreakerService;
-    }
-
-    /**
-     * This function derives from the old code: https://tinyurl.com/2eaabja6
-     *
-     * @param detectorId Detector Id
-     * @param trcf Thresholded random cut forest model
-     * @return true if there is enough memory; otherwise throw LimitExceededException.
-     */
-    public synchronized boolean isHostingAllowed(String detectorId, ThresholdedRandomCutForest trcf) {
-        long requiredBytes = estimateTRCFModelSize(trcf);
-        if (canAllocateReserved(requiredBytes)) {
-            return true;
-        } else {
-            throw new LimitExceededException(
-                detectorId,
-                String
-                    .format(
-                        Locale.ROOT,
-                        "Exceeded memory limit. New size is %d bytes and max limit is %d bytes",
-                        reservedMemoryBytes + requiredBytes,
-                        heapLimitBytes
-                    )
-            );
-        }
+        this.timeSeriesCircuitBreakerService = timeSeriesCircuitBreakerService;
     }
 
     /**
@@ -117,7 +93,7 @@ public class MemoryTracker {
      * true when circuit breaker is closed and there is enough reserved memory.
      */
     public synchronized boolean canAllocateReserved(long requiredBytes) {
-        return (false == adCircuitBreakerService.isOpen() && reservedMemoryBytes + requiredBytes <= heapLimitBytes);
+        return (false == timeSeriesCircuitBreakerService.isOpen() && reservedMemoryBytes + requiredBytes <= heapLimitBytes);
     }
 
     /**
@@ -126,7 +102,7 @@ public class MemoryTracker {
      * true when circuit breaker is closed and there is enough overall memory.
      */
     public synchronized boolean canAllocate(long bytes) {
-        return false == adCircuitBreakerService.isOpen() && totalMemoryBytes + bytes <= heapLimitBytes;
+        return false == timeSeriesCircuitBreakerService.isOpen() && totalMemoryBytes + bytes <= heapLimitBytes;
     }
 
     public synchronized void consumeMemory(long memoryToConsume, boolean reserved, Origin origin) {
@@ -157,23 +133,6 @@ public class MemoryTracker {
         if (originTotalMemoryBytes != null) {
             mapToUpdate.put(origin, originTotalMemoryBytes - memoryToConsume);
         }
-    }
-
-    /**
-     * Gets the estimated size of an entity's model.
-     *
-     * @param trcf ThresholdedRandomCutForest object
-     * @return estimated model size in bytes
-     */
-    public long estimateTRCFModelSize(ThresholdedRandomCutForest trcf) {
-        RandomCutForest forest = trcf.getForest();
-        return estimateTRCFModelSize(
-            forest.getDimensions(),
-            forest.getNumberOfTrees(),
-            forest.getBoundingBoxCacheFraction(),
-            forest.getShingleSize(),
-            forest.isInternalShinglingEnabled()
-        );
     }
 
     /**
@@ -306,14 +265,6 @@ public class MemoryTracker {
         return heapLimitBytes;
     }
 
-    /**
-     *
-     * @return Desired model partition size in bytes
-     */
-    public long getDesiredModelSize() {
-        return desiredModelSize;
-    }
-
     public long getTotalMemoryBytes() {
         return totalMemoryBytes;
     }
@@ -359,5 +310,57 @@ public class MemoryTracker {
 
     public int getThresholdModelBytes() {
         return thresholdModelBytes;
+    }
+
+    /**
+     * Determines if hosting is allowed based on the estimated size of a given ThresholdedRandomCutForest and
+     * the available memory resources.
+     *
+     * <p>This method synchronizes access to ensure that checks and operations related to resource availability
+     * are thread-safe.
+     *
+     * @param configId      The identifier for the configuration being checked. Used in error messages.
+     * @param trcf          The ThresholdedRandomCutForest to estimate the size for.
+     * @return              True if the system can allocate the required bytes to host the trcf.
+     * @throws LimitExceededException If the required memory for the trcf exceeds the available memory.
+     *
+     * <p>Usage example:
+     * <pre>{@code
+     * boolean canHost = isHostingAllowed("config123", myTRCF);
+     * }</pre>
+     */
+    public synchronized boolean isHostingAllowed(String configId, ThresholdedRandomCutForest trcf) {
+        long requiredBytes = estimateTRCFModelSize(trcf);
+        if (canAllocateReserved(requiredBytes)) {
+            return true;
+        } else {
+            throw new LimitExceededException(
+                configId,
+                String
+                    .format(
+                        Locale.ROOT,
+                        "Exceeded memory limit. New size is %d bytes and max limit is %d bytes",
+                        reservedMemoryBytes + requiredBytes,
+                        heapLimitBytes
+                    )
+            );
+        }
+    }
+
+    /**
+     * Gets the estimated size of an entity's model.
+     *
+     * @param trcf ThresholdedRandomCutForest object
+     * @return estimated model size in bytes
+     */
+    public long estimateTRCFModelSize(ThresholdedRandomCutForest trcf) {
+        RandomCutForest forest = trcf.getForest();
+        return estimateTRCFModelSize(
+            forest.getDimensions(),
+            forest.getNumberOfTrees(),
+            forest.getBoundingBoxCacheFraction(),
+            forest.getShingleSize(),
+            forest.isInternalShinglingEnabled()
+        );
     }
 }

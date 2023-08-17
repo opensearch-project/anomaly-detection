@@ -26,7 +26,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
@@ -52,6 +51,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -85,7 +85,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
 
     private static final Logger LOG = LogManager.getLogger(EntityResultTransportAction.class);
     private ModelManager modelManager;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     private CacheProvider cache;
     private final NodeStateManager stateManager;
     private ADIndexManagement indexUtil;
@@ -101,7 +101,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         ActionFilters actionFilters,
         TransportService transportService,
         ModelManager manager,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         CacheProvider entityCache,
         NodeStateManager stateManager,
         ADIndexManagement indexUtil,

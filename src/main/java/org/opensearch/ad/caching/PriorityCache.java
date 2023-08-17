@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.caching;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEDICATED_CACHE_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_DEDICATED_CACHE_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -38,8 +38,6 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.MemoryTracker.Origin;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
@@ -57,6 +55,8 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.MemoryTracker.Origin;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -116,12 +116,12 @@ public class PriorityCache implements EntityCache {
 
         this.activeEnities = new ConcurrentHashMap<>();
         this.dedicatedCacheSize = dedicatedCacheSize;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DEDICATED_CACHE_SIZE, (it) -> {
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_DEDICATED_CACHE_SIZE, (it) -> {
             this.dedicatedCacheSize = it;
             this.setDedicatedCacheSizeListener();
             this.tryClearUpMemory();
         }, this::validateDedicatedCacheSize);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.tryClearUpMemory());
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_MODEL_MAX_SIZE_PERCENTAGE, it -> this.tryClearUpMemory());
 
         this.memoryTracker = memoryTracker;
         this.maintenanceLock = new ReentrantLock();
@@ -461,7 +461,7 @@ public class PriorityCache implements EntityCache {
         if (buffer == null) {
             long requiredBytes = getRequiredMemory(detector, dedicatedCacheSize);
             if (memoryTracker.canAllocateReserved(requiredBytes)) {
-                memoryTracker.consumeMemory(requiredBytes, true, Origin.HC_DETECTOR);
+                memoryTracker.consumeMemory(requiredBytes, true, Origin.REAL_TIME_DETECTOR);
                 long intervalSecs = detector.getIntervalInSeconds();
 
                 buffer = new CacheBuffer(
@@ -621,7 +621,7 @@ public class PriorityCache implements EntityCache {
             reserved += buffer.getReservedBytes();
             shared += buffer.getBytesInSharedCache();
         }
-        memoryTracker.syncMemoryState(Origin.HC_DETECTOR, reserved + shared, reserved);
+        memoryTracker.syncMemoryState(Origin.REAL_TIME_DETECTOR, reserved + shared, reserved);
     }
 
     /**

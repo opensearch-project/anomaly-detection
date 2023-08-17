@@ -44,8 +44,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
@@ -63,9 +61,12 @@ import org.opensearch.monitor.jvm.JvmInfo.Mem;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.Scheduler.ScheduledCancellable;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 public class PriorityCacheTests extends AbstractCacheTest {
     private static final Logger LOG = LogManager.getLogger(PriorityCacheTests.class);
@@ -98,11 +99,11 @@ public class PriorityCacheTests extends AbstractCacheTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.DEDICATED_CACHE_SIZE,
-                                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                                AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE,
-                                AnomalyDetectorSettings.CHECKPOINT_TTL,
-                                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
+                                AnomalyDetectorSettings.AD_DEDICATED_CACHE_SIZE,
+                                AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE,
+                                AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ
                             )
                     )
                 )
@@ -117,19 +118,19 @@ public class PriorityCacheTests extends AbstractCacheTest {
         EntityCache cache = new PriorityCache(
             checkpoint,
             dedicatedCacheSize,
-            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
             AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
             memoryTracker,
-            AnomalyDetectorSettings.NUM_TREES,
+            TimeSeriesSettings.NUM_TREES,
             clock,
             clusterService,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             threadPool,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
             checkpointMaintainQueue,
             Settings.EMPTY,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ
         );
 
         CacheProvider cacheProvider = new CacheProvider();
@@ -160,31 +161,32 @@ public class PriorityCacheTests extends AbstractCacheTest {
 
         // ClusterService clusterService = mock(ClusterService.class);
         float modelMaxPercen = 0.1f;
-        // Settings settings = Settings.builder().put(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.getKey(), modelMaxPercen).build();
+        // Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(),
+        // modelMaxPercen).build();
         // ClusterSettings clusterSettings = new ClusterSettings(
         // settings,
-        // Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE)))
+        // Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE)))
         // );
         // when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        memoryTracker = spy(new MemoryTracker(jvmService, modelMaxPercen, 0.002, clusterService, mock(ADCircuitBreakerService.class)));
+        memoryTracker = spy(new MemoryTracker(jvmService, modelMaxPercen, clusterService, mock(CircuitBreakerService.class)));
 
         EntityCache cache = new PriorityCache(
             checkpoint,
             dedicatedCacheSize,
-            AnomalyDetectorSettings.CHECKPOINT_TTL,
+            AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
             AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
             memoryTracker,
-            AnomalyDetectorSettings.NUM_TREES,
+            TimeSeriesSettings.NUM_TREES,
             clock,
             clusterService,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             threadPool,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
             checkpointMaintainQueue,
             Settings.EMPTY,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ
         );
 
         CacheProvider cacheProvider = new CacheProvider();
@@ -215,7 +217,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         verify(memoryTracker, times(1)).consumeMemory(memoryConsumed.capture(), reserved.capture(), origin.capture());
         assertEquals(dedicatedCacheSize * expectedMemoryPerEntity, memoryConsumed.getValue().intValue());
         assertEquals(true, reserved.getValue().booleanValue());
-        assertEquals(MemoryTracker.Origin.HC_DETECTOR, origin.getValue());
+        assertEquals(MemoryTracker.Origin.REAL_TIME_DETECTOR, origin.getValue());
 
         // for (int i = 0; i < 2; i++) {
         // cacheProvider.get(modelId2, detector);
