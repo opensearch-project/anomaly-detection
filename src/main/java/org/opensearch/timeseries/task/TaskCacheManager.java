@@ -62,7 +62,7 @@ public class TaskCacheManager {
     }
 
     /**
-     * Add deleted task's id to deleted detector tasks queue.
+     * Add deleted task's id to deleted tasks queue.
      * @param taskId task id
      */
     public void addDeletedTask(String taskId) {
@@ -73,14 +73,14 @@ public class TaskCacheManager {
 
     /**
      * Check if deleted task queue has items.
-     * @return true if has deleted detector task in cache
+     * @return true if has deleted task in cache
      */
     public boolean hasDeletedTask() {
         return !deletedTasks.isEmpty();
     }
 
     /**
-     * Poll one deleted forecaster task.
+     * Poll one deleted task.
      * @return task id
      */
     public String pollDeletedTask() {

@@ -14,12 +14,12 @@ package org.opensearch.timeseries.task;
 import java.time.Instant;
 
 /**
- * AD realtime task cache which will hold these data
+ * realtime task cache which will hold these data
  * 1. task state
  * 2. init progress
  * 3. error
  * 4. last job run time
- * 5. detector interval
+ * 5. analysis interval
  */
 public class RealtimeTaskCache {
 
