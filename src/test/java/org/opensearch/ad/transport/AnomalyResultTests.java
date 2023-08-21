@@ -129,9 +129,9 @@ import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private Settings settings;

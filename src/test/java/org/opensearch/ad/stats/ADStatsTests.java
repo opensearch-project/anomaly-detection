@@ -46,10 +46,10 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.stats.StatNames;
 
+import com.amazon.randomcutforest.RandomCutForest;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.amazon.randomcutforest.RandomCutForest;
 
 public class ADStatsTests extends OpenSearchTestCase {
 

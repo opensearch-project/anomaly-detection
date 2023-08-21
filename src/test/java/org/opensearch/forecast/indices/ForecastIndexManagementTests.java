@@ -99,24 +99,15 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
     public void testForecastResultIndexExistsAndNotRecreate() throws IOException {
         indices
             .initDefaultResultIndexIfAbsent(
-                TestHelpers
-                    .createActionListener(
-                        response -> logger.info("Acknowledged: " + response.isAcknowledged()),
-                        failure -> { throw new RuntimeException("should not recreate index"); }
-                    )
+                TestHelpers.createActionListener(response -> logger.info("Acknowledged: " + response.isAcknowledged()), failure -> {
+                    throw new RuntimeException("should not recreate index");
+                })
             );
         TestHelpers.waitForIndexCreationToComplete(client(), ForecastIndex.RESULT.getIndexName());
         if (client().admin().indices().prepareExists(ForecastIndex.RESULT.getIndexName()).get().isExists()) {
-            indices
-                .initDefaultResultIndexIfAbsent(
-                    TestHelpers
-                        .createActionListener(
-                            response -> { throw new RuntimeException("should not recreate index " + ForecastIndex.RESULT.getIndexName()); },
-                            failure -> {
-                                throw new RuntimeException("should not recreate index " + ForecastIndex.RESULT.getIndexName(), failure);
-                            }
-                        )
-                );
+            indices.initDefaultResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
+                throw new RuntimeException("should not recreate index " + ForecastIndex.RESULT.getIndexName());
+            }, failure -> { throw new RuntimeException("should not recreate index " + ForecastIndex.RESULT.getIndexName(), failure); }));
         }
     }
 
@@ -168,11 +159,9 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
         indices
             .initCustomResultIndexDirectly(
                 indexName,
-                TestHelpers
-                    .createActionListener(
-                        response -> logger.info("Acknowledged: " + response.isAcknowledged()),
-                        failure -> { throw new RuntimeException("should not recreate index"); }
-                    )
+                TestHelpers.createActionListener(response -> logger.info("Acknowledged: " + response.isAcknowledged()), failure -> {
+                    throw new RuntimeException("should not recreate index");
+                })
             );
         TestHelpers.waitForIndexCreationToComplete(client(), indexName);
         assertTrue((client().admin().indices().prepareExists(indexName).get().isExists()));
@@ -331,11 +320,9 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
         indices
             .initCustomResultIndexDirectly(
                 indexName,
-                TestHelpers
-                    .createActionListener(
-                        response -> logger.info("Acknowledged: " + response.isAcknowledged()),
-                        failure -> { throw new RuntimeException("should not recreate index"); }
-                    )
+                TestHelpers.createActionListener(response -> logger.info("Acknowledged: " + response.isAcknowledged()), failure -> {
+                    throw new RuntimeException("should not recreate index");
+                })
             );
         TestHelpers.waitForIndexCreationToComplete(client(), indexName);
         CountDownLatch latch = new CountDownLatch(1);

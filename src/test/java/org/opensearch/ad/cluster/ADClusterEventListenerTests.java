@@ -13,7 +13,7 @@ package org.opensearch.ad.cluster;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;

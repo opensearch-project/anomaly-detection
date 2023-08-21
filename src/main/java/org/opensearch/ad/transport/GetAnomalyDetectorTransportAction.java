@@ -172,37 +172,27 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
                         xContentRegistry,
                         TimeSeriesSettings.NUM_MIN_SAMPLES
                     );
-                    profileRunner
-                        .profile(
-                            detectorID,
-                            entity,
-                            entityProfilesToCollect,
-                            ActionListener
-                                .wrap(
-                                    profile -> {
-                                        listener
-                                            .onResponse(
-                                                new GetAnomalyDetectorResponse(
-                                                    0,
-                                                    null,
-                                                    0,
-                                                    0,
-                                                    null,
-                                                    null,
-                                                    false,
-                                                    null,
-                                                    null,
-                                                    false,
-                                                    null,
-                                                    null,
-                                                    profile,
-                                                    true
-                                                )
-                                            );
-                                    },
-                                    e -> listener.onFailure(e)
+                    profileRunner.profile(detectorID, entity, entityProfilesToCollect, ActionListener.wrap(profile -> {
+                        listener
+                            .onResponse(
+                                new GetAnomalyDetectorResponse(
+                                    0,
+                                    null,
+                                    0,
+                                    0,
+                                    null,
+                                    null,
+                                    false,
+                                    null,
+                                    null,
+                                    false,
+                                    null,
+                                    null,
+                                    profile,
+                                    true
                                 )
-                        );
+                            );
+                    }, e -> listener.onFailure(e)));
                 } else {
                     Set<DetectorProfileName> profilesToCollect = getProfilesToCollect(typesStr, all);
                     AnomalyDetectorProfileRunner profileRunner = new AnomalyDetectorProfileRunner(

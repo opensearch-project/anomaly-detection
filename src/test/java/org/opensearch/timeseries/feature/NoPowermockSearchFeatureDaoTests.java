@@ -12,6 +12,7 @@
 package org.opensearch.timeseries.feature;
 
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -344,8 +345,9 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
         when(emptyComposite.getName()).thenReturn(SearchFeatureDao.AGG_NAME_TOP);
         when(emptyComposite.afterKey()).thenReturn(null);
         // empty bucket
-        when(emptyComposite.getBuckets())
-            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return new ArrayList<CompositeAggregation.Bucket>(); });
+        when(emptyComposite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> {
+            return new ArrayList<CompositeAggregation.Bucket>();
+        });
         Aggregations emptyAggs = new Aggregations(Collections.singletonList(emptyComposite));
         SearchResponseSections emptySections = new SearchResponseSections(SearchHits.empty(), emptyAggs, null, false, null, null, 1);
         SearchResponse emptyResponse = new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);

@@ -333,10 +333,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Instant now = Instant.now();
-        Exception exception = expectThrows(
-            IOException.class,
-            () -> { startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient); }
-        );
+        Exception exception = expectThrows(IOException.class, () -> {
+            startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
+        });
         Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
     }
 

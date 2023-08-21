@@ -77,24 +77,14 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
     }
 
     public void testAnomalyDetectorIndexExistsAndNotRecreate() throws IOException {
-        indices
-            .initConfigIndexIfAbsent(
-                TestHelpers
-                    .createActionListener(
-                        response -> response.isAcknowledged(),
-                        failure -> { throw new RuntimeException("should not recreate index"); }
-                    )
-            );
+        indices.initConfigIndexIfAbsent(TestHelpers.createActionListener(response -> response.isAcknowledged(), failure -> {
+            throw new RuntimeException("should not recreate index");
+        }));
         TestHelpers.waitForIndexCreationToComplete(client(), CommonName.CONFIG_INDEX);
         if (client().admin().indices().prepareExists(CommonName.CONFIG_INDEX).get().isExists()) {
-            indices
-                .initConfigIndexIfAbsent(
-                    TestHelpers
-                        .createActionListener(
-                            response -> { throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX); },
-                            failure -> { throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX); }
-                        )
-                );
+            indices.initConfigIndexIfAbsent(TestHelpers.createActionListener(response -> {
+                throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX);
+            }, failure -> { throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX); }));
         }
     }
 
@@ -114,26 +104,16 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
     public void testAnomalyResultIndexExistsAndNotRecreate() throws IOException {
         indices
             .initDefaultResultIndexIfAbsent(
-                TestHelpers
-                    .createActionListener(
-                        response -> logger.info("Acknowledged: " + response.isAcknowledged()),
-                        failure -> { throw new RuntimeException("should not recreate index"); }
-                    )
+                TestHelpers.createActionListener(response -> logger.info("Acknowledged: " + response.isAcknowledged()), failure -> {
+                    throw new RuntimeException("should not recreate index");
+                })
             );
         TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         if (client().admin().indices().prepareExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS).get().isExists()) {
-            indices
-                .initDefaultResultIndexIfAbsent(
-                    TestHelpers
-                        .createActionListener(
-                            response -> {
-                                throw new RuntimeException("should not recreate index " + ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
-                            },
-                            failure -> {
-                                throw new RuntimeException("should not recreate index " + ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, failure);
-                            }
-                        )
-                );
+            indices.initDefaultResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
+                throw new RuntimeException("should not recreate index " + ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
+            }, failure -> { throw new RuntimeException("should not recreate index " + ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, failure); })
+            );
         }
     }
 

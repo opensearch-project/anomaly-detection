@@ -12,6 +12,7 @@
 package org.opensearch.timeseries.feature;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -44,7 +45,6 @@ import java.util.concurrent.ExecutorService;
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -79,6 +79,7 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.Max;
@@ -96,16 +97,8 @@ import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
-import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
-@PowerMockIgnore("javax.management.*")
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({ ParseUtils.class })
 public class SearchFeatureDaoTests {
     private SearchFeatureDao searchFeatureDao;
 
@@ -159,7 +152,7 @@ public class SearchFeatureDaoTests {
     @Before
     public void setup() throws Exception {
         MockitoAnnotations.initMocks(this);
-        PowerMockito.mockStatic(ParseUtils.class);
+        // PowerMockito.mockStatic(ParseUtils.class);
 
         imputer = new LinearUniformImputer(false);
 
@@ -265,7 +258,10 @@ public class SearchFeatureDaoTests {
             return null;
         }).when(client).search(eq(searchRequest), any(ActionListener.class));
 
-        when(ParseUtils.getLatestDataTime(eq(searchResponse))).thenReturn(Optional.of(epochTime));
+        InternalMax maxAgg = new InternalMax(CommonName.AGG_NAME_MAX_TIME, epochTime, DocValueFormat.RAW, emptyMap());
+        InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(maxAgg));
+        when(searchResponse.getAggregations()).thenReturn(internalAggregations);
+
         ActionListener<Optional<Long>> listener = mock(ActionListener.class);
         searchFeatureDao.getLatestDataTime(detector, listener);
 
@@ -296,13 +292,12 @@ public class SearchFeatureDaoTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
         when(detector.getEnabledFeatureIds()).thenReturn(null);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
         searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
@@ -316,12 +311,11 @@ public class SearchFeatureDaoTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
         searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);

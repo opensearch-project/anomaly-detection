@@ -48,10 +48,10 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class ADStatsTests extends OpenSearchTestCase {
     String node1, nodeName1, clusterName;

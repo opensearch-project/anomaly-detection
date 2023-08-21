@@ -91,12 +91,12 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
 import test.org.opensearch.ad.util.JsonDeserializer;
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 
 public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     EntityResultTransportAction entityResult;

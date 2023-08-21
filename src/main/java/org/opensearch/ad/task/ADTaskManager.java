@@ -254,18 +254,9 @@ public class ADTaskManager {
             .withType(TransportRequestOptions.Type.REG)
             .withTimeout(AD_REQUEST_TIMEOUT.get(settings))
             .build();
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(
-                AD_REQUEST_TIMEOUT,
-                it -> {
-                    transportRequestOptions = TransportRequestOptions
-                        .builder()
-                        .withType(TransportRequestOptions.Type.REG)
-                        .withTimeout(it)
-                        .build();
-                }
-            );
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_REQUEST_TIMEOUT, it -> {
+            transportRequestOptions = TransportRequestOptions.builder().withType(TransportRequestOptions.Type.REG).withTimeout(it).build();
+        });
         this.threadPool = threadPool;
         this.checkingTaskSlot = new Semaphore(1);
         this.scaleEntityTaskLane = new Semaphore(1);
@@ -1242,16 +1233,12 @@ public class ADTaskManager {
         String userName = user == null ? null : user.getName();
 
         ADCancelTaskRequest cancelTaskRequest = new ADCancelTaskRequest(detectorId, taskId, userName, dataNodes);
-        client
-            .execute(
-                ADCancelTaskAction.INSTANCE,
-                cancelTaskRequest,
-                ActionListener
-                    .wrap(response -> { listener.onResponse(new AnomalyDetectorJobResponse(taskId, 0, 0, 0, RestStatus.OK)); }, e -> {
-                        logger.error("Failed to cancel AD task " + taskId + ", detector id: " + detectorId, e);
-                        listener.onFailure(e);
-                    })
-            );
+        client.execute(ADCancelTaskAction.INSTANCE, cancelTaskRequest, ActionListener.wrap(response -> {
+            listener.onResponse(new AnomalyDetectorJobResponse(taskId, 0, 0, 0, RestStatus.OK));
+        }, e -> {
+            logger.error("Failed to cancel AD task " + taskId + ", detector id: " + detectorId, e);
+            listener.onFailure(e);
+        }));
     }
 
     private boolean lastUpdateTimeOfHistoricalTaskExpired(ADTask adTask) {
@@ -1360,16 +1347,9 @@ public class ADTaskManager {
     protected void cleanDetectorCache(ADTask adTask, TransportService transportService, ExecutorFunction function) {
         String detectorId = adTask.getConfigId();
         String taskId = adTask.getTaskId();
-        cleanDetectorCache(
-            adTask,
-            transportService,
-            function,
-            ActionListener
-                .wrap(
-                    r -> { logger.debug("Successfully cleaned cache for detector {}, task {}", detectorId, taskId); },
-                    e -> { logger.error("Failed to clean cache for detector " + detectorId + ", task " + taskId, e); }
-                )
-        );
+        cleanDetectorCache(adTask, transportService, function, ActionListener.wrap(r -> {
+            logger.debug("Successfully cleaned cache for detector {}, task {}", detectorId, taskId);
+        }, e -> { logger.error("Failed to clean cache for detector " + detectorId + ", task " + taskId, e); }));
     }
 
     /**
@@ -1841,14 +1821,9 @@ public class ADTaskManager {
      * @param taskId AD task id
      */
     public void deleteADTask(String taskId) {
-        deleteADTask(
-            taskId,
-            ActionListener
-                .wrap(
-                    r -> { logger.info("Deleted AD task {} with status: {}", taskId, r.status()); },
-                    e -> { logger.error("Failed to delete AD task " + taskId, e); }
-                )
-        );
+        deleteADTask(taskId, ActionListener.wrap(r -> { logger.info("Deleted AD task {} with status: {}", taskId, r.status()); }, e -> {
+            logger.error("Failed to delete AD task " + taskId, e);
+        }));
     }
 
     /**
@@ -1926,16 +1901,12 @@ public class ADTaskManager {
         logger.info("Start to delete AD results of detector {}", detectorId);
         DeleteByQueryRequest deleteADResultsRequest = new DeleteByQueryRequest(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteADResultsRequest.setQuery(new TermQueryBuilder(DETECTOR_ID_FIELD, detectorId));
-        client
-            .execute(
-                DeleteByQueryAction.INSTANCE,
-                deleteADResultsRequest,
-                ActionListener
-                    .wrap(response -> { logger.debug("Successfully deleted AD results of detector " + detectorId); }, exception -> {
-                        logger.error("Failed to delete AD results of detector " + detectorId, exception);
-                        adTaskCacheManager.addDeletedConfig(detectorId);
-                    })
-            );
+        client.execute(DeleteByQueryAction.INSTANCE, deleteADResultsRequest, ActionListener.wrap(response -> {
+            logger.debug("Successfully deleted AD results of detector " + detectorId);
+        }, exception -> {
+            logger.error("Failed to delete AD results of detector " + detectorId, exception);
+            adTaskCacheManager.addDeletedConfig(detectorId);
+        }));
     }
 
     /**
@@ -2498,15 +2469,9 @@ public class ADTaskManager {
         ActionListener<AnomalyDetectorJobResponse> listener
     ) {
         String detectorId = adTask.getConfigId();
-        int scaleDelta = scaleTaskSlots(
-            adTask,
-            transportService,
-            ActionListener
-                .wrap(
-                    r -> { logger.debug("Scale up task slots done for detector {}, task {}", detectorId, adTask.getTaskId()); },
-                    e -> { logger.error("Failed to scale up task slots for task " + adTask.getTaskId(), e); }
-                )
-        );
+        int scaleDelta = scaleTaskSlots(adTask, transportService, ActionListener.wrap(r -> {
+            logger.debug("Scale up task slots done for detector {}, task {}", detectorId, adTask.getTaskId());
+        }, e -> { logger.error("Failed to scale up task slots for task " + adTask.getTaskId(), e); }));
         if (scaleDelta < 0) {
             logger
                 .warn(
@@ -2733,16 +2698,12 @@ public class ADTaskManager {
                 detectorTaskProfile.setDetectorTaskSlots(1);
             }
         }
-        threadPool
-            .executor(AD_BATCH_TASK_THREAD_POOL_NAME)
-            .execute(
-                () -> {
-                    // Clean expired HC batch task run states as it may exists after HC historical analysis done if user cancel
-                    // before querying top entities done. We will clean it in hourly cron, check "maintainRunningHistoricalTasks"
-                    // method. Clean it up here when get task profile to release memory earlier.
-                    adTaskCacheManager.cleanExpiredHCBatchTaskRunStates();
-                }
-            );
+        threadPool.executor(AD_BATCH_TASK_THREAD_POOL_NAME).execute(() -> {
+            // Clean expired HC batch task run states as it may exists after HC historical analysis done if user cancel
+            // before querying top entities done. We will clean it in hourly cron, check "maintainRunningHistoricalTasks"
+            // method. Clean it up here when get task profile to release memory earlier.
+            adTaskCacheManager.cleanExpiredHCBatchTaskRunStates();
+        });
         logger.debug("Local AD task profile of detector {}: {}", detectorId, detectorTaskProfile);
         return detectorTaskProfile;
     }
@@ -3049,21 +3010,9 @@ public class ADTaskManager {
             resetHistoricalDetectorTaskState(ImmutableList.of(adTask), () -> {
                 logger.debug("Finished maintaining running historical task {}", adTask.getTaskId());
                 maintainRunningHistoricalTask(taskQueue, transportService);
-            },
-                transportService,
-                ActionListener
-                    .wrap(
-                        r -> {
-                            logger
-                                .debug(
-                                    "Reset historical task state done for task {}, detector {}",
-                                    adTask.getTaskId(),
-                                    adTask.getConfigId()
-                                );
-                        },
-                        e -> { logger.error("Failed to reset historical task state for task " + adTask.getTaskId(), e); }
-                    )
-            );
+            }, transportService, ActionListener.wrap(r -> {
+                logger.debug("Reset historical task state done for task {}, detector {}", adTask.getTaskId(), adTask.getConfigId());
+            }, e -> { logger.error("Failed to reset historical task state for task " + adTask.getTaskId(), e); }));
         }, TimeValue.timeValueSeconds(DEFAULT_MAINTAIN_INTERVAL_IN_SECONDS), AD_BATCH_TASK_THREAD_POOL_NAME);
     }
 

@@ -17,7 +17,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -43,9 +43,6 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -80,13 +77,15 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.RandomModelStateConfig;
-
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.amazon.randomcutforest.returntypes.DiVector;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 @RunWith(JUnitParamsRunner.class)
 @SuppressWarnings("unchecked")

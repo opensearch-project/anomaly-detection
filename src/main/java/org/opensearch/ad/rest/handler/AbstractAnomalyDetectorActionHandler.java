@@ -904,20 +904,14 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             return;
         }
         // checking runtime error from feature query
-        ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener
-            .wrap(
-                response -> { checkADNameExists(detectorId, indexingDryRun); },
-                exception -> {
-                    listener
-                        .onFailure(
-                            new ValidationException(
-                                exception.getMessage(),
-                                ValidationIssueType.FEATURE_ATTRIBUTES,
-                                ValidationAspect.DETECTOR
-                            )
-                        );
-                }
-            );
+        ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener.wrap(response -> {
+            checkADNameExists(detectorId, indexingDryRun);
+        }, exception -> {
+            listener
+                .onFailure(
+                    new ValidationException(exception.getMessage(), ValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.DETECTOR)
+                );
+        });
         MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiFeatureQueriesResponseListener =
             new MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>>(
                 validateFeatureQueriesListener,

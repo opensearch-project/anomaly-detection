@@ -66,12 +66,12 @@ public class ModelCheckpointIndexRetention implements Runnable {
                             .lte(clock.millis() - defaultCheckpointTtl.toMillis())
                             .format(ADCommonName.EPOCH_MILLIS_FORMAT)
                     ),
-                ActionListener
-                    .wrap(
-                        response -> { cleanupBasedOnShardSize(defaultCheckpointTtl.minusDays(1)); },
-                        // The docs will be deleted in next scheduled windows. No need for retrying.
-                        exception -> LOG.error("delete docs by query fails for checkpoint index", exception)
-                    )
+                ActionListener.wrap(response -> {
+                    cleanupBasedOnShardSize(defaultCheckpointTtl.minusDays(1));
+                },
+                    // The docs will be deleted in next scheduled windows. No need for retrying.
+                    exception -> LOG.error("delete docs by query fails for checkpoint index", exception)
+                )
             );
 
     }

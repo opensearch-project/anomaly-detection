@@ -731,16 +731,12 @@ public class ModelValidationActionHandler {
     }
 
     private void checkFeatureQueryDelegate(long latestTime) throws IOException {
-        ActionListener<MergeableList<double[]>> validateFeatureQueriesListener = ActionListener
-            .wrap(
-                response -> { windowDelayRecommendation(latestTime); },
-                exception -> {
-                    listener
-                        .onFailure(
-                            new ValidationException(exception.getMessage(), ValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.MODEL)
-                        );
-                }
-            );
+        ActionListener<MergeableList<double[]>> validateFeatureQueriesListener = ActionListener.wrap(response -> {
+            windowDelayRecommendation(latestTime);
+        }, exception -> {
+            listener
+                .onFailure(new ValidationException(exception.getMessage(), ValidationIssueType.FEATURE_ATTRIBUTES, ValidationAspect.MODEL));
+        });
         MultiResponsesDelegateActionListener<MergeableList<double[]>> multiFeatureQueriesResponseListener =
             new MultiResponsesDelegateActionListener<>(
                 validateFeatureQueriesListener,

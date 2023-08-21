@@ -7,12 +7,12 @@ package org.opensearch.timeseries.dataprocessor;
 
 import static org.junit.Assert.assertArrayEquals;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @RunWith(JUnitParamsRunner.class)
 public class ZeroImputerTests {
