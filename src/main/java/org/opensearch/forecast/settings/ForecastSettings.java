@@ -122,7 +122,7 @@ public final class ForecastSettings {
 
     // max number of primary shards of a forecast index
     public static final Setting<Integer> FORECAST_MAX_PRIMARY_SHARDS = Setting
-        .intSetting("plugins.forecast.max_primary_shards", 20, 0, 200, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("plugins.forecast.max_primary_shards", 10, 0, 200, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // saving checkpoint every 12 hours.
     // To support 1 million entities in 36 data nodes, each node has roughly 28K models.

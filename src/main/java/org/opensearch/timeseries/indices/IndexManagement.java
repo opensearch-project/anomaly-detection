@@ -11,8 +11,6 @@
 
 package org.opensearch.timeseries.indices;
 
-import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REPLICATION_TYPE;
-import static org.opensearch.indices.replication.common.ReplicationType.DOCUMENT;
 import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_RESULT_INDEX;
 
 import java.io.IOException;
@@ -428,10 +426,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
      * @throws IOException IOException from {@link IndexManagement#getConfigMappings}
      */
     public void initConfigIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
-        // and send out an alert if anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        CreateIndexRequest request = new CreateIndexRequest(CommonName.CONFIG_INDEX, replicationSettings)
+        CreateIndexRequest request = new CreateIndexRequest(CommonName.CONFIG_INDEX)
             .mapping(getConfigMappings(), XContentType.JSON)
             .settings(settings);
         adminClient.indices().create(request, actionListener);
@@ -482,11 +477,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
      */
     public void initJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as
-            // possible and send out an alert if anomalies found).
-            Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-            CreateIndexRequest request = new CreateIndexRequest(CommonName.JOB_INDEX, replicationSettings)
-                .mapping(getJobMappings(), XContentType.JSON);
+            CreateIndexRequest request = new CreateIndexRequest(CommonName.JOB_INDEX).mapping(getJobMappings(), XContentType.JSON);
             request
                 .settings(
                     Settings
@@ -937,10 +928,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
-        // and send out an alert if anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        createRequest.index(rolloverIndexPattern).settings(replicationSettings).mapping(resultMapping, XContentType.JSON);
+        createRequest.index(rolloverIndexPattern).mapping(resultMapping, XContentType.JSON);
 
         choosePrimaryShards(createRequest, true);
 
@@ -965,10 +953,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         IndexType resultIndex,
         ActionListener<CreateIndexResponse> actionListener
     ) {
-        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
-        // and send out an alert if anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        CreateIndexRequest request = new CreateIndexRequest(resultIndexName, replicationSettings).mapping(resultMapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(resultIndexName).mapping(resultMapping, XContentType.JSON);
         if (alias != null) {
             request.alias(new Alias(alias));
         }
