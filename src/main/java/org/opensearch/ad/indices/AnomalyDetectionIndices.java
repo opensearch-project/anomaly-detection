@@ -22,8 +22,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_PRIMARY_SHARDS;
-import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REPLICATION_TYPE;
-import static org.opensearch.indices.replication.common.ReplicationType.DOCUMENT;
 
 import java.io.IOException;
 import java.net.URL;
@@ -531,10 +529,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      * @throws IOException IOException from {@link AnomalyDetectionIndices#getAnomalyDetectorMappings}
      */
     public void initAnomalyDetectorIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
-        // anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX, replicationSettings)
+        CreateIndexRequest request = new CreateIndexRequest(AnomalyDetector.ANOMALY_DETECTORS_INDEX)
             .mapping(getAnomalyDetectorMappings(), XContentType.JSON)
             .settings(settings);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CONFIG, actionListener));
@@ -599,10 +594,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         ActionListener<CreateIndexResponse> actionListener
     ) throws IOException {
         String mapping = getAnomalyResultMappings();
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
-        // anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        CreateIndexRequest request = new CreateIndexRequest(resultIndex, replicationSettings).mapping(mapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(resultIndex).mapping(mapping, XContentType.JSON);
         if (alias != null) {
             request.alias(new Alias(CommonName.ANOMALY_RESULT_INDEX_ALIAS));
         }
@@ -621,10 +613,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      */
     public void initAnomalyDetectorJobIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
-            // anomalies found).
-            Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX, replicationSettings)
+            CreateIndexRequest request = new CreateIndexRequest(AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
                 .mapping(getAnomalyDetectorJobMappings(), XContentType.JSON);
             request
                 .settings(
@@ -656,10 +645,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
      */
     public void initDetectionStateIndex(ActionListener<CreateIndexResponse> actionListener) {
         try {
-            // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
-            // anomalies found).
-            Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-            CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX, replicationSettings)
+            CreateIndexRequest request = new CreateIndexRequest(CommonName.DETECTION_STATE_INDEX)
                 .mapping(getDetectionStateMappings(), XContentType.JSON)
                 .settings(settings);
             adminClient.indices().create(request, markMappingUpToDate(ADIndex.STATE, actionListener));
@@ -682,11 +668,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         } catch (IOException e) {
             throw new EndRunException("", "Cannot find checkpoint mapping file", true);
         }
-        // AD indices need RAW (e.g., we want users to be able to consume AD results as soon as possible and send out an alert if
-        // anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME, replicationSettings)
-            .mapping(mapping, XContentType.JSON);
+        CreateIndexRequest request = new CreateIndexRequest(CommonName.CHECKPOINT_INDEX_NAME).mapping(mapping, XContentType.JSON);
         choosePrimaryShards(request);
         adminClient.indices().create(request, markMappingUpToDate(ADIndex.CHECKPOINT, actionListener));
     }
@@ -743,10 +725,7 @@ public class AnomalyDetectionIndices implements LocalNodeClusterManagerListener 
         }
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        // time series indices need RAW (e.g., we want users to be able to consume AD results as soon as possible
-        // and send out an alert if anomalies found).
-        Settings replicationSettings = Settings.builder().put(SETTING_REPLICATION_TYPE, DOCUMENT.name()).build();
-        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).settings(replicationSettings).mapping(adResultMapping, XContentType.JSON);
+        createRequest.index(AD_RESULT_HISTORY_INDEX_PATTERN).mapping(adResultMapping, XContentType.JSON);
 
         choosePrimaryShards(createRequest);
 
