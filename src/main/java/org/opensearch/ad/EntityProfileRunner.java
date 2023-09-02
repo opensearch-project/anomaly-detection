@@ -24,7 +24,6 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -92,7 +91,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         ActionListener<EntityProfile> listener
     ) {
         if (profilesToCollect == null || profilesToCollect.size() == 0) {
-            listener.onFailure(new IllegalArgumentException(ADCommonMessages.EMPTY_PROFILES_COLLECT));
+            listener.onFailure(new IllegalArgumentException(CommonMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
         GetRequest getDetectorRequest = new GetRequest(CommonName.CONFIG_INDEX, detectorId);
@@ -247,7 +246,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         new MultiResponsesDelegateActionListener<EntityProfile>(
                             listener,
                             totalResponsesToWait,
-                            ADCommonMessages.FAIL_FETCH_ERR_MSG + entityValue + " of detector " + detectorId,
+                            CommonMessages.FAIL_FETCH_ERR_MSG + entityValue + " of detector " + detectorId,
                             false
                         );
 
@@ -310,7 +309,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         }));
                     }
                 } catch (Exception e) {
-                    logger.error(ADCommonMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    logger.error(CommonMessages.FAIL_TO_GET_PROFILE_MSG, e);
                     listener.onFailure(e);
                 }
             } else {
@@ -321,7 +320,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 logger.info(exception.getMessage());
                 sendUnknownState(profilesToCollect, entityValue, true, listener);
             } else {
-                logger.error(ADCommonMessages.FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
+                logger.error(CommonMessages.FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
                 listener.onFailure(exception);
             }
         }));

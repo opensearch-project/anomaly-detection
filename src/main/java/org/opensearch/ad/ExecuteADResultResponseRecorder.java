@@ -11,7 +11,7 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.constant.ADCommonMessages.CAN_NOT_FIND_LATEST_TASK;
+import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_LATEST_TASK;
 
 import java.time.Instant;
 import java.util.ArrayList;

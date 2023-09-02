@@ -25,7 +25,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -38,11 +37,11 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
-public class MockAnomalyDetectorJobTransportActionWithUser extends
-    HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
+public class MockAnomalyDetectorJobTransportActionWithUser extends HandledTransportAction<AnomalyDetectorJobRequest, JobResponse> {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
 
     private final Client client;
@@ -85,7 +84,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     }
 
     @Override
-    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> listener) {
+    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<JobResponse> listener) {
         String detectorId = request.getDetectorID();
         DateRange detectionDateRange = request.getDetectionDateRange();
         boolean historical = request.isHistorical();
@@ -125,7 +124,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends
     }
 
     private void executeDetector(
-        ActionListener<AnomalyDetectorJobResponse> listener,
+        ActionListener<JobResponse> listener,
         String detectorId,
         long seqNo,
         long primaryTerm,

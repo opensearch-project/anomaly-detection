@@ -13,15 +13,15 @@ package org.opensearch.ad.mock.transport;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.CommonValue;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
+import org.opensearch.timeseries.transport.JobResponse;
 
-public class MockAnomalyDetectorJobAction extends ActionType<AnomalyDetectorJobResponse> {
+public class MockAnomalyDetectorJobAction extends ActionType<JobResponse> {
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/mockjobmanagement";
     public static final MockAnomalyDetectorJobAction INSTANCE = new MockAnomalyDetectorJobAction();
 
     private MockAnomalyDetectorJobAction() {
-        super(NAME, AnomalyDetectorJobResponse::new);
+        super(NAME, JobResponse::new);
     }
 
 }

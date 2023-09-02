@@ -38,7 +38,6 @@ import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -143,7 +142,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
-        assertException(future, OpenSearchStatusException.class, ADCommonMessages.EMPTY_PROFILES_COLLECT);
+        assertException(future, OpenSearchStatusException.class, CommonMessages.EMPTY_PROFILES_COLLECT);
     }
 
     @SuppressWarnings("unchecked")

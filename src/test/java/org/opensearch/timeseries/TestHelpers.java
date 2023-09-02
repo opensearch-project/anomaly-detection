@@ -58,7 +58,6 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.constant.CommonValue;
 import org.opensearch.ad.feature.Features;
@@ -133,6 +132,7 @@ import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
@@ -1541,7 +1541,7 @@ public class TestHelpers {
         DetectorValidationIssue issue = new DetectorValidationIssue(
             ValidationAspect.MODEL,
             ValidationIssueType.DETECTION_INTERVAL,
-            ADCommonMessages.DETECTOR_INTERVAL_REC + intervalRec,
+            CommonMessages.INTERVAL_REC + intervalRec,
             null,
             new IntervalTimeConfiguration(intervalRec, ChronoUnit.MINUTES)
         );

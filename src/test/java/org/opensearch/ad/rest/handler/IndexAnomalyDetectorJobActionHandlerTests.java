@@ -21,7 +21,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.action.DocWriteResponse.Result.CREATED;
-import static org.opensearch.ad.constant.ADCommonMessages.CAN_NOT_FIND_LATEST_TASK;
+import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_LATEST_TASK;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,7 +42,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultResponse;
 import org.opensearch.ad.transport.ProfileAction;
@@ -60,6 +59,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.InternalFailure;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
 
@@ -146,9 +146,9 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
         adTaskManager = mock(ADTaskManager.class);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<AnomalyDetectorJobResponse> listener = (ActionListener<AnomalyDetectorJobResponse>) args[4];
+            ActionListener<JobResponse> listener = (ActionListener<JobResponse>) args[4];
 
-            AnomalyDetectorJobResponse response = mock(AnomalyDetectorJobResponse.class);
+            JobResponse response = mock(JobResponse.class);
             listener.onResponse(response);
 
             return null;
@@ -193,7 +193,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
     public void testDelayHCProfile() {
         when(adTaskManager.isHCRealtimeTaskStartInitializing(anyString())).thenReturn(false);
 
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
 
         handler.startAnomalyDetectorJob(detector, listener);
 
@@ -220,7 +220,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
 
         when(adTaskManager.isHCRealtimeTaskStartInitializing(anyString())).thenReturn(true);
 
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
 
         handler.startAnomalyDetectorJob(detector, listener);
 
@@ -246,7 +246,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
 
         when(adTaskManager.isHCRealtimeTaskStartInitializing(anyString())).thenReturn(true);
 
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
 
         handler.startAnomalyDetectorJob(detector, listener);
 
@@ -283,7 +283,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
             return null;
         }).when(adTaskManager).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
 
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
 
         handler.startAnomalyDetectorJob(detector, listener);
 
@@ -321,7 +321,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
             return null;
         }).when(adTaskManager).updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), any(), any(), any(), any());
 
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
 
         handler.startAnomalyDetectorJob(detector, listener);
 
@@ -347,7 +347,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
             return null;
         }).when(client).execute(any(AnomalyResultAction.class), any(), any());
 
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         AggregationBuilder aggregationBuilder = TestHelpers
             .parseAggregation("{\"test\":{\"max\":{\"field\":\"" + MockSimpleLog.VALUE_FIELD + "\"}}}");
         Feature feature = new Feature(randomAlphaOfLength(5), randomAlphaOfLength(10), true, aggregationBuilder);

@@ -59,6 +59,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.transport.JobResponse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -136,7 +137,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         );
         Client nodeClient = getDataNodeClient();
         if (nodeClient != null) {
-            AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
+            JobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
             ADTask adTask = getADTask(response.getId());
             assertNotNull(adTask.getStartedBy());
             assertNotNull(adTask.getUser());
@@ -166,7 +167,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         Client nodeClient = getDataNodeClient();
 
         if (nodeClient != null) {
-            AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
+            JobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
             waitUntil(() -> {
                 try {
                     ADTask task = getADTask(response.getId());
@@ -218,7 +219,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         Client nodeClient = getDataNodeClient();
 
         if (nodeClient != null) {
-            AnomalyDetectorJobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100_000);
+            JobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100_000);
             String taskId = response.getId();
 
             waitUntil(() -> {
@@ -253,7 +254,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             .randomDetector(ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
         String detectorId = createDetector(detector);
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId, dateRange);
-        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+        JobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         assertNotNull(response.getId());
         OpenSearchStatusException exception = null;
         // Add retry to solve the flaky test
@@ -326,7 +327,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             START_JOB
         );
 
-        AtomicReference<AnomalyDetectorJobResponse> response = new AtomicReference<>();
+        AtomicReference<JobResponse> response = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         Thread.sleep(2000);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request, ActionListener.wrap(r -> {
@@ -369,7 +370,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             .randomDetector(ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
         String detectorId = createDetector(detector);
         AnomalyDetectorJobRequest request = startDetectorJobRequest(detectorId, null);
-        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+        JobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         String jobId = response.getId();
         assertEquals(detectorId, jobId);
         return ImmutableList.of(detectorId, jobId);

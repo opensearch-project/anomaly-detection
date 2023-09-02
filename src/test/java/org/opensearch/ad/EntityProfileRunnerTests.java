@@ -31,7 +31,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.EntityProfile;
@@ -58,6 +57,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -308,7 +308,7 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
             assertTrue("Should not reach here", false);
             inProgressLatch.countDown();
         }, exception -> {
-            assertTrue(exception.getMessage().contains(ADCommonMessages.EMPTY_PROFILES_COLLECT));
+            assertTrue(exception.getMessage().contains(CommonMessages.EMPTY_PROFILES_COLLECT));
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));

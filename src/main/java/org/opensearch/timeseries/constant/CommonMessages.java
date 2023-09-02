@@ -49,6 +49,22 @@ public class CommonMessages {
     public static final String UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG =
         "Feature has an unknown exception caught while executing the feature query: ";
     public static String DUPLICATE_FEATURE_AGGREGATION_NAMES = "Config has duplicate feature aggregation query names: ";
+    public static String TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA =
+        "There isn't enough historical data found with current timefield selected.";
+    public static String CATEGORY_FIELD_TOO_SPARSE =
+        "Data is most likely too sparse with the given category fields. Consider revising category field/s or ingesting more data ";
+    public static String WINDOW_DELAY_REC =
+        "Latest seen data point is at least %d minutes ago, consider changing window delay to at least %d minutes.";
+    public static String INTERVAL_REC = "The selected interval might collect sparse data. Consider changing interval length to: ";
+    public static String RAW_DATA_TOO_SPARSE =
+        "Source index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
+    public static String MODEL_VALIDATION_FAILED_UNEXPECTEDLY = "Model validation experienced issues completing.";
+    public static String FILTER_QUERY_TOO_SPARSE = "Data is too sparse after data filter is applied. Consider changing the data filter";
+    public static String CATEGORY_FIELD_NO_DATA =
+        "No entity was found with the given categorical fields. Consider revising category field/s or ingesting more data";
+    public static String FEATURE_QUERY_TOO_SPARSE =
+        "Data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
+    public static String TIMEOUT_ON_INTERVAL_REC = "Timed out getting interval recommendation";
 
     // ======================================
     // Index message
@@ -67,6 +83,8 @@ public class CommonMessages {
     // Transport
     // ======================================
     public static final String INVALID_TIMESTAMP_ERR_MSG = "timestamp is invalid";
+    public static String FAIL_TO_DELETE_CONFIG = "Fail to delete config";
+    public static String FAIL_TO_GET_CONFIG_INFO = "Fail to get config info";
 
     // ======================================
     // transport/restful client
@@ -91,4 +109,34 @@ public class CommonMessages {
     public static String NO_PERMISSION_TO_ACCESS_CONFIG = "User does not have permissions to access config: ";
     public static String FAIL_TO_GET_USER_INFO = "Unable to get user information from config ";
 
+    // ======================================
+    // transport
+    // ======================================
+    public static final String CONFIG_ID_MISSING_MSG = "config ID is missing";
+    public static final String MODEL_ID_MISSING_MSG = "model ID is missing";
+
+    // ======================================
+    // task
+    // ======================================
+    public static String CAN_NOT_FIND_LATEST_TASK = "can't find latest task";
+
+    // ======================================
+    // Job
+    // ======================================
+    public static String CONFIG_IS_RUNNING = "Config is already running";
+    public static String FAIL_TO_SEARCH = "Fail to search";
+
+    // ======================================
+    // Profile API
+    // ======================================
+    public static String EMPTY_PROFILES_COLLECT = "profiles to collect are missing or invalid";
+    public static String FAIL_TO_PARSE_CONFIG_MSG = "Fail to parse config with id: ";
+    public static String FAIL_FETCH_ERR_MSG = "Fail to fetch profile for ";
+    public static String FAIL_TO_GET_PROFILE_MSG = "Fail to get profile for config ";
+    public static String FAIL_TO_GET_TOTAL_ENTITIES = "Failed to get total entities for config ";
+
+    // ======================================
+    // Stats API
+    // ======================================
+    public static String FAIL_TO_GET_STATS = "Fail to get stats";
 }

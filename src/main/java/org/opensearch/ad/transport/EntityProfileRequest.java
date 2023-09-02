@@ -27,6 +27,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Entity;
 
 public class EntityProfileRequest extends ActionRequest implements ToXContentObject {
@@ -92,7 +93,7 @@ public class EntityProfileRequest extends ActionRequest implements ToXContentObj
             validationException = addValidationError("Entity value is missing", validationException);
         }
         if (profilesToCollect == null || profilesToCollect.isEmpty()) {
-            validationException = addValidationError(ADCommonMessages.EMPTY_PROFILES_COLLECT, validationException);
+            validationException = addValidationError(CommonMessages.EMPTY_PROFILES_COLLECT, validationException);
         }
         return validationException;
     }
