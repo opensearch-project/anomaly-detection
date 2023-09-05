@@ -139,7 +139,8 @@ dependencies {
     implementation group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-api', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-collectionschema', version: '1.8.0'
-    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.13.0'
+
 
     implementation "org.jacoco:org.jacoco.agent:0.8.5"
     implementation ("org.jacoco:org.jacoco.ant:0.8.5") {
