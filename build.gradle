@@ -45,7 +45,7 @@ buildscript {
 
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
-        // This option turn on log printing during tests. 
+        // This option turn on log printing during tests.
         printLogs = "true" == System.getProperty("test.logs", "false")
     }
 
@@ -184,7 +184,7 @@ publishing {
             }
         }
     }
-    
+
     repositories {
         maven {
             name = "Snapshots"
@@ -414,7 +414,7 @@ String bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
 String bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
 String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
 
-2.times {i -> 
+2.times {i ->
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
@@ -515,15 +515,15 @@ List<Provider<RegularFile>> plugins = [
                 return new RegularFile() {
                     @Override
                     File getAsFile() {
-                    	return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
-		    }
+                        return fileTree(bwcFilePath + "anomaly-detection/" + project.version).getSingleFile()
+                    }
                 }
             }
         })
-    ]
+]
 
-// Creates 2 test clusters with 3 nodes of the old version. 
-2.times {i -> 
+// Creates 2 test clusters with 3 nodes of the old version.
+2.times {i ->
     task "${baseName}#oldVersionClusterTask$i"(type: StandaloneRestIntegTestTask) {
         useCluster testClusters."${baseName}$i"
         filter {
@@ -534,10 +534,10 @@ List<Provider<RegularFile>> plugins = [
         systemProperty 'tests.plugin_bwc_version', bwcVersion
         nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}$i".allHttpSocketURI.join(",")}")
         nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}$i".getName()}")
-    }    
+    }
 }
 
-// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version 
+// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
 // This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
 // This is also used as a one third upgraded cluster for a rolling upgrade.
 task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
@@ -615,7 +615,7 @@ task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) 
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
 }
 
-// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version 
+// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version
 // at the same time resulting in a fully upgraded cluster.
 task "${baseName}#fullRestartClusterTask"(type: StandaloneRestIntegTestTask) {
     dependsOn "${baseName}#oldVersionClusterTask1"
@@ -763,7 +763,7 @@ dependencies {
     implementation group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-api', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-collectionschema', version: '1.8.0'
-    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.13.0'
 
     implementation "org.jacoco:org.jacoco.agent:0.8.5"
     implementation ("org.jacoco:org.jacoco.ant:0.8.5") {
