@@ -221,6 +221,7 @@ configurations.all {
         force "net.bytebuddy:byte-buddy-agent:1.14.6"
         force "com.google.code.gson:gson:2.8.9"
         force "junit:junit:4.13.2"
+        force "org.apache.commons:commons-lang3:3.12.0"
     }
 }
 
