@@ -48,8 +48,8 @@ jobs:
           fi
           echo plugin version plugin_version qualifier docker_version
 
-          plugin_version=2.10.0.0-SNAPSHOT
-          docker_version=2.10.0.0
+          plugin_version="2.10.0.0-SNAPSHOT"
+          docker_version="2.10.0.0"
 
           echo "($plugin) ($version) ($plugin_version) ($qualifier) ($docker_version)"
 
