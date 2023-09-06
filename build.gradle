@@ -12,6 +12,7 @@
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.opensearch.gradle.info.BuildParams
 
 buildscript {
     ext {
@@ -67,8 +68,7 @@ plugins {
     id 'com.netflix.nebula.ospackage' version "11.0.0"
     id "com.diffplug.spotless" version "6.18.0"
     id 'java-library'
-    // Gradle 7.6 support was added in test-retry 1.4.0.
-    id 'org.gradle.test-retry' version '1.4.1'
+    id 'org.gradle.test-retry' version '1.5.4'
 }
 
 tasks.withType(JavaCompile) {
@@ -286,14 +286,13 @@ def _numNodes = findProperty('numNodes') as Integer ?: 1
 
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
-boolean isCiServer = System.getenv().containsKey("CI")
 test {
     retry {
-        if (isCiServer) {
-            failOnPassedAfterRetry = false
+        if (BuildParams.isCi()) {
             maxRetries = 6
             maxFailures = 10
         }
+        failOnPassedAfterRetry = false
     }
     include '**/*Tests.class'
     systemProperty 'tests.security.manager', 'false'
@@ -314,11 +313,11 @@ tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
     retry {
-        if (isCiServer) {
-            failOnPassedAfterRetry = false
+        if (BuildParams.isCi()) {
             maxRetries = 6
             maxFailures = 10
         }
+        failOnPassedAfterRetry = false
     }
     dependsOn "bundlePlugin"
     systemProperty 'tests.security.manager', 'false'
@@ -367,6 +366,7 @@ integTest {
         getClusters().forEach { cluster ->
             cluster.waitForAllConditions()
         }
+        println 'Running in CI mode:' + BuildParams.isCi()
     }
 
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable

@@ -33,7 +33,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
@@ -278,7 +277,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ValidationException(
-                        ADCommonMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
+                        CommonMessages.TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA,
                         ValidationIssueType.TIMEFIELD_FIELD,
                         ValidationAspect.MODEL
                     )
@@ -305,7 +304,7 @@ public class ModelValidationActionHandler {
                 listener
                     .onFailure(
                         new ValidationException(
-                            ADCommonMessages.CATEGORY_FIELD_TOO_SPARSE,
+                            CommonMessages.CATEGORY_FIELD_TOO_SPARSE,
                             ValidationIssueType.CATEGORY,
                             ValidationAspect.MODEL
                         )
@@ -422,12 +421,12 @@ public class ModelValidationActionHandler {
                     listener
                         .onFailure(
                             new ValidationException(
-                                ADCommonMessages.TIMEOUT_ON_INTERVAL_REC,
+                                CommonMessages.TIMEOUT_ON_INTERVAL_REC,
                                 ValidationIssueType.TIMEOUT,
                                 ValidationAspect.MODEL
                             )
                         );
-                    logger.info(ADCommonMessages.TIMEOUT_ON_INTERVAL_REC);
+                    logger.info(CommonMessages.TIMEOUT_ON_INTERVAL_REC);
                     // keep trying higher intervals as new interval is below max, and we aren't decreasing yet
                 } else if (newIntervalMinute < MAX_INTERVAL_REC_LENGTH_IN_MINUTES && !decreasingInterval) {
                     searchWithDifferentInterval(newIntervalMinute);
@@ -510,7 +509,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ValidationException(
-                        ADCommonMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
+                        CommonMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
                         ValidationIssueType.AGGREGATION,
                         ValidationAspect.MODEL
                     )
@@ -540,7 +539,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ValidationException(
-                        ADCommonMessages.DETECTOR_INTERVAL_REC + interval.getInterval(),
+                        CommonMessages.INTERVAL_REC + interval.getInterval(),
                         ValidationIssueType.DETECTION_INTERVAL,
                         ValidationAspect.MODEL,
                         interval
@@ -591,7 +590,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ValidationException(
-                        ADCommonMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
+                        CommonMessages.MODEL_VALIDATION_FAILED_UNEXPECTEDLY,
                         ValidationIssueType.AGGREGATION,
                         ValidationAspect.MODEL
                     )
@@ -615,7 +614,7 @@ public class ModelValidationActionHandler {
         if (fullBucketRate < INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
             listener
                 .onFailure(
-                    new ValidationException(ADCommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL)
+                    new ValidationException(CommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL)
                 );
         } else {
             checkDataFilterSparsity(latestTime);
@@ -652,7 +651,7 @@ public class ModelValidationActionHandler {
             listener
                 .onFailure(
                     new ValidationException(
-                        ADCommonMessages.FILTER_QUERY_TOO_SPARSE,
+                        CommonMessages.FILTER_QUERY_TOO_SPARSE,
                         ValidationIssueType.FILTER_QUERY,
                         ValidationAspect.MODEL
                     )
@@ -714,11 +713,7 @@ public class ModelValidationActionHandler {
         if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
             listener
                 .onFailure(
-                    new ValidationException(
-                        ADCommonMessages.CATEGORY_FIELD_TOO_SPARSE,
-                        ValidationIssueType.CATEGORY,
-                        ValidationAspect.MODEL
-                    )
+                    new ValidationException(CommonMessages.CATEGORY_FIELD_TOO_SPARSE, ValidationIssueType.CATEGORY, ValidationAspect.MODEL)
                 );
         } else {
             try {
@@ -741,7 +736,7 @@ public class ModelValidationActionHandler {
             new MultiResponsesDelegateActionListener<>(
                 validateFeatureQueriesListener,
                 anomalyDetector.getFeatureAttributes().size(),
-                ADCommonMessages.FEATURE_QUERY_TOO_SPARSE,
+                CommonMessages.FEATURE_QUERY_TOO_SPARSE,
                 false
             );
 
@@ -765,7 +760,7 @@ public class ModelValidationActionHandler {
                     multiFeatureQueriesResponseListener
                         .onFailure(
                             new ValidationException(
-                                ADCommonMessages.FEATURE_QUERY_TOO_SPARSE,
+                                CommonMessages.FEATURE_QUERY_TOO_SPARSE,
                                 ValidationIssueType.FEATURE_ATTRIBUTES,
                                 ValidationAspect.MODEL
                             )
@@ -777,7 +772,7 @@ public class ModelValidationActionHandler {
             }, e -> {
                 logger.error(e);
                 multiFeatureQueriesResponseListener
-                    .onFailure(new OpenSearchStatusException(ADCommonMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
+                    .onFailure(new OpenSearchStatusException(CommonMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
             });
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
@@ -798,7 +793,7 @@ public class ModelValidationActionHandler {
         listener
             .onFailure(
                 new ValidationException(
-                    String.format(Locale.ROOT, ADCommonMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
+                    String.format(Locale.ROOT, CommonMessages.WINDOW_DELAY_REC, minutesSinceLastStamp, minutesSinceLastStamp),
                     ValidationIssueType.WINDOW_DELAY,
                     ValidationAspect.MODEL,
                     new IntervalTimeConfiguration(minutesSinceLastStamp, ChronoUnit.MINUTES)
@@ -821,7 +816,7 @@ public class ModelValidationActionHandler {
         // a time was always above 0.25 meaning the best suggestion is to simply ingest more data or change interval since
         // we have no more insight regarding the root cause of the lower density.
         listener
-            .onFailure(new ValidationException(ADCommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL));
+            .onFailure(new ValidationException(CommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL));
     }
 
     private LongBounds getTimeRangeBounds(long endMillis, IntervalTimeConfiguration detectorIntervalInMinutes) {

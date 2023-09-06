@@ -94,7 +94,6 @@ import org.opensearch.ad.transport.ADStatsNodeResponse;
 import org.opensearch.ad.transport.ADStatsNodesResponse;
 import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
@@ -130,6 +129,7 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.task.RealtimeTaskCache;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
@@ -157,7 +157,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     private IndexAnomalyDetectorJobActionHandler indexAnomalyDetectorJobActionHandler;
 
     private DateRange detectionDateRange;
-    private ActionListener<AnomalyDetectorJobResponse> listener;
+    private ActionListener<JobResponse> listener;
 
     private DiscoveryNode node1;
     private DiscoveryNode node2;
@@ -200,7 +200,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         + ",\"parent_task_id\":\"a1civ3sBwF58XZxvKrko\",\"worker_node\":\"DL5uOJV3TjOOAyh5hJXrCA\",\"current_piece\""
         + ":1630999260000,\"execution_end_time\":1630999442814}}";
     @Captor
-    ArgumentCaptor<TransportResponseHandler<AnomalyDetectorJobResponse>> remoteResponseHandler;
+    ArgumentCaptor<TransportResponseHandler<JobResponse>> remoteResponseHandler;
 
     @Override
     public void setUp() throws Exception {
@@ -255,9 +255,9 @@ public class ADTaskManagerTests extends ADUnitTestCase {
             )
         );
 
-        listener = spy(new ActionListener<AnomalyDetectorJobResponse>() {
+        listener = spy(new ActionListener<JobResponse>() {
             @Override
-            public void onResponse(AnomalyDetectorJobResponse bulkItemResponses) {}
+            public void onResponse(JobResponse bulkItemResponses) {}
 
             @Override
             public void onFailure(Exception e) {}
@@ -775,7 +775,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
 
     @SuppressWarnings("unchecked")
     public void testRemoveStaleRunningEntity() throws IOException {
-        ActionListener<AnomalyDetectorJobResponse> actionListener = mock(ActionListener.class);
+        ActionListener<JobResponse> actionListener = mock(ActionListener.class);
         ADTask adTask = randomAdTask();
         String entity = randomAlphaOfLength(5);
         ExecutorService executeService = mock(ExecutorService.class);
@@ -1006,7 +1006,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         DateRange detectionDateRange = TestHelpers.randomDetectionDateRange();
         User user = null;
         int availableTaskSlots = randomIntBetween(1, 10);
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         doAnswer(invocation -> {
             Consumer<Optional<DiscoveryNode>> function = invocation.getArgument(1);
             function.accept(Optional.empty());
@@ -1187,7 +1187,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         }).when(client).search(any(), any());
         String detectorId = randomAlphaOfLength(5);
         Consumer<List<ADTask>> function = mock(Consumer.class);
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
 
         doAnswer(invocation -> {
             Consumer<DiscoveryNode[]> getNodeFunction = invocation.getArgument(0);
@@ -1413,7 +1413,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     @SuppressWarnings("unchecked")
     public void testScaleUpTaskSlots() throws IOException {
         ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         when(adTaskCacheManager.getAvailableNewEntityTaskLanes(anyString())).thenReturn(0);
         doReturn(2).when(adTaskManager).detectorTaskSlotScaleDelta(anyString());
         when(adTaskCacheManager.getLastScaleEntityTaskLaneTime(anyString())).thenReturn(null);
@@ -1433,7 +1433,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testForwardRequestToLeadNodeWithNotExistingNode() throws IOException {
         ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
         ForwardADTaskRequest forwardADTaskRequest = new ForwardADTaskRequest(adTask, ADTaskAction.APPLY_FOR_TASK_SLOTS);
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         doAnswer(invocation -> {
             Consumer<Optional<DiscoveryNode>> function = invocation.getArgument(1);
             function.accept(Optional.empty());
@@ -1449,7 +1449,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         ADTask adTask = mock(ADTask.class);
         when(adTask.getCoordinatingNode()).thenReturn(node1.getId());
         when(nodeFilter.getEligibleDataNodes()).thenReturn(new DiscoveryNode[] { node1, node2 });
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         adTaskManager.scaleTaskLaneOnCoordinatingNode(adTask, 2, transportService, listener);
     }
 
@@ -1458,7 +1458,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
         AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
         DateRange detectionDateRange = randomDetectionDateRange();
         User user = null;
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         when(detectionIndices.doesStateIndexExist()).thenReturn(false);
         doThrow(new RuntimeException("test")).when(detectionIndices).initStateIndex(any());
         adTaskManager.startDetector(detector, detectionDateRange, user, transportService, listener);
@@ -1469,7 +1469,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testStopDetectorWithNonExistingDetector() {
         String detectorId = randomAlphaOfLength(5);
         boolean historical = true;
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         doAnswer(invocation -> {
             Consumer<Optional<AnomalyDetector>> function = invocation.getArgument(1);
             function.accept(Optional.empty());
@@ -1483,7 +1483,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testStopDetectorWithNonExistingTask() {
         String detectorId = randomAlphaOfLength(5);
         boolean historical = true;
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         doAnswer(invocation -> {
             Consumer<Optional<AnomalyDetector>> function = invocation.getArgument(1);
             AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
@@ -1505,7 +1505,7 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     public void testStopDetectorWithTaskDone() {
         String detectorId = randomAlphaOfLength(5);
         boolean historical = true;
-        ActionListener<AnomalyDetectorJobResponse> listener = mock(ActionListener.class);
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
         doAnswer(invocation -> {
             Consumer<Optional<AnomalyDetector>> function = invocation.getArgument(1);
             AnomalyDetector detector = randomAnomalyDetector(ImmutableList.of(randomFeature(true)));

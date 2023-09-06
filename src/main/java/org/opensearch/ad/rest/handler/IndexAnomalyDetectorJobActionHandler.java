@@ -33,7 +33,6 @@ import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.StopDetectorAction;
@@ -53,6 +52,7 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -121,10 +121,10 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param detector anomaly detector
      * @param listener Listener to send responses
      */
-    public void startAnomalyDetectorJob(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
+    public void startAnomalyDetectorJob(AnomalyDetector detector, ActionListener<JobResponse> listener) {
         // this start listener is created & injected throughout the job handler so that whenever the job response is received,
         // there's the extra step of trying to index results and update detector state with a 60s delay.
-        ActionListener<AnomalyDetectorJobResponse> startListener = ActionListener.wrap(r -> {
+        ActionListener<JobResponse> startListener = ActionListener.wrap(r -> {
             try {
                 Instant executionEndTime = Instant.now();
                 IntervalTimeConfiguration schedule = (IntervalTimeConfiguration) detector.getInterval();
@@ -182,7 +182,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         }
     }
 
-    private void createJob(AnomalyDetector detector, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void createJob(AnomalyDetector detector, ActionListener<JobResponse> listener) {
         try {
             IntervalTimeConfiguration interval = (IntervalTimeConfiguration) detector.getInterval();
             Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
@@ -209,7 +209,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         }
     }
 
-    private void getJobForWrite(AnomalyDetector detector, Job job, ActionListener<AnomalyDetectorJobResponse> listener) {
+    private void getJobForWrite(AnomalyDetector detector, Job job, ActionListener<JobResponse> listener) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
 
         client
@@ -227,7 +227,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         GetResponse response,
         AnomalyDetector detector,
         Job job,
-        ActionListener<AnomalyDetectorJobResponse> listener
+        ActionListener<JobResponse> listener
     ) throws IOException {
         if (response.isExists()) {
             try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())) {
@@ -271,8 +271,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         }
     }
 
-    private void indexAnomalyDetectorJob(Job job, ExecutorFunction function, ActionListener<AnomalyDetectorJobResponse> listener)
-        throws IOException {
+    private void indexAnomalyDetectorJob(Job job, ExecutorFunction function, ActionListener<JobResponse> listener) throws IOException {
         IndexRequest indexRequest = new IndexRequest(CommonName.JOB_INDEX)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
             .source(job.toXContent(XContentFactory.jsonBuilder(), RestHandlerUtils.XCONTENT_WITH_TYPE))
@@ -294,7 +293,7 @@ public class IndexAnomalyDetectorJobActionHandler {
     private void onIndexAnomalyDetectorJobResponse(
         IndexResponse response,
         ExecutorFunction function,
-        ActionListener<AnomalyDetectorJobResponse> listener
+        ActionListener<JobResponse> listener
     ) {
         if (response == null || (response.getResult() != CREATED && response.getResult() != UPDATED)) {
             String errorMsg = getShardsFailure(response);
@@ -304,13 +303,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         if (function != null) {
             function.execute();
         } else {
-            AnomalyDetectorJobResponse anomalyDetectorJobResponse = new AnomalyDetectorJobResponse(
-                response.getId(),
-                response.getVersion(),
-                response.getSeqNo(),
-                response.getPrimaryTerm(),
-                RestStatus.OK
-            );
+            JobResponse anomalyDetectorJobResponse = new JobResponse(response.getId());
             listener.onResponse(anomalyDetectorJobResponse);
         }
     }
@@ -323,7 +316,7 @@ public class IndexAnomalyDetectorJobActionHandler {
      * @param detectorId detector identifier
      * @param listener Listener to send responses
      */
-    public void stopAnomalyDetectorJob(String detectorId, ActionListener<AnomalyDetectorJobResponse> listener) {
+    public void stopAnomalyDetectorJob(String detectorId, ActionListener<JobResponse> listener) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
 
         client.get(getRequest, ActionListener.wrap(response -> {
@@ -368,10 +361,7 @@ public class IndexAnomalyDetectorJobActionHandler {
         }, exception -> listener.onFailure(exception)));
     }
 
-    private ActionListener<StopDetectorResponse> stopAdDetectorListener(
-        String detectorId,
-        ActionListener<AnomalyDetectorJobResponse> listener
-    ) {
+    private ActionListener<StopDetectorResponse> stopAdDetectorListener(String detectorId, ActionListener<JobResponse> listener) {
         return new ActionListener<StopDetectorResponse>() {
             @Override
             public void onResponse(StopDetectorResponse stopDetectorResponse) {

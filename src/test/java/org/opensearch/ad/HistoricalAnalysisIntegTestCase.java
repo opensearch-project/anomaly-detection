@@ -41,7 +41,6 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
-import org.opensearch.ad.transport.AnomalyDetectorJobResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -57,6 +56,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.transport.JobResponse;
 
 import com.google.common.collect.ImmutableList;
 
@@ -232,7 +232,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
             UNASSIGNED_PRIMARY_TERM,
             START_JOB
         );
-        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+        JobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         return getADTask(response.getId());
     }
 
@@ -246,7 +246,7 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
             UNASSIGNED_PRIMARY_TERM,
             START_JOB
         );
-        AnomalyDetectorJobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
+        JobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         return getADTask(response.getId());
     }
 }

@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_DETECTOR_INFO;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_INFO;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -60,7 +60,7 @@ public class SearchAnomalyDetectorInfoTransportAction extends
     ) {
         String name = request.getName();
         String rawPath = request.getRawPath();
-        ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR_INFO);
+        ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_INFO);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             SearchRequest searchRequest = new SearchRequest().indices(CommonName.CONFIG_INDEX);
             if (rawPath.endsWith(RestHandlerUtils.COUNT)) {

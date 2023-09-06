@@ -40,6 +40,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -53,7 +54,7 @@ public class ForwardADTaskTransportActionTests extends ADUnitTestCase {
     private NodeStateManager stateManager;
     private ForwardADTaskTransportAction forwardADTaskTransportAction;
     private Task task;
-    private ActionListener<AnomalyDetectorJobResponse> listener;
+    private ActionListener<JobResponse> listener;
 
     @SuppressWarnings("unchecked")
     @Override

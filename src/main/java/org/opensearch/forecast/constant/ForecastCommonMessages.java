@@ -35,6 +35,7 @@ public class ForecastCommonMessages {
     public static String FAIL_TO_FIND_FORECASTER_MSG = "Can not find forecaster with id: ";
     public static final String FORECASTER_ID_MISSING_MSG = "Forecaster ID is missing";
     public static final String INVALID_TIMESTAMP_ERR_MSG = "timestamp is invalid";
+    public static String FAIL_TO_GET_FORECASTER = "Fail to get forecaster";
 
     // ======================================
     // Security
@@ -45,10 +46,17 @@ public class ForecastCommonMessages {
     // ======================================
     // Used for custom forecast result index
     // ======================================
+    public static String CAN_NOT_FIND_RESULT_INDEX = "Can't find result index ";
     public static String INVALID_RESULT_INDEX_PREFIX = "Result index must start with " + CUSTOM_RESULT_INDEX_PREFIX;
 
     // ======================================
     // Task
     // ======================================
     public static String FORECASTER_IS_RUNNING = "Forecaster is already running";
+
+    // ======================================
+    // Job
+    // ======================================
+    public static String FAIL_TO_START_FORECASTER = "Fail to start forecaster";
+    public static String FAIL_TO_STOP_FORECASTER = "Fail to stop forecaster";
 }

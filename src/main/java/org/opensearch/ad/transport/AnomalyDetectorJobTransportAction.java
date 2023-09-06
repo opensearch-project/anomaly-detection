@@ -39,10 +39,11 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
-public class AnomalyDetectorJobTransportAction extends HandledTransportAction<AnomalyDetectorJobRequest, AnomalyDetectorJobResponse> {
+public class AnomalyDetectorJobTransportAction extends HandledTransportAction<AnomalyDetectorJobRequest, JobResponse> {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
 
     private final Client client;
@@ -81,7 +82,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     }
 
     @Override
-    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<AnomalyDetectorJobResponse> actionListener) {
+    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<JobResponse> actionListener) {
         String detectorId = request.getDetectorID();
         DateRange detectionDateRange = request.getDetectionDateRange();
         boolean historical = request.isHistorical();
@@ -90,7 +91,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         String rawPath = request.getRawPath();
         TimeValue requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? FAIL_TO_START_DETECTOR : FAIL_TO_STOP_DETECTOR;
-        ActionListener<AnomalyDetectorJobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+        ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
         // By the time request reaches here, the user permissions are validated by Security plugin.
         User user = getUserContext(client);
@@ -124,7 +125,7 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
     }
 
     private void executeDetector(
-        ActionListener<AnomalyDetectorJobResponse> listener,
+        ActionListener<JobResponse> listener,
         String detectorId,
         DateRange detectionDateRange,
         boolean historical,
