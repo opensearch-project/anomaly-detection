@@ -68,7 +68,7 @@ plugins {
     id "com.diffplug.spotless" version "6.18.0"
     id 'java-library'
     // Gradle 7.6 support was added in test-retry 1.4.0.
-    id 'org.gradle.test-retry' version '1.4.1'
+    id 'org.gradle.test-retry' version '1.5.4'
 }
 
 tasks.withType(JavaCompile) {
