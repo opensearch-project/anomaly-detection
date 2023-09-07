@@ -73,7 +73,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         char[] password = new char[15];
         for (int i = 0; i < 15; i++) {
             char nextChar = characters.charAt(rng.nextInt(characters.length()));
-            while (username.indexOf(nextChar) > 0) {
+            while (username.indexOf(nextChar) > -1) {
                 nextChar = characters.charAt(rng.nextInt(characters.length()));
             }
             password[i] = nextChar;
