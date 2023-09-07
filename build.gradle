@@ -9,6 +9,7 @@
  * GitHub history for details.
  */
 
+import java.nio.file.Paths
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
@@ -36,11 +37,7 @@ buildscript {
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
         bwcVersionShort = "2.10.0"
-        bwcVersion = bwcVersionShort + ".0"
-        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
-                'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'
-        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
-                'opensearch/plugins/opensearch-job-scheduler-' + bwcVersion + '.zip'
+        bwcVersion = bwcVersionShort + ".0-SNAPSHOT"
         baseName = "adBwcCluster"
         bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
         bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
@@ -65,10 +62,30 @@ buildscript {
 }
 
 plugins {
+    id "de.undercouch.download" version "5.3.0"
     id 'com.netflix.nebula.ospackage' version "11.0.0"
     id "com.diffplug.spotless" version "6.18.0"
     id 'java-library'
     id 'org.gradle.test-retry' version '1.5.4'
+}
+
+ext {
+    getPluginDownloadLink = { plugin, version ->
+        var repo = "https://aws.oss.sonatype.org/content/repositories/snapshots/org/opensearch/plugin/" +
+                   "opensearch-$plugin/$version/"
+        var metadataFile = Paths.get(projectDir.toString(), "build", "maven-metadata.xml").toAbsolutePath().toFile()
+        download.run {
+            src repo + "maven-metadata.xml"
+            dest metadataFile
+        }
+        def metadata = new XmlParser().parse(metadataFile)
+        def securitySnapshotVersion = metadata.versioning.snapshotVersions[0].snapshotVersion[0].value[0].text()
+
+        return repo + "opensearch-$plugin-${securitySnapshotVersion}.zip"
+    }
+
+    bwcOpenSearchADDownload = getPluginDownloadLink('anomaly-detection', bwcVersion)
+    bwcOpenSearchJSDownload = getPluginDownloadLink('job-scheduler', bwcVersion)
 }
 
 tasks.withType(JavaCompile) {
