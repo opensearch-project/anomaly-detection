@@ -23,7 +23,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      # anomaly-detection
+      # time-series-analytics
       - name: Checkout AD
         uses: actions/checkout@v2
 
@@ -31,8 +31,8 @@ jobs:
         run: |
           ./gradlew assemble
       # example of variables:
-      # plugin = opensearch-anomaly-detection-2.4.0.0-SNAPSHOT.zip
-      # version = 2.4.0, plugin_version = 2.4.0.0, qualifier = SNAPSHOT
+      # plugin = opensearch-time-series-analytics-2.10.0.0-SNAPSHOT.zip
+      # version = 2.10.0, plugin_version = 2.10.0.0, qualifier = SNAPSHOT
       - name: Pull and Run Docker
         run: |
           plugin=`basename $(ls build/distributions/*.zip)`
@@ -53,8 +53,8 @@ jobs:
           if docker pull opensearchstaging/opensearch:$docker_version
           then
             echo "FROM opensearchstaging/opensearch:$docker_version" >> Dockerfile
-            echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-anomaly-detection ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-anomaly-detection; fi" >> Dockerfile
-            echo "ADD anomaly-detection/build/distributions/$plugin /tmp/" >> Dockerfile
+            echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-time-series-analytics ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-time-series-analytics; fi" >> Dockerfile
+            echo "ADD time-series-analytics/build/distributions/$plugin /tmp/" >> Dockerfile
             echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/$plugin" >> Dockerfile
             docker build -t opensearch-ad:test .
             echo "imagePresent=true" >> $GITHUB_ENV
