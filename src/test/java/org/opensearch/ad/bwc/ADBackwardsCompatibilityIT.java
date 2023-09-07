@@ -167,6 +167,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                 case MIXED:
                     // TODO: We have no way to specify whether send request to old node or new node now.
                     // Add more test later when it's possible to specify request node.
+                    System.out.println("pluginNames: " + pluginNames);
                     Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
