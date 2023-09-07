@@ -54,7 +54,7 @@ jobs:
           then
             echo "FROM opensearchstaging/opensearch:$docker_version" >> Dockerfile
             echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-time-series-analytics ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-time-series-analytics; fi" >> Dockerfile
-            echo "ADD time-series-analytics/build/distributions/$plugin /tmp/" >> Dockerfile
+            echo "ADD anomaly-detection/build/distributions/$plugin /tmp/" >> Dockerfile
             echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/$plugin" >> Dockerfile
             docker build -t opensearch-ad:test .
             echo "imagePresent=true" >> $GITHUB_ENV
