@@ -53,6 +53,7 @@ jobs:
           if docker pull opensearchstaging/opensearch:$docker_version
           then
             echo "FROM opensearchstaging/opensearch:$docker_version" >> Dockerfile
+            echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-anomaly-detection ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-anomaly-detection; fi" >> Dockerfile
             echo "RUN if [ -d /usr/share/opensearch/plugins/opensearch-time-series-analytics ]; then /usr/share/opensearch/bin/opensearch-plugin remove opensearch-time-series-analytics; fi" >> Dockerfile
             echo "ADD anomaly-detection/build/distributions/$plugin /tmp/" >> Dockerfile
             echo "RUN /usr/share/opensearch/bin/opensearch-plugin install --batch file:/tmp/$plugin" >> Dockerfile
