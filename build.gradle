@@ -36,7 +36,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.10.0"
+        bwcVersionShort = "2.11.0"
         bwcVersion = bwcVersionShort + ".0-SNAPSHOT"
         baseName = "adBwcCluster"
         bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
