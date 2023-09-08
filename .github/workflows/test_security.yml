@@ -16,6 +16,8 @@ jobs:
 
     name: Security test workflow for Anomaly Detection
     runs-on: ubuntu-latest
+    env:
+      JENKINS_URL: build.ci.opensearch.org
 
     steps:
       - name: Setup Java ${{ matrix.java }}
