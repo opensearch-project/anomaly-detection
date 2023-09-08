@@ -12,6 +12,7 @@
 import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.opensearch.gradle.info.BuildParams
 
 buildscript {
     ext {
@@ -38,10 +39,8 @@ buildscript {
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-' + plugin_no_snapshot + '.zip'
         anomaly_detection_build_download = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + opensearch_no_snapshot +
                 '/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-' + plugin_no_snapshot + '.zip'
-        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
-                'opensearch-anomaly-detection-1.1.0.0.zip'
-        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/bundle-build/1.1.0/20210930/linux/x64/builds/opensearch/plugins/' +
-                'opensearch-job-scheduler-1.1.0.0.zip'
+        bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/1.3.2/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-anomaly-detection-1.3.2.0.zip'
+        bwcOpenSearchJSDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/1.3.2/latest/linux/x64/tar/builds/opensearch/plugins/opensearch-job-scheduler-1.3.2.0.zip'
 
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
@@ -222,10 +221,9 @@ def _numNodes = findProperty('numNodes') as Integer ?: 1
 
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
-boolean isCiServer = System.getenv().containsKey("CI")
 test {
     retry {
-        if (isCiServer) {
+        if (BuildParams.isCi()) {
             failOnPassedAfterRetry = false
             maxRetries = 6
             maxFailures = 10
@@ -250,7 +248,7 @@ tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
     retry {
-        if (isCiServer) {
+        if (BuildParams.isCi()) {
             failOnPassedAfterRetry = false
             maxRetries = 6
             maxFailures = 10
@@ -403,7 +401,7 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-String bwcMinVersion = "1.1.0.0"
+String bwcMinVersion = "1.3.2.0"
 String bwcBundleVersion = "1.3.2.0"
 Boolean bwcBundleTest = (project.findProperty('customDistributionDownloadType') != null &&
         project.properties['customDistributionDownloadType'] == "bundle");
@@ -446,7 +444,7 @@ String bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
                     node.setting("plugins.security.system_indices.enabled", "true")
                 }
             } else {
-                versions = ["1.1.0", opensearch_version]
+                versions = ["1.3.2", opensearch_version]
                 plugin(provider(new Callable<RegularFile>(){
                     @Override
                     RegularFile call() throws Exception {
@@ -570,10 +568,12 @@ task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTas
     dependsOn "${baseName}#mixedClusterTask"
     useCluster testClusters."${baseName}0"
     if (bwcBundleTest){
+        println 'Running in bwcBundleTest mode:' + BuildParams.isCi()
         doFirst {
             testClusters."${baseName}0".nextNodeToNextVersion()
         }
     } else {
+        println 'Running in CI mode:' + BuildParams.isCi()
         doFirst {
             testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
         }

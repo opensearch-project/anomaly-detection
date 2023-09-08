@@ -14,6 +14,8 @@ jobs:
         java: [ 11, 17 ]
     name: Build and Test Anomaly Detection Plugin on Windows
     runs-on: windows-latest
+    env:
+      JENKINS_URL: build.ci.opensearch.org
     steps:
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v1
@@ -45,6 +47,8 @@ jobs:
 
     name: Build and Test Anomaly detection Plugin
     runs-on: ${{ matrix.os }}
+    env:
+      JENKINS_URL: build.ci.opensearch.org
 
     steps:
       - name: Setup Java ${{ matrix.java }}
