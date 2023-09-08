@@ -52,6 +52,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.tasks.Task;
+import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
@@ -99,7 +100,8 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
             TransportService.NOOP_TRANSPORT_INTERCEPTOR,
             x -> null,
             null,
-            Collections.emptySet()
+            Collections.emptySet(),
+            NoopTracer.INSTANCE
         );
 
         client = mock(Client.class);

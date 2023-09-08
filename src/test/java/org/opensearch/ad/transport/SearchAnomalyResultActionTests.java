@@ -58,6 +58,7 @@ import org.opensearch.search.aggregations.InternalOrder;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregator;
 import org.opensearch.tasks.Task;
+import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.Transport;
@@ -101,7 +102,8 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
             TransportService.NOOP_TRANSPORT_INTERCEPTOR,
             x -> null,
             null,
-            Collections.emptySet()
+            Collections.emptySet(),
+            NoopTracer.INSTANCE
         );
 
         client = mock(Client.class);
