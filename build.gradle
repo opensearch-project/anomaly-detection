@@ -518,6 +518,10 @@ task integTestRemote(type: RestIntegTestTask) {
                     }
                 }
             }))
+            nodes.each { node ->
+                node.setting("network.bind_host", "127.0.0.1")
+                node.setting("network.publish_host", "127.0.0.1")
+            }
             setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
             setting 'http.content_type.required', 'true'
         }
