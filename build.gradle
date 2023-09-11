@@ -156,7 +156,7 @@ dependencies {
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.6'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
     // jupiter is required to run unit tests not inherited from OpenSearchTestCase (e.g., PreviousValueImputerTests)
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     testImplementation  'org.junit.jupiter:junit-jupiter-params:5.9.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
     testImplementation "org.opensearch:opensearch-core:${opensearch_version}"
