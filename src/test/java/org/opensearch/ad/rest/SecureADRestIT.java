@@ -65,14 +65,18 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
      * Create an unguessable password. Simple password are weak due to https://tinyurl.com/383em9zk
      * @return a random password.
      */
-    public static String generatePassword() {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    public static String generatePassword(String username) {
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 
         Random rng = new Random();
 
-        char[] password = new char[10];
-        for (int i = 0; i < 10; i++) {
-            password[i] = characters.charAt(rng.nextInt(characters.length()));
+        char[] password = new char[15];
+        for (int i = 0; i < 15; i++) {
+            char nextChar = characters.charAt(rng.nextInt(characters.length()));
+            while (username.indexOf(nextChar) > -1) {
+                nextChar = characters.charAt(rng.nextInt(characters.length()));
+            }
+            password[i] = nextChar;
         }
 
         return new String(password);
@@ -84,49 +88,49 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         createIndexRole(indexAllAccessRole, "*");
         createSearchRole(indexSearchAccessRole, "*");
-        String alicePassword = generatePassword();
+        String alicePassword = generatePassword(aliceUser);
         createUser(aliceUser, alicePassword, new ArrayList<>(Arrays.asList("odfe")));
         aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, alicePassword)
             .setSocketTimeout(60000)
             .build();
 
-        String bobPassword = generatePassword();
+        String bobPassword = generatePassword(bobUser);
         createUser(bobUser, bobPassword, new ArrayList<>(Arrays.asList("odfe")));
         bobClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), bobUser, bobPassword)
             .setSocketTimeout(60000)
             .build();
 
-        String catPassword = generatePassword();
+        String catPassword = generatePassword(catUser);
         createUser(catUser, catPassword, new ArrayList<>(Arrays.asList("aes")));
         catClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), catUser, catPassword)
             .setSocketTimeout(60000)
             .build();
 
-        String dogPassword = generatePassword();
+        String dogPassword = generatePassword(dogUser);
         createUser(dogUser, dogPassword, new ArrayList<>(Arrays.asList()));
         dogClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), dogUser, dogPassword)
             .setSocketTimeout(60000)
             .build();
 
-        String elkPassword = generatePassword();
+        String elkPassword = generatePassword(elkUser);
         createUser(elkUser, elkPassword, new ArrayList<>(Arrays.asList("odfe")));
         elkClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), elkUser, elkPassword)
             .setSocketTimeout(60000)
             .build();
 
-        String fishPassword = generatePassword();
+        String fishPassword = generatePassword(fishUser);
         createUser(fishUser, fishPassword, new ArrayList<>(Arrays.asList("odfe", "aes")));
         fishClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fishUser, fishPassword)
             .setSocketTimeout(60000)
             .build();
 
-        String goatPassword = generatePassword();
+        String goatPassword = generatePassword(goatUser);
         createUser(goatUser, goatPassword, new ArrayList<>(Arrays.asList("opensearch")));
         goatClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), goatUser, goatPassword)
             .setSocketTimeout(60000)
             .build();
 
-        String lionPassword = generatePassword();
+        String lionPassword = generatePassword(lionUser);
         createUser(lionUser, lionPassword, new ArrayList<>(Arrays.asList("opensearch")));
         lionClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), lionUser, lionPassword)
             .setSocketTimeout(60000)
@@ -202,7 +206,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { getConfig(aliceDetector.getId(), catClient); });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
+        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
     }
 
     private void confirmingClientIsAdmin() throws IOException {
@@ -336,7 +340,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Exception exception = expectThrows(IOException.class, () -> {
             startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
         });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
+        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
     }
 
     public void testStopApiFilterByEnabled() throws IOException {
@@ -346,7 +350,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { stopAnomalyDetector(aliceDetector.getId(), catClient, true); });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
+        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
     }
 
     public void testDeleteApiFilterByEnabled() throws IOException {
@@ -356,7 +360,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
+        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
     }
 
     public void testCreateAnomalyDetectorWithNoBackendRole() throws IOException {
@@ -438,7 +442,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access detector: " + aliceDetector.getId()));
+        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
     }
 
     public void testPreviewAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
