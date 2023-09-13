@@ -384,11 +384,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector resultDetector = getAnomalyDetector(detectorWithNewName.getDetectorId(), client());
         assertEquals("Detector name updating failed", detectorWithNewName.getName(), resultDetector.getName());
         assertEquals("Updated anomaly detector id doesn't match", detectorWithNewName.getDetectorId(), resultDetector.getDetectorId());
-        assertNotEquals(
-            "Anomaly detector last update time not changed",
-            detectorWithNewName.getLastUpdateTime(),
-            resultDetector.getLastUpdateTime()
-        );
+        assertNotEquals("Anomaly detector last update time not changed", detector.getLastUpdateTime(), resultDetector.getLastUpdateTime());
     }
 
     public void testUpdateAnomalyDetectorWithNotExistingIndex() throws Exception {

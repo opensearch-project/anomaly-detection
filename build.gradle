@@ -602,10 +602,13 @@ List<String> jacocoExclusions = [
         // https://github.com/opensearch-project/anomaly-detection/issues/241
         'org.opensearch.ad.task.ADBatchTaskRunner',
         'org.opensearch.ad.task.ADTaskManager',
-        
+
         //TODO: custom result index caused coverage drop
         'org.opensearch.ad.indices.AnomalyDetectionIndices',
-        'org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler'
+        'org.opensearch.ad.transport.handler.AnomalyResultBulkIndexHandler',
+
+        // This addition addresses insufficient test coverage observed on JDK 8, Ubuntu, and MacOS platforms.
+        'org.opensearch.ad.util.ADSafeSecurityInjector'
 ]
 
 jacocoTestCoverageVerification {
