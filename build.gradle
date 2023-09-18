@@ -152,8 +152,8 @@ dependencies {
     testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.3.1'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.6'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.6'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.8'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.8'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
     // jupiter is required to run unit tests not inherited from OpenSearchTestCase (e.g., PreviousValueImputerTests)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
@@ -218,8 +218,8 @@ configurations.all {
 
         force "org.mockito:mockito-core:5.3.1"
         force "org.objenesis:objenesis:3.0.1"
-        force "net.bytebuddy:byte-buddy:1.14.6"
-        force "net.bytebuddy:byte-buddy-agent:1.14.6"
+        force "net.bytebuddy:byte-buddy:1.14.8"
+        force "net.bytebuddy:byte-buddy-agent:1.14.8"
         force "com.google.code.gson:gson:2.8.9"
         force "junit:junit:4.13.2"
     }
