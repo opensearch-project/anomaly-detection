@@ -38,6 +38,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
@@ -55,7 +56,8 @@ public class ThresholdResultTests extends OpenSearchTestCase {
             TransportService.NOOP_TRANSPORT_INTERCEPTOR,
             x -> null,
             null,
-            Collections.emptySet()
+            Collections.emptySet(),
+            NoopTracer.INSTANCE
         );
 
         ModelManager manager = mock(ModelManager.class);
@@ -84,7 +86,8 @@ public class ThresholdResultTests extends OpenSearchTestCase {
             TransportService.NOOP_TRANSPORT_INTERCEPTOR,
             x -> null,
             null,
-            Collections.emptySet()
+            Collections.emptySet(),
+            NoopTracer.INSTANCE
         );
 
         ModelManager manager = mock(ModelManager.class);
