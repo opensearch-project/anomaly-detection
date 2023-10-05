@@ -59,6 +59,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.index.get.GetResult;
+import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -106,7 +107,8 @@ public class GetAnomalyDetectorTests extends AbstractADTest {
             TransportService.NOOP_TRANSPORT_INTERCEPTOR,
             x -> null,
             null,
-            Collections.emptySet()
+            Collections.emptySet(),
+            NoopTracer.INSTANCE
         );
 
         nodeFilter = mock(DiscoveryNodeFilterer.class);
