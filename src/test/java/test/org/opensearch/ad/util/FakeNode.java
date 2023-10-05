@@ -81,7 +81,8 @@ public class FakeNode implements Releasable {
                 new NetworkService(Collections.emptyList()),
                 PageCacheRecycler.NON_RECYCLING_INSTANCE,
                 new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
-                new NoneCircuitBreakerService()
+                new NoneCircuitBreakerService(),
+                NoopTracer.INSTANCE
             ) {
                 @Override
                 public TransportAddress[] addressesFromString(String address) {
