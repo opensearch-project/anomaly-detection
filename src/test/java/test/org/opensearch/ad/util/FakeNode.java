@@ -49,6 +49,7 @@ import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.indices.breaker.NoneCircuitBreakerService;
 import org.opensearch.tasks.TaskManager;
 import org.opensearch.tasks.TaskResourceTrackingService;
+import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.tasks.MockTaskManager;
 import org.opensearch.threadpool.ThreadPool;
@@ -80,7 +81,8 @@ public class FakeNode implements Releasable {
                 new NetworkService(Collections.emptyList()),
                 PageCacheRecycler.NON_RECYCLING_INSTANCE,
                 new NamedWriteableRegistry(ClusterModule.getNamedWriteables()),
-                new NoneCircuitBreakerService()
+                new NoneCircuitBreakerService(),
+                NoopTracer.INSTANCE
             ) {
                 @Override
                 public TransportAddress[] addressesFromString(String address) {
@@ -91,7 +93,8 @@ public class FakeNode implements Releasable {
             transportInterceptor,
             boundTransportAddressDiscoveryNodeFunction,
             null,
-            Collections.emptySet()
+            Collections.emptySet(),
+            NoopTracer.INSTANCE
         ) {
             @Override
             protected TaskManager createTaskManager(
