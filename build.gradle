@@ -741,7 +741,7 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    compileOnly group: 'com.google.guava', name: 'guava', version:'32.0.1-jre'
+    compileOnly group: 'com.google.guava', name: 'guava', version:'32.1.2-jre'
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
