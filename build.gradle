@@ -151,7 +151,7 @@ dependencies {
 
     testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.3.1'
-    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.6'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.6'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
@@ -217,7 +217,7 @@ configurations.all {
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
         force "org.mockito:mockito-core:5.3.1"
-        force "org.objenesis:objenesis:3.0.1"
+        force "org.objenesis:objenesis:3.3"
         force "net.bytebuddy:byte-buddy:1.14.6"
         force "net.bytebuddy:byte-buddy-agent:1.14.6"
         force "com.google.code.gson:gson:2.8.9"
