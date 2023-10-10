@@ -22,7 +22,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
       - name: Checkout Anomaly Detection
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Build and Run Tests
         run: |
@@ -57,7 +57,7 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Checkout AD
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Assemble anomaly-detection
         run: |
