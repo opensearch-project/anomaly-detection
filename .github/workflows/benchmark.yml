@@ -20,6 +20,7 @@ jobs:
     steps:
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v3
+        distribution: temurin
         with:
           java-version: ${{ matrix.java }}
 
