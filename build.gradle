@@ -68,7 +68,7 @@ plugins {
     id 'com.netflix.nebula.ospackage' version "11.5.0"
     id "com.diffplug.spotless" version "6.18.0"
     id 'java-library'
-    id 'org.gradle.test-retry' version '1.5.4'
+    id 'org.gradle.test-retry' version '1.5.6'
 }
 
 tasks.withType(JavaCompile) {
