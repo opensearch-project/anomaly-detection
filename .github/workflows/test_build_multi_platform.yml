@@ -9,34 +9,59 @@ on:
 
 jobs:
   Get-CI-Image-Tag:
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    with:
+      product: opensearch
+
+  Build-ad-linux:
+    needs: Get-CI-Image-Tag
+    strategy:
+      matrix:
+        java: [11, 17, 20]
+      fail-fast: false
+    name: Build and Test Anomaly detection Plugin
     runs-on: ubuntu-latest
-    outputs:
-      ci-image-version-linux: ${{ steps.step-ci-image-version-linux.outputs.ci-image-version-linux }}
+    container:
+      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
+      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
+      options: --user root
+
     steps:
-      - name: Install crane
-        uses: iarekylew00t/crane-installer@v1
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v3
         with:
-          crane-release: v0.15.2
-      - name: Checkout opensearch-build repository
-        uses: actions/checkout@v2
-        with:
-          repository: "opensearch-project/opensearch-build"
-          ref: "main"
-          path: "opensearch-build"
-      - name: Get ci image version from opensearch-build repository scripts
-        id: step-ci-image-version-linux
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Checkout AD
+        uses: actions/checkout@v4
+
+      - name: Assemble anomaly-detection
         run: |
-          crane version
-          CI_IMAGE_VERSION=`opensearch-build/docker/ci/get-ci-images.sh -p centos7 -u opensearch -t build | head -1`
-          echo $CI_IMAGE_VERSION
-          echo "ci-image-version-linux=$CI_IMAGE_VERSION" >> $GITHUB_OUTPUT
+          ./gradlew assemble
+      - name: Build and Run Tests
+        run: |
+          ./gradlew build
+      - name: Publish to Maven Local
+        run: |
+          ./gradlew publishToMavenLocal
+      - name: Multi Nodes Integration Testing
+        run: |
+          ./gradlew integTest -PnumNodes=3
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./build/reports/jacoco/test/jacocoTestReport.xml
+          flags: plugin
+
   Build-ad-windows:
     strategy:
       matrix:
         java: [11, 17, 20]
     name: Build and Test Anomaly Detection Plugin on Windows
     runs-on: windows-latest
-    needs: Get-CI-Image-Tag
     env:
       JENKINS_URL: build.ci.opensearch.org
     steps:
@@ -62,15 +87,14 @@ jobs:
         with:
           file: ./build/reports/jacoco/test/jacocoTestReport.xml
           flags: plugin
-  Build-ad:
+
+  Build-ad-macos:
     strategy:
       matrix:
         java: [11, 17, 20]
-        os: [ubuntu-latest, macos-latest]
       fail-fast: false
     name: Build and Test Anomaly detection Plugin
-    runs-on: ${{ matrix.os }}
-    needs: Get-CI-Image-Tag
+    runs-on: macos-latest
     env:
       JENKINS_URL: build.ci.opensearch.org
 
