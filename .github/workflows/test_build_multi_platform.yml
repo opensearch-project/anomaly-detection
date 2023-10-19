@@ -40,16 +40,20 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
-          ./gradlew assemble
+          chown -R 1000:1000 `pwd`
+          su `id -un 1000` -c "whoami && java -version && ./gradlew assemble
       - name: Build and Run Tests
         run: |
-          ./gradlew build
+          chown -R 1000:1000 `pwd`
+          su `id -un 1000` -c "whoami && java -version && ./gradlew build
       - name: Publish to Maven Local
         run: |
-          ./gradlew publishToMavenLocal
+          chown -R 1000:1000 `pwd`
+          su `id -un 1000` -c "whoami && java -version && ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
-          ./gradlew integTest -PnumNodes=3
+          chown -R 1000:1000 `pwd`
+          su `id -un 1000` -c "whoami && java -version && ./gradlew integTest -PnumNodes=3
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v3
         with:
@@ -75,16 +79,13 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "whoami && java -version && ./gradlew build
+          ./gradlew build
       - name: Publish to Maven Local
         run: |
-          chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "whoami && java -version && ./gradlew publishToMavenLocal
+          ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
-          chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "whoami && java -version && ./gradlew integTest -PnumNodes=3
+          ./gradlew integTest -PnumNodes=3
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v3
         with:
