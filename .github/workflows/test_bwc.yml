@@ -8,7 +8,13 @@ on:
       - "*"
 
 jobs:
-  Build-ad:
+  Get-CI-Image-Tag:
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    with:
+      product: opensearch
+
+  Build-ad-linux:
+    needs: Get-CI-Image-Tag
     strategy:
       matrix:
         java: [11,17]
@@ -16,30 +22,39 @@ jobs:
 
     name: Test Anomaly detection BWC
     runs-on: ubuntu-latest
+    container:
+      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
+      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
+      options: --user root
 
     steps:
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: ${{ matrix.java }}
 
       # anomaly-detection
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Assemble anomaly-detection
         run: |
           plugin_version=`./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}'`
+          chown -R 1000:1000 `pwd`
           echo plugin_version $plugin_version
-          ./gradlew assemble
+          su `id -un 1000` -c "./gradlew assemble"
           echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
-          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+          su `id -un 1000` -c "mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version"
           echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./build/distributions/
-          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+          su `id -un 1000` -c "cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version"
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
       - name: Run AD Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false
+          chown -R 1000:1000 `pwd`
+          su `id -un 1000` -c "./gradlew bwcTestSuite -Dtests.security.manager=false"
