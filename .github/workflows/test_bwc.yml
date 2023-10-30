@@ -14,6 +14,7 @@ jobs:
       product: opensearch
 
   Build-ad-linux:
+    needs: Get-CI-Image-Tag
     strategy:
       matrix:
         java: [11,17,20]
