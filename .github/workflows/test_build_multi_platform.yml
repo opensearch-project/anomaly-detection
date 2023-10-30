@@ -8,6 +8,11 @@ on:
       - "*"
 
 jobs:
+  Get-CI-Image-Tag:
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    with:
+      product: opensearch
+
   Build-ad-windows:
     strategy:
       matrix:
@@ -20,6 +25,7 @@ jobs:
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Checkout Anomaly Detection
         uses: actions/checkout@v4
@@ -38,15 +44,22 @@ jobs:
         with:
           file: ./build/reports/jacoco/test/jacocoTestReport.xml
           flags: plugin
-  Build-ad:
+
+  Build-ad-linux:
+    needs: Get-CI-Image-Tag
     strategy:
       matrix:
-        java: [11,17,20]
-        os: [ubuntu-latest, macos-latest]
+        java: [11, 17, 20]
       fail-fast: false
-
     name: Build and Test Anomaly detection Plugin
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    container:
+      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
+      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
+      options: --user root
+
     env:
       JENKINS_URL: build.ci.opensearch.org
 
@@ -54,6 +67,41 @@ jobs:
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+
+      - name: Checkout AD
+        uses: actions/checkout@v3
+
+      - name: Assemble / build / mavenlocal / integTest
+        run: |
+          chown -R 1000:1000 `pwd`
+          su `id -un 1000` -c "./gradlew assemble &&
+                               ./gradlew build &&
+                               ./gradlew publishToMavenLocal &&
+                               ./gradlew integTest -PnumNodes=3"
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./build/reports/jacoco/test/jacocoTestReport.xml
+          flags: plugin
+
+  Build-ad-macos:
+    strategy:
+      matrix:
+        java: [11,17,20]
+      fail-fast: false
+
+    name: Build and Test Anomaly detection Plugin
+    runs-on: macos-latest
+    env:
+      JENKINS_URL: build.ci.opensearch.org
+
+    steps:
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
           java-version: ${{ matrix.java }}
 
       - name: Checkout AD
