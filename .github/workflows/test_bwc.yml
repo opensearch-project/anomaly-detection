@@ -42,9 +42,8 @@ jobs:
 
       - name: Assemble anomaly-detection
         run: |
+          plugin_version=`./gradlew properties -q | grep "opensearch_build:" | awk '{print $2}'`
           chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "./gradlew properties -q | grep 'opensearch_build:' | awk '{print $2}'" > /tmp/plugin_version.txt
-          plugin_version=`cat /tmp/plugin_version.txt`
           echo plugin_version $plugin_version
           su `id -un 1000` -c "./gradlew assemble"
           echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
