@@ -47,10 +47,10 @@ jobs:
           echo plugin_version ($plugin_version)
           su `id -un 1000` -c "./gradlew assemble"
           echo "Creating ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
-          mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+          su `id -un 1000` -c "mkdir -p ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version"
           echo "Copying ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./build/distributions/
-          cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
+          su `id -un 1000` -c "cp ./build/distributions/*.zip ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version"
           echo "Copied ./build/distributions/*.zip to ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version ..."
           ls ./src/test/resources/org/opensearch/ad/bwc/anomaly-detection/$plugin_version
       - name: Run AD Backwards Compatibility Tests
