@@ -17,7 +17,7 @@ jobs:
     needs: Get-CI-Image-Tag
     strategy:
       matrix:
-        java: [17]
+        java: [11, 17, 21]
       fail-fast: false
 
     name: Run Anomaly detection model performance benchmark
