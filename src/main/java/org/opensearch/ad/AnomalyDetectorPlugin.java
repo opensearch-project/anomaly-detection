@@ -93,6 +93,7 @@ import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADBatchTaskRunner;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
+import org.opensearch.ad.tools.GetAllDetectorsTool;
 import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
 import org.opensearch.ad.transport.ADBatchAnomalyResultTransportAction;
 import org.opensearch.ad.transport.ADBatchTaskRemoteExecutionAction;
@@ -183,6 +184,8 @@ import org.opensearch.env.NodeEnvironment;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
+import org.opensearch.ml.common.spi.MLCommonsExtension;
+import org.opensearch.ml.common.spi.tools.Tool;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
@@ -213,7 +216,7 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of AD plugin.
  */
-public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
+public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension, MLCommonsExtension {
 
     private static final Logger LOG = LogManager.getLogger(AnomalyDetectorPlugin.class);
 
@@ -342,6 +345,9 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
             AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
         );
         this.clusterService = clusterService;
+
+        GetAllDetectorsTool.Factory getAllDetectorsToolFactory = GetAllDetectorsTool.Factory.getInstance();
+        getAllDetectorsToolFactory.init(client);
 
         SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
             new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
@@ -1040,5 +1046,11 @@ public class AnomalyDetectorPlugin extends Plugin implements ActionPlugin, Scrip
                 LOG.error("Failed to shut down object Pool", e);
             }
         }
+    }
+
+    @Override
+    public List<Tool.Factory<? extends Tool>> getToolFactories() {
+        Tool.Factory getAllDetectorsTool = GetAllDetectorsTool.Factory.getInstance();
+        return Arrays.asList(getAllDetectorsTool);
     }
 }
