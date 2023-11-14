@@ -37,11 +37,11 @@ import static org.opensearch.ad.model.AnomalyDetector.NAME_FIELD;
 /**
  * This tool will get all anomaly detectors in the cluster.
  */
-@ToolAnnotation(GetAllDetectorsTool.NAME)
+@ToolAnnotation(GetAllDetectorsTool.TYPE)
 public class GetAllDetectorsTool implements Tool {
 
-    public static final String NAME = "GetAllDetectorsTool";
-    private String alias;
+    public static final String TYPE = "GetAllDetectorsTool";
+    private String name;
     private static String DEFAULT_DESCRIPTION = "Use this tool to search anomaly detectors.";
     private String description = DEFAULT_DESCRIPTION;
     private Client client;
@@ -100,6 +100,16 @@ public class GetAllDetectorsTool implements Tool {
     }
 
     @Override
+    public String getType() {
+        return TYPE;
+    }
+
+    @Override
+    public String getVersion() {
+        return "1.0";
+    }
+
+    @Override
     public void setInputParser(Parser parser) {
         Tool.super.setInputParser(parser);
     }
@@ -109,19 +119,15 @@ public class GetAllDetectorsTool implements Tool {
         Tool.super.setOutputParser(parser);
     }
 
+
     @Override
     public String getName() {
-        return NAME;
+        return this.name;
     }
 
     @Override
-    public String getAlias() {
-        return this.alias;
-    }
-
-    @Override
-    public void setAlias(String alias) {
-        this.alias = alias;
+    public void setName(String name) {
+        this.name = name;
     }
 
     @Override
