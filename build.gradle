@@ -117,7 +117,7 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    compileOnly group: 'com.google.guava', name: 'guava', version:'32.1.2-jre'
+    compileOnly group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'
     compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     implementation group: 'org.javassist', name: 'javassist', version:'3.28.0-GA'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
@@ -131,8 +131,8 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-core:3.8.0'
 
     // we inherit jackson-core from opensearch core
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.1"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.1"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.16.0"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.16.0"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
@@ -157,8 +157,8 @@ dependencies {
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.2'
     // jupiter is required to run unit tests not inherited from OpenSearchTestCase (e.g., PreviousValueImputerTests)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
-    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.9.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.10.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
     testImplementation "org.opensearch:opensearch-core:${opensearch_version}"
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.0")
     testCompileOnly 'junit:junit:4.13.2'
@@ -222,6 +222,10 @@ configurations.all {
         force "net.bytebuddy:byte-buddy-agent:1.14.9"
         force "com.google.code.gson:gson:2.8.9"
         force "junit:junit:4.13.2"
+
+        force "com.google.guava:guava:32.1.3-jre" // CVE for 31.1
+        force "com.fasterxml.jackson.core:jackson-core:2.16.0" // CVE for 2.14.1
+        force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0        
     }
 }
 
