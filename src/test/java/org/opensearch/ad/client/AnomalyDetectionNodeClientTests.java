@@ -9,9 +9,9 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.AnomalyDetector.DETECTOR_TYPE_FIELD;
+import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -22,13 +22,14 @@ import org.junit.Test;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 
@@ -50,7 +51,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testSearchAnomalyDetectors_NoIndices() {
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(matchAllRequest()).actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
@@ -58,7 +59,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testSearchAnomalyDetectors_Empty() throws IOException {
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         createDetectorIndex();
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(matchAllRequest()).actionGet(10000);
