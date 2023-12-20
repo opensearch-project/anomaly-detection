@@ -5,17 +5,17 @@
 
 package org.opensearch.ad.client;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.AnomalyDetector.DETECTOR_TYPE_FIELD;
-import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
+import java.util.concurrent.ExecutionException;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -26,10 +26,14 @@ import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
+import org.opensearch.ad.model.DetectorProfileName;
+import org.opensearch.ad.transport.ProfileRequest;
+import org.opensearch.ad.transport.ProfileResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 
@@ -42,7 +46,8 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
     private String indexName = "test-data";
     private Instant startTime = Instant.now().minus(2, ChronoUnit.DAYS);
     private AnomalyDetectionNodeClient adClient;
-    private PlainActionFuture<SearchResponse> future;
+    private PlainActionFuture<SearchResponse> searchResponseFuture;
+    private PlainActionFuture<ProfileResponse> profileFuture;
 
     @Before
     public void setup() {
@@ -53,7 +58,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
     public void testSearchAnomalyDetectors_NoIndices() {
         deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
 
-        SearchResponse searchResponse = adClient.searchAnomalyDetectors(matchAllRequest()).actionGet(10000);
+        SearchResponse searchResponse = adClient.searchAnomalyDetectors(TestHelpers.matchAllRequest()).actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
 
@@ -62,7 +67,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         createDetectorIndex();
 
-        SearchResponse searchResponse = adClient.searchAnomalyDetectors(matchAllRequest()).actionGet(10000);
+        SearchResponse searchResponse = adClient.searchAnomalyDetectors(TestHelpers.matchAllRequest()).actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
 
@@ -94,18 +99,18 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testSearchAnomalyResults_NoIndices() {
-        future = mock(PlainActionFuture.class);
+        searchResponseFuture = mock(PlainActionFuture.class);
         SearchRequest request = new SearchRequest().indices(new String[] {});
 
-        adClient.searchAnomalyResults(request, future);
-        verify(future).onFailure(any(IllegalArgumentException.class));
+        adClient.searchAnomalyResults(request, searchResponseFuture);
+        verify(searchResponseFuture).onFailure(any(IllegalArgumentException.class));
     }
 
     @Test
     public void testSearchAnomalyResults_Empty() throws IOException {
         createADResultIndex();
         SearchResponse searchResponse = adClient
-            .searchAnomalyResults(matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
+            .searchAnomalyResults(TestHelpers.matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
     }
@@ -117,11 +122,24 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         String adResultId = createADResult(TestHelpers.randomAnomalyDetectResult());
 
         SearchResponse searchResponse = adClient
-            .searchAnomalyResults(matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
+            .searchAnomalyResults(TestHelpers.matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
 
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
         assertEquals(adResultId, searchResponse.getInternalResponse().hits().getAt(0).getId());
+    }
+
+    @Test
+    public void testGetDetectorProfile_NoIndices() throws ExecutionException, InterruptedException {
+        deleteIndexIfExists(CommonName.CONFIG_INDEX);
+        deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
+        deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
+
+        profileFuture = mock(PlainActionFuture.class);
+        ProfileRequest profileRequest = new ProfileRequest("test-id", new HashSet<DetectorProfileName>(), false);
+        ProfileResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
+
+        assertEquals(response.getActiveEntities(), 0);
     }
 
 }
