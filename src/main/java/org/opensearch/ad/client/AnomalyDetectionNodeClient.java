@@ -7,9 +7,9 @@ package org.opensearch.ad.client;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.transport.ProfileAction;
-import org.opensearch.ad.transport.ProfileRequest;
-import org.opensearch.ad.transport.ProfileResponse;
+import org.opensearch.ad.transport.ADTaskProfileAction;
+import org.opensearch.ad.transport.ADTaskProfileRequest;
+import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.client.Client;
@@ -37,12 +37,9 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     }
 
     @Override
-    public void getDetectorProfile(ProfileRequest profileRequest, ActionListener<ProfileResponse> listener) {
-        this.client
-            .execute(
-                ProfileAction.INSTANCE,
-                profileRequest,
-                ActionListener.wrap(profileResponse -> { listener.onResponse(profileResponse); }, listener::onFailure)
-            );
+    public void getDetectorProfile(ADTaskProfileRequest profileRequest, ActionListener<ADTaskProfileResponse> listener) {
+        this.client.execute(ADTaskProfileAction.INSTANCE, profileRequest, ActionListener.wrap(profileResponse -> {
+            listener.onResponse(profileResponse);
+        }, listener::onFailure));
     }
 }

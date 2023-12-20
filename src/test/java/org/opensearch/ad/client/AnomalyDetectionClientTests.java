@@ -7,16 +7,14 @@ package org.opensearch.ad.client;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.Collections;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.transport.ProfileRequest;
-import org.opensearch.ad.transport.ProfileResponse;
+import org.opensearch.ad.transport.ADTaskProfileRequest;
+import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.core.action.ActionListener;
 
 public class AnomalyDetectionClientTests {
@@ -30,7 +28,7 @@ public class AnomalyDetectionClientTests {
     SearchResponse searchResultsResponse;
 
     @Mock
-    ProfileResponse profileResponse;
+    ADTaskProfileResponse profileResponse;
 
     @Before
     public void setUp() {
@@ -49,7 +47,7 @@ public class AnomalyDetectionClientTests {
             }
 
             @Override
-            public void getDetectorProfile(ProfileRequest profileRequest, ActionListener<ProfileResponse> listener) {
+            public void getDetectorProfile(ADTaskProfileRequest profileRequest, ActionListener<ADTaskProfileResponse> listener) {
                 listener.onResponse(profileResponse);
             }
         };
@@ -67,10 +65,7 @@ public class AnomalyDetectionClientTests {
 
     @Test
     public void getDetectorProfile() {
-        assertEquals(
-            profileResponse,
-            anomalyDetectionClient.getDetectorProfile(new ProfileRequest("test-id", Collections.emptySet(), false)).actionGet()
-        );
+        assertEquals(profileResponse, anomalyDetectionClient.getDetectorProfile(new ADTaskProfileRequest("foo", null)).actionGet());
     }
 
 }
