@@ -36,7 +36,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.transport.ADTaskProfileAction;
 import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
-import org.opensearch.ad.transport.ADTaskProfileRequest;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
@@ -67,7 +66,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
     @Before
     public void setup() {
         clientSpy = spy(client());
-        adClient = new AnomalyDetectionNodeClient(clientSpy);
+        adClient = new AnomalyDetectionNodeClient(clientSpy, clusterService());
     }
 
     @Test
@@ -150,17 +149,15 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         deleteIndexIfExists(CommonName.CONFIG_INDEX);
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
-        DiscoveryNode localNode = clusterService().localNode();
 
         profileFuture = mock(PlainActionFuture.class);
-        ADTaskProfileRequest profileRequest = new ADTaskProfileRequest("foo", localNode);
-        ADTaskProfileResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
+        ADTaskProfileResponse response = adClient.getDetectorProfile("foo").actionGet(10000);
         List<ADTaskProfileNodeResponse> responses = response.getNodes();
 
-        verify(clientSpy, times(1)).execute(any(ADTaskProfileAction.class), any(), any());
-        // We should get node response back from the local node, but there should be no profiles found
-        assertEquals(1, responses.size());
+        assertNotEquals(0, responses.size());
         assertEquals(null, responses.get(0).getAdTaskProfile());
+        verify(clientSpy, times(1)).execute(any(ADTaskProfileAction.class), any(), any());
+
     }
 
     @Test
@@ -181,11 +178,11 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
             return null;
         }).when(clientSpy).execute(any(ADTaskProfileAction.class), any(), any());
 
-        ADTaskProfileRequest profileRequest = new ADTaskProfileRequest("foo", localNode);
-        ADTaskProfileResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
+        ADTaskProfileResponse response = adClient.getDetectorProfile("foo").actionGet(10000);
         String responseTaskId = response.getNodes().get(0).getAdTaskProfile().getTaskId();
 
         verify(clientSpy, times(1)).execute(any(ADTaskProfileAction.class), any(), any());
+        assertNotEquals(0, response.getNodes().size());
         assertEquals(responseTaskId, adTaskProfile.getTaskId());
     }
 
