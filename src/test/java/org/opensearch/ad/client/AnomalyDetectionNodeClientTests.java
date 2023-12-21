@@ -157,16 +157,14 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         ADTaskProfileResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
         List<ADTaskProfileNodeResponse> responses = response.getNodes();
 
-        // We should get node responses back from the local node, but there should be no profiles found
+        verify(clientSpy, times(1)).execute(any(ADTaskProfileAction.class), any(), any());
+        // We should get node response back from the local node, but there should be no profiles found
         assertEquals(1, responses.size());
         assertEquals(null, responses.get(0).getAdTaskProfile());
-
-        verify(clientSpy, times(1)).execute(any(ADTaskProfileAction.class), any(), any());
-
     }
 
     @Test
-    public void testGetDetectorProfile_Populated() throws IOException {
+    public void testGetDetectorProfile_Populated() {
 
         DiscoveryNode localNode = clusterService().localNode();
         ADTaskProfile adTaskProfile = new ADTaskProfile("foo-task-id", 0, 0L, false, 0, 0L, localNode.getId());
