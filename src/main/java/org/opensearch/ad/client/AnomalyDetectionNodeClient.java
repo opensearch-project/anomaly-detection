@@ -5,8 +5,6 @@
 
 package org.opensearch.ad.client;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -19,21 +17,19 @@ import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.client.Client;
-import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     private final Client client;
-    private final ClusterService clusterService;
-    private final HotDataNodePredicate eligibleNodeFilter;
+    private final DiscoveryNodeFilterer nodeFilterer;
 
     public AnomalyDetectionNodeClient(Client client, ClusterService clusterService) {
         this.client = client;
-        this.clusterService = clusterService;
-        this.eligibleNodeFilter = new HotDataNodePredicate();
+        this.nodeFilterer = new DiscoveryNodeFilterer(clusterService);
     }
 
     @Override
@@ -52,21 +48,8 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
 
     @Override
     public void getDetectorProfile(String detectorId, ActionListener<ADTaskProfileResponse> listener) {
-
-        // TODO: clean up
-        // Logic to determine eligible nodes comes from org.opensearch.timeseries.util.DiscoveryNodeFilterer
-        // There is no clean way to consume that within this client's constructor since it will be instantiated
-        // outside of this plugin typically. So we re-use that logic here
-        ClusterState state = this.clusterService.state();
-        final List<DiscoveryNode> eligibleNodes = new ArrayList<>();
-        for (DiscoveryNode node : state.nodes()) {
-            if (this.eligibleNodeFilter.test(node)) {
-                eligibleNodes.add(node);
-            }
-        }
-        final DiscoveryNode[] eligibleNodesAsArray = eligibleNodes.toArray(new DiscoveryNode[0]);
-
-        ADTaskProfileRequest profileRequest = new ADTaskProfileRequest(detectorId, eligibleNodesAsArray);
+        final DiscoveryNode[] eligibleNodes = this.nodeFilterer.getEligibleDataNodes();
+        ADTaskProfileRequest profileRequest = new ADTaskProfileRequest(detectorId, eligibleNodes);
         this.client.execute(ADTaskProfileAction.INSTANCE, profileRequest, getADTaskProfileResponseActionListener(listener));
     }
 

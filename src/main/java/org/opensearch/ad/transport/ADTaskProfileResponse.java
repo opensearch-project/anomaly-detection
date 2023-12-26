@@ -57,7 +57,7 @@ public class ADTaskProfileResponse extends BaseNodesResponse<ADTaskProfileNodeRe
                 return new ADTaskProfileResponse(input);
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("failed to parse ActionResponse into MLModelGetResponse", e);
+            throw new UncheckedIOException("failed to parse ActionResponse into ADTaskProfileResponse", e);
         }
     }
 }
