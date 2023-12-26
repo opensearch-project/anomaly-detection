@@ -39,6 +39,7 @@ import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -161,13 +162,14 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testGetDetectorProfile_Populated() {
+        DiscoveryNode localNode = clusterService().localNode();
         ADTaskProfile adTaskProfile = new ADTaskProfile("foo-task-id", 0, 0L, false, 0, 0L, localNode.getId());
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
 
             ActionListener<ADTaskProfileResponse> listener = (ActionListener<ADTaskProfileResponse>) args[2];
-            ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(clusterService().localNode(), adTaskProfile, null);
+            ADTaskProfileNodeResponse nodeResponse = new ADTaskProfileNodeResponse(localNode, adTaskProfile, null);
 
             List<ADTaskProfileNodeResponse> nodeResponses = Arrays.asList(nodeResponse);
             listener.onResponse(new ADTaskProfileResponse(new ClusterName("test-cluster"), nodeResponses, Collections.emptyList()));
