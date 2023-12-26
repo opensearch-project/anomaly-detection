@@ -6,11 +6,9 @@
 package org.opensearch.ad.client;
 
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.transport.ADTaskProfileAction;
 import org.opensearch.ad.transport.ADTaskProfileRequest;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
