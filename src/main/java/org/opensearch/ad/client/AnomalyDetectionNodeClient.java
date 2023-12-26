@@ -75,15 +75,4 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
         }, e -> { listener.onFailure(e); });
         return actionListener;
     }
-
-    static class HotDataNodePredicate implements Predicate<DiscoveryNode> {
-        @Override
-        public boolean test(DiscoveryNode discoveryNode) {
-            return discoveryNode.isDataNode()
-                && discoveryNode
-                    .getAttributes()
-                    .getOrDefault(ADCommonName.BOX_TYPE_KEY, ADCommonName.HOT_BOX_TYPE)
-                    .equals(ADCommonName.HOT_BOX_TYPE);
-        }
-    }
 }
