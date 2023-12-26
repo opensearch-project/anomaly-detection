@@ -23,6 +23,7 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 
 import com.google.common.collect.ImmutableList;
 
@@ -68,5 +69,27 @@ public class ADTaskProfileResponseTests extends ADUnitTestCase {
         ADTaskProfileResponse reserializedResponse = ADTaskProfileResponse.fromActionResponse((ActionResponse) response);
         assertEquals(1, reserializedResponse.getNodes().size());
         assertEquals(taskId, reserializedResponse.getNodes().get(0).getAdTaskProfile().getTaskId());
+
+        BytesStreamOutput output = new BytesStreamOutput();
+        response.writeNodesTo(output, nodeResponses);
+        StreamInput input = output.bytes().streamInput();
+
+        ActionResponse invalidActionResponse = new TestActionResponse(input);
+        assertThrows(Exception.class, () -> ADTaskProfileResponse.fromActionResponse(invalidActionResponse));
+
     }
+
+    // A test ActionResponse class with an inactive writeTo class. Used to ensure exceptions
+    // are thrown when parsing implementations of such class.
+    private class TestActionResponse extends ActionResponse {
+        public TestActionResponse(StreamInput in) throws IOException {
+            super(in);
+        }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            return;
+        }
+    }
+
 }
