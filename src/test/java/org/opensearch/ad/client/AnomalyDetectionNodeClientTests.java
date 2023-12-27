@@ -21,8 +21,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.OpenSearchStatusException;
@@ -57,8 +55,6 @@ import com.google.common.collect.ImmutableList;
 // The exhaustive set of transport action scenarios are within the respective transport action
 // test suites themselves. We do not want to unnecessarily duplicate all of those tests here.
 public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTestCase {
-    private final Logger logger = LogManager.getLogger(this.getClass());
-
     private String indexName = "test-data";
     private Instant startTime = Instant.now().minus(2, ChronoUnit.DAYS);
     private Client clientSpy;
