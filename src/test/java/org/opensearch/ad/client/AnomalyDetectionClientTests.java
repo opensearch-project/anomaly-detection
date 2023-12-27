@@ -13,7 +13,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.transport.ADTaskProfileResponse;
+import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.core.action.ActionListener;
 
 public class AnomalyDetectionClientTests {
@@ -27,7 +27,7 @@ public class AnomalyDetectionClientTests {
     SearchResponse searchResultsResponse;
 
     @Mock
-    ADTaskProfileResponse profileResponse;
+    GetAnomalyDetectorResponse profileResponse;
 
     @Before
     public void setUp() {
@@ -46,7 +46,7 @@ public class AnomalyDetectionClientTests {
             }
 
             @Override
-            public void getDetectorProfile(String detectorId, ActionListener<ADTaskProfileResponse> listener) {
+            public void getDetectorProfile(String detectorId, ActionListener<GetAnomalyDetectorResponse> listener) {
                 listener.onResponse(profileResponse);
             }
         };
