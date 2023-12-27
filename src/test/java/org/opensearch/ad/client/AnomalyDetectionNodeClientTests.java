@@ -31,7 +31,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.constant.CommonName;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
@@ -147,7 +147,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
     public void testGetDetectorProfile_NoIndices() throws ExecutionException, InterruptedException {
         deleteIndexIfExists(CommonName.CONFIG_INDEX);
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
-        deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
+        deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
 
         profileFuture = mock(PlainActionFuture.class);
         ADTaskProfileResponse response = adClient.getDetectorProfile("foo").actionGet(10000);
