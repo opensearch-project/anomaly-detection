@@ -14,12 +14,12 @@ import org.opensearch.ad.transport.ADTaskProfileRequest;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
+import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
-import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     private final Client client;
