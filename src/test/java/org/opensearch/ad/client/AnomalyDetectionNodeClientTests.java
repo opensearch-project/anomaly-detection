@@ -37,8 +37,10 @@ import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorState;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
+import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
+import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -150,9 +152,20 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
 
+        GetAnomalyDetectorRequest profileRequest = new GetAnomalyDetectorRequest(
+            "foo",
+            Versions.MATCH_ANY,
+            true,
+            false,
+            "",
+            "",
+            false,
+            null
+        );
+
         OpenSearchStatusException exception = expectThrows(
             OpenSearchStatusException.class,
-            () -> adClient.getDetectorProfile("foo").actionGet(10000)
+            () -> adClient.getDetectorProfile(profileRequest).actionGet(10000)
         );
 
         assertTrue(exception.getMessage().contains(FAIL_TO_FIND_CONFIG_MSG));
@@ -204,7 +217,18 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
             return null;
         }).when(clientSpy).execute(any(GetAnomalyDetectorAction.class), any(), any());
 
-        GetAnomalyDetectorResponse response = adClient.getDetectorProfile(detectorId).actionGet(10000);
+        GetAnomalyDetectorRequest profileRequest = new GetAnomalyDetectorRequest(
+            detectorId,
+            Versions.MATCH_ANY,
+            true,
+            false,
+            "",
+            "",
+            false,
+            null
+        );
+
+        GetAnomalyDetectorResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
 
         assertNotEquals(null, response.getDetector());
         assertNotEquals(null, response.getDetectorProfile());

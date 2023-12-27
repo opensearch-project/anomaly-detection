@@ -15,7 +15,6 @@ import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.client.Client;
-import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 
@@ -41,9 +40,8 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     }
 
     @Override
-    public void getDetectorProfile(String detectorId, ActionListener<GetAnomalyDetectorResponse> listener) {
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest(detectorId, Versions.MATCH_ANY, true, false, "", "", false, null);
-        this.client.execute(GetAnomalyDetectorAction.INSTANCE, request, getAnomalyDetectorResponseActionListener(listener));
+    public void getDetectorProfile(GetAnomalyDetectorRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener) {
+        this.client.execute(GetAnomalyDetectorAction.INSTANCE, profileRequest, getAnomalyDetectorResponseActionListener(listener));
     }
 
     // We need to wrap AD-specific response type listeners around an internal listener, and re-generate the response from a generic

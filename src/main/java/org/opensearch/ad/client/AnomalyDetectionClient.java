@@ -8,6 +8,7 @@ package org.opensearch.ad.client;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.core.action.ActionListener;
@@ -54,20 +55,20 @@ public interface AnomalyDetectionClient {
 
     /**
      * Get detector profile - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#profile-detector
-     * @param detectorId the detector ID to fetch the profile for
+     * @param profileRequest request to fetch the detector profile
      * @return ActionFuture of GetAnomalyDetectorResponse
      */
-    default ActionFuture<GetAnomalyDetectorResponse> getDetectorProfile(String detectorId) {
+    default ActionFuture<GetAnomalyDetectorResponse> getDetectorProfile(GetAnomalyDetectorRequest profileRequest) {
         PlainActionFuture<GetAnomalyDetectorResponse> actionFuture = PlainActionFuture.newFuture();
-        getDetectorProfile(detectorId, actionFuture);
+        getDetectorProfile(profileRequest, actionFuture);
         return actionFuture;
     }
 
     /**
      * Get detector profile - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#profile-detector
-     * @param detectorId the detector ID to fetch the profile for
+     * @param profileRequest request to fetch the detector profile
      * @param listener a listener to be notified of the result
      */
-    void getDetectorProfile(String detectorId, ActionListener<GetAnomalyDetectorResponse> listener);
+    void getDetectorProfile(GetAnomalyDetectorRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener);
 
 }

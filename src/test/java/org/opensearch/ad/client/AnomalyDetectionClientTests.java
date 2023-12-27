@@ -13,7 +13,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 
 public class AnomalyDetectionClientTests {
@@ -46,7 +48,7 @@ public class AnomalyDetectionClientTests {
             }
 
             @Override
-            public void getDetectorProfile(String detectorId, ActionListener<GetAnomalyDetectorResponse> listener) {
+            public void getDetectorProfile(GetAnomalyDetectorRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener) {
                 listener.onResponse(profileResponse);
             }
         };
@@ -64,7 +66,17 @@ public class AnomalyDetectionClientTests {
 
     @Test
     public void getDetectorProfile() {
-        assertEquals(profileResponse, anomalyDetectionClient.getDetectorProfile("foo").actionGet());
+        GetAnomalyDetectorRequest profileRequest = new GetAnomalyDetectorRequest(
+            "foo",
+            Versions.MATCH_ANY,
+            true,
+            false,
+            "",
+            "",
+            false,
+            null
+        );
+        assertEquals(profileResponse, anomalyDetectionClient.getDetectorProfile(profileRequest).actionGet());
     }
 
 }
