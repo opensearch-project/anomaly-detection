@@ -145,7 +145,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testGetDetectorProfile_NoIndices() throws ExecutionException, InterruptedException {
-        deleteIndexIfExists(CommonName.CONFIG_INDEX);
+        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
 
