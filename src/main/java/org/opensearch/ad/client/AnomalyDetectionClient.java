@@ -8,6 +8,8 @@ package org.opensearch.ad.client;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
+import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.core.action.ActionListener;
 
@@ -40,7 +42,7 @@ public interface AnomalyDetectionClient {
      */
     default ActionFuture<SearchResponse> searchAnomalyResults(SearchRequest searchRequest) {
         PlainActionFuture<SearchResponse> actionFuture = PlainActionFuture.newFuture();
-        searchAnomalyDetectors(searchRequest, actionFuture);
+        searchAnomalyResults(searchRequest, actionFuture);
         return actionFuture;
     }
 
@@ -50,5 +52,23 @@ public interface AnomalyDetectionClient {
      * @param listener a listener to be notified of the result
      */
     void searchAnomalyResults(SearchRequest searchRequest, ActionListener<SearchResponse> listener);
+
+    /**
+     * Get detector profile - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#profile-detector
+     * @param profileRequest request to fetch the detector profile
+     * @return ActionFuture of GetAnomalyDetectorResponse
+     */
+    default ActionFuture<GetAnomalyDetectorResponse> getDetectorProfile(GetAnomalyDetectorRequest profileRequest) {
+        PlainActionFuture<GetAnomalyDetectorResponse> actionFuture = PlainActionFuture.newFuture();
+        getDetectorProfile(profileRequest, actionFuture);
+        return actionFuture;
+    }
+
+    /**
+     * Get detector profile - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#profile-detector
+     * @param profileRequest request to fetch the detector profile
+     * @param listener a listener to be notified of the result
+     */
+    void getDetectorProfile(GetAnomalyDetectorRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener);
 
 }
