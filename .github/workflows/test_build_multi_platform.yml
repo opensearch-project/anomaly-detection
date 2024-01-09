@@ -13,7 +13,21 @@ jobs:
     with:
       product: opensearch
 
+  spotless:
+    if: github.repository == 'opensearch-project/anomaly-detection'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Spotless requires JDK 17+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+      - name: Spotless Check
+        run: ./gradlew spotlessCheck
+
   Build-ad-windows:
+    needs: spotless
     strategy:
       matrix:
         java: [ 11, 17, 20 ]
@@ -46,7 +60,7 @@ jobs:
           flags: plugin
 
   Build-ad-linux:
-    needs: Get-CI-Image-Tag
+    needs: [Get-CI-Image-Tag, spotless]
     strategy:
       matrix:
         java: [11, 17, 20]
@@ -87,6 +101,7 @@ jobs:
           flags: plugin
 
   Build-ad-macos:
+    needs: spotless
     strategy:
       matrix:
         java: [11,17,20]
