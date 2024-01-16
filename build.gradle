@@ -61,11 +61,10 @@ buildscript {
 }
 
 plugins {
-    id 'nebula.ospackage' version "8.3.0" apply false
-    id "com.diffplug.gradle.spotless" version "3.26.1"
+    id 'com.netflix.nebula.ospackage' version "11.6.0"
+    id "com.diffplug.spotless" version "6.24.0"
     id 'java-library'
-    // Gradle 7.6 support was added in test-retry 1.4.0.
-    id 'org.gradle.test-retry' version '1.4.1'
+    id 'org.gradle.test-retry' version '1.5.7'
 }
 
 tasks.withType(JavaCompile) {
@@ -119,9 +118,14 @@ allprojects {
 
     version = "${opensearch_build}"
 
-    plugins.withId('java') {
-        sourceCompatibility = targetCompatibility = JavaVersion.VERSION_11
+    plugins.withId('jacoco') {
+        jacoco.toolVersion = '0.8.11'
     }
+}
+
+java {
+  targetCompatibility = JavaVersion.VERSION_11
+  sourceCompatibility = JavaVersion.VERSION_11
 }
 
 ext {
@@ -146,10 +150,10 @@ configurations.all {
         force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
-        force "org.mockito:mockito-core:2.25.0"
-        force "org.objenesis:objenesis:3.0.1"
-        force "net.bytebuddy:byte-buddy:1.9.15"
-        force "net.bytebuddy:byte-buddy-agent:1.9.15"
+        force "org.mockito:mockito-core:5.9.0"
+        force "org.objenesis:objenesis:3.3"
+        force "net.bytebuddy:byte-buddy:1.14.9"
+        force "net.bytebuddy:byte-buddy-agent:1.14.9"
         force "com.google.code.gson:gson:2.8.9"
         force "junit:junit:4.13.2"
     }
@@ -727,8 +731,8 @@ jacocoTestCoverageVerification {
 
 jacocoTestReport {
     reports {
-        xml.enabled = true
-        html.enabled = true
+        xml.required = true
+        html.required = true
     }
 }
 
@@ -773,31 +777,21 @@ dependencies {
     }
 
     testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '2.25.0'
-    testImplementation group: 'org.powermock', name: 'powermock-api-mockito2', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-module-junit4', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-module-junit4-common', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-core', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-api-support', version: '2.0.2'
-    testImplementation group: 'org.powermock', name: 'powermock-reflect', version: '2.0.2'
-    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.0.1'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.9.15'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.9.15'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.9.0'
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.9'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.9'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.7.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
-    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testImplementation  'org.junit.jupiter:junit-jupiter-params:5.8.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.8.2'
     testCompileOnly 'junit:junit:4.13.2'
 }
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
 
-test {
-    useJUnitPlatform()
-}
-
-apply plugin: 'nebula.ospackage'
+apply plugin: 'com.netflix.nebula.ospackage'
 
 // This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
 afterEvaluate {
@@ -838,9 +832,8 @@ afterEvaluate {
         task renameRpm(type: Copy) {
             from("$buildDir/distributions")
             into("$buildDir/distributions")
-            include archiveName
-            rename archiveName, "${packageName}-${version}.rpm"
-            doLast { delete file("$buildDir/distributions/$archiveName") }
+            rename "$archiveFileName", "${packageName}-${archiveVersion}.rpm"
+            doLast { delete file("$buildDir/distributions/$archiveFileName") }
         }
     }
 
@@ -851,9 +844,8 @@ afterEvaluate {
         task renameDeb(type: Copy) {
             from("$buildDir/distributions")
             into("$buildDir/distributions")
-            include archiveName
-            rename archiveName, "${packageName}-${version}.deb"
-            doLast { delete file("$buildDir/distributions/$archiveName") }
+            rename "$archiveFileName", "${packageName}-${archiveVersion}.deb"
+            doLast { delete file("$buildDir/distributions/$archiveFileName") }
         }
     }
 
@@ -897,5 +889,14 @@ task updateVersion {
         // String tokenization to support -SNAPSHOT
         // Include the required files that needs to be updated with new Version
         ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
+    }
+}
+
+tasks.withType(AbstractPublishToMaven) {
+   def predicate = provider {
+        publication.name == "pluginZip"
+    }
+    onlyIf("Publishing only ZIP distributions") {
+        predicate.get()
     }
 }

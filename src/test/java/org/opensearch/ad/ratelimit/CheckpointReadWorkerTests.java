@@ -77,10 +77,10 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
 
+import com.fasterxml.jackson.core.JsonParseException;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.fasterxml.jackson.core.JsonParseException;
 
 public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     CheckpointReadWorker worker;

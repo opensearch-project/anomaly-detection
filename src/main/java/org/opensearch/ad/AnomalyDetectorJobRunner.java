@@ -304,38 +304,11 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
                 detectionStartTime.toEpochMilli(),
                 executionStartTime.toEpochMilli()
             );
-            client
-                .execute(
-                    AnomalyResultAction.INSTANCE,
-                    request,
-                    ActionListener
-                        .wrap(
-                            response -> {
-                                indexAnomalyResult(
-                                    jobParameter,
-                                    lockService,
-                                    lock,
-                                    detectionStartTime,
-                                    executionStartTime,
-                                    response,
-                                    recorder,
-                                    detector
-                                );
-                            },
-                            exception -> {
-                                handleAdException(
-                                    jobParameter,
-                                    lockService,
-                                    lock,
-                                    detectionStartTime,
-                                    executionStartTime,
-                                    exception,
-                                    recorder,
-                                    detector
-                                );
-                            }
-                        )
-                );
+            client.execute(AnomalyResultAction.INSTANCE, request, ActionListener.wrap(response -> {
+                indexAnomalyResult(jobParameter, lockService, lock, detectionStartTime, executionStartTime, response, recorder, detector);
+            }, exception -> {
+                handleAdException(jobParameter, lockService, lock, detectionStartTime, executionStartTime, exception, recorder, detector);
+            }));
         } catch (Exception e) {
             indexAnomalyResultException(
                 jobParameter,
@@ -669,11 +642,9 @@ public class AnomalyDetectorJobRunner implements ScheduledJobRunner {
         lockService
             .release(
                 lock,
-                ActionListener
-                    .wrap(
-                        released -> { log.info("Released lock for AD job {}", jobParameter.getName()); },
-                        exception -> { log.error("Failed to release lock for AD job: " + jobParameter.getName(), exception); }
-                    )
+                ActionListener.wrap(released -> { log.info("Released lock for AD job {}", jobParameter.getName()); }, exception -> {
+                    log.error("Failed to release lock for AD job: " + jobParameter.getName(), exception);
+                })
             );
     }
 }

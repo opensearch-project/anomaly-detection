@@ -35,9 +35,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.junit.Test;
@@ -59,7 +56,6 @@ import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -82,13 +78,9 @@ import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
-import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
-import com.google.gson.Gson;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 /**
  * Due to https://tinyurl.com/2y265s2w, tests with and without @Parameters annotation
@@ -96,10 +88,7 @@ import com.google.gson.Gson;
  * while SearchFeatureDaoTests do not use @Parameters.
  *
  */
-@PowerMockIgnore("javax.management.*")
-@RunWith(PowerMockRunner.class)
-@PowerMockRunnerDelegate(JUnitParamsRunner.class)
-@PrepareForTest({ ParseUtils.class, Gson.class })
+@RunWith(JUnitParamsRunner.class)
 public class SearchFeatureDaoParamTests {
 
     private SearchFeatureDao searchFeatureDao;
@@ -156,7 +145,6 @@ public class SearchFeatureDaoParamTests {
     @Before
     public void setup() throws Exception {
         MockitoAnnotations.initMocks(this);
-        PowerMockito.mockStatic(ParseUtils.class);
 
         interpolator = new LinearUniformInterpolator(new SingleFeatureLinearUniformInterpolator());
 
@@ -233,14 +221,13 @@ public class SearchFeatureDaoParamTests {
 
         long start = 100L;
         long end = 200L;
-        when(ParseUtils.generateInternalFeatureQuery(eq(detector), eq(start), eq(end), eq(xContent))).thenReturn(searchSourceBuilder);
         when(searchResponse.getAggregations()).thenReturn(new Aggregations(aggs));
         when(detector.getEnabledFeatureIds()).thenReturn(featureIds);
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(eq(searchRequest), any(ActionListener.class));
+        }).when(client).search(any(SearchRequest.class), any(ActionListener.class));
 
         ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
         searchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);

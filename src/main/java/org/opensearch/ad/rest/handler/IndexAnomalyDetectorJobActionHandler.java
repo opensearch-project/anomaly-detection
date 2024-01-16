@@ -255,21 +255,12 @@ public class IndexAnomalyDetectorJobActionHandler {
                     );
                     // Get latest realtime task and check its state before index job. Will reset running realtime task
                     // as STOPPED first if job disabled, then start new job and create new realtime task.
-                    adTaskManager
-                        .startDetector(
-                            detector,
-                            null,
-                            job.getUser(),
-                            transportService,
-                            ActionListener
-                                .wrap(
-                                    r -> { indexAnomalyDetectorJob(newJob, null, listener); },
-                                    e -> {
-                                        // Have logged error message in ADTaskManager#startDetector
-                                        listener.onFailure(e);
-                                    }
-                                )
-                        );
+                    adTaskManager.startDetector(detector, null, job.getUser(), transportService, ActionListener.wrap(r -> {
+                        indexAnomalyDetectorJob(newJob, null, listener);
+                    }, e -> {
+                        // Have logged error message in ADTaskManager#startDetector
+                        listener.onFailure(e);
+                    }));
                 }
             } catch (IOException e) {
                 String message = "Failed to parse anomaly detector job " + job.getName();
@@ -277,14 +268,9 @@ public class IndexAnomalyDetectorJobActionHandler {
                 listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
         } else {
-            adTaskManager
-                .startDetector(
-                    detector,
-                    null,
-                    job.getUser(),
-                    transportService,
-                    ActionListener.wrap(r -> { indexAnomalyDetectorJob(job, null, listener); }, e -> listener.onFailure(e))
-                );
+            adTaskManager.startDetector(detector, null, job.getUser(), transportService, ActionListener.wrap(r -> {
+                indexAnomalyDetectorJob(job, null, listener);
+            }, e -> listener.onFailure(e)));
         }
     }
 

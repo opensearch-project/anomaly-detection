@@ -19,8 +19,8 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Matchers.argThat;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -46,9 +46,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,6 +63,9 @@ import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.util.ArrayEqMatcher;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @RunWith(JUnitParamsRunner.class)
 @SuppressWarnings("unchecked")

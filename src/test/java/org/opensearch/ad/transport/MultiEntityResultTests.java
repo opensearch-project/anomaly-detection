@@ -15,8 +15,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -134,10 +134,10 @@ import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
+import com.google.common.collect.ImmutableList;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.google.common.collect.ImmutableList;
 
 public class MultiEntityResultTests extends AbstractADTest {
     private AnomalyResultTransportAction action;
@@ -584,8 +584,9 @@ public class MultiEntityResultTests extends AbstractADTest {
         when(emptyComposite.getName()).thenReturn(CompositeRetriever.AGG_NAME_COMP);
         when(emptyComposite.afterKey()).thenReturn(null);
         // empty bucket
-        when(emptyComposite.getBuckets())
-            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return new ArrayList<CompositeAggregation.Bucket>(); });
+        when(emptyComposite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> {
+            return new ArrayList<CompositeAggregation.Bucket>();
+        });
         Aggregations emptyAggs = new Aggregations(Collections.singletonList(emptyComposite));
         SearchResponseSections emptySections = new SearchResponseSections(SearchHits.empty(), emptyAggs, null, false, null, null, 1);
         return new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
@@ -1015,8 +1016,9 @@ public class MultiEntityResultTests extends AbstractADTest {
         when(emptyComposite.getName()).thenReturn(null);
         when(emptyComposite.afterKey()).thenReturn(null);
         // empty bucket
-        when(emptyComposite.getBuckets())
-            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return new ArrayList<CompositeAggregation.Bucket>(); });
+        when(emptyComposite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> {
+            return new ArrayList<CompositeAggregation.Bucket>();
+        });
         Aggregations emptyAggs = new Aggregations(Collections.singletonList(emptyComposite));
         SearchResponseSections emptySections = new SearchResponseSections(SearchHits.empty(), emptyAggs, null, false, null, null, 1);
         SearchResponse nullResponse = new SearchResponse(emptySections, null, 1, 1, 0, 0, ShardSearchFailure.EMPTY_ARRAY, Clusters.EMPTY);
@@ -1054,8 +1056,9 @@ public class MultiEntityResultTests extends AbstractADTest {
         when(emptyNonNullComposite.afterKey()).thenReturn(attrs3);
 
         List<CompositeAggregation.Bucket> emptyNonNullCompositeBuckets = new ArrayList<>();
-        when(emptyNonNullComposite.getBuckets())
-            .thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> { return emptyNonNullCompositeBuckets; });
+        when(emptyNonNullComposite.getBuckets()).thenAnswer((Answer<List<CompositeAggregation.Bucket>>) invocation -> {
+            return emptyNonNullCompositeBuckets;
+        });
 
         Aggregations emptyNonNullAggs = new Aggregations(Collections.singletonList(emptyNonNullComposite));
 

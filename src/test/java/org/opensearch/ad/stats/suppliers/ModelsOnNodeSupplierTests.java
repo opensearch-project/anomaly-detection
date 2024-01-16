@@ -41,10 +41,10 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
 
+import com.amazon.randomcutforest.RandomCutForest;
+
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.amazon.randomcutforest.RandomCutForest;
 
 public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
     private RandomCutForest rcf;

@@ -83,11 +83,9 @@ public final class AnomalyDetectorRunner {
                     listener.onResponse(Collections.emptyList());
                     return;
                 }
-                ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener
-                    .wrap(
-                        entityAnomalyResult -> { listener.onResponse(entityAnomalyResult.getAnomalyResults()); },
-                        e -> onFailure(e, listener, detector.getDetectorId())
-                    );
+                ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener.wrap(entityAnomalyResult -> {
+                    listener.onResponse(entityAnomalyResult.getAnomalyResults());
+                }, e -> onFailure(e, listener, detector.getDetectorId()));
                 MultiResponsesDelegateActionListener<EntityAnomalyResult> multiEntitiesResponseListener =
                     new MultiResponsesDelegateActionListener<EntityAnomalyResult>(
                         entityAnomalyResultListener,

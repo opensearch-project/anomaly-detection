@@ -508,13 +508,9 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         adStatsRequest.addAll(validStats);
         StatsAnomalyDetectorResponse statsResponse = client().execute(StatsAnomalyDetectorAction.INSTANCE, adStatsRequest).actionGet(5000);
         AtomicLong totalExecutingTask = new AtomicLong(0);
-        statsResponse
-            .getAdStatsResponse()
-            .getADStatsNodesResponse()
-            .getNodes()
-            .forEach(
-                node -> { totalExecutingTask.getAndAdd((Long) node.getStatsMap().get(StatNames.AD_EXECUTING_BATCH_TASK_COUNT.getName())); }
-            );
+        statsResponse.getAdStatsResponse().getADStatsNodesResponse().getNodes().forEach(node -> {
+            totalExecutingTask.getAndAdd((Long) node.getStatsMap().get(StatNames.AD_EXECUTING_BATCH_TASK_COUNT.getName()));
+        });
         return totalExecutingTask.get();
     }
 }

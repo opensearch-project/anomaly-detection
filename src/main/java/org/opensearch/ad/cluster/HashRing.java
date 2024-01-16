@@ -178,13 +178,9 @@ public class HashRing {
         if (nodeChangeEvents.isEmpty()) {
             return;
         }
-        buildCircles(
-            ActionListener
-                .wrap(
-                    r -> { LOG.debug("build circles on AD versions successfully"); },
-                    e -> { LOG.error("Failed to build circles on AD versions", e); }
-                )
-        );
+        buildCircles(ActionListener.wrap(r -> { LOG.debug("build circles on AD versions successfully"); }, e -> {
+            LOG.error("Failed to build circles on AD versions", e);
+        }));
     }
 
     /**

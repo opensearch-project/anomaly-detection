@@ -154,25 +154,17 @@ public class DeleteAnomalyDetectorTransportAction extends HandledTransportAction
     private void deleteDetectorStateDoc(String detectorId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete detector info {}", detectorId);
         DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, detectorId);
-        client
-            .delete(
-                deleteRequest,
-                ActionListener
-                    .wrap(
-                        response -> {
-                            // whether deleted state doc or not, continue as state doc may not exist
-                            deleteAnomalyDetectorDoc(detectorId, listener);
-                        },
-                        exception -> {
-                            if (exception instanceof IndexNotFoundException) {
-                                deleteAnomalyDetectorDoc(detectorId, listener);
-                            } else {
-                                LOG.error("Failed to delete detector state", exception);
-                                listener.onFailure(exception);
-                            }
-                        }
-                    )
-            );
+        client.delete(deleteRequest, ActionListener.wrap(response -> {
+            // whether deleted state doc or not, continue as state doc may not exist
+            deleteAnomalyDetectorDoc(detectorId, listener);
+        }, exception -> {
+            if (exception instanceof IndexNotFoundException) {
+                deleteAnomalyDetectorDoc(detectorId, listener);
+            } else {
+                LOG.error("Failed to delete detector state", exception);
+                listener.onFailure(exception);
+            }
+        }));
     }
 
     private void deleteAnomalyDetectorDoc(String detectorId, ActionListener<DeleteResponse> listener) {

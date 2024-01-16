@@ -122,11 +122,9 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
                         .execute(
                             BulkAction.INSTANCE,
                             bulkRequest,
-                            ActionListener
-                                .wrap(
-                                    res -> { listener.onResponse(mockBulkByScrollResponse(totalHits)); },
-                                    ex -> { listener.onFailure(ex); }
-                                )
+                            ActionListener.wrap(res -> { listener.onResponse(mockBulkByScrollResponse(totalHits)); }, ex -> {
+                                listener.onFailure(ex);
+                            })
                         );
 
                 }, e -> { listener.onFailure(e); }));
