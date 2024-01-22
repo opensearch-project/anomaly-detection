@@ -66,9 +66,9 @@ buildscript {
 
 plugins {
     id 'com.netflix.nebula.ospackage' version "11.5.0"
-    id "com.diffplug.spotless" version "6.18.0"
+    id "com.diffplug.spotless" version "6.24.0"
     id 'java-library'
-    id 'org.gradle.test-retry' version '1.5.4'
+    id 'org.gradle.test-retry' version '1.5.7'
 }
 
 tasks.withType(JavaCompile) {
@@ -142,15 +142,15 @@ dependencies {
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.13.0'
 
 
-    implementation "org.jacoco:org.jacoco.agent:0.8.5"
-    implementation ("org.jacoco:org.jacoco.ant:0.8.10") {
+    implementation "org.jacoco:org.jacoco.agent:0.8.11"
+    implementation ("org.jacoco:org.jacoco.ant:0.8.11") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'
         exclude group: 'org.ow2.asm', module: 'asm'
         exclude group: 'org.ow2.asm', module: 'asm-tree'
     }
 
     testImplementation group: 'pl.pragmatists', name: 'JUnitParams', version: '1.1.1'
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.3.1'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.9.0'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.3'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.9'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.9'
@@ -184,7 +184,7 @@ allprojects {
     version = "${opensearch_build}"
 
     plugins.withId('jacoco') {
-        jacoco.toolVersion = '0.8.10'
+        jacoco.toolVersion = '0.8.11'
     }
 }
 
@@ -216,7 +216,7 @@ configurations.all {
         force "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
         force "commons-codec:commons-codec:${versions.commonscodec}"
 
-        force "org.mockito:mockito-core:5.3.1"
+        force "org.mockito:mockito-core:5.9.0"
         force "org.objenesis:objenesis:3.3"
         force "net.bytebuddy:byte-buddy:1.14.9"
         force "net.bytebuddy:byte-buddy-agent:1.14.9"
