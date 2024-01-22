@@ -42,7 +42,7 @@ parser.add_argument("-nh", "--number-of-host", type=int, default=1000, help="num
 parser.add_argument("-np", "--number-of-process", type=int, default=1000, help="number of 'process' entities, deafult is set to 1000, there will be two keyword categories in this index (must be at least 1)" )
 parser.add_argument("-hd", "--number-of-historical-days", type=int, default=2, help="number of day of historical data to ingest, defaults to 2")
 parser.add_argument("-u", "--username", type=str, default="admin", help="username for authentication if security is true")
-parser.add_argument("-pass", "--password", type=str, default="admin", help="password for authentication if security is true")
+parser.add_argument("-pass", "--password", type=str, default="myStrongPassword123!", help="password for authentication if security is true")
 
 args = parser.parse_args()
 
