@@ -759,8 +759,8 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-core:3.8.0'
 
     // force Jackson version to avoid version conflict issue
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.14.1"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.14.1"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.16.1"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.16.1"
 
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
