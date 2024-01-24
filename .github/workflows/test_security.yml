@@ -67,7 +67,7 @@ jobs:
         if: env.imagePresent == 'true'
         run: |
           cd ..
-          docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" opensearch-ad:test
+          docker run -p 9200:9200 -d -p 9600:9600 -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=myStrongPassword123!" -e "discovery.type=single-node" opensearch-ad:test
           sleep 90
       - name: Run AD Test
         if: env.imagePresent == 'true'
