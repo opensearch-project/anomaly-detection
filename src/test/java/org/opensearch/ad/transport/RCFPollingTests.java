@@ -55,11 +55,11 @@ import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
-import test.org.opensearch.ad.util.FakeNode;
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import test.org.opensearch.ad.util.FakeNode;
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class RCFPollingTests extends AbstractADTest {
     Gson gson = new GsonBuilder().create();

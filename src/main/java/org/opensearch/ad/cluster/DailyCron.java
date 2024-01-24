@@ -58,26 +58,17 @@ public class DailyCron implements Runnable {
                     )
             )
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN);
-        clientUtil
-            .execute(
-                DeleteByQueryAction.INSTANCE,
-                deleteRequest,
-                ActionListener
-                    .wrap(
-                        response -> {
-                            // if 0 docs get deleted, it means our query cannot find any matching doc
-                            LOG.info("{} " + CHECKPOINT_DELETED_MSG, response.getDeleted());
-                        },
-                        exception -> {
-                            if (exception instanceof IndexNotFoundException) {
-                                LOG.info(CHECKPOINT_NOT_EXIST_MSG);
-                            } else {
-                                // Gonna eventually delete in maintenance window.
-                                LOG.error(CANNOT_DELETE_OLD_CHECKPOINT_MSG, exception);
-                            }
-                        }
-                    )
-            );
+        clientUtil.execute(DeleteByQueryAction.INSTANCE, deleteRequest, ActionListener.wrap(response -> {
+            // if 0 docs get deleted, it means our query cannot find any matching doc
+            LOG.info("{} " + CHECKPOINT_DELETED_MSG, response.getDeleted());
+        }, exception -> {
+            if (exception instanceof IndexNotFoundException) {
+                LOG.info(CHECKPOINT_NOT_EXIST_MSG);
+            } else {
+                // Gonna eventually delete in maintenance window.
+                LOG.error(CANNOT_DELETE_OLD_CHECKPOINT_MSG, exception);
+            }
+        }));
     }
 
 }

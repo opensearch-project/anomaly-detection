@@ -1521,33 +1521,27 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         // Missing start time
-        Exception missingStartTimeException = expectThrows(
-            IOException.class,
-            () -> { searchTopAnomalyResults(detector.getDetectorId(), false, "{\"end_time_ms\":2}", client()); }
-        );
+        Exception missingStartTimeException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId(), false, "{\"end_time_ms\":2}", client());
+        });
         assertTrue(missingStartTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
 
         // Missing end time
-        Exception missingEndTimeException = expectThrows(
-            IOException.class,
-            () -> { searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1}", client()); }
-        );
+        Exception missingEndTimeException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1}", client());
+        });
         assertTrue(missingEndTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
 
         // Start time > end time
-        Exception invalidTimeException = expectThrows(
-            IOException.class,
-            () -> { searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":2, \"end_time_ms\":1}", client()); }
-        );
+        Exception invalidTimeException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":2, \"end_time_ms\":1}", client());
+        });
         assertTrue(invalidTimeException.getMessage().contains("Start time should be before end time"));
 
         // Invalid detector ID
-        Exception invalidDetectorIdException = expectThrows(
-            IOException.class,
-            () -> {
-                searchTopAnomalyResults(detector.getDetectorId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
-            }
-        );
+        Exception invalidDetectorIdException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
+        });
         assertTrue(invalidDetectorIdException.getMessage().contains("Can't find detector with id"));
 
         // Invalid order field
@@ -1562,42 +1556,32 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue(invalidOrderException.getMessage().contains("Ordering by invalid-order is not a valid option"));
 
         // Negative size field
-        Exception negativeSizeException = expectThrows(
-            IOException.class,
-            () -> {
-                searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":-1}", client());
-            }
-        );
+        Exception negativeSizeException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":-1}", client());
+        });
         assertTrue(negativeSizeException.getMessage().contains("Size must be a positive integer"));
 
         // Zero size field
-        Exception zeroSizeException = expectThrows(
-            IOException.class,
-            () -> {
-                searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":0}", client());
-            }
-        );
+        Exception zeroSizeException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId(), false, "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":0}", client());
+        });
         assertTrue(zeroSizeException.getMessage().contains("Size must be a positive integer"));
 
         // Too large size field
-        Exception tooLargeSizeException = expectThrows(
-            IOException.class,
-            () -> {
-                searchTopAnomalyResults(
-                    detector.getDetectorId(),
-                    false,
-                    "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":9999999}",
-                    client()
-                );
-            }
-        );
+        Exception tooLargeSizeException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(
+                detector.getDetectorId(),
+                false,
+                "{\"start_time_ms\":1, \"end_time_ms\":2, \"size\":9999999}",
+                client()
+            );
+        });
         assertTrue(tooLargeSizeException.getMessage().contains("Size cannot exceed"));
 
         // No existing task ID for detector
-        Exception noTaskIdException = expectThrows(
-            IOException.class,
-            () -> { searchTopAnomalyResults(detector.getDetectorId(), true, "{\"start_time_ms\":1, \"end_time_ms\":2}", client()); }
-        );
+        Exception noTaskIdException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(detector.getDetectorId(), true, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
+        });
         assertTrue(noTaskIdException.getMessage().contains("No historical tasks found for detector ID " + detector.getDetectorId()));
 
         // Invalid category fields
@@ -1627,17 +1611,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             true,
             client()
         );
-        Exception noCategoryFieldsException = expectThrows(
-            IOException.class,
-            () -> {
-                searchTopAnomalyResults(
-                    detectorWithNoCategoryFields.getDetectorId(),
-                    false,
-                    "{\"start_time_ms\":1, \"end_time_ms\":2}",
-                    client()
-                );
-            }
-        );
+        Exception noCategoryFieldsException = expectThrows(IOException.class, () -> {
+            searchTopAnomalyResults(
+                detectorWithNoCategoryFields.getDetectorId(),
+                false,
+                "{\"start_time_ms\":1, \"end_time_ms\":2}",
+                client()
+            );
+        });
         assertTrue(
             noCategoryFieldsException
                 .getMessage()

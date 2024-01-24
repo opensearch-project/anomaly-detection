@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ml;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -106,10 +106,6 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.test.OpenSearchTestCase;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.RandomModelStateConfig;
-
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
@@ -125,6 +121,9 @@ import com.google.gson.GsonBuilder;
 import io.protostuff.LinkedBuffer;
 import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
+import test.org.opensearch.ad.util.JsonDeserializer;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class CheckpointDaoTests extends OpenSearchTestCase {
     private static final Logger logger = LogManager.getLogger(CheckpointDaoTests.class);

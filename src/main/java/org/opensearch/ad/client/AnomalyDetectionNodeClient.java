@@ -27,22 +27,16 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
 
     @Override
     public void searchAnomalyDetectors(SearchRequest searchRequest, ActionListener<SearchResponse> listener) {
-        this.client
-            .execute(
-                SearchAnomalyDetectorAction.INSTANCE,
-                searchRequest,
-                ActionListener.wrap(searchResponse -> { listener.onResponse(searchResponse); }, listener::onFailure)
-            );
+        this.client.execute(SearchAnomalyDetectorAction.INSTANCE, searchRequest, ActionListener.wrap(searchResponse -> {
+            listener.onResponse(searchResponse);
+        }, listener::onFailure));
     }
 
     @Override
     public void searchAnomalyResults(SearchRequest searchRequest, ActionListener<SearchResponse> listener) {
-        this.client
-            .execute(
-                SearchAnomalyResultAction.INSTANCE,
-                searchRequest,
-                ActionListener.wrap(searchResponse -> { listener.onResponse(searchResponse); }, listener::onFailure)
-            );
+        this.client.execute(SearchAnomalyResultAction.INSTANCE, searchRequest, ActionListener.wrap(searchResponse -> {
+            listener.onResponse(searchResponse);
+        }, listener::onFailure));
     }
 
     @Override
@@ -55,8 +49,9 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     private ActionListener<GetAnomalyDetectorResponse> getAnomalyDetectorResponseActionListener(
         ActionListener<GetAnomalyDetectorResponse> listener
     ) {
-        ActionListener<GetAnomalyDetectorResponse> internalListener = ActionListener
-            .wrap(getAnomalyDetectorResponse -> { listener.onResponse(getAnomalyDetectorResponse); }, listener::onFailure);
+        ActionListener<GetAnomalyDetectorResponse> internalListener = ActionListener.wrap(getAnomalyDetectorResponse -> {
+            listener.onResponse(getAnomalyDetectorResponse);
+        }, listener::onFailure);
         ActionListener<GetAnomalyDetectorResponse> actionListener = wrapActionListener(internalListener, actionResponse -> {
             GetAnomalyDetectorResponse response = GetAnomalyDetectorResponse.fromActionResponse(actionResponse);
             return response;

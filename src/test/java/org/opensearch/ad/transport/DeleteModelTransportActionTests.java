@@ -48,9 +48,9 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
-import test.org.opensearch.ad.util.JsonDeserializer;
-
 import com.google.gson.JsonElement;
+
+import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class DeleteModelTransportActionTests extends AbstractADTest {
     private DeleteModelTransportAction action;

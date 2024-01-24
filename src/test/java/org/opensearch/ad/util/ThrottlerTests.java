@@ -12,7 +12,7 @@
 package org.opensearch.ad.util;
 
 import static org.mockito.Mockito.mock;
-import static org.powermock.api.mockito.PowerMockito.when;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 

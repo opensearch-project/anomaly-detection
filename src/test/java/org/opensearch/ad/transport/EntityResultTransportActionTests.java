@@ -87,12 +87,12 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.transport.TransportService;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
 import test.org.opensearch.ad.util.JsonDeserializer;
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 
 public class EntityResultTransportActionTests extends AbstractADTest {
     EntityResultTransportAction entityResult;

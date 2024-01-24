@@ -11,12 +11,12 @@
 
 package org.opensearch.ad;
 
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
@@ -232,7 +232,7 @@ public class NodeStateManagerTests extends AbstractADTest {
     public void testMaintenanceDoNothing() {
         stateManager.maintenance();
 
-        verifyZeroInteractions(clock);
+        verifyNoInteractions(clock);
     }
 
     public void testHasRunningQuery() throws IOException {

@@ -18,11 +18,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 @RunWith(JUnitParamsRunner.class)
 public class FeaturesTests {

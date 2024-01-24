@@ -48,11 +48,11 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.test.ClusterServiceUtils;
 
-import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
-import test.org.opensearch.ad.util.MultiDimDataWithTime;
-
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
+
+import test.org.opensearch.ad.util.LabelledAnomalyGenerator;
+import test.org.opensearch.ad.util.MultiDimDataWithTime;
 
 @TimeoutSuite(millis = 60 * TimeUnits.MINUTE) // rcf may be slow due to bounding box cache disabled
 public class HCADModelPerfTests extends AbstractCosineDataTest {
