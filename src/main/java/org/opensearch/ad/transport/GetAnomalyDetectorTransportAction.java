@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
@@ -75,7 +76,7 @@ import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
 
-public class GetAnomalyDetectorTransportAction extends HandledTransportAction<GetAnomalyDetectorRequest, GetAnomalyDetectorResponse> {
+public class GetAnomalyDetectorTransportAction extends HandledTransportAction<ActionRequest, GetAnomalyDetectorResponse> {
 
     private static final Logger LOG = LogManager.getLogger(GetAnomalyDetectorTransportAction.class);
 
@@ -131,7 +132,9 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ge
     }
 
     @Override
-    protected void doExecute(Task task, GetAnomalyDetectorRequest request, ActionListener<GetAnomalyDetectorResponse> actionListener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<GetAnomalyDetectorResponse> actionListener) {
+        GetAnomalyDetectorRequest request = GetAnomalyDetectorRequest.fromActionRequest(actionRequest);
+
         String detectorID = request.getDetectorID();
         User user = getUserContext(client);
         ActionListener<GetAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR);
