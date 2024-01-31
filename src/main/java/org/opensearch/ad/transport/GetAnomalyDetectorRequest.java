@@ -11,10 +11,14 @@
 
 package org.opensearch.ad.transport;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.timeseries.model.Entity;
@@ -118,5 +122,20 @@ public class GetAnomalyDetectorRequest extends ActionRequest {
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    public static GetAnomalyDetectorRequest fromActionRequest(final ActionRequest actionRequest) {
+        if (actionRequest instanceof GetAnomalyDetectorRequest) {
+            return (GetAnomalyDetectorRequest) actionRequest;
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionRequest.writeTo(osso);
+            try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
+                return new GetAnomalyDetectorRequest(input);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into GetAnomalyDetectorRequest", e);
+        }
     }
 }
