@@ -24,6 +24,8 @@ import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -218,16 +220,21 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
         return detector;
     }
 
-    public static GetAnomalyDetectorResponse fromActionResponse(ActionResponse actionResponse) {
+    public static GetAnomalyDetectorResponse fromActionResponse(
+        ActionResponse actionResponse,
+        NamedWriteableRegistry namedWriteableRegistry
+    ) {
         if (actionResponse instanceof GetAnomalyDetectorResponse) {
             return (GetAnomalyDetectorResponse) actionResponse;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos);
             actionResponse.writeTo(osso);
-            try (StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
-                return new GetAnomalyDetectorResponse(input);
-            }
+            InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()));
+            NamedWriteableAwareStreamInput namedWriteableAwareInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry);
+            return new GetAnomalyDetectorResponse(namedWriteableAwareInput);
         } catch (IOException e) {
             throw new UncheckedIOException("failed to parse ActionResponse into GetAnomalyDetectorResponse", e);
         }

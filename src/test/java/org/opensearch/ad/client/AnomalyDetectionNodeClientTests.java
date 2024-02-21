@@ -41,6 +41,7 @@ import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -62,7 +63,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
     @Before
     public void setup() {
         clientSpy = spy(client());
-        adClient = new AnomalyDetectionNodeClient(clientSpy);
+        adClient = new AnomalyDetectionNodeClient(clientSpy, mock(NamedWriteableRegistry.class));
     }
 
     @Test

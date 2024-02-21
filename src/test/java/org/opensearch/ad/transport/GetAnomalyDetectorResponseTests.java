@@ -19,8 +19,11 @@ import java.util.Collection;
 import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
@@ -76,6 +79,21 @@ public class GetAnomalyDetectorResponseTests extends OpenSearchSingleNodeTestCas
         assertEquals(response.getDetector(), parsedResponse.getDetector());
     }
 
+    public void testFromActionResponse() throws IOException {
+        GetAnomalyDetectorResponse response = createGetAnomalyDetectorResponse(true, true);
+        BytesStreamOutput output = new BytesStreamOutput();
+        response.writeTo(output);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
+
+        GetAnomalyDetectorResponse reserializedResponse = GetAnomalyDetectorResponse
+            .fromActionResponse((ActionResponse) response, writableRegistry());
+        assertEquals(response, reserializedResponse);
+
+        ActionResponse invalidActionResponse = new TestActionResponse(input);
+        assertThrows(Exception.class, () -> GetAnomalyDetectorResponse.fromActionResponse(invalidActionResponse, writableRegistry()));
+
+    }
+
     private GetAnomalyDetectorResponse createGetAnomalyDetectorResponse(boolean returnJob, boolean returnTask) throws IOException {
         GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
             randomLong(),
@@ -94,5 +112,18 @@ public class GetAnomalyDetectorResponseTests extends OpenSearchSingleNodeTestCas
             false
         );
         return response;
+    }
+
+    // A test ActionResponse class with an inactive writeTo class. Used to ensure exceptions
+    // are thrown when parsing implementations of such class.
+    private class TestActionResponse extends ActionResponse {
+        public TestActionResponse(StreamInput in) throws IOException {
+            super(in);
+        }
+
+        @Override
+        public void writeTo(StreamOutput out) throws IOException {
+            return;
+        }
     }
 }
