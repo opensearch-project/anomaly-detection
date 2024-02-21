@@ -17,12 +17,15 @@ import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 
 public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     private final Client client;
+    private final NamedWriteableRegistry namedWriteableRegistry;
 
-    public AnomalyDetectionNodeClient(Client client) {
+    public AnomalyDetectionNodeClient(Client client, NamedWriteableRegistry namedWriteableRegistry) {
         this.client = client;
+        this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
     @Override
@@ -46,6 +49,9 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
 
     // We need to wrap AD-specific response type listeners around an internal listener, and re-generate the response from a generic
     // ActionResponse. This is needed to prevent classloader issues and ClassCastExceptions when executed by other plugins.
+    // Additionally, we need to inject the configured NamedWriteableRegistry so NamedWriteables (present in sub-fields of
+    // GetAnomalyDetectorResponse) are able to be re-serialized and prevent errors like the following:
+    // "can't read named writeable from StreamInput"
     private ActionListener<GetAnomalyDetectorResponse> getAnomalyDetectorResponseActionListener(
         ActionListener<GetAnomalyDetectorResponse> listener
     ) {
@@ -53,7 +59,8 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
             listener.onResponse(getAnomalyDetectorResponse);
         }, listener::onFailure);
         ActionListener<GetAnomalyDetectorResponse> actionListener = wrapActionListener(internalListener, actionResponse -> {
-            GetAnomalyDetectorResponse response = GetAnomalyDetectorResponse.fromActionResponse(actionResponse);
+            GetAnomalyDetectorResponse response = GetAnomalyDetectorResponse
+                .fromActionResponse(actionResponse, this.namedWriteableRegistry);
             return response;
         });
         return actionListener;
