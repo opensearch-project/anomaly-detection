@@ -46,6 +46,8 @@ buildscript {
         bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
         bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
 
+        isSameMajorVersion = opensearch_version.split("\\.")[0] == bwcVersionShort.split("\\.")[0]
+
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests. 
@@ -185,6 +187,12 @@ allprojects {
 
     plugins.withId('jacoco') {
         jacoco.toolVersion = '0.8.11'
+    }
+
+    // Needed for Gradle 9.0
+    tasks.withType(StandaloneRestIntegTestTask).configureEach {
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
     }
 }
 
@@ -539,6 +547,7 @@ List<Provider<RegularFile>> plugins = [
 // Creates 2 test clusters with 3 nodes of the old version. 
 2.times {i -> 
     task "${baseName}#oldVersionClusterTask$i"(type: StandaloneRestIntegTestTask) {
+        onlyIf { isSameMajorVersion || (i == 1) }
         useCluster testClusters."${baseName}$i"
         filter {
             includeTestsMatching "org.opensearch.ad.bwc.*IT"
@@ -555,6 +564,7 @@ List<Provider<RegularFile>> plugins = [
 // This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
 // This is also used as a one third upgraded cluster for a rolling upgrade.
 task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
+    onlyIf { isSameMajorVersion }
     useCluster testClusters."${baseName}0"
     dependsOn "${baseName}#oldVersionClusterTask0"
     doFirst {
@@ -574,6 +584,7 @@ task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
 // This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
 // This is used for rolling upgrade.
 task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTask) {
+    onlyIf { isSameMajorVersion }
     dependsOn "${baseName}#mixedClusterTask"
     useCluster testClusters."${baseName}0"
     doFirst {
@@ -593,6 +604,7 @@ task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTas
 // This results in a fully upgraded cluster.
 // This is used for rolling upgrade.
 task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) {
+    onlyIf { isSameMajorVersion }
     dependsOn "${baseName}#twoThirdsUpgradedClusterTask"
     useCluster testClusters."${baseName}0"
     doFirst {
