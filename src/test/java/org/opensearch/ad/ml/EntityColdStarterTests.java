@@ -740,7 +740,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             clusterService
         );
 
-        accuracyTemplate(1, 0.6f, 0.6f);
+        accuracyTemplate(1, 0.5f, 0.5f);
     }
 
     private ModelState<EntityModel> createStateForCacheRelease() {

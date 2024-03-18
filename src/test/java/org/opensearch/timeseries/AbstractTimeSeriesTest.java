@@ -16,7 +16,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,6 +33,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.Level;
@@ -40,6 +45,9 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.util.StackLocatorUtil;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.MockitoAnnotations;
 import org.opensearch.Version;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -47,11 +55,14 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.logging.Loggers;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.http.HttpRequest;
@@ -67,9 +78,21 @@ import org.opensearch.timeseries.model.Job;
 import org.opensearch.transport.TransportInterceptor;
 import org.opensearch.transport.TransportService;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+
 import test.org.opensearch.ad.util.FakeNode;
 
 public class AbstractTimeSeriesTest extends OpenSearchTestCase {
+
+    @Captor
+    protected ArgumentCaptor<Exception> exceptionCaptor;
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        MockitoAnnotations.initMocks(this);
+    }
 
     protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractTimeSeriesTest.class);
 
@@ -451,5 +474,40 @@ public class AbstractTimeSeriesTest extends OpenSearchTestCase {
             runnable.run();
             return null;
         }).when(executorService).execute(any(Runnable.class));
+    }
+
+    /**
+     * Create cluster setting.
+     *
+     * @param settings cluster settings
+     * @param setting add setting if the code to be tested contains setting update consumer
+     * @return instance of ClusterSettings
+     */
+    public ClusterSettings clusterSetting(Settings settings, Setting<?>... setting) {
+        final Set<Setting<?>> settingsSet = Stream
+            .concat(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS.stream(), Sets.newHashSet(setting).stream())
+            .collect(Collectors.toSet());
+        ClusterSettings clusterSettings = new ClusterSettings(settings, settingsSet);
+        return clusterSettings;
+    }
+
+    protected DiscoveryNode createNode(String nodeId) {
+        return new DiscoveryNode(
+            nodeId,
+            new TransportAddress(TransportAddress.META_ADDRESS, 9300),
+            ImmutableMap.of(),
+            BUILT_IN_ROLES,
+            Version.CURRENT
+        );
+    }
+
+    protected DiscoveryNode createNode(String nodeId, String ip, int port, Map<String, String> attributes) throws UnknownHostException {
+        return new DiscoveryNode(
+            nodeId,
+            new TransportAddress(InetAddress.getByName(ip), port),
+            attributes,
+            BUILT_IN_ROLES,
+            Version.CURRENT
+        );
     }
 }
