@@ -13,14 +13,15 @@ package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.timeseries.transport.JobResponse;
 
-public class AnomalyDetectorJobAction extends ActionType<AnomalyDetectorJobResponse> {
+public class AnomalyDetectorJobAction extends ActionType<JobResponse> {
     // External Action which used for public facing RestAPIs.
     public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/jobmanagement";
     public static final AnomalyDetectorJobAction INSTANCE = new AnomalyDetectorJobAction();
 
     private AnomalyDetectorJobAction() {
-        super(NAME, AnomalyDetectorJobResponse::new);
+        super(NAME, JobResponse::new);
     }
 
 }

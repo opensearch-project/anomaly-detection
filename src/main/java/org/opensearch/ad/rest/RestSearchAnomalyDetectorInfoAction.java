@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.COUNT;
-import static org.opensearch.ad.util.RestHandlerUtils.MATCH;
+import static org.opensearch.timeseries.util.RestHandlerUtils.COUNT;
+import static org.opensearch.timeseries.util.RestHandlerUtils.MATCH;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,15 +20,15 @@ import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.SearchAnomalyDetectorInfoAction;
 import org.opensearch.ad.transport.SearchAnomalyDetectorInfoRequest;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.collect.ImmutableList;
 
@@ -47,8 +47,8 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, org.opensearch.client.node.NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         String detectorName = request.param("name", null);
@@ -71,16 +71,16 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
                 // get the count of number of detectors
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, COUNT),
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, COUNT),
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, COUNT)
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, COUNT)
                 ),
                 // get if a detector name exists with name
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, MATCH),
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, MATCH),
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, MATCH)
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, MATCH)
                 )
             );
     }

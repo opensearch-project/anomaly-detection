@@ -20,9 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -32,6 +30,8 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
@@ -69,7 +69,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
+            .withTimeout(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings))
             .build();
         this.clusterService = clusterService;
     }
@@ -83,7 +83,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
         Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
         if (!rcfNode.isPresent()) {
-            listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
+            listener.onFailure(new TimeSeriesException(adID, NO_NODE_FOUND_MSG));
             return;
         }
 
@@ -99,7 +99,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
                     ActionListener
                         .wrap(
                             totalUpdates -> listener.onResponse(new RCFPollingResponse(totalUpdates)),
-                            e -> listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e))
+                            e -> listener.onFailure(new TimeSeriesException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e))
                         )
                 );
         } else if (request.remoteAddress() == null) {
@@ -136,12 +136,12 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
                     });
             } catch (Exception e) {
                 LOG.error(String.format(Locale.ROOT, "Fail to poll RCF models for {}", adID), e);
-                listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e));
+                listener.onFailure(new TimeSeriesException(adID, FAIL_TO_GET_RCF_UPDATE_MSG, e));
             }
 
         } else {
             LOG.error("Fail to poll rcf for model {} due to an unexpected bug.", rcfModelID);
-            listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
+            listener.onFailure(new TimeSeriesException(adID, NO_NODE_FOUND_MSG));
         }
     }
 }

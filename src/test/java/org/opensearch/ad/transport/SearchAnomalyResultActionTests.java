@@ -16,10 +16,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createClusterState;
-import static org.opensearch.ad.TestHelpers.createSearchResponse;
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.timeseries.TestHelpers.createClusterState;
+import static org.opensearch.timeseries.TestHelpers.createSearchResponse;
+import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,8 +39,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.client.Client;
@@ -61,6 +60,7 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregator;
 import org.opensearch.tasks.Task;
 import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -89,7 +89,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         clusterState = createClusterState();
@@ -299,7 +299,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
 
     @Test
     public void testNoIndex() {
-        deleteIndexIfExists(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         SearchResponse searchResponse = client()
             .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);

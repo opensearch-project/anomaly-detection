@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.rest.handler;
 
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
@@ -21,14 +20,16 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 /**
  * Common handler to process AD request.
@@ -53,11 +54,11 @@ public class AnomalyDetectorActionHandler {
         Client client,
         String detectorId,
         ActionListener listener,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
-        if (clusterService.state().metadata().indices().containsKey(ANOMALY_DETECTOR_JOB_INDEX)) {
-            GetRequest request = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX).id(detectorId);
+        if (clusterService.state().metadata().indices().containsKey(CommonName.JOB_INDEX)) {
+            GetRequest request = new GetRequest(CommonName.JOB_INDEX).id(detectorId);
             client
                 .get(
                     request,
@@ -75,7 +76,7 @@ public class AnomalyDetectorActionHandler {
     private void onGetAdJobResponseForWrite(
         GetResponse response,
         ActionListener listener,
-        AnomalyDetectorFunction function,
+        ExecutorFunction function,
         NamedXContentRegistry xContentRegistry
     ) {
         if (response.isExists()) {
@@ -87,7 +88,7 @@ public class AnomalyDetectorActionHandler {
                         .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob adJob = AnomalyDetectorJob.parse(parser);
+                    Job adJob = Job.parse(parser);
                     if (adJob.isEnabled()) {
                         listener.onFailure(new OpenSearchStatusException("Detector job is running: " + adJobId, RestStatus.BAD_REQUEST));
                         return;

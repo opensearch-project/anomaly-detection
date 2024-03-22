@@ -23,8 +23,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
@@ -37,6 +35,8 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.transport.TransportException;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
@@ -73,7 +73,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         this.option = TransportRequestOptions
             .builder()
             .withType(TransportRequestOptions.Type.REG)
-            .withTimeout(AnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings))
+            .withTimeout(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings))
             .build();
         this.clusterService = clusterService;
         this.cacheProvider = cacheProvider;
@@ -86,14 +86,14 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
         Entity entityValue = request.getEntityValue();
         Optional<String> modelIdOptional = entityValue.getModelId(adID);
         if (false == modelIdOptional.isPresent()) {
-            listener.onFailure(new AnomalyDetectionException(adID, NO_MODEL_ID_FOUND_MSG));
+            listener.onFailure(new TimeSeriesException(adID, NO_MODEL_ID_FOUND_MSG));
             return;
         }
         // we use entity's toString (e.g., app_0) to find its node
         // This should be consistent with how we land a model node in AnomalyResultTransportAction
         Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(entityValue.toString());
         if (false == node.isPresent()) {
-            listener.onFailure(new AnomalyDetectionException(adID, NO_NODE_FOUND_MSG));
+            listener.onFailure(new TimeSeriesException(adID, NO_NODE_FOUND_MSG));
             return;
         }
         String nodeId = node.get().getId();
@@ -157,7 +157,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                     );
             } catch (Exception e) {
                 LOG.error(String.format(Locale.ROOT, "Fail to get entity profile for detector {}, entity {}", adID, entityValue), e);
-                listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG, e));
+                listener.onFailure(new TimeSeriesException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG, e));
             }
 
         } else {
@@ -174,7 +174,7 @@ public class EntityProfileTransportAction extends HandledTransportAction<EntityP
                     adID,
                     entityValue
                 );
-            listener.onFailure(new AnomalyDetectionException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG));
+            listener.onFailure(new TimeSeriesException(adID, FAIL_TO_GET_ENTITY_PROFILE_MSG));
         }
     }
 }

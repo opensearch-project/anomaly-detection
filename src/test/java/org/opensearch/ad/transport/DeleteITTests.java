@@ -17,19 +17,19 @@ import java.util.concurrent.ExecutionException;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.ADIntegTestCase;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.plugins.Plugin;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 public class DeleteITTests extends ADIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
+        return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
+        return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     public void testNormalStopDetector() throws ExecutionException, InterruptedException {

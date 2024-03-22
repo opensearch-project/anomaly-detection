@@ -14,6 +14,7 @@ package org.opensearch.ad.common.exception;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
 
 public class LimitExceededExceptionTests {
 
@@ -22,7 +23,7 @@ public class LimitExceededExceptionTests {
         String id = "test id";
         String message = "test message";
         LimitExceededException limitExceeded = new LimitExceededException(id, message);
-        assertEquals(id, limitExceeded.getAnomalyDetectorId());
+        assertEquals(id, limitExceeded.getConfigId());
         assertEquals(message, limitExceeded.getMessage());
     }
 }

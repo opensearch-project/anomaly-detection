@@ -17,10 +17,8 @@ import java.util.Optional;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.ModelProfile;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ModelProfileOnNode;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -82,14 +80,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
         lastActiveMs = in.readLong();
         totalUpdates = in.readLong();
         if (in.readBoolean()) {
-            if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-                modelProfile = new ModelProfileOnNode(in);
-            } else {
-                // we don't have model information from old node
-                ModelProfile profile = new ModelProfile(in);
-                modelProfile = new ModelProfileOnNode("", profile);
-            }
-
+            modelProfile = new ModelProfileOnNode(in);
         } else {
             modelProfile = null;
         }
@@ -118,12 +109,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
         out.writeLong(totalUpdates);
         if (modelProfile != null) {
             out.writeBoolean(true);
-            if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-                modelProfile.writeTo(out);
-            } else {
-                ModelProfile oldFormatModelProfile = modelProfile.getModelProfile();
-                oldFormatModelProfile.writeTo(out);
-            }
+            modelProfile.writeTo(out);
         } else {
             out.writeBoolean(false);
         }
@@ -142,7 +128,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
             builder.field(TOTAL_UPDATES, totalUpdates);
         }
         if (modelProfile != null) {
-            builder.field(CommonName.MODEL, modelProfile);
+            builder.field(ADCommonName.MODEL, modelProfile);
         }
         builder.endObject();
         return builder;
@@ -154,7 +140,7 @@ public class EntityProfileResponse extends ActionResponse implements ToXContentO
         builder.append(ACTIVE, isActive);
         builder.append(LAST_ACTIVE_TS, lastActiveMs);
         builder.append(TOTAL_UPDATES, totalUpdates);
-        builder.append(CommonName.MODEL, modelProfile);
+        builder.append(ADCommonName.MODEL, modelProfile);
 
         return builder.toString();
     }

@@ -16,12 +16,12 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import java.io.IOException;
 import java.time.Instant;
 
-import org.opensearch.ad.annotation.Generated;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.annotation.Generated;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
 
@@ -83,7 +83,6 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
                     periodEnd = ParseUtils.toInstant(parser);
                     break;
                 case DETECTOR_FIELD:
-                    XContentParser.Token token = parser.currentToken();
                     if (parser.currentToken().equals(XContentParser.Token.START_OBJECT)) {
                         detector = AnomalyDetector.parse(parser, detectorId);
                     }

@@ -15,9 +15,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -32,23 +29,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.opensearch.Version;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.Interpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
@@ -60,10 +44,23 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.ClientUtil;
 
 import com.google.common.collect.ImmutableList;
 
-public class AbstractCosineDataTest extends AbstractADTest {
+public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
     int numMinSamples;
     String modelId;
     String entityName;
@@ -74,7 +71,7 @@ public class AbstractCosineDataTest extends AbstractADTest {
     EntityColdStarter entityColdStarter;
     NodeStateManager stateManager;
     SearchFeatureDao searchFeatureDao;
-    Interpolator interpolator;
+    Imputer imputer;
     CheckpointDao checkpoint;
     FeatureManager featureManager;
     Settings settings;
@@ -98,7 +95,7 @@ public class AbstractCosineDataTest extends AbstractADTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        numMinSamples = AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+        numMinSamples = TimeSeriesSettings.NUM_MIN_SAMPLES;
 
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
@@ -120,15 +117,15 @@ public class AbstractCosineDataTest extends AbstractADTest {
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, CommonName.CONFIG_INDEX));
 
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
         nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        nodestateSetting.add(MAX_RETRY_FOR_UNRESPONSIVE_NODE);
-        nodestateSetting.add(BACKOFF_MINUTES);
-        nodestateSetting.add(CHECKPOINT_SAVING_FREQ);
+        nodestateSetting.add(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE);
+        nodestateSetting.add(TimeSeriesSettings.BACKOFF_MINUTES);
+        nodestateSetting.add(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ);
         clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
 
         discoveryNode = new DiscoveryNode(
@@ -147,20 +144,20 @@ public class AbstractCosineDataTest extends AbstractADTest {
             settings,
             clientUtil,
             clock,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            clusterService
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
+            clusterService,
+            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE,
+            TimeSeriesSettings.BACKOFF_MINUTES
         );
 
-        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
-        interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        imputer = new LinearUniformImputer(true);
 
         searchFeatureDao = mock(SearchFeatureDao.class);
         checkpoint = mock(CheckpointDao.class);
 
         featureManager = new FeatureManager(
             searchFeatureDao,
-            interpolator,
+            imputer,
             clock,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
@@ -170,9 +167,9 @@ public class AbstractCosineDataTest extends AbstractADTest {
             AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             threadPool,
-            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
         );
 
         checkpointWriteQueue = mock(CheckpointWriteWorker.class);
@@ -182,21 +179,21 @@ public class AbstractCosineDataTest extends AbstractADTest {
             clock,
             threadPool,
             stateManager,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-            interpolator,
+            imputer,
             searchFeatureDao,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             settings,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             rcfSeed,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            TimeSeriesSettings.MAX_COLD_START_ROUNDS
         );
 
         detectorId = "123";
@@ -217,14 +214,14 @@ public class AbstractCosineDataTest extends AbstractADTest {
         modelManager = new ModelManager(
             mock(CheckpointDao.class),
             mock(Clock.class),
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.TIME_DECAY,
-            AnomalyDetectorSettings.NUM_MIN_SAMPLES,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_MIN_SAMPLES,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
-            AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
             entityColdStarter,
             mock(FeatureManager.class),
             mock(MemoryTracker.class),

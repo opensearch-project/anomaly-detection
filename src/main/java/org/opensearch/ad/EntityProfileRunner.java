@@ -11,8 +11,6 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.util.List;
@@ -26,24 +24,17 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.EntityState;
 import org.opensearch.ad.model.InitProgressProfile;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.settings.NumericSetting;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileRequest;
 import org.opensearch.ad.transport.EntityProfileResponse;
-import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
-import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.routing.Preference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -58,6 +49,15 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 
 public class EntityProfileRunner extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);
@@ -91,10 +91,10 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         ActionListener<EntityProfile> listener
     ) {
         if (profilesToCollect == null || profilesToCollect.size() == 0) {
-            listener.onFailure(new IllegalArgumentException(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
+            listener.onFailure(new IllegalArgumentException(CommonMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
-        GetRequest getDetectorRequest = new GetRequest(ANOMALY_DETECTORS_INDEX, detectorId);
+        GetRequest getDetectorRequest = new GetRequest(CommonName.CONFIG_INDEX, detectorId);
 
         client.get(getDetectorRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
@@ -105,13 +105,12 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, detectorId);
-                    List<String> categoryFields = detector.getCategoryField();
-                    int maxCategoryFields = NumericSetting.maxCategoricalFields();
+                    List<String> categoryFields = detector.getCategoryFields();
+                    int maxCategoryFields = ADNumericSetting.maxCategoricalFields();
                     if (categoryFields == null || categoryFields.size() == 0) {
                         listener.onFailure(new IllegalArgumentException(NOT_HC_DETECTOR_ERR_MSG));
                     } else if (categoryFields.size() > maxCategoryFields) {
-                        listener
-                            .onFailure(new IllegalArgumentException(CommonErrorMessages.getTooManyCategoricalFieldErr(maxCategoryFields)));
+                        listener.onFailure(new IllegalArgumentException(CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields)));
                     } else {
                         validateEntity(entityValue, categoryFields, detectorId, profilesToCollect, detector, listener);
                     }
@@ -119,7 +118,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                     listener.onFailure(t);
                 }
             } else {
-                listener.onFailure(new IllegalArgumentException(CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG + detectorId));
+                listener.onFailure(new IllegalArgumentException(CommonMessages.FAIL_TO_FIND_CONFIG_MSG + detectorId));
             }
         }, listener::onFailure));
     }
@@ -187,8 +186,9 @@ public class EntityProfileRunner extends AbstractProfileRunner {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getDetectorId(),
+                detector.getId(),
                 client,
+                AnalysisType.AD,
                 searchResponseListener
             );
 
@@ -220,7 +220,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         EntityProfileResponse entityProfileResponse,
         ActionListener<EntityProfile> listener
     ) {
-        GetRequest getRequest = new GetRequest(ANOMALY_DETECTOR_JOB_INDEX, detectorId);
+        GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX, detectorId);
         client.get(getRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {
                 try (
@@ -229,7 +229,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, getResponse.getSourceAsString())
                 ) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    Job job = Job.parse(parser);
 
                     int totalResponsesToWait = 0;
                     if (profilesToCollect.contains(EntityProfileName.INIT_PROGRESS)
@@ -246,7 +246,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         new MultiResponsesDelegateActionListener<EntityProfile>(
                             listener,
                             totalResponsesToWait,
-                            CommonErrorMessages.FAIL_FETCH_ERR_MSG + entityValue + " of detector " + detectorId,
+                            CommonMessages.FAIL_FETCH_ERR_MSG + entityValue + " of detector " + detectorId,
                             false
                         );
 
@@ -278,7 +278,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                             detectorId,
                             enabledTimeMs,
                             entityValue,
-                            detector.getResultIndex()
+                            detector.getCustomResultIndex()
                         );
 
                         EntityProfile.Builder builder = new EntityProfile.Builder();
@@ -309,7 +309,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                         }));
                     }
                 } catch (Exception e) {
-                    logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG, e);
+                    logger.error(CommonMessages.FAIL_TO_GET_PROFILE_MSG, e);
                     listener.onFailure(e);
                 }
             } else {
@@ -320,7 +320,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
                 logger.info(exception.getMessage());
                 sendUnknownState(profilesToCollect, entityValue, true, listener);
             } else {
-                logger.error(CommonErrorMessages.FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
+                logger.error(CommonMessages.FAIL_TO_GET_PROFILE_MSG + detectorId, exception);
                 listener.onFailure(exception);
             }
         }));
@@ -332,7 +332,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
         Entity entityValue,
         Set<EntityProfileName> profilesToCollect,
         AnomalyDetector detector,
-        AnomalyDetectorJob job,
+        Job job,
         MultiResponsesDelegateActionListener<EntityProfile> delegateListener
     ) {
         if (totalUpdates == 0) {
@@ -398,7 +398,7 @@ public class EntityProfileRunner extends AbstractProfileRunner {
             builder.state(EntityState.INIT);
         }
         if (profilesToCollect.contains(EntityProfileName.INIT_PROGRESS)) {
-            long intervalMins = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMinutes();
+            long intervalMins = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMinutes();
             InitProgressProfile initProgress = computeInitProgressProfile(updates, intervalMins);
             builder.initProgress(initProgress);
         }
@@ -457,15 +457,15 @@ public class EntityProfileRunner extends AbstractProfileRunner {
 
         boolQueryBuilder.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
 
-        boolQueryBuilder.filter(QueryBuilders.rangeQuery(AnomalyResult.EXECUTION_END_TIME_FIELD).gte(enabledTime));
+        boolQueryBuilder.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(enabledTime));
 
         SearchSourceBuilder source = new SearchSourceBuilder()
             .query(boolQueryBuilder)
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(AnomalyResult.EXECUTION_END_TIME_FIELD))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(CommonName.EXECUTION_END_TIME_FIELD))
             .trackTotalHits(false)
             .size(0);
 
-        SearchRequest request = new SearchRequest(CommonName.ANOMALY_RESULT_INDEX_ALIAS);
+        SearchRequest request = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         request.source(source);
         if (resultIndex != null) {
             request.indices(resultIndex);

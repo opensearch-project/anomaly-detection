@@ -23,14 +23,14 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import org.opensearch.OpenSearchException;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.util.ClientUtil;
 
-public class DailyCronTests extends AbstractADTest {
+public class DailyCronTests extends AbstractTimeSeriesTest {
 
     enum DailyCronTestExecutionMode {
         NORMAL,

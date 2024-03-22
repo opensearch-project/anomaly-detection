@@ -1,0 +1,131 @@
+{
+  "dynamic": true,
+  "_meta": {
+    "schema_version": 1
+  },
+  "properties": {
+    "forecaster_id": {
+      "type": "keyword"
+    },
+    "feature_data": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "data_quality": {
+      "type": "double"
+    },
+    "data_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "data_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "error": {
+      "type": "text"
+    },
+    "user": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "backend_roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "custom_attribute_names": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "entity": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "value": {
+          "type": "keyword"
+        }
+      }
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "task_id": {
+      "type": "keyword"
+    },
+    "model_id": {
+      "type": "keyword"
+    },
+    "entity_id": {
+      "type": "keyword"
+    },
+    "forecast_lower_bound": {
+      "type": "double"
+    },
+    "forecast_upper_bound": {
+      "type": "double"
+    },
+    "confidence_interval_width": {
+      "type": "double"
+    },
+    "forecast_value": {
+      "type": "double"
+    },
+    "horizon_index": {
+      "type": "integer"
+    },
+    "forecast_data_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "forecast_data_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "feature_id": {
+      "type": "keyword"
+    }
+  }
+}

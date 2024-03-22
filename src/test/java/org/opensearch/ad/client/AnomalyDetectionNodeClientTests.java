@@ -12,8 +12,9 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.indices.AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.AnomalyDetector.DETECTOR_TYPE_FIELD;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -27,11 +28,9 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorState;
@@ -46,6 +45,9 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Job;
 
 import com.google.common.collect.ImmutableList;
 
@@ -68,7 +70,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testSearchAnomalyDetectors_NoIndices() {
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(TestHelpers.matchAllRequest()).actionGet(10000);
         assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
@@ -76,7 +78,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testSearchAnomalyDetectors_Empty() throws IOException {
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
         createDetectorIndex();
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(TestHelpers.matchAllRequest()).actionGet(10000);
@@ -143,9 +145,9 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testGetDetectorProfile_NoIndices() throws ExecutionException, InterruptedException {
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexIfExists(CommonName.CONFIG_INDEX);
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
-        deleteIndexIfExists(CommonName.DETECTION_STATE_INDEX);
+        deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
 
         GetAnomalyDetectorRequest profileRequest = new GetAnomalyDetectorRequest(
             "foo",
@@ -158,8 +160,12 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
             null
         );
 
-        expectThrows(OpenSearchStatusException.class, () -> adClient.getDetectorProfile(profileRequest).actionGet(10000));
+        OpenSearchStatusException exception = expectThrows(
+            OpenSearchStatusException.class,
+            () -> adClient.getDetectorProfile(profileRequest).actionGet(10000)
+        );
 
+        assertTrue(exception.getMessage().contains(FAIL_TO_FIND_CONFIG_MSG));
         verify(clientSpy, times(1)).execute(any(GetAnomalyDetectorAction.class), any(), any());
     }
 
@@ -193,7 +199,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
                 9876,
                 2345,
                 detector,
-                mock(AnomalyDetectorJob.class),
+                mock(Job.class),
                 false,
                 mock(ADTask.class),
                 mock(ADTask.class),

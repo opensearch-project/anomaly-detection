@@ -51,24 +51,12 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.dataprocessor.IntegerSensitiveSingleFeatureLinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.LinearUniformInterpolator;
-import org.opensearch.ad.dataprocessor.SingleFeatureLinearUniformInterpolator;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -76,6 +64,18 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
@@ -163,7 +163,7 @@ public class ModelManagerTests {
     private Instant now;
 
     @Mock
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
 
     private String modelId = "modelId";
 
@@ -205,7 +205,7 @@ public class ModelManagerTests {
         when(rcf.process(any(), anyLong())).thenReturn(descriptor);
 
         ExecutorService executorService = mock(ExecutorService.class);
-        when(threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        when(threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
         doAnswer(invocation -> {
             Runnable runnable = invocation.getArgument(0);
             runnable.run();
@@ -235,7 +235,7 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
                 memoryTracker,
@@ -409,13 +409,7 @@ public class ModelManagerTests {
 
         when(jvmService.info().getMem().getHeapMax().getBytes()).thenReturn(1_000L);
 
-        MemoryTracker memoryTracker = new MemoryTracker(
-            jvmService,
-            modelMaxSizePercentage,
-            modelDesiredSizePercentage,
-            null,
-            adCircuitBreakerService
-        );
+        MemoryTracker memoryTracker = new MemoryTracker(jvmService, modelMaxSizePercentage, null, adCircuitBreakerService);
 
         ActionListener<ThresholdingResult> listener = mock(ActionListener.class);
 
@@ -431,7 +425,7 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
                 memoryTracker,
@@ -694,14 +688,14 @@ public class ModelManagerTests {
 
     @Test
     public void getRcfModelId_returnNonEmptyString() {
-        String rcfModelId = SingleStreamModelIdMapper.getRcfModelId(anomalyDetector.getDetectorId(), 0);
+        String rcfModelId = SingleStreamModelIdMapper.getRcfModelId(anomalyDetector.getId(), 0);
 
         assertFalse(rcfModelId.isEmpty());
     }
 
     @Test
     public void getThresholdModelId_returnNonEmptyString() {
-        String thresholdModelId = SingleStreamModelIdMapper.getThresholdModelId(anomalyDetector.getDetectorId());
+        String thresholdModelId = SingleStreamModelIdMapper.getThresholdModelId(anomalyDetector.getId());
 
         assertFalse(thresholdModelId.isEmpty());
     }
@@ -908,9 +902,7 @@ public class ModelManagerTests {
     public void getEmptyStateFullSamples() {
         SearchFeatureDao searchFeatureDao = mock(SearchFeatureDao.class);
 
-        SingleFeatureLinearUniformInterpolator singleFeatureLinearUniformInterpolator =
-            new IntegerSensitiveSingleFeatureLinearUniformInterpolator();
-        LinearUniformInterpolator interpolator = new LinearUniformInterpolator(singleFeatureLinearUniformInterpolator);
+        LinearUniformImputer interpolator = new LinearUniformImputer(true);
 
         NodeStateManager stateManager = mock(NodeStateManager.class);
         featureManager = new FeatureManager(
@@ -925,9 +917,9 @@ public class ModelManagerTests {
             AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
             AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
             AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             threadPool,
-            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME
+            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
         );
 
         CheckpointWriteWorker checkpointWriteQueue = mock(CheckpointWriteWorker.class);
@@ -936,20 +928,20 @@ public class ModelManagerTests {
             clock,
             threadPool,
             stateManager,
-            AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE,
-            AnomalyDetectorSettings.NUM_TREES,
-            AnomalyDetectorSettings.TIME_DECAY,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            TimeSeriesSettings.NUM_TREES,
+            TimeSeriesSettings.TIME_DECAY,
             numMinSamples,
             AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
             AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
             interpolator,
             searchFeatureDao,
-            AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE,
+            TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             settings,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            AnomalyDetectorSettings.MAX_COLD_START_ROUNDS
+            TimeSeriesSettings.MAX_COLD_START_ROUNDS
         );
 
         modelManager = spy(
@@ -963,7 +955,7 @@ public class ModelManagerTests {
                 thresholdMinPvalue,
                 minPreviewSize,
                 modelTtl,
-                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ,
+                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
                 entityColdStarter,
                 featureManager,
                 memoryTracker,

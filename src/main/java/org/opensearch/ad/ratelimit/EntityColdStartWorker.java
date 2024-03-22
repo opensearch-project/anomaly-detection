@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.ENTITY_COLD_START_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_ENTITY_COLD_START_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -23,20 +23,21 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 /**
  * A queue for HCAD model training (a.k.a. cold start). As model training is a
@@ -60,7 +61,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -89,7 +90,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            ENTITY_COLD_START_QUEUE_CONCURRENCY,
+            AD_ENTITY_COLD_START_QUEUE_CONCURRENCY,
             executionTtl,
             stateTtl,
             nodeStateManager
@@ -100,7 +101,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
 
     @Override
     protected void executeRequest(EntityRequest coldStartRequest, ActionListener<Void> listener) {
-        String detectorId = coldStartRequest.getDetectorId();
+        String detectorId = coldStartRequest.getId();
 
         Optional<String> modelId = coldStartRequest.getModelId();
 
@@ -121,7 +122,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
         );
 
         ActionListener<Void> coldStartListener = ActionListener.wrap(r -> {
-            nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+            nodeStateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(detectorOptional -> {
                 try {
                     if (!detectorOptional.isPresent()) {
                         LOG
@@ -133,7 +134,7 @@ public class EntityColdStartWorker extends SingleRequestWorker<EntityRequest> {
                             );
                         return;
                     }
-                    AnomalyDetector detector = detectorOptional.get();
+                    AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
                     EntityModel model = modelState.getModel();
                     // load to cache if cold start succeeds
                     if (model != null && model.getTrcf() != null) {

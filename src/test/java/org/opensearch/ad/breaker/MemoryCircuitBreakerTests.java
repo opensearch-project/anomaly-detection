@@ -21,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.monitor.jvm.JvmStats;
+import org.opensearch.timeseries.breaker.CircuitBreaker;
+import org.opensearch.timeseries.breaker.MemoryCircuitBreaker;
 
 public class MemoryCircuitBreakerTests {
 

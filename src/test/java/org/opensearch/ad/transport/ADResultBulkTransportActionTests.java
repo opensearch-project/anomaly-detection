@@ -31,8 +31,6 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -41,9 +39,11 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.index.IndexingPressure;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
-public class ADResultBulkTransportActionTests extends AbstractADTest {
+public class ADResultBulkTransportActionTests extends AbstractTimeSeriesTest {
     private ADResultBulkTransportAction resultBulk;
     private TransportService transportService;
     private ClusterService clusterService;
@@ -68,11 +68,11 @@ public class ADResultBulkTransportActionTests extends AbstractADTest {
         Settings settings = Settings
             .builder()
             .put(IndexingPressure.MAX_INDEXING_BYTES.getKey(), "1KB")
-            .put(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.8)
+            .put(AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT.getKey(), 0.8)
             .build();
 
         // without register these settings, the constructor of ADResultBulkTransportAction cannot invoke update consumer
-        setupTestNodes(AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT, AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT);
+        setupTestNodes(AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT, AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT);
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
 

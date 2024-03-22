@@ -12,11 +12,12 @@
 package org.opensearch.ad.model;
 
 import java.util.List;
-import java.util.stream.Collectors;
+
+import org.opensearch.timeseries.model.TaskType;
 
 import com.google.common.collect.ImmutableList;
 
-public enum ADTaskType {
+public enum ADTaskType implements TaskType {
     @Deprecated
     HISTORICAL,
     REALTIME_SINGLE_ENTITY,
@@ -41,8 +42,4 @@ public enum ADTaskType {
             ADTaskType.HISTORICAL_HC_DETECTOR,
             ADTaskType.HISTORICAL
         );
-
-    public static List<String> taskTypeToString(List<ADTaskType> adTaskTypes) {
-        return adTaskTypes.stream().map(type -> type.name()).collect(Collectors.toList());
-    }
 }

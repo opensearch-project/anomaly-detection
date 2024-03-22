@@ -23,6 +23,7 @@ import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class BulkUtil {
     private static final Logger logger = LogManager.getLogger(BulkUtil.class);

@@ -17,11 +17,11 @@ import org.opensearch.ad.ADUnitTestCase;
 public class ADVersionUtilTests extends ADUnitTestCase {
 
     public void testParseVersionFromString() {
-        Version version = ADVersionUtil.fromString("1.1.0.0");
-        assertEquals(Version.V_1_1_0, version);
+        Version version = ADVersionUtil.fromString("2.1.0.0");
+        assertEquals(Version.V_2_1_0, version);
 
-        version = ADVersionUtil.fromString("1.1.0");
-        assertEquals(Version.V_1_1_0, version);
+        version = ADVersionUtil.fromString("2.1.0");
+        assertEquals(Version.V_2_1_0, version);
     }
 
     public void testParseVersionFromStringWithNull() {
@@ -30,10 +30,5 @@ public class ADVersionUtilTests extends ADUnitTestCase {
 
     public void testParseVersionFromStringWithWrongFormat() {
         expectThrows(IllegalArgumentException.class, () -> ADVersionUtil.fromString("1.1"));
-    }
-
-    public void testCompatibleWithVersionOnOrAfter1_1() {
-        assertTrue(ADVersionUtil.compatibleWithVersionOnOrAfter1_1(Version.V_1_1_0));
-        assertFalse(ADVersionUtil.compatibleWithVersionOnOrAfter1_1(Version.V_1_0_0));
     }
 }

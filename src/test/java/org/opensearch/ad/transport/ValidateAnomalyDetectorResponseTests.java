@@ -16,14 +16,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonMessages;
 
-public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
+public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest {
 
     @Test
     public void testResponseSerialization() throws IOException {
@@ -84,7 +84,7 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractADTest {
         String validationResponse = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder()));
         assertEquals(
             "{\"model\":{\"detection_interval\":{\"message\":\""
-                + CommonErrorMessages.DETECTOR_INTERVAL_REC
+                + CommonMessages.INTERVAL_REC
                 + intervalRec
                 + "\",\"suggested_value\":{\"period\":{\"interval\":5,\"unit\":\"Minutes\"}}}}}",
             validationResponse

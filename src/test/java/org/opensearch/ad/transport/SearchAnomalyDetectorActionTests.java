@@ -20,13 +20,14 @@ import java.time.temporal.ChronoUnit;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.common.collect.ImmutableList;
 
@@ -61,7 +62,7 @@ public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTes
     }
 
     public void testNoIndex() {
-        deleteIndexIfExists(AnomalyDetector.ANOMALY_DETECTORS_INDEX);
+        deleteIndexIfExists(CommonName.CONFIG_INDEX);
 
         BoolQueryBuilder query = new BoolQueryBuilder().filter(new MatchAllQueryBuilder());
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query);

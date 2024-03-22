@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ml;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -36,27 +36,29 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.CleanState;
-import org.opensearch.ad.MaintenanceState;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.DoorKeeper;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.SearchFeatureDao;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.RequestPriority;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
-import org.opensearch.ad.util.ExceptionUtil;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.CleanState;
+import org.opensearch.timeseries.MaintenanceState;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
@@ -78,7 +80,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
     private final double thresholdMinPvalue;
     private final int defaulStrideLength;
     private final int defaultNumberOfSamples;
-    private final Interpolator interpolator;
+    private final Imputer imputer;
     private final SearchFeatureDao searchFeatureDao;
     private Instant lastThrottledColdStartTime;
     private final FeatureManager featureManager;
@@ -109,7 +111,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      *  results are returned.
      * @param defaultSampleStride default sample distances measured in detector intervals.
      * @param defaultTrainSamples Default train samples to collect.
-     * @param interpolator Used to generate data points between samples.
+     * @param imputer Used to generate data points between samples.
      * @param searchFeatureDao Used to issue ES queries.
      * @param thresholdMinPvalue min P-value for thresholding
      * @param featureManager Used to create features for models.
@@ -131,7 +133,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         int numMinSamples,
         int defaultSampleStride,
         int defaultTrainSamples,
-        Interpolator interpolator,
+        Imputer imputer,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
         FeatureManager featureManager,
@@ -151,11 +153,11 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         this.numMinSamples = numMinSamples;
         this.defaulStrideLength = defaultSampleStride;
         this.defaultNumberOfSamples = defaultTrainSamples;
-        this.interpolator = interpolator;
+        this.imputer = imputer;
         this.searchFeatureDao = searchFeatureDao;
         this.thresholdMinPvalue = thresholdMinPvalue;
         this.featureManager = featureManager;
-        this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.coolDownMinutes = (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes());
         this.doorKeepers = new ConcurrentHashMap<>();
         this.modelTtl = modelTtl;
         this.checkpointWriteQueue = checkpointWriteQueue;
@@ -174,7 +176,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         int numMinSamples,
         int maxSampleStride,
         int maxTrainSamples,
-        Interpolator interpolator,
+        Imputer imputer,
         SearchFeatureDao searchFeatureDao,
         double thresholdMinPvalue,
         FeatureManager featureManager,
@@ -193,7 +195,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             numMinSamples,
             maxSampleStride,
             maxTrainSamples,
-            interpolator,
+            imputer,
             searchFeatureDao,
             thresholdMinPvalue,
             featureManager,
@@ -249,9 +251,9 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(detectorId, id -> {
                 // reset every 60 intervals
                 return new DoorKeeper(
-                    AnomalyDetectorSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
-                    AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
-                    detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                    TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
+                    TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
+                    detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                     clock
                 );
             });
@@ -294,11 +296,11 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                     if (ExceptionUtil.isOverloaded(cause)) {
                         logger.error("too many requests");
                         lastThrottledColdStartTime = Instant.now();
-                    } else if (cause instanceof AnomalyDetectionException || exception instanceof AnomalyDetectionException) {
+                    } else if (cause instanceof TimeSeriesException || exception instanceof TimeSeriesException) {
                         // e.g., cannot find anomaly detector
                         nodeStateManager.setException(detectorId, exception);
                     } else {
-                        nodeStateManager.setException(detectorId, new AnomalyDetectionException(detectorId, cause));
+                        nodeStateManager.setException(detectorId, new TimeSeriesException(detectorId, cause));
                     }
                     listener.onFailure(exception);
                 } catch (Exception e) {
@@ -307,7 +309,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             });
 
             threadPool
-                .executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME)
+                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
                 .execute(
                     () -> getEntityColdStartData(
                         detectorId,
@@ -315,7 +317,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                         new ThreadedActionListener<>(
                             logger,
                             threadPool,
-                            AnomalyDetectorPlugin.AD_THREAD_POOL_NAME,
+                            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
                             coldStartCallBack,
                             false
                         )
@@ -362,7 +364,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             // same with dimension for opportunistic memory saving
             // Usually, we use it as shingleSize(dimension). When a new point comes in, we will
             // look at the point store if there is any overlapping. Say the previously-stored
@@ -408,13 +410,13 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      * @param listener listener to return training data
      */
     private void getEntityColdStartData(String detectorId, Entity entity, ActionListener<Optional<List<double[][]>>> listener) {
-        ActionListener<Optional<AnomalyDetector>> getDetectorListener = ActionListener.wrap(detectorOp -> {
+        ActionListener<Optional<? extends Config>> getDetectorListener = ActionListener.wrap(detectorOp -> {
             if (!detectorOp.isPresent()) {
                 listener.onFailure(new EndRunException(detectorId, "AnomalyDetector is not available.", false));
                 return;
             }
             List<double[][]> coldStartData = new ArrayList<>();
-            AnomalyDetector detector = detectorOp.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOp.get();
 
             ActionListener<Optional<Long>> minTimeListener = ActionListener.wrap(earliest -> {
                 if (earliest.isPresent()) {
@@ -439,18 +441,20 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
             }, listener::onFailure);
 
             searchFeatureDao
-                .getEntityMinDataTime(
+                .getMinDataTime(
                     detector,
-                    entity,
-                    new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, minTimeListener, false)
+                    Optional.ofNullable(entity),
+                    AnalysisType.AD,
+                    new ThreadedActionListener<>(logger, threadPool, TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME, minTimeListener, false)
                 );
 
         }, listener::onFailure);
 
         nodeStateManager
-            .getAnomalyDetector(
+            .getConfig(
                 detectorId,
-                new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, getDetectorListener, false)
+                AnalysisType.AD,
+                new ThreadedActionListener<>(logger, threadPool, TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME, getDetectorListener, false)
             );
     }
 
@@ -465,7 +469,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         long startTimeMs,
         long endTimeMs
     ) {
-        if (startTimeMs >= endTimeMs || endTimeMs - startTimeMs < detector.getDetectorIntervalInMilliseconds()) {
+        if (startTimeMs >= endTimeMs || endTimeMs - startTimeMs < detector.getIntervalInMilliseconds()) {
             listener.onResponse(Optional.of(lastRoundColdStartData));
             return;
         }
@@ -499,8 +503,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                         int numInterpolants = (i - lastSample.getLeft()) * stride + 1;
                         double[][] points = featureManager
                             .transpose(
-                                interpolator
-                                    .interpolate(
+                                imputer
+                                    .impute(
                                         featureManager.transpose(new double[][] { lastSample.getRight(), featuresOptional.get() }),
                                         numInterpolants
                                     )
@@ -550,14 +554,21 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
                 .getColdStartSamplesForPeriods(
                     detector,
                     sampleRanges,
-                    entity,
+                    Optional.ofNullable(entity),
                     // Accept empty bucket.
                     // 0, as returned by the engine should constitute a valid answer, “null” is a missing answer — it may be that 0
                     // is meaningless in some case, but 0 is also meaningful in some cases. It may be that the query defining the
                     // metric is ill-formed, but that cannot be solved by cold-start strategy of the AD plugin — if we attempt to do
                     // that, we will have issues with legitimate interpretations of 0.
                     true,
-                    new ThreadedActionListener<>(logger, threadPool, AnomalyDetectorPlugin.AD_THREAD_POOL_NAME, getFeaturelistener, false)
+                    AnalysisType.AD,
+                    new ThreadedActionListener<>(
+                        logger,
+                        threadPool,
+                        TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
+                        getFeaturelistener,
+                        false
+                    )
                 );
         } catch (Exception e) {
             listener.onFailure(e);
@@ -594,8 +605,8 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      */
     private Pair<Integer, Integer> selectRangeParam(AnomalyDetector detector) {
         int shingleSize = detector.getShingleSize();
-        if (EnabledSetting.isInterpolationInColdStartEnabled()) {
-            long delta = detector.getDetectorIntervalInMinutes();
+        if (ADEnabledSetting.isInterpolationInColdStartEnabled()) {
+            long delta = detector.getIntervalInMinutes();
 
             int strideLength = defaulStrideLength;
             int numberOfSamples = defaultNumberOfSamples;
@@ -630,7 +641,7 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
         int stride,
         int numberOfSamples
     ) {
-        long bucketSize = ((IntervalTimeConfiguration) detector.getDetectionInterval()).toDuration().toMillis();
+        long bucketSize = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMillis();
         int numBuckets = (int) Math.floor((endMilli - startMilli) / (double) bucketSize);
         // adjust if numStrides is more than the max samples
         int numStrides = Math.min((int) Math.floor(numBuckets / (double) stride), numberOfSamples);
@@ -652,14 +663,14 @@ public class EntityColdStarter implements MaintenanceState, CleanState {
      * cold start queue to pull another request (if any) to execute.
      */
     public void trainModel(Entity entity, String detectorId, ModelState<EntityModel> modelState, ActionListener<Void> listener) {
-        nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+        nodeStateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(detectorOptional -> {
             if (false == detectorOptional.isPresent()) {
                 logger.warn(new ParameterizedMessage("AnomalyDetector [{}] is not available.", detectorId));
-                listener.onFailure(new AnomalyDetectionException(detectorId, "fail to find detector"));
+                listener.onFailure(new TimeSeriesException(detectorId, "fail to find detector"));
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
 
             Queue<double[]> samples = modelState.getModel().getSamples();
             String modelId = modelState.getModelId();

@@ -39,8 +39,8 @@ public class ProfileNodeRequest extends BaseNodeRequest {
         this.request = request;
     }
 
-    public String getDetectorId() {
-        return request.getDetectorId();
+    public String getId() {
+        return request.getId();
     }
 
     /**

@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.VALIDATE;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.TYPE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -25,13 +25,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorValidationIssue;
-import org.opensearch.ad.model.ValidationAspect;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorRequest;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
@@ -45,6 +42,9 @@ import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.model.ValidationAspect;
 
 import com.google.common.collect.ImmutableList;
 
@@ -75,11 +75,11 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             .of(
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
+                    String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, VALIDATE)
                 ),
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
+                    String.format(Locale.ROOT, "%s/%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, VALIDATE, TYPE)
                 )
             );
     }
@@ -103,8 +103,8 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
 
     @Override
     protected BaseRestHandler.RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
@@ -113,7 +113,7 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
         // if type param isn't blank and isn't a part of possible validation types throws exception
         if (!StringUtils.isBlank(typesStr)) {
             if (!validationTypesAreAccepted(typesStr)) {
-                throw new IllegalStateException(CommonErrorMessages.NOT_EXISTENT_VALIDATION_TYPE);
+                throw new IllegalStateException(ADCommonMessages.NOT_EXISTENT_VALIDATION_TYPE);
             }
         }
 
@@ -122,8 +122,8 @@ public class RestValidateAnomalyDetectorAction extends AbstractAnomalyDetectorAc
             try {
                 detector = AnomalyDetector.parse(parser);
             } catch (Exception ex) {
-                if (ex instanceof ADValidationException) {
-                    ADValidationException ADException = (ADValidationException) ex;
+                if (ex instanceof ValidationException) {
+                    ValidationException ADException = (ValidationException) ex;
                     DetectorValidationIssue issue = new DetectorValidationIssue(
                         ADException.getAspect(),
                         ADException.getType(),

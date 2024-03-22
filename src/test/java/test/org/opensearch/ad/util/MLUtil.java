@@ -24,9 +24,9 @@ import java.util.stream.IntStream;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -39,7 +39,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  */
 public class MLUtil {
     private static Random random = new Random(42);
-    private static int minSampleSize = AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+    private static int minSampleSize = TimeSeriesSettings.NUM_MIN_SAMPLES;
 
     private static String randomString(int targetStringLength) {
         int leftLimit = 97; // letter 'a'
@@ -62,7 +62,7 @@ public class MLUtil {
     public static ModelState<EntityModel> randomModelState(RandomModelStateConfig config) {
         boolean fullModel = config.getFullModel() != null && config.getFullModel().booleanValue() ? true : false;
         float priority = config.getPriority() != null ? config.getPriority() : random.nextFloat();
-        String detectorId = config.getDetectorId() != null ? config.getDetectorId() : randomString(15);
+        String detectorId = config.getId() != null ? config.getId() : randomString(15);
         int sampleSize = config.getSampleSize() != null ? config.getSampleSize() : random.nextInt(minSampleSize);
         Clock clock = config.getClock() != null ? config.getClock() : Clock.systemUTC();
 
@@ -96,19 +96,19 @@ public class MLUtil {
 
     public static EntityModel createNonEmptyModel(String detectorId, int sampleSize, Entity entity) {
         Queue<double[]> samples = createQueueSamples(sampleSize);
-        int numDataPoints = random.nextInt(1000) + AnomalyDetectorSettings.NUM_MIN_SAMPLES;
+        int numDataPoints = random.nextInt(1000) + TimeSeriesSettings.NUM_MIN_SAMPLES;
         ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(
             ThresholdedRandomCutForest
                 .builder()
                 .dimensions(1)
-                .sampleSize(AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE)
-                .numberOfTrees(AnomalyDetectorSettings.NUM_TREES)
-                .timeDecay(AnomalyDetectorSettings.TIME_DECAY)
-                .outputAfter(AnomalyDetectorSettings.NUM_MIN_SAMPLES)
+                .sampleSize(TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
+                .numberOfTrees(TimeSeriesSettings.NUM_TREES)
+                .timeDecay(TimeSeriesSettings.TIME_DECAY)
+                .outputAfter(TimeSeriesSettings.NUM_MIN_SAMPLES)
                 .initialAcceptFraction(0.125d)
                 .parallelExecutionEnabled(false)
                 .internalShinglingEnabled(true)
-                .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+                .anomalyRate(1 - TimeSeriesSettings.THRESHOLD_MIN_PVALUE)
                 .transformMethod(TransformMethod.NORMALIZE)
                 .alertOnce(true)
                 .autoAdjust(true)

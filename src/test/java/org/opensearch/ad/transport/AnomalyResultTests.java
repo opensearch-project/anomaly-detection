@@ -20,6 +20,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyDouble;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -33,8 +34,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.TestHelpers.createIndexBlockedState;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.timeseries.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -64,34 +65,21 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.InternalFailure;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.feature.SinglePointFeatures;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -115,6 +103,22 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.InternalFailure;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.model.FeatureData;
+import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.NodeNotConnectedException;
 import org.opensearch.transport.RemoteTransportException;
 import org.opensearch.transport.Transport;
@@ -129,7 +133,7 @@ import com.google.gson.JsonElement;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class AnomalyResultTests extends AbstractADTest {
+public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private Settings settings;
     private TransportService transportService;
     private ClusterService clusterService;
@@ -145,7 +149,7 @@ public class AnomalyResultTests extends AbstractADTest {
     private String adID;
     private String featureId;
     private String featureName;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     private ADStats adStats;
     private double confidence;
     private double anomalyGrade;
@@ -168,7 +172,7 @@ public class AnomalyResultTests extends AbstractADTest {
         super.setUp();
         super.setUpLog4jForJUnit(AnomalyResultTransportAction.class);
 
-        setupTestNodes(AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.PAGE_SIZE);
+        setupTestNodes(AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.AD_PAGE_SIZE);
 
         transportService = testNodes[0].transportService;
         clusterService = testNodes[0].clusterService;
@@ -188,14 +192,14 @@ public class AnomalyResultTests extends AbstractADTest {
         userIndex.add("test*");
         when(detector.getIndices()).thenReturn(userIndex);
         adID = "123";
-        when(detector.getDetectorId()).thenReturn(adID);
-        when(detector.getCategoryField()).thenReturn(null);
+        when(detector.getId()).thenReturn(adID);
+        when(detector.getCategoryFields()).thenReturn(null);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
-        when(detector.getDetectorIntervalInMinutes()).thenReturn(1L);
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        when(detector.getIntervalInMinutes()).thenReturn(1L);
 
         hashRing = mock(HashRing.class);
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
@@ -249,7 +253,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
         thresholdModelID = SingleStreamModelIdMapper.getThresholdModelId(adID); // "123-threshold";
         // when(normalModelPartitioner.getThresholdModelId(any(String.class))).thenReturn(thresholdModelID);
-        adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        adCircuitBreakerService = mock(CircuitBreakerService.class);
         when(adCircuitBreakerService.isOpen()).thenReturn(false);
 
         ThreadPool threadPool = mock(ThreadPool.class);
@@ -274,7 +278,7 @@ public class AnomalyResultTests extends AbstractADTest {
             }
 
             assertTrue(request != null && listener != null);
-            ShardId shardId = new ShardId(new Index(CommonName.ANOMALY_RESULT_INDEX_ALIAS, randomAlphaOfLength(10)), 0);
+            ShardId shardId = new ShardId(new Index(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, randomAlphaOfLength(10)), 0);
             listener.onResponse(new IndexResponse(shardId, request.id(), 1, 1, 1, true));
 
             return null;
@@ -300,12 +304,11 @@ public class AnomalyResultTests extends AbstractADTest {
             GetRequest request = (GetRequest) args[0];
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
-            if (request.index().equals(CommonName.DETECTION_STATE_INDEX)) {
+            if (request.index().equals(ADCommonName.DETECTION_STATE_INDEX)) {
 
                 DetectorInternalState.Builder result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
 
-                listener
-                    .onResponse(TestHelpers.createGetResponse(result.build(), detector.getDetectorId(), CommonName.DETECTION_STATE_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(result.build(), detector.getId(), ADCommonName.DETECTION_STATE_INDEX));
 
             }
 
@@ -457,8 +460,8 @@ public class AnomalyResultTests extends AbstractADTest {
         setupTestNodes(
             failureTransportInterceptor,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-            AnomalyDetectorSettings.PAGE_SIZE
+            AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY,
+            AnomalyDetectorSettings.AD_PAGE_SIZE
         );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
@@ -518,7 +521,7 @@ public class AnomalyResultTests extends AbstractADTest {
             .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
         when(stateManager.fetchExceptionAndClear(any(String.class)))
-            .thenReturn(Optional.of(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
+            .thenReturn(Optional.of(new LimitExceededException(adID, CommonMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)));
 
         // These constructors register handler in transport service
         new RCFResultTransportAction(
@@ -561,7 +564,7 @@ public class AnomalyResultTests extends AbstractADTest {
     public void testInsufficientCapacityExceptionDuringRestoringModel() {
 
         ModelManager rcfManager = mock(ModelManager.class);
-        doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
+        doThrow(new NotSerializableExceptionWrapper(new LimitExceededException(adID, CommonMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG)))
             .when(rcfManager)
             .getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
@@ -680,8 +683,8 @@ public class AnomalyResultTests extends AbstractADTest {
         setupTestNodes(
             failureTransportInterceptor,
             Settings.EMPTY,
-            AnomalyDetectorSettings.MAX_ENTITIES_PER_QUERY,
-            AnomalyDetectorSettings.PAGE_SIZE
+            AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY,
+            AnomalyDetectorSettings.AD_PAGE_SIZE
         );
 
         // mock hashing ring response. This has to happen after setting up test nodes with the failure interceptor
@@ -732,7 +735,7 @@ public class AnomalyResultTests extends AbstractADTest {
 
     public void testCircuitBreaker() {
 
-        ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService breakerService = mock(CircuitBreakerService.class);
         when(breakerService.isOpen()).thenReturn(true);
 
         // These constructors register handler in transport service
@@ -839,7 +842,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        assertException(listener, AnomalyDetectionException.class);
+        assertException(listener, TimeSeriesException.class);
 
         if (!temporary) {
             verify(hashRing, times(numberOfBuildCall)).buildCirclesForRealtimeAD();
@@ -865,10 +868,10 @@ public class AnomalyResultTests extends AbstractADTest {
         NodeStateManager muteStateManager = mock(NodeStateManager.class);
         when(muteStateManager.isMuted(any(String.class), any(String.class))).thenReturn(true);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(muteStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(muteStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
@@ -891,7 +894,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        Throwable exception = assertException(listener, AnomalyDetectionException.class);
+        Throwable exception = assertException(listener, TimeSeriesException.class);
         assertThat(exception.getMessage(), containsString(AnomalyResultTransportAction.NODE_UNRESPONSIVE_ERR_MSG));
     }
 
@@ -1062,29 +1065,29 @@ public class AnomalyResultTests extends AbstractADTest {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = builder.toString();
-        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
+        assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.START_JSON_KEY), request.getStart());
         assertEquals(JsonDeserializer.getLongValue(json, CommonName.END_JSON_KEY), request.getEnd());
     }
 
     public void testEmptyID() {
         ActionRequestValidationException e = new AnomalyResultRequest("", 100, 200).validate();
-        assertThat(e.validationErrors(), hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testZeroStartTime() {
         ActionRequestValidationException e = new AnomalyResultRequest(adID, 0, 200).validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     public void testNegativeEndTime() {
         ActionRequestValidationException e = new AnomalyResultRequest(adID, 0, -200).validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     public void testNegativeTime() {
         ActionRequestValidationException e = new AnomalyResultRequest(adID, 10, -200).validate();
-        assertThat(e.validationErrors(), hasItem(startsWith(CommonErrorMessages.INVALID_TIMESTAMP_ERR_MSG)));
+        assertThat(e.validationErrors(), hasItem(startsWith(CommonMessages.INVALID_TIMESTAMP_ERR_MSG)));
     }
 
     // no exception should be thrown
@@ -1354,7 +1357,7 @@ public class AnomalyResultTests extends AbstractADTest {
                 .when(featureQuery)
                 .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         } else if (mode == FeatureTestMode.AD_EXCEPTION) {
-            doThrow(AnomalyDetectionException.class)
+            doThrow(TimeSeriesException.class)
                 .when(featureQuery)
                 .getCurrentFeatures(any(AnomalyDetector.class), anyLong(), anyLong(), any(ActionListener.class));
         }
@@ -1471,7 +1474,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        assertException(listener, AnomalyDetectionException.class, errLogMsg);
+        assertException(listener, TimeSeriesException.class, errLogMsg);
     }
 
     private void globalBlockTemplate(BlockType type, String errLogMsg) {
@@ -1595,10 +1598,10 @@ public class AnomalyResultTests extends AbstractADTest {
     @SuppressWarnings("unchecked")
     public void testAllFeaturesDisabled() throws IOException {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
-            listener.onFailure(new EndRunException(adID, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            listener.onFailure(new EndRunException(adID, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
             return null;
-        }).when(stateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -1623,7 +1626,7 @@ public class AnomalyResultTests extends AbstractADTest {
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 
-        assertException(listener, EndRunException.class, CommonErrorMessages.ALL_FEATURES_DISABLED_ERR_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG);
     }
 
     @SuppressWarnings("unchecked")
@@ -1635,7 +1638,7 @@ public class AnomalyResultTests extends AbstractADTest {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<ThresholdingResult> listener = (ActionListener<ThresholdingResult>) args[3];
-            listener.onFailure(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME));
+            listener.onFailure(new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME));
             return null;
         }).when(rcfManager).getTRcfResult(any(String.class), any(String.class), any(double[].class), any(ActionListener.class));
 
@@ -1709,7 +1712,7 @@ public class AnomalyResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             adID,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             false
                         )
@@ -1738,7 +1741,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
 
         action.doExecute(null, request, listener);
-        assertException(listener, EndRunException.class, CommonErrorMessages.INVALID_SEARCH_QUERY_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.INVALID_SEARCH_QUERY_MSG);
         verify(featureQuery, times(1)).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
     }
 
@@ -1753,7 +1756,7 @@ public class AnomalyResultTests extends AbstractADTest {
                     .of(
                         new EndRunException(
                             adID,
-                            CommonErrorMessages.INVALID_SEARCH_QUERY_MSG,
+                            CommonMessages.INVALID_SEARCH_QUERY_MSG,
                             new NoSuchElementException("No value present"),
                             true
                         )
@@ -1782,7 +1785,7 @@ public class AnomalyResultTests extends AbstractADTest {
         );
 
         action.doExecute(null, request, listener);
-        assertException(listener, EndRunException.class, CommonErrorMessages.INVALID_SEARCH_QUERY_MSG);
+        assertException(listener, EndRunException.class, CommonMessages.INVALID_SEARCH_QUERY_MSG);
         verify(featureQuery, never()).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
     }
 
@@ -1791,7 +1794,7 @@ public class AnomalyResultTests extends AbstractADTest {
         ThreadPool mockThreadPool = mock(ThreadPool.class);
         setUpColdStart(
             mockThreadPool,
-            new ColdStartConfig.Builder().getCheckpointException(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME)).build()
+            new ColdStartConfig.Builder().getCheckpointException(new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME)).build()
         );
 
         doAnswer(invocation -> {

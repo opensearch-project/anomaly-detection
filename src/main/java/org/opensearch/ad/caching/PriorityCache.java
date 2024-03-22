@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.caching;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.DEDICATED_CACHE_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_DEDICATED_CACHE_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -38,23 +38,15 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.MemoryTracker.Origin;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -63,6 +55,14 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.MemoryTracker.Origin;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -116,12 +116,12 @@ public class PriorityCache implements EntityCache {
 
         this.activeEnities = new ConcurrentHashMap<>();
         this.dedicatedCacheSize = dedicatedCacheSize;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(DEDICATED_CACHE_SIZE, (it) -> {
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_DEDICATED_CACHE_SIZE, (it) -> {
             this.dedicatedCacheSize = it;
             this.setDedicatedCacheSizeListener();
             this.tryClearUpMemory();
         }, this::validateDedicatedCacheSize);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_MAX_SIZE_PERCENTAGE, it -> this.tryClearUpMemory());
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_MODEL_MAX_SIZE_PERCENTAGE, it -> this.tryClearUpMemory());
 
         this.memoryTracker = memoryTracker;
         this.maintenanceLock = new ReentrantLock();
@@ -153,19 +153,19 @@ public class PriorityCache implements EntityCache {
 
     @Override
     public ModelState<EntityModel> get(String modelId, AnomalyDetector detector) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         CacheBuffer buffer = computeBufferIfAbsent(detector, detectorId);
         ModelState<EntityModel> modelState = buffer.get(modelId);
 
         // during maintenance period, stop putting new entries
         if (!maintenanceLock.isLocked() && modelState == null) {
-            if (EnabledSetting.isDoorKeeperInCacheEnabled()) {
+            if (ADEnabledSetting.isDoorKeeperInCacheEnabled()) {
                 DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(detectorId, id -> {
                     // reset every 60 intervals
                     return new DoorKeeper(
-                        AnomalyDetectorSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                        AnomalyDetectorSettings.DOOR_KEEPER_FAULSE_POSITIVE_RATE,
-                        detector.getDetectionIntervalDuration().multipliedBy(AnomalyDetectorSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                        TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
+                        TimeSeriesSettings.DOOR_KEEPER_FALSE_POSITIVE_RATE,
+                        detector.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
                         clock
                     );
                 });
@@ -244,7 +244,7 @@ public class PriorityCache implements EntityCache {
             return false;
         }
         String modelId = toUpdate.getModelId();
-        String detectorId = toUpdate.getDetectorId();
+        String detectorId = toUpdate.getId();
 
         if (Strings.isEmpty(modelId) || Strings.isEmpty(detectorId)) {
             return false;
@@ -454,8 +454,8 @@ public class PriorityCache implements EntityCache {
         if (buffer == null) {
             long requiredBytes = getRequiredMemory(detector, dedicatedCacheSize);
             if (memoryTracker.canAllocateReserved(requiredBytes)) {
-                memoryTracker.consumeMemory(requiredBytes, true, Origin.HC_DETECTOR);
-                long intervalSecs = detector.getDetectorIntervalInSeconds();
+                memoryTracker.consumeMemory(requiredBytes, true, Origin.REAL_TIME_DETECTOR);
+                long intervalSecs = detector.getIntervalInSeconds();
 
                 buffer = new CacheBuffer(
                     dedicatedCacheSize,
@@ -475,7 +475,7 @@ public class PriorityCache implements EntityCache {
                 // Put tryClearUpMemory after consumeMemory to prevent that.
                 tryClearUpMemory();
             } else {
-                throw new LimitExceededException(detectorId, CommonErrorMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG);
+                throw new LimitExceededException(detectorId, CommonMessages.MEMORY_LIMIT_EXCEEDED_ERR_MSG);
             }
 
         }
@@ -494,7 +494,7 @@ public class PriorityCache implements EntityCache {
             .estimateTRCFModelSize(
                 dimension,
                 numberOfTrees,
-                AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
+                TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
                 detector.getShingleSize().intValue(),
                 true
             );
@@ -541,7 +541,7 @@ public class PriorityCache implements EntityCache {
     private void tryClearUpMemory() {
         try {
             if (maintenanceLock.tryLock()) {
-                threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> clearMemory());
+                threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME).execute(() -> clearMemory());
             } else {
                 threadPool.schedule(() -> {
                     try {
@@ -549,7 +549,7 @@ public class PriorityCache implements EntityCache {
                     } catch (Exception e) {
                         LOG.error("Fail to clear up memory taken by CacheBuffer.  Will retry during maintenance.");
                     }
-                }, new TimeValue(random.nextInt(90), TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+                }, new TimeValue(random.nextInt(90), TimeUnit.SECONDS), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
             }
         } finally {
             if (maintenanceLock.isHeldByCurrentThread()) {
@@ -614,7 +614,7 @@ public class PriorityCache implements EntityCache {
             reserved += buffer.getReservedBytes();
             shared += buffer.getBytesInSharedCache();
         }
-        memoryTracker.syncMemoryState(Origin.HC_DETECTOR, reserved + shared, reserved);
+        memoryTracker.syncMemoryState(Origin.REAL_TIME_DETECTOR, reserved + shared, reserved);
     }
 
     /**
@@ -658,7 +658,7 @@ public class PriorityCache implements EntityCache {
             });
         } catch (Exception e) {
             // will be thrown to ES's transport broadcast handler
-            throw new AnomalyDetectionException("Fail to maintain cache", e);
+            throw new TimeSeriesException("Fail to maintain cache", e);
         }
 
     }

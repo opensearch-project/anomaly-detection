@@ -33,19 +33,20 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.ad.DetectorModelSize;
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.DateUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -300,7 +301,7 @@ public class ModelManager implements DetectorModelSize {
             forests.put(modelId, model.get());
             getTRcfResult(model.get(), point, listener);
         } else {
-            throw new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId);
+            throw new ResourceNotFoundException(detectorId, ADCommonMessages.NO_CHECKPOINT_ERR_MSG + modelId);
         }
     }
 
@@ -324,7 +325,7 @@ public class ModelManager implements DetectorModelSize {
             if (model.get().getModel() != null && model.get().getModel().getForest() != null)
                 listener.onResponse(model.get().getModel().getForest().getTotalUpdates());
         } else {
-            listener.onFailure(new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId));
+            listener.onFailure(new ResourceNotFoundException(detectorId, ADCommonMessages.NO_CHECKPOINT_ERR_MSG + modelId));
         }
     }
 
@@ -380,7 +381,7 @@ public class ModelManager implements DetectorModelSize {
             thresholds.put(modelId, model.get());
             getThresholdingResult(model.get(), score, listener);
         } else {
-            throw new ResourceNotFoundException(detectorId, CommonErrorMessages.NO_CHECKPOINT_ERR_MSG + modelId);
+            throw new ResourceNotFoundException(detectorId, ADCommonMessages.NO_CHECKPOINT_ERR_MSG + modelId);
         }
     }
 
@@ -528,7 +529,7 @@ public class ModelManager implements DetectorModelSize {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(detector.getShingleSize())
             .anomalyRate(1 - thresholdMinPvalue)
             .transformMethod(TransformMethod.NORMALIZE)
@@ -538,7 +539,7 @@ public class ModelManager implements DetectorModelSize {
             .build();
         Arrays.stream(dataPoints).forEach(s -> trcf.process(s, 0));
 
-        String modelId = SingleStreamModelIdMapper.getRcfModelId(detector.getDetectorId(), step);
+        String modelId = SingleStreamModelIdMapper.getRcfModelId(detector.getId(), step);
         checkpointDao.putTRCFCheckpoint(modelId, trcf, ActionListener.wrap(r -> listener.onResponse(null), listener::onFailure));
     }
 
@@ -622,7 +623,7 @@ public class ModelManager implements DetectorModelSize {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .anomalyRate(1 - this.thresholdMinPvalue)
             .transformMethod(TransformMethod.NORMALIZE)

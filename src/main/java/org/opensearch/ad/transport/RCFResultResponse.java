@@ -14,8 +14,7 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.Version;
-import org.opensearch.ad.cluster.ADVersionUtil;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -168,7 +167,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         out.writeDouble(confidence);
         out.writeVInt(forestSize);
         out.writeDoubleArray(attribution);
-        if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion)) {
+        if (remoteAdVersion != null) {
             out.writeLong(totalUpdates);
             out.writeDouble(anomalyGrade);
             out.writeOptionalInt(relativeIndex);
@@ -210,7 +209,7 @@ public class RCFResultResponse extends ActionResponse implements ToXContentObjec
         builder.field(FOREST_SIZE_JSON_KEY, forestSize);
         builder.field(ATTRIBUTION_JSON_KEY, attribution);
         builder.field(TOTAL_UPDATES_JSON_KEY, totalUpdates);
-        builder.field(CommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
+        builder.field(ADCommonName.ANOMALY_GRADE_JSON_KEY, anomalyGrade);
         builder.field(RELATIVE_INDEX_FIELD_JSON_KEY, relativeIndex);
         builder.field(PAST_VALUES_FIELD_JSON_KEY, pastValues);
         builder.field(EXPECTED_VAL_LIST_FIELD_JSON_KEY, expectedValuesList);

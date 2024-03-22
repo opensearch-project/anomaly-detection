@@ -13,7 +13,7 @@ package org.opensearch.ad.task;
 
 import java.time.Instant;
 
-import org.opensearch.ad.model.ADTaskState;
+import org.opensearch.timeseries.model.TaskState;
 
 /**
  * Cache HC batch task running state on coordinating and worker node.
@@ -32,7 +32,7 @@ public class ADHCBatchTaskRunState {
     private Long cancelledTimeInMillis;
 
     public ADHCBatchTaskRunState() {
-        this.detectorTaskState = ADTaskState.INIT.name();
+        this.detectorTaskState = TaskState.INIT.name();
     }
 
     public String getDetectorTaskState() {

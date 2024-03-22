@@ -15,9 +15,10 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import org.opensearch.ad.AbstractADTest;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.model.Entity;
 
-public class EntityTests extends AbstractADTest {
+public class EntityTests extends AbstractTimeSeriesTest {
     /**
      * Test that toStrign has no random string, but only attributes
      */

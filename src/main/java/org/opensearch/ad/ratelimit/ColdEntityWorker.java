@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -20,13 +20,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 
 /**
  * A queue slowly releasing low-priority requests to CheckpointReadQueue
@@ -52,7 +52,7 @@ public class ColdEntityWorker extends ScheduledWorker<EntityFeatureRequest, Enti
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -84,15 +84,15 @@ public class ColdEntityWorker extends ScheduledWorker<EntityFeatureRequest, Enti
             nodeStateManager
         );
 
-        this.batchSize = CHECKPOINT_READ_QUEUE_BATCH_SIZE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(CHECKPOINT_READ_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
+        this.batchSize = AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
 
-        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS
+        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.AD_EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS
             .get(settings);
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(
-                EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
+                AD_EXPECTED_COLD_ENTITY_EXECUTION_TIME_IN_MILLISECS,
                 it -> this.expectedExecutionTimeInMilliSecsPerRequest = it
             );
     }

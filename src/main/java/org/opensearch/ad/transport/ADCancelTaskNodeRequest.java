@@ -34,7 +34,7 @@ public class ADCancelTaskNodeRequest extends BaseNodeRequest {
     }
 
     public ADCancelTaskNodeRequest(ADCancelTaskRequest request) {
-        this.detectorId = request.getDetectorId();
+        this.detectorId = request.getId();
         this.detectorTaskId = request.getDetectorTaskId();
         this.userName = request.getUserName();
         this.reason = request.getReason();
@@ -49,7 +49,7 @@ public class ADCancelTaskNodeRequest extends BaseNodeRequest {
         out.writeOptionalString(reason);
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

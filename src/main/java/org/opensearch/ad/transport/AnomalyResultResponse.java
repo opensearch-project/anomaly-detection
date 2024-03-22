@@ -18,9 +18,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.FeatureData;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
@@ -29,6 +29,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.model.FeatureData;
 
 public class AnomalyResultResponse extends ActionResponse implements ToXContentObject {
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
@@ -196,7 +197,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
         return rcfTotalUpdates;
     }
 
-    public Long getDetectorIntervalInMinutes() {
+    public Long getIntervalInMinutes() {
         return detectorIntervalInMinutes;
     }
 
@@ -360,7 +361,7 @@ public class AnomalyResultResponse extends ActionResponse implements ToXContentO
                 executionStartInstant,
                 executionEndInstant,
                 error,
-                null,
+                Optional.empty(),
                 user,
                 schemaVersion,
                 null, // single-stream real-time has no model id

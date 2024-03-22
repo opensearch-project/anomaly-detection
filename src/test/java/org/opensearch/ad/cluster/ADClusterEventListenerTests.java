@@ -27,8 +27,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -38,8 +37,9 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.gateway.GatewayService;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
-public class ADClusterEventListenerTests extends AbstractADTest {
+public class ADClusterEventListenerTests extends AbstractTimeSeriesTest {
     private final String clusterManagerNodeId = "clusterManagerNode";
     private final String dataNode1Id = "dataNode1";
     private final String clusterName = "multi-node-cluster";
@@ -119,7 +119,7 @@ public class ADClusterEventListenerTests extends AbstractADTest {
 
     public void testIsWarmNode() {
         HashMap<String, String> attributesForNode1 = new HashMap<>();
-        attributesForNode1.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
+        attributesForNode1.put(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE);
         dataNode1 = new DiscoveryNode(dataNode1Id, buildNewFakeTransportAddress(), attributesForNode1, BUILT_IN_ROLES, Version.CURRENT);
 
         ClusterState warmNodeClusterState = ClusterState

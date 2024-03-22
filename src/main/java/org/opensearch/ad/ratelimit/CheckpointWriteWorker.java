@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -30,19 +30,21 @@ import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.update.UpdateRequest;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, BulkRequest, BulkResponse> {
     private static final Logger LOG = LogManager.getLogger(CheckpointWriteWorker.class);
@@ -58,7 +60,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -88,9 +90,9 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
+            AD_CHECKPOINT_WRITE_QUEUE_CONCURRENCY,
             executionTtl,
-            CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+            AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
             stateTtl,
             stateManager
         );
@@ -131,7 +133,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
             }
 
             for (CheckpointWriteRequest request : toProcess) {
-                nodeStateManager.setException(request.getDetectorId(), exception);
+                nodeStateManager.setException(request.getId(), exception);
             }
 
             // don't retry failed requests since checkpoints are too large (250KB+)
@@ -157,17 +159,17 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
         }
 
         if (modelState.getModel() != null) {
-            String detectorId = modelState.getDetectorId();
+            String detectorId = modelState.getId();
             String modelId = modelState.getModelId();
             if (modelId == null || detectorId == null) {
                 return;
             }
 
-            nodeStateManager.getAnomalyDetector(detectorId, onGetDetector(detectorId, modelId, modelState, priority));
+            nodeStateManager.getConfig(detectorId, AnalysisType.AD, onGetDetector(detectorId, modelId, modelState, priority));
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         String detectorId,
         String modelId,
         ModelState<EntityModel> modelState,
@@ -179,7 +181,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
             try {
                 Map<String, Object> source = checkpoint.toIndexSource(modelState);
 
@@ -190,7 +192,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
 
                 modelState.setLastCheckpointTime(clock.instant());
                 CheckpointWriteRequest request = new CheckpointWriteRequest(
-                    System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                    System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                     detectorId,
                     priority,
                     // If the document does not already exist, the contents of the upsert element
@@ -216,13 +218,13 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
     }
 
     public void writeAll(List<ModelState<EntityModel>> modelStates, String detectorId, boolean forceWrite, RequestPriority priority) {
-        ActionListener<Optional<AnomalyDetector>> onGetForAll = ActionListener.wrap(detectorOptional -> {
+        ActionListener<Optional<? extends Config>> onGetForAll = ActionListener.wrap(detectorOptional -> {
             if (false == detectorOptional.isPresent()) {
                 LOG.warn(new ParameterizedMessage("AnomalyDetector [{}] is not available.", detectorId));
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
             try {
                 List<CheckpointWriteRequest> allRequests = new ArrayList<>();
                 for (ModelState<EntityModel> state : modelStates) {
@@ -243,7 +245,7 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
                     allRequests
                         .add(
                             new CheckpointWriteRequest(
-                                System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                                System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                                 detectorId,
                                 priority,
                                 // If the document does not already exist, the contents of the upsert element
@@ -269,6 +271,6 @@ public class CheckpointWriteWorker extends BatchWorker<CheckpointWriteRequest, B
 
         }, exception -> { LOG.error(new ParameterizedMessage("fail to get detector [{}]", detectorId), exception); });
 
-        nodeStateManager.getAnomalyDetector(detectorId, onGetForAll);
+        nodeStateManager.getConfig(detectorId, AnalysisType.AD, onGetForAll);
     }
 }

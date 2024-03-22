@@ -11,10 +11,10 @@
 
 package org.opensearch.ad.task;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_MIN_SAMPLES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_SAMPLES_PER_TREE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.NUM_TREES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.TIME_DECAY;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_MIN_SAMPLES;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_SAMPLES_PER_TREE;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_TREES;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.TIME_DECAY;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -26,8 +26,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
@@ -56,9 +56,9 @@ public class ADBatchTaskCache {
     private Entity entity;
 
     protected ADBatchTaskCache(ADTask adTask) {
-        this.detectorId = adTask.getDetectorId();
+        this.detectorId = adTask.getConfigId();
         this.taskId = adTask.getTaskId();
-        this.detectorTaskId = adTask.getDetectorLevelTaskId();
+        this.detectorTaskId = adTask.getConfigLevelTaskId();
         this.entity = adTask.getEntity();
 
         AnomalyDetector detector = adTask.getDetector();
@@ -78,9 +78,9 @@ public class ADBatchTaskCache {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
-            .anomalyRate(1 - AnomalyDetectorSettings.THRESHOLD_MIN_PVALUE)
+            .anomalyRate(1 - TimeSeriesSettings.THRESHOLD_MIN_PVALUE)
             .transformMethod(TransformMethod.NORMALIZE)
             .alertOnce(true)
             .autoAdjust(true)
@@ -90,7 +90,7 @@ public class ADBatchTaskCache {
         this.thresholdModelTrained = false;
     }
 
-    protected String getDetectorId() {
+    protected String getId() {
         return detectorId;
     }
 

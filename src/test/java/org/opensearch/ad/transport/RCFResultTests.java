@@ -37,17 +37,14 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -59,6 +56,9 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -112,7 +112,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
 
         ModelManager manager = mock(ModelManager.class);
-        ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService adCircuitBreakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
             transportService,
@@ -171,7 +171,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
 
         ModelManager manager = mock(ModelManager.class);
-        ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService adCircuitBreakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
             transportService,
@@ -245,7 +245,7 @@ public class RCFResultTests extends OpenSearchTestCase {
 
     public void testEmptyID() {
         ActionRequestValidationException e = new RCFResultRequest(null, "123-rcf-1", new double[] { 0 }).validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testFeatureIsNull() {
@@ -270,8 +270,8 @@ public class RCFResultTests extends OpenSearchTestCase {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = builder.toString();
-        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
-        assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, CommonName.FEATURE_JSON_KEY), request.getFeatures(), 0.001);
+        assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
+        assertArrayEquals(JsonDeserializer.getDoubleArrayValue(json, ADCommonName.FEATURE_JSON_KEY), request.getFeatures(), 0.001);
     }
 
     @SuppressWarnings("unchecked")
@@ -288,7 +288,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
 
         ModelManager manager = mock(ModelManager.class);
-        ADCircuitBreakerService breakerService = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService breakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
             transportService,
@@ -340,7 +340,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         );
 
         ModelManager manager = mock(ModelManager.class);
-        ADCircuitBreakerService adCircuitBreakerService = mock(ADCircuitBreakerService.class);
+        CircuitBreakerService adCircuitBreakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
             transportService,

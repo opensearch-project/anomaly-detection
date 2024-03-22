@@ -11,18 +11,15 @@
 
 package org.opensearch.ad.util;
 
-import static org.opensearch.ad.util.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.ad.util.ParseUtils.isAdmin;
+import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
+import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.ParsingException;
@@ -32,6 +29,10 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.collect.ImmutableList;
 
@@ -121,14 +122,6 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         SearchSourceBuilder builder = ParseUtils.generateInternalFeatureQuery(detector, startTime, endTime, TestHelpers.xContentRegistry());
         for (Feature feature : detector.getFeatureAttributes()) {
             assertTrue(builder.toString().contains(feature.getId()));
-        }
-    }
-
-    public void testGenerateInternalFeatureQueryTemplate() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
-        String builder = ParseUtils.generateInternalFeatureQueryTemplate(detector, TestHelpers.xContentRegistry());
-        for (Feature feature : detector.getFeatureAttributes()) {
-            assertTrue(builder.contains(feature.getId()));
         }
     }
 
@@ -242,8 +235,8 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
 
-        AnomalyDetectionException exception = expectThrows(
-            AnomalyDetectionException.class,
+        TimeSeriesException exception = expectThrows(
+            TimeSeriesException.class,
             () -> ParseUtils.batchFeatureQuery(detector, null, startTime, endTime, TestHelpers.xContentRegistry())
         );
         assertEquals("No enabled feature configured", exception.getMessage());
@@ -257,8 +250,8 @@ public class ParseUtilsTests extends OpenSearchTestCase {
 
         long startTime = now.minus(10, ChronoUnit.DAYS).toEpochMilli();
         long endTime = now.plus(10, ChronoUnit.DAYS).toEpochMilli();
-        AnomalyDetectionException exception = expectThrows(
-            AnomalyDetectionException.class,
+        TimeSeriesException exception = expectThrows(
+            TimeSeriesException.class,
             () -> ParseUtils.batchFeatureQuery(detector, null, startTime, endTime, TestHelpers.xContentRegistry())
         );
         assertEquals("No enabled feature configured", exception.getMessage());

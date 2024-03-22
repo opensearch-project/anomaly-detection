@@ -29,19 +29,19 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.transport.TransportService;
 
 public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
@@ -114,13 +114,13 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
     }
 
     private void setUpModelSize(int maxModel) {
-        Settings nodeSettings = Settings.builder().put(AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE.getKey(), maxModel).build();
+        Settings nodeSettings = Settings.builder().put(AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE.getKey(), maxModel).build();
         internalCluster().startNode(nodeSettings);
     }
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Arrays.asList(AnomalyDetectorPlugin.class);
+        return Arrays.asList(TimeSeriesAnalyticsPlugin.class);
     }
 
     @Test
@@ -145,7 +145,7 @@ public class ProfileTransportActionTests extends OpenSearchIntegTestCase {
         ProfileNodeRequest profileNodeRequest1 = new ProfileNodeRequest(profileRequest);
         ProfileNodeRequest profileNodeRequest2 = action.newNodeRequest(profileRequest);
 
-        assertEquals(profileNodeRequest1.getDetectorId(), profileNodeRequest2.getDetectorId());
+        assertEquals(profileNodeRequest1.getId(), profileNodeRequest2.getId());
         assertEquals(profileNodeRequest2.getProfilesToBeRetrieved(), profileNodeRequest2.getProfilesToBeRetrieved());
     }
 

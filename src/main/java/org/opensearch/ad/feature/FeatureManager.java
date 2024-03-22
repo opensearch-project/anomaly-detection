@@ -39,14 +39,16 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ThreadedActionListener;
-import org.opensearch.ad.CleanState;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.dataprocessor.Interpolator;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.CleanState;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.dataprocessor.Imputer;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.model.Entity;
 
 /**
  * A facade managing feature data operations and buffers.
@@ -59,7 +61,7 @@ public class FeatureManager implements CleanState {
     private final Map<String, ArrayDeque<Entry<Long, Optional<double[]>>>> detectorIdsToTimeShingles;
 
     private final SearchFeatureDao searchFeatureDao;
-    private final Interpolator interpolator;
+    private final Imputer imputer;
     private final Clock clock;
 
     private final int maxTrainSamples;
@@ -78,7 +80,7 @@ public class FeatureManager implements CleanState {
      * Constructor with dependencies and configuration.
      *
      * @param searchFeatureDao DAO of features from search
-     * @param interpolator interpolator of samples
+     * @param imputer imputer of samples
      * @param clock clock for system time
      * @param maxTrainSamples max number of samples from search
      * @param maxSampleStride max stride between uninterpolated train samples
@@ -94,7 +96,7 @@ public class FeatureManager implements CleanState {
      */
     public FeatureManager(
         SearchFeatureDao searchFeatureDao,
-        Interpolator interpolator,
+        Imputer imputer,
         Clock clock,
         int maxTrainSamples,
         int maxSampleStride,
@@ -109,7 +111,7 @@ public class FeatureManager implements CleanState {
         String adThreadPoolName
     ) {
         this.searchFeatureDao = searchFeatureDao;
-        this.interpolator = interpolator;
+        this.imputer = imputer;
         this.clock = clock;
         this.maxTrainSamples = maxTrainSamples;
         this.maxSampleStride = maxSampleStride;
@@ -145,10 +147,10 @@ public class FeatureManager implements CleanState {
 
         int shingleSize = detector.getShingleSize();
         Deque<Entry<Long, Optional<double[]>>> shingle = detectorIdsToTimeShingles
-            .computeIfAbsent(detector.getDetectorId(), id -> new ArrayDeque<>(shingleSize));
+            .computeIfAbsent(detector.getId(), id -> new ArrayDeque<>(shingleSize));
 
         // To allow for small time variations/delays in running the detector.
-        long maxTimeDifference = detector.getDetectorIntervalInMilliseconds() / 2;
+        long maxTimeDifference = detector.getIntervalInMilliseconds() / 2;
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap = getNearbyPointsForShingle(detector, shingle, endTime, maxTimeDifference)
             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
@@ -156,7 +158,7 @@ public class FeatureManager implements CleanState {
 
         if (missingRanges.size() > 0) {
             try {
-                searchFeatureDao.getFeatureSamplesForPeriods(detector, missingRanges, ActionListener.wrap(points -> {
+                searchFeatureDao.getFeatureSamplesForPeriods(detector, missingRanges, AnalysisType.AD, ActionListener.wrap(points -> {
                     for (int i = 0; i < points.size(); i++) {
                         Optional<double[]> point = points.get(i);
                         long rangeEndTime = missingRanges.get(i).getValue();
@@ -165,7 +167,7 @@ public class FeatureManager implements CleanState {
                     updateUnprocessedFeatures(detector, shingle, featuresMap, endTime, listener);
                 }, listener::onFailure));
             } catch (IOException e) {
-                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                listener.onFailure(new EndRunException(detector.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             listener.onResponse(getProcessedFeatures(shingle, detector, endTime));
@@ -177,7 +179,7 @@ public class FeatureManager implements CleanState {
         Map<Long, Entry<Long, Optional<double[]>>> featuresMap,
         long endTime
     ) {
-        long intervalMilli = detector.getDetectorIntervalInMilliseconds();
+        long intervalMilli = detector.getIntervalInMilliseconds();
         int shingleSize = detector.getShingleSize();
         return getFullShingleEndTimes(endTime, intervalMilli, shingleSize)
             .filter(time -> !featuresMap.containsKey(time))
@@ -212,7 +214,7 @@ public class FeatureManager implements CleanState {
         ActionListener<SinglePointFeatures> listener
     ) {
         shingle.clear();
-        getFullShingleEndTimes(endTime, detector.getDetectorIntervalInMilliseconds(), detector.getShingleSize())
+        getFullShingleEndTimes(endTime, detector.getIntervalInMilliseconds(), detector.getShingleSize())
             .mapToObj(time -> featuresMap.getOrDefault(time, new SimpleImmutableEntry<>(time, Optional.empty())))
             .forEach(e -> shingle.add(e));
 
@@ -228,7 +230,7 @@ public class FeatureManager implements CleanState {
         double[][] result = null;
         if (filteredShingle.size() >= shingleSize - getMaxMissingPoints(shingleSize)) {
             // Imputes missing data points with the values of neighboring data points.
-            long maxMillisecondsDifference = maxNeighborDistance * detector.getDetectorIntervalInMilliseconds();
+            long maxMillisecondsDifference = maxNeighborDistance * detector.getIntervalInMilliseconds();
             result = getNearbyPointsForShingle(detector, filteredShingle, endTime, maxMillisecondsDifference)
                 .map(e -> e.getValue().getValue().orElse(null))
                 .filter(d -> d != null)
@@ -257,7 +259,7 @@ public class FeatureManager implements CleanState {
         long endTime,
         long maxMillisecondsDifference
     ) {
-        long intervalMilli = detector.getDetectorIntervalInMilliseconds();
+        long intervalMilli = detector.getIntervalInMilliseconds();
         int shingleSize = detector.getShingleSize();
         TreeMap<Long, Optional<double[]>> search = new TreeMap<>(
             shingle.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue))
@@ -306,10 +308,11 @@ public class FeatureManager implements CleanState {
                     .getFeatureSamplesForPeriods(
                         detector,
                         sampleRanges,
+                        AnalysisType.AD,
                         new ThreadedActionListener<>(logger, threadPool, adThreadPoolName, getFeaturesListener, false)
                     );
             } catch (IOException e) {
-                listener.onFailure(new EndRunException(detector.getDetectorId(), CommonErrorMessages.INVALID_SEARCH_QUERY_MSG, e, true));
+                listener.onFailure(new EndRunException(detector.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, true));
             }
         } else {
             listener.onResponse(Optional.empty());
@@ -359,7 +362,7 @@ public class FeatureManager implements CleanState {
     }
 
     private List<Entry<Long, Long>> getColdStartSampleRanges(AnomalyDetector detector, long endMillis) {
-        long interval = detector.getDetectorIntervalInMilliseconds();
+        long interval = detector.getIntervalInMilliseconds();
         int numSamples = Math.max((int) (Duration.ofHours(this.trainSampleTimeRangeInHours).toMillis() / interval), this.minTrainSamples);
         return IntStream
             .rangeClosed(1, numSamples)
@@ -518,7 +521,7 @@ public class FeatureManager implements CleanState {
     private Entry<List<Entry<Long, Long>>, Integer> getSampleRanges(AnomalyDetector detector, long startMilli, long endMilli) {
         long start = truncateToMinute(startMilli);
         long end = truncateToMinute(endMilli);
-        long bucketSize = detector.getDetectorIntervalInMilliseconds();
+        long bucketSize = detector.getIntervalInMilliseconds();
         int numBuckets = (int) Math.floor((end - start) / (double) bucketSize);
         int numSamples = (int) Math.max(Math.min(numBuckets * previewSampleRate, maxPreviewSamples), 1);
         int stride = (int) Math.max(1, Math.floor((double) numBuckets / numSamples));
@@ -545,7 +548,14 @@ public class FeatureManager implements CleanState {
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
         searchFeatureDao
-            .getColdStartSamplesForPeriods(detector, sampleRanges, entity, true, getSamplesRangesListener(sampleRanges, listener));
+            .getColdStartSamplesForPeriods(
+                detector,
+                sampleRanges,
+                Optional.ofNullable(entity),
+                true,
+                AnalysisType.AD,
+                getSamplesRangesListener(sampleRanges, listener)
+            );
     }
 
     private ActionListener<List<Optional<double[]>>> getSamplesRangesListener(
@@ -577,7 +587,8 @@ public class FeatureManager implements CleanState {
         List<Entry<Long, Long>> sampleRanges,
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
-        searchFeatureDao.getFeatureSamplesForPeriods(detector, sampleRanges, getSamplesRangesListener(sampleRanges, listener));
+        searchFeatureDao
+            .getFeatureSamplesForPeriods(detector, sampleRanges, AnalysisType.AD, getSamplesRangesListener(sampleRanges, listener));
     }
 
     /**
@@ -592,8 +603,8 @@ public class FeatureManager implements CleanState {
     private List<Entry<Long, Long>> getPreviewRanges(List<Entry<Long, Long>> ranges, int stride, int shingleSize) {
         double[] rangeStarts = ranges.stream().mapToDouble(Entry::getKey).toArray();
         double[] rangeEnds = ranges.stream().mapToDouble(Entry::getValue).toArray();
-        double[] previewRangeStarts = interpolator.interpolate(new double[][] { rangeStarts }, stride * (ranges.size() - 1) + 1)[0];
-        double[] previewRangeEnds = interpolator.interpolate(new double[][] { rangeEnds }, stride * (ranges.size() - 1) + 1)[0];
+        double[] previewRangeStarts = imputer.impute(new double[][] { rangeStarts }, stride * (ranges.size() - 1) + 1)[0];
+        double[] previewRangeEnds = imputer.impute(new double[][] { rangeEnds }, stride * (ranges.size() - 1) + 1)[0];
         List<Entry<Long, Long>> previewRanges = IntStream
             .range(shingleSize - 1, previewRangeStarts.length)
             .mapToObj(i -> new SimpleImmutableEntry<>((long) previewRangeStarts[i], (long) previewRangeEnds[i]))
@@ -614,7 +625,7 @@ public class FeatureManager implements CleanState {
         Entry<double[][], double[][]> unprocessedAndProcessed = Optional
             .of(samples)
             .map(m -> transpose(m))
-            .map(m -> interpolator.interpolate(m, stride * (samples.length - 1) + 1))
+            .map(m -> imputer.impute(m, stride * (samples.length - 1) + 1))
             .map(m -> transpose(m))
             .map(m -> new SimpleImmutableEntry<>(copyOfRange(m, shingleSize - 1, m.length), batchShingle(m, shingleSize)))
             .get();
@@ -658,7 +669,7 @@ public class FeatureManager implements CleanState {
                 listener.onResponse(points);
             }, listener::onFailure));
         } catch (Exception e) {
-            logger.error("Failed to get features for detector: " + detector.getDetectorId());
+            logger.error("Failed to get features for detector: " + detector.getId());
             listener.onFailure(e);
         }
     }

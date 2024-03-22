@@ -11,11 +11,10 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_NAME_SIZE;
-import static org.opensearch.ad.constant.CommonErrorMessages.INVALID_RESULT_INDEX_PREFIX;
-import static org.opensearch.ad.constant.CommonName.CUSTOM_RESULT_INDEX_PREFIX;
+import static org.opensearch.ad.constant.ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
+import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
+import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -23,20 +22,21 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.ADValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class AnomalyDetectorTests extends AbstractADTest {
+public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
 
     public void testParseAnomalyDetector() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
@@ -49,7 +49,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     }
 
     public void testParseAnomalyDetectorWithCustomIndex() throws IOException {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         AnomalyDetector detector = TestHelpers
             .randomDetector(
                 ImmutableList.of(TestHelpers.randomFeature()),
@@ -64,15 +64,15 @@ public class AnomalyDetectorTests extends AbstractADTest {
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
-        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getResultIndex());
+        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getCustomResultIndex());
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
     public void testAnomalyDetectorWithInvalidCustomIndex() throws Exception {
-        String resultIndex = CommonName.CUSTOM_RESULT_INDEX_PREFIX + "test@@";
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test@@";
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> (TestHelpers
                     .randomDetector(
                         ImmutableList.of(TestHelpers.randomFeature()),
@@ -104,13 +104,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector
-            .parse(
-                TestHelpers.parser(detectorString),
-                detector.getDetectorId(),
-                detector.getVersion(),
-                detectionInterval,
-                detectionWindowDelay
-            );
+            .parse(TestHelpers.parser(detectorString), detector.getId(), detector.getVersion(), detectionInterval, detectionWindowDelay);
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 
@@ -184,7 +178,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\","
             + "\"feature_enabled\":false,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},"
             + "\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithoutOptionalParams() throws IOException {
@@ -197,7 +191,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
-        assertEquals((long) parsedDetector.getShingleSize(), (long) AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals((long) parsedDetector.getShingleSize(), (long) TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
     }
 
     public void testParseAnomalyDetectorWithInvalidShingleSize() throws Exception {
@@ -208,7 +202,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"shingle_size\":-1,\"schema_version\":-1203962153,\"ui_metadata\":"
             + "{\"JbAaV\":{\"feature_id\":\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithNegativeWindowDelay() throws Exception {
@@ -220,7 +214,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
             + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithNegativeDetectionInterval() throws Exception {
@@ -232,7 +226,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
             + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithIncorrectFeatureQuery() throws Exception {
@@ -244,7 +238,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
             + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
-        TestHelpers.assertFailWith(ADValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        TestHelpers.assertFailWith(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
     }
 
     public void testParseAnomalyDetectorWithInvalidDetectorIntervalUnits() {
@@ -261,7 +255,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
         );
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
+            String.format(Locale.ROOT, ADCommonMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
             exception.getMessage()
         );
     }
@@ -280,7 +274,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
             () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
         );
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
+            String.format(Locale.ROOT, ADCommonMessages.INVALID_TIME_CONFIGURATION_UNITS, ChronoUnit.MILLIS),
             exception.getMessage()
         );
     }
@@ -303,7 +297,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testInvalidShingleSize() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -321,7 +315,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -329,7 +324,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -341,13 +336,14 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -355,7 +351,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testBlankDetectorName() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -367,13 +363,14 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -381,7 +378,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullTimeField() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -393,13 +390,14 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -407,7 +405,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -419,13 +417,14 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -433,7 +432,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testEmptyIndices() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -445,13 +444,14 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
@@ -459,7 +459,7 @@ public class AnomalyDetectorTests extends AbstractADTest {
     public void testNullDetectionInterval() throws Exception {
         TestHelpers
             .assertFailWith(
-                ADValidationException.class,
+                ValidationException.class,
                 () -> new AnomalyDetector(
                     randomAlphaOfLength(5),
                     randomLong(),
@@ -471,20 +471,21 @@ public class AnomalyDetectorTests extends AbstractADTest {
                     TestHelpers.randomQuery(),
                     null,
                     TestHelpers.randomIntervalTimeConfiguration(),
-                    AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE,
+                    TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
                     null,
                     1,
                     Instant.now(),
                     null,
                     TestHelpers.randomUser(),
-                    null
+                    null,
+                    TestHelpers.randomImputationOption()
                 )
             );
     }
 
     public void testInvalidDetectionInterval() {
-        ADValidationException exception = expectThrows(
-            ADValidationException.class,
+        ValidationException exception = expectThrows(
+            ValidationException.class,
             () -> new AnomalyDetector(
                 randomAlphaOfLength(10),
                 randomLong(),
@@ -502,7 +503,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 null,
                 null,
-                null
+                null,
+                TestHelpers.randomImputationOption()
             )
         );
         assertEquals("Detection interval must be a positive integer", exception.getMessage());
@@ -528,7 +530,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
                 Instant.now(),
                 null,
                 null,
-                null
+                null,
+                TestHelpers.randomImputationOption()
             )
         );
         assertEquals("Interval -1 should be non-negative", exception.getMessage());
@@ -567,7 +570,8 @@ public class AnomalyDetectorTests extends AbstractADTest {
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
@@ -590,9 +594,10 @@ public class AnomalyDetectorTests extends AbstractADTest {
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
-        assertEquals((int) anomalyDetector.getShingleSize(), AnomalyDetectorSettings.DEFAULT_SHINGLE_SIZE);
+        assertEquals((int) anomalyDetector.getShingleSize(), TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
     }
 
     public void testNullFeatureAttributes() throws IOException {
@@ -613,27 +618,49 @@ public class AnomalyDetectorTests extends AbstractADTest {
             Instant.now(),
             null,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
     }
 
-    public void testValidateResultIndex() {
-        String errorMessage = AnomalyDetector.validateResultIndex("abc");
+    public void testValidateResultIndex() throws IOException {
+        AnomalyDetector anomalyDetector = new AnomalyDetector(
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            ImmutableList.of(TestHelpers.randomFeature()),
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            null,
+            null,
+            1,
+            Instant.now(),
+            null,
+            TestHelpers.randomUser(),
+            null,
+            TestHelpers.randomImputationOption()
+        );
+
+        String errorMessage = anomalyDetector.validateCustomResultIndex("abc");
         assertEquals(INVALID_RESULT_INDEX_PREFIX, errorMessage);
 
         StringBuilder resultIndexNameBuilder = new StringBuilder(CUSTOM_RESULT_INDEX_PREFIX);
         for (int i = 0; i < MAX_RESULT_INDEX_NAME_SIZE - CUSTOM_RESULT_INDEX_PREFIX.length(); i++) {
             resultIndexNameBuilder.append("a");
         }
-        assertNull(AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString()));
+        assertNull(anomalyDetector.validateCustomResultIndex(resultIndexNameBuilder.toString()));
         resultIndexNameBuilder.append("a");
 
-        errorMessage = AnomalyDetector.validateResultIndex(resultIndexNameBuilder.toString());
-        assertEquals(INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
+        errorMessage = anomalyDetector.validateCustomResultIndex(resultIndexNameBuilder.toString());
+        assertEquals(AnomalyDetector.INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
 
-        errorMessage = AnomalyDetector.validateResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
+        errorMessage = anomalyDetector.validateCustomResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
         assertEquals(INVALID_CHAR_IN_RESULT_INDEX_NAME, errorMessage);
     }
 

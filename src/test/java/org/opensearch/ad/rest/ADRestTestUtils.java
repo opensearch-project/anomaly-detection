@@ -9,15 +9,15 @@
 package org.opensearch.ad.rest;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomBoolean;
-import static org.opensearch.ad.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
-import static org.opensearch.ad.util.RestHandlerUtils.REALTIME_TASK;
 import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
 import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomInt;
 import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomLong;
 import static org.opensearch.test.rest.OpenSearchRestTestCase.entityAsMap;
+import static org.opensearch.timeseries.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
+import static org.opensearch.timeseries.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
+import static org.opensearch.timeseries.util.RestHandlerUtils.REALTIME_TASK;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -35,17 +35,17 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -209,11 +209,12 @@ public class ADRestTestUtils {
             now,
             categoryFields,
             TestHelpers.randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
 
         if (historical) {
-            detector.setDetectionDateRange(new DetectionDateRange(now.minus(30, ChronoUnit.DAYS), now));
+            detector.setDetectionDateRange(new DateRange(now.minus(30, ChronoUnit.DAYS), now));
         }
 
         return TestHelpers
@@ -268,7 +269,7 @@ public class ADRestTestUtils {
                 .builder()
                 .taskId(id)
                 .state(state)
-                .detectorId(parsedDetectorId)
+                .configId(parsedDetectorId)
                 .taskProgress(taskProgress.floatValue())
                 .initProgress(initProgress.floatValue())
                 .taskType(parsedTaskType)
@@ -349,12 +350,12 @@ public class ADRestTestUtils {
 
         Map<String, Object> jobMap = (Map<String, Object>) responseMap.get(ANOMALY_DETECTOR_JOB);
         if (jobMap != null) {
-            String jobName = (String) jobMap.get(AnomalyDetectorJob.NAME_FIELD);
-            boolean enabled = (boolean) jobMap.get(AnomalyDetectorJob.IS_ENABLED_FIELD);
-            long enabledTime = (long) jobMap.get(AnomalyDetectorJob.ENABLED_TIME_FIELD);
-            long lastUpdateTime = (long) jobMap.get(AnomalyDetectorJob.LAST_UPDATE_TIME_FIELD);
+            String jobName = (String) jobMap.get(Job.NAME_FIELD);
+            boolean enabled = (boolean) jobMap.get(Job.IS_ENABLED_FIELD);
+            long enabledTime = (long) jobMap.get(Job.ENABLED_TIME_FIELD);
+            long lastUpdateTime = (long) jobMap.get(Job.LAST_UPDATE_TIME_FIELD);
 
-            AnomalyDetectorJob job = new AnomalyDetectorJob(
+            Job job = new Job(
                 jobName,
                 null,
                 null,
@@ -396,7 +397,7 @@ public class ADRestTestUtils {
             .builder()
             .taskId(id)
             .state(state)
-            .detectorId(parsedDetectorId)
+            .configId(parsedDetectorId)
             .taskProgress(taskProgress.floatValue())
             .initProgress(initProgress.floatValue())
             .taskType(parsedTaskType)
@@ -446,7 +447,7 @@ public class ADRestTestUtils {
     @SuppressWarnings("unchecked")
     public static String startHistoricalAnalysis(RestClient client, String detectorId) throws IOException {
         Instant now = Instant.now();
-        DetectionDateRange dateRange = new DetectionDateRange(now.minus(30, ChronoUnit.DAYS), now);
+        DateRange dateRange = new DateRange(now.minus(30, ChronoUnit.DAYS), now);
         Response response = TestHelpers
             .makeRequest(
                 client,

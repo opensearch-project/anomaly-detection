@@ -13,7 +13,7 @@ package org.opensearch.ad.transport;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MODEL_SIZE_PER_NODE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE;
 
 import java.time.Clock;
 import java.util.Arrays;
@@ -37,9 +37,7 @@ import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
 import org.opensearch.ad.stats.suppliers.SettableSupplier;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.Throttler;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -49,6 +47,7 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.monitor.jvm.JvmStats;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.transport.TransportService;
 
 public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
@@ -67,15 +66,9 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
 
         Client client = client();
         Clock clock = mock(Clock.class);
-        Throttler throttler = new Throttler(clock);
         ThreadPool threadPool = mock(ThreadPool.class);
         IndexNameExpressionResolver indexNameResolver = mock(IndexNameExpressionResolver.class);
-        IndexUtils indexUtils = new IndexUtils(
-            client,
-            new ClientUtil(Settings.EMPTY, client, throttler, threadPool),
-            clusterService(),
-            indexNameResolver
-        );
+        IndexUtils indexUtils = new IndexUtils(client, new ClientUtil(client), clusterService(), indexNameResolver);
         ModelManager modelManager = mock(ModelManager.class);
         CacheProvider cacheProvider = mock(CacheProvider.class);
         EntityCache cache = mock(EntityCache.class);
@@ -86,11 +79,11 @@ public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
         nodeStatName1 = "nodeStat1";
         nodeStatName2 = "nodeStat2";
 
-        Settings settings = Settings.builder().put(MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
+        Settings settings = Settings.builder().put(AD_MAX_MODEL_SIZE_PER_NODE.getKey(), 10).build();
         ClusterService clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(MAX_MODEL_SIZE_PER_NODE)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AD_MAX_MODEL_SIZE_PER_NODE)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 

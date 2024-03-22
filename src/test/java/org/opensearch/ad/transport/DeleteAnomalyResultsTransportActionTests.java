@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.matchAllRequest;
-import static org.opensearch.ad.constant.CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -20,11 +20,11 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Ignore;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.timeseries.TestHelpers;
 
 public class DeleteAnomalyResultsTransportActionTests extends HistoricalAnalysisIntegTestCase {
 

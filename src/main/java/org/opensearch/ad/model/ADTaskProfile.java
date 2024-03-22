@@ -19,14 +19,13 @@ import java.util.List;
 import java.util.Objects;
 
 import org.opensearch.Version;
-import org.opensearch.ad.annotation.Generated;
-import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.annotation.Generated;
 
 /**
  * One anomaly detection task means one detector starts to run until stopped.
@@ -181,7 +180,7 @@ public class ADTaskProfile implements ToXContentObject, Writeable {
         out.writeOptionalInt(thresholdModelTrainingDataSize);
         out.writeOptionalLong(modelSizeInBytes);
         out.writeOptionalString(nodeId);
-        if (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(adVersion)) {
+        if (adVersion != null) {
             out.writeOptionalString(taskId);
             out.writeOptionalString(adTaskType);
             out.writeOptionalInt(detectorTaskSlots);

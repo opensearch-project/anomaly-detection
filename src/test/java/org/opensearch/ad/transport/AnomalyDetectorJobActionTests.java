@@ -25,8 +25,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.DetectionDateRange;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -38,17 +37,18 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.transport.TransportService;
 
 public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     private AnomalyDetectorJobTransportAction action;
     private Task task;
     private AnomalyDetectorJobRequest request;
-    private ActionListener<AnomalyDetectorJobResponse> response;
+    private ActionListener<JobResponse> response;
 
     @Override
     @Before
@@ -57,7 +57,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
         ClusterService clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES)))
         );
 
         Settings build = Settings.builder().build();
@@ -75,16 +75,16 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
             client,
             clusterService,
             indexSettings(),
-            mock(AnomalyDetectionIndices.class),
+            mock(ADIndexManagement.class),
             xContentRegistry(),
             mock(ADTaskManager.class),
             mock(ExecuteADResultResponseRecorder.class)
         );
         task = mock(Task.class);
         request = new AnomalyDetectorJobRequest("1234", 4567, 7890, "_start");
-        response = new ActionListener<AnomalyDetectorJobResponse>() {
+        response = new ActionListener<JobResponse>() {
             @Override
-            public void onResponse(AnomalyDetectorJobResponse adResponse) {
+            public void onResponse(JobResponse adResponse) {
                 // Will not be called as there is no detector
                 Assert.assertTrue(false);
             }
@@ -116,7 +116,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testAdJobRequest() throws IOException {
-        DetectionDateRange detectionDateRange = new DetectionDateRange(Instant.MIN, Instant.now());
+        DateRange detectionDateRange = new DateRange(Instant.MIN, Instant.now());
         request = new AnomalyDetectorJobRequest("1234", detectionDateRange, false, 4567, 7890, "_start");
 
         BytesStreamOutput out = new BytesStreamOutput();
@@ -138,10 +138,10 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     @Test
     public void testAdJobResponse() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
-        AnomalyDetectorJobResponse response = new AnomalyDetectorJobResponse("1234", 45, 67, 890, RestStatus.OK);
+        JobResponse response = new JobResponse("1234");
         response.writeTo(out);
         StreamInput input = out.bytes().streamInput();
-        AnomalyDetectorJobResponse newResponse = new AnomalyDetectorJobResponse(input);
+        JobResponse newResponse = new JobResponse(input);
         Assert.assertEquals(response.getId(), newResponse.getId());
     }
 }

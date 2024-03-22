@@ -74,7 +74,7 @@ public class ProfileRequest extends BaseNodesRequest<ProfileRequest> {
         out.writeBoolean(forMultiEntityDetector);
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

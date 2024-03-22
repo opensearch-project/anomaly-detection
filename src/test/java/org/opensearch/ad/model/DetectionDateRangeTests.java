@@ -17,8 +17,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Locale;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
@@ -26,12 +24,15 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.DateRange;
 
 public class DetectionDateRangeTests extends OpenSearchSingleNodeTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
-        return pluginList(InternalSettingsPlugin.class, AnomalyDetectorPlugin.class);
+        return pluginList(InternalSettingsPlugin.class, TimeSeriesAnalyticsPlugin.class);
     }
 
     @Override
@@ -40,44 +41,38 @@ public class DetectionDateRangeTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testParseDetectionDateRangeWithNullStartTime() {
-        IllegalArgumentException exception = expectThrows(
-            IllegalArgumentException.class,
-            () -> new DetectionDateRange(null, Instant.now())
-        );
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> new DateRange(null, Instant.now()));
         assertEquals("Detection data range's start time must not be null", exception.getMessage());
     }
 
     public void testParseDetectionDateRangeWithNullEndTime() {
-        IllegalArgumentException exception = expectThrows(
-            IllegalArgumentException.class,
-            () -> new DetectionDateRange(Instant.now(), null)
-        );
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> new DateRange(Instant.now(), null));
         assertEquals("Detection data range's end time must not be null", exception.getMessage());
     }
 
     public void testInvalidDateRange() {
         IllegalArgumentException exception = expectThrows(
             IllegalArgumentException.class,
-            () -> new DetectionDateRange(Instant.now(), Instant.now().minus(10, ChronoUnit.MINUTES))
+            () -> new DateRange(Instant.now(), Instant.now().minus(10, ChronoUnit.MINUTES))
         );
         assertEquals("Detection data range's end time must be after start time", exception.getMessage());
     }
 
     public void testSerializeDetectoinDateRange() throws IOException {
-        DetectionDateRange dateRange = TestHelpers.randomDetectionDateRange();
+        DateRange dateRange = TestHelpers.randomDetectionDateRange();
         BytesStreamOutput output = new BytesStreamOutput();
         dateRange.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        DetectionDateRange parsedDateRange = new DetectionDateRange(input);
+        DateRange parsedDateRange = new DateRange(input);
         assertTrue(parsedDateRange.equals(dateRange));
     }
 
     public void testParseDetectionDateRange() throws IOException {
-        DetectionDateRange dateRange = TestHelpers.randomDetectionDateRange();
+        DateRange dateRange = TestHelpers.randomDetectionDateRange();
         String dateRangeString = TestHelpers.xContentBuilderToString(dateRange.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         dateRangeString = dateRangeString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
-        DetectionDateRange parsedDateRange = DetectionDateRange.parse(TestHelpers.parser(dateRangeString));
+        DateRange parsedDateRange = DateRange.parse(TestHelpers.parser(dateRangeString));
         assertEquals("Parsing detection range doesn't work", dateRange, parsedDateRange);
     }
 

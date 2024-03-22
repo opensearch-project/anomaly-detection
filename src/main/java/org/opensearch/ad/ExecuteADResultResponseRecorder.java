@@ -11,28 +11,24 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_LATEST_TASK;
+import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_LATEST_TASK;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultResponse;
@@ -41,8 +37,6 @@ import org.opensearch.ad.transport.ProfileRequest;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.handler.AnomalyIndexHandler;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.unit.TimeValue;
@@ -50,11 +44,21 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.model.FeatureData;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class ExecuteADResultResponseRecorder {
     private static final Logger log = LogManager.getLogger(ExecuteADResultResponseRecorder.class);
 
-    private AnomalyDetectionIndices anomalyDetectionIndices;
+    private ADIndexManagement anomalyDetectionIndices;
     private AnomalyIndexHandler<AnomalyResult> anomalyResultHandler;
     private ADTaskManager adTaskManager;
     private DiscoveryNodeFilterer nodeFilter;
@@ -65,7 +69,7 @@ public class ExecuteADResultResponseRecorder {
     private int rcfMinSamples;
 
     public ExecuteADResultResponseRecorder(
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         AnomalyIndexHandler<AnomalyResult> anomalyResultHandler,
         ADTaskManager adTaskManager,
         DiscoveryNodeFilterer nodeFilter,
@@ -92,7 +96,7 @@ public class ExecuteADResultResponseRecorder {
         AnomalyResultResponse response,
         AnomalyDetector detector
     ) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         try {
             // skipping writing to the result index if not necessary
             // For a single-entity detector, the result is not useful if error is null
@@ -124,7 +128,7 @@ public class ExecuteADResultResponseRecorder {
                     response.getError()
                 );
 
-            String resultIndex = detector.getResultIndex();
+            String resultIndex = detector.getCustomResultIndex();
             anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             updateRealtimeTask(response, detectorId);
         } catch (EndRunException e) {
@@ -156,20 +160,15 @@ public class ExecuteADResultResponseRecorder {
             Runnable profileHCInitProgress = () -> {
                 client.execute(ProfileAction.INSTANCE, profileRequest, ActionListener.wrap(r -> {
                     log.debug("Update latest realtime task for HC detector {}, total updates: {}", detectorId, r.getTotalUpdates());
-                    updateLatestRealtimeTask(
-                        detectorId,
-                        null,
-                        r.getTotalUpdates(),
-                        response.getDetectorIntervalInMinutes(),
-                        response.getError()
-                    );
+                    updateLatestRealtimeTask(detectorId, null, r.getTotalUpdates(), response.getIntervalInMinutes(), response.getError());
                 }, e -> { log.error("Failed to update latest realtime task for " + detectorId, e); }));
             };
             if (!adTaskManager.isHCRealtimeTaskStartInitializing(detectorId)) {
                 // real time init progress is 0 may mean this is a newly started detector
                 // Delay real time cache update by one minute. If we are in init status, the delay may give the model training time to
                 // finish. We can change the detector running immediately instead of waiting for the next interval.
-                threadPool.schedule(profileHCInitProgress, new TimeValue(60, TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+                threadPool
+                    .schedule(profileHCInitProgress, new TimeValue(60, TimeUnit.SECONDS), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
             } else {
                 profileHCInitProgress.run();
             }
@@ -181,13 +180,7 @@ public class ExecuteADResultResponseRecorder {
                     detectorId,
                     response.getRcfTotalUpdates()
                 );
-            updateLatestRealtimeTask(
-                detectorId,
-                null,
-                response.getRcfTotalUpdates(),
-                response.getDetectorIntervalInMinutes(),
-                response.getError()
-            );
+            updateLatestRealtimeTask(detectorId, null, response.getRcfTotalUpdates(), response.getIntervalInMinutes(), response.getError());
         }
     }
 
@@ -278,7 +271,7 @@ public class ExecuteADResultResponseRecorder {
         String taskState,
         AnomalyDetector detector
     ) {
-        String detectorId = detector.getDetectorId();
+        String detectorId = detector.getId();
         try {
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) detector.getWindowDelay();
             Instant dataStartTime = detectionStartTime.minus(windowDelay.getInterval(), windowDelay.getUnit());
@@ -294,12 +287,12 @@ public class ExecuteADResultResponseRecorder {
                 executionStartTime,
                 Instant.now(),
                 errorMessage,
-                null, // single-stream detectors have no entity
+                Optional.empty(), // single-stream detectors have no entity
                 user,
                 anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                 null // no model id
             );
-            String resultIndex = detector.getResultIndex();
+            String resultIndex = detector.getCustomResultIndex();
             if (resultIndex != null && !anomalyDetectionIndices.doesIndexExist(resultIndex)) {
                 // Set result index as null, will write exception to default result index.
                 anomalyResultHandler.index(anomalyResult, detectorId, null);
@@ -307,7 +300,7 @@ public class ExecuteADResultResponseRecorder {
                 anomalyResultHandler.index(anomalyResult, detectorId, resultIndex);
             }
 
-            if (errorMessage.contains(CommonErrorMessages.NO_MODEL_ERR_MSG) && !detector.isMultiCategoryDetector()) {
+            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !detector.isHighCardinality()) {
                 // single stream detector raises ResourceNotFoundException containing CommonErrorMessages.NO_CHECKPOINT_ERR_MSG
                 // when there is no checkpoint.
                 // Delay real time cache update by one minute so we will have trained models by then and update the state
@@ -321,14 +314,14 @@ public class ExecuteADResultResponseRecorder {
                             detectorId,
                             taskState,
                             totalUpdates,
-                            detector.getDetectorIntervalInMinutes(),
+                            detector.getIntervalInMinutes(),
                             totalUpdates > 0 ? "" : errorMessage
                         );
                     }, e -> {
                         log.error("Fail to execute RCFRollingAction", e);
                         updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
                     }));
-                }, new TimeValue(60, TimeUnit.SECONDS), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+                }, new TimeValue(60, TimeUnit.SECONDS), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
             } else {
                 updateLatestRealtimeTask(detectorId, taskState, null, null, errorMessage);
             }
@@ -346,20 +339,20 @@ public class ExecuteADResultResponseRecorder {
         String error,
         ActionListener<Long> listener
     ) {
-        nodeStateManager.getAnomalyDetector(detectorId, ActionListener.wrap(detectorOptional -> {
+        nodeStateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(detectorOptional -> {
             if (!detectorOptional.isPresent()) {
-                listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get detector"));
+                listener.onFailure(new TimeSeriesException(detectorId, "fail to get detector"));
                 return;
             }
-            nodeStateManager.getAnomalyDetectorJob(detectorId, ActionListener.wrap(jobOptional -> {
+            nodeStateManager.getJob(detectorId, ActionListener.wrap(jobOptional -> {
                 if (!jobOptional.isPresent()) {
-                    listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"));
+                    listener.onFailure(new TimeSeriesException(detectorId, "fail to get job"));
                     return;
                 }
 
                 ProfileUtil
                     .confirmDetectorRealtimeInitStatus(
-                        detectorOptional.get(),
+                        (AnomalyDetector) detectorOptional.get(),
                         jobOptional.get().getEnabledTime().toEpochMilli(),
                         client,
                         ActionListener.wrap(searchResponse -> {
@@ -384,7 +377,7 @@ public class ExecuteADResultResponseRecorder {
                             }
                         })
                     );
-            }, e -> listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get job"))));
-        }, e -> listener.onFailure(new AnomalyDetectionException(detectorId, "fail to get detector"))));
+            }, e -> listener.onFailure(new TimeSeriesException(detectorId, "fail to get job"))));
+        }, e -> listener.onFailure(new TimeSeriesException(detectorId, "fail to get detector"))));
     }
 }

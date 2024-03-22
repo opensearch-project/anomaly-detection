@@ -15,6 +15,10 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.opensearch.ad.model.AnomalyResult;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -36,6 +40,9 @@ public class ThresholdingResultTests {
 
     private Object[] equalsData() {
         return new Object[] {
+            new Object[] { thresholdingResult, thresholdingResult, true },
+            new Object[] { thresholdingResult, null, false },
+            new Object[] { thresholdingResult, AnomalyResult.getDummyResult(), false },
             new Object[] { thresholdingResult, null, false },
             new Object[] { thresholdingResult, thresholdingResult, true },
             new Object[] { thresholdingResult, 1, false },

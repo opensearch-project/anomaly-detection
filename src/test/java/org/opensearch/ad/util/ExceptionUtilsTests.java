@@ -14,10 +14,11 @@ package org.opensearch.ad.util;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 public class ExceptionUtilsTests extends OpenSearchTestCase {
 
@@ -48,13 +49,13 @@ public class ExceptionUtilsTests extends OpenSearchTestCase {
     }
 
     public void testCountInStats() {
-        assertTrue(ExceptionUtil.countInStats(new AnomalyDetectionException("test")));
-        assertFalse(ExceptionUtil.countInStats(new AnomalyDetectionException("test").countedInStats(false)));
+        assertTrue(ExceptionUtil.countInStats(new TimeSeriesException("test")));
+        assertFalse(ExceptionUtil.countInStats(new TimeSeriesException("test").countedInStats(false)));
         assertTrue(ExceptionUtil.countInStats(new RuntimeException("test")));
     }
 
     public void testGetErrorMessage() {
-        assertEquals("test", ExceptionUtil.getErrorMessage(new AnomalyDetectionException("test")));
+        assertEquals("test", ExceptionUtil.getErrorMessage(new TimeSeriesException("test")));
         assertEquals("test", ExceptionUtil.getErrorMessage(new IllegalArgumentException("test")));
         assertEquals("OpenSearchException[test]", ExceptionUtil.getErrorMessage(new OpenSearchException("test")));
         assertTrue(

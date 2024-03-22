@@ -16,9 +16,9 @@ import java.util.Map;
 
 import org.junit.Before;
 import org.opensearch.ad.ADIntegTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.stats.InternalStatNames;
-import org.opensearch.ad.stats.StatNames;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.stats.StatNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

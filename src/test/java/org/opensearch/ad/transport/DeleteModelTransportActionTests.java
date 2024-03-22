@@ -27,12 +27,10 @@ import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
@@ -46,13 +44,15 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.transport.TransportService;
 
 import com.google.gson.JsonElement;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class DeleteModelTransportActionTests extends AbstractADTest {
+public class DeleteModelTransportActionTests extends AbstractTimeSeriesTest {
     private DeleteModelTransportAction action;
     private String localNodeID;
 
@@ -134,6 +134,6 @@ public class DeleteModelTransportActionTests extends AbstractADTest {
 
     public void testEmptyDetectorID() {
         ActionRequestValidationException e = new DeleteModelRequest().validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 }

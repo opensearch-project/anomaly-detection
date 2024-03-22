@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.annotation.Generated;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -23,6 +22,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation.Bucket;
 import org.opensearch.search.aggregations.metrics.InternalMax;
+import org.opensearch.timeseries.annotation.Generated;
 
 import com.google.common.base.Objects;
 

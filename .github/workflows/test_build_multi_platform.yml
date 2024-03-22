@@ -127,7 +127,7 @@ jobs:
           ./gradlew assemble
       - name: Build and Run Tests
         run: |
-          ./gradlew build -Dtest.logs=true
+          ./gradlew build
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal

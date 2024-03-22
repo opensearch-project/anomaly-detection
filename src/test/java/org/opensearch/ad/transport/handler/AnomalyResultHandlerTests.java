@@ -33,15 +33,15 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     @Mock
@@ -85,7 +85,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -121,7 +121,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -139,7 +139,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -151,7 +151,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
 
     @Test
     public void testAdResultIndexOtherException() throws IOException {
-        expectedEx.expect(AnomalyDetectionException.class);
+        expectedEx.expect(TimeSeriesException.class);
         expectedEx.expectMessage("Error in saving .opendistro-anomaly-results for detector " + detectorId);
 
         setUpSavingAnomalyResultIndex(false, IndexCreation.RUNTIME_EXCEPTION);
@@ -159,7 +159,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
@@ -217,7 +217,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             client,
             backoffSettings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,

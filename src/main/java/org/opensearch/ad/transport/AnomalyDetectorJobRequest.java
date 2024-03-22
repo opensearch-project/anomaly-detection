@@ -15,14 +15,14 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.model.DetectionDateRange;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.timeseries.model.DateRange;
 
 public class AnomalyDetectorJobRequest extends ActionRequest {
 
     private String detectorID;
-    private DetectionDateRange detectionDateRange;
+    private DateRange detectionDateRange;
     private boolean historical;
     private long seqNo;
     private long primaryTerm;
@@ -35,7 +35,7 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         primaryTerm = in.readLong();
         rawPath = in.readString();
         if (in.readBoolean()) {
-            detectionDateRange = new DetectionDateRange(in);
+            detectionDateRange = new DateRange(in);
         }
         historical = in.readBoolean();
     }
@@ -61,7 +61,7 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
      */
     public AnomalyDetectorJobRequest(
         String detectorID,
-        DetectionDateRange detectionDateRange,
+        DateRange detectionDateRange,
         boolean historical,
         long seqNo,
         long primaryTerm,
@@ -80,7 +80,7 @@ public class AnomalyDetectorJobRequest extends ActionRequest {
         return detectorID;
     }
 
-    public DetectionDateRange getDetectionDateRange() {
+    public DateRange getDetectionDateRange() {
         return detectionDateRange;
     }
 

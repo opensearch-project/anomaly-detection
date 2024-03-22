@@ -35,7 +35,6 @@ import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.message.BasicHeader;
@@ -188,8 +187,9 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             String password = Optional
                 .ofNullable(System.getProperty("password"))
                 .orElseThrow(() -> new RuntimeException("password is missing"));
-            CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-            credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(userName, password));
+            BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+            final AuthScope anyScope = new AuthScope(null, -1);
+            credentialsProvider.setCredentials(anyScope, new UsernamePasswordCredentials(userName, password));
             try {
                 return httpClientBuilder
                     .setDefaultCredentialsProvider(credentialsProvider)

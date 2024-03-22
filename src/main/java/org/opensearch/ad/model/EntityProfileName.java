@@ -14,15 +14,15 @@ package org.opensearch.ad.model;
 import java.util.Collection;
 import java.util.Set;
 
-import org.opensearch.ad.Name;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.timeseries.Name;
 
 public enum EntityProfileName implements Name {
-    INIT_PROGRESS(CommonName.INIT_PROGRESS),
-    ENTITY_INFO(CommonName.ENTITY_INFO),
-    STATE(CommonName.STATE),
-    MODELS(CommonName.MODELS);
+    INIT_PROGRESS(ADCommonName.INIT_PROGRESS),
+    ENTITY_INFO(ADCommonName.ENTITY_INFO),
+    STATE(ADCommonName.STATE),
+    MODELS(ADCommonName.MODELS);
 
     private String name;
 
@@ -42,16 +42,16 @@ public enum EntityProfileName implements Name {
 
     public static EntityProfileName getName(String name) {
         switch (name) {
-            case CommonName.INIT_PROGRESS:
+            case ADCommonName.INIT_PROGRESS:
                 return INIT_PROGRESS;
-            case CommonName.ENTITY_INFO:
+            case ADCommonName.ENTITY_INFO:
                 return ENTITY_INFO;
-            case CommonName.STATE:
+            case ADCommonName.STATE:
                 return STATE;
-            case CommonName.MODELS:
+            case ADCommonName.MODELS:
                 return MODELS;
             default:
-                throw new IllegalArgumentException(CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
+                throw new IllegalArgumentException(ADCommonMessages.UNSUPPORTED_PROFILE_TYPE);
         }
     }
 

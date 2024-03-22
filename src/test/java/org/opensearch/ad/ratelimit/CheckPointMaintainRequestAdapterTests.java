@@ -29,7 +29,7 @@ import java.util.Optional;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
@@ -58,8 +58,8 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
         super.setUp();
         cache = mock(CacheProvider.class);
         checkpointDao = mock(CheckpointDao.class);
-        indexName = CommonName.CHECKPOINT_INDEX_NAME;
-        checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
+        indexName = ADCommonName.CHECKPOINT_INDEX_NAME;
+        checkpointInterval = AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ;
         EntityCache entityCache = mock(EntityCache.class);
         when(cache.get()).thenReturn(entityCache);
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
@@ -67,7 +67,7 @@ public class CheckPointMaintainRequestAdapterTests extends AbstractRateLimitingT
         clusterService = mock(ClusterService.class);
         ClusterSettings settings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ)))
         );
         when(clusterService.getClusterSettings()).thenReturn(settings);
         adapter = new CheckPointMaintainRequestAdapter(

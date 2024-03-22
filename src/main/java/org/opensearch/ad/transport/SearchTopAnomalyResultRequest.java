@@ -20,10 +20,10 @@ import java.util.List;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  * Request for getting the top anomaly results for HC detectors.
@@ -80,7 +80,7 @@ public class SearchTopAnomalyResultRequest extends ActionRequest {
         this.endTime = endTime;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

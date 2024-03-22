@@ -16,7 +16,7 @@ import java.io.IOException;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -188,41 +188,41 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         XContentBuilder xContentBuilder = builder.startObject();
 
         if (state != null) {
-            xContentBuilder.field(CommonName.STATE, state);
+            xContentBuilder.field(ADCommonName.STATE, state);
         }
         if (error != null) {
-            xContentBuilder.field(CommonName.ERROR, error);
+            xContentBuilder.field(ADCommonName.ERROR, error);
         }
         if (modelProfile != null && modelProfile.length > 0) {
-            xContentBuilder.startArray(CommonName.MODELS);
+            xContentBuilder.startArray(ADCommonName.MODELS);
             for (ModelProfileOnNode profile : modelProfile) {
                 profile.toXContent(xContentBuilder, params);
             }
             xContentBuilder.endArray();
         }
         if (shingleSize != -1) {
-            xContentBuilder.field(CommonName.SHINGLE_SIZE, shingleSize);
+            xContentBuilder.field(ADCommonName.SHINGLE_SIZE, shingleSize);
         }
         if (coordinatingNode != null && !coordinatingNode.isEmpty()) {
-            xContentBuilder.field(CommonName.COORDINATING_NODE, coordinatingNode);
+            xContentBuilder.field(ADCommonName.COORDINATING_NODE, coordinatingNode);
         }
         if (totalSizeInBytes != -1) {
-            xContentBuilder.field(CommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
+            xContentBuilder.field(ADCommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
         }
         if (initProgress != null) {
-            xContentBuilder.field(CommonName.INIT_PROGRESS, initProgress);
+            xContentBuilder.field(ADCommonName.INIT_PROGRESS, initProgress);
         }
         if (totalEntities != null) {
-            xContentBuilder.field(CommonName.TOTAL_ENTITIES, totalEntities);
+            xContentBuilder.field(ADCommonName.TOTAL_ENTITIES, totalEntities);
         }
         if (activeEntities != null) {
-            xContentBuilder.field(CommonName.ACTIVE_ENTITIES, activeEntities);
+            xContentBuilder.field(ADCommonName.ACTIVE_ENTITIES, activeEntities);
         }
         if (adTaskProfile != null) {
-            xContentBuilder.field(CommonName.AD_TASK, adTaskProfile);
+            xContentBuilder.field(ADCommonName.AD_TASK, adTaskProfile);
         }
         if (modelCount > 0) {
-            xContentBuilder.field(CommonName.MODEL_COUNT, modelCount);
+            xContentBuilder.field(ADCommonName.MODEL_COUNT, modelCount);
         }
         return xContentBuilder.endObject();
     }
@@ -428,37 +428,37 @@ public class DetectorProfile implements Writeable, ToXContentObject, Mergeable {
         ToStringBuilder toStringBuilder = new ToStringBuilder(this);
 
         if (state != null) {
-            toStringBuilder.append(CommonName.STATE, state);
+            toStringBuilder.append(ADCommonName.STATE, state);
         }
         if (error != null) {
-            toStringBuilder.append(CommonName.ERROR, error);
+            toStringBuilder.append(ADCommonName.ERROR, error);
         }
         if (modelProfile != null && modelProfile.length > 0) {
             toStringBuilder.append(modelProfile);
         }
         if (shingleSize != -1) {
-            toStringBuilder.append(CommonName.SHINGLE_SIZE, shingleSize);
+            toStringBuilder.append(ADCommonName.SHINGLE_SIZE, shingleSize);
         }
         if (coordinatingNode != null) {
-            toStringBuilder.append(CommonName.COORDINATING_NODE, coordinatingNode);
+            toStringBuilder.append(ADCommonName.COORDINATING_NODE, coordinatingNode);
         }
         if (totalSizeInBytes != -1) {
-            toStringBuilder.append(CommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
+            toStringBuilder.append(ADCommonName.TOTAL_SIZE_IN_BYTES, totalSizeInBytes);
         }
         if (initProgress != null) {
-            toStringBuilder.append(CommonName.INIT_PROGRESS, initProgress);
+            toStringBuilder.append(ADCommonName.INIT_PROGRESS, initProgress);
         }
         if (totalEntities != null) {
-            toStringBuilder.append(CommonName.TOTAL_ENTITIES, totalEntities);
+            toStringBuilder.append(ADCommonName.TOTAL_ENTITIES, totalEntities);
         }
         if (activeEntities != null) {
-            toStringBuilder.append(CommonName.ACTIVE_ENTITIES, activeEntities);
+            toStringBuilder.append(ADCommonName.ACTIVE_ENTITIES, activeEntities);
         }
         if (adTaskProfile != null) {
-            toStringBuilder.append(CommonName.AD_TASK, adTaskProfile);
+            toStringBuilder.append(ADCommonName.AD_TASK, adTaskProfile);
         }
         if (modelCount > 0) {
-            toStringBuilder.append(CommonName.MODEL_COUNT, modelCount);
+            toStringBuilder.append(ADCommonName.MODEL_COUNT, modelCount);
         }
         return toStringBuilder.toString();
     }

@@ -19,6 +19,9 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.model.ValidationIssueType;
 
 import com.google.common.base.Objects;
 
@@ -38,7 +41,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
     private static final String SUB_ISSUES_FIELD_NAME = "sub_issues";
 
     private final ValidationAspect aspect;
-    private final DetectorValidationIssueType type;
+    private final ValidationIssueType type;
     private final String message;
     private Map<String, String> subIssues;
     private IntervalTimeConfiguration intervalSuggestion;
@@ -47,7 +50,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         return aspect;
     }
 
-    public DetectorValidationIssueType getType() {
+    public ValidationIssueType getType() {
         return type;
     }
 
@@ -65,7 +68,7 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
 
     public DetectorValidationIssue(
         ValidationAspect aspect,
-        DetectorValidationIssueType type,
+        ValidationIssueType type,
         String message,
         Map<String, String> subIssues,
         IntervalTimeConfiguration intervalSuggestion
@@ -77,13 +80,13 @@ public class DetectorValidationIssue implements ToXContentObject, Writeable {
         this.intervalSuggestion = intervalSuggestion;
     }
 
-    public DetectorValidationIssue(ValidationAspect aspect, DetectorValidationIssueType type, String message) {
+    public DetectorValidationIssue(ValidationAspect aspect, ValidationIssueType type, String message) {
         this(aspect, type, message, null, null);
     }
 
     public DetectorValidationIssue(StreamInput input) throws IOException {
         aspect = input.readEnum(ValidationAspect.class);
-        type = input.readEnum(DetectorValidationIssueType.class);
+        type = input.readEnum(ValidationIssueType.class);
         message = input.readString();
         if (input.readBoolean()) {
             subIssues = input.readMap(StreamInput::readString, StreamInput::readString);

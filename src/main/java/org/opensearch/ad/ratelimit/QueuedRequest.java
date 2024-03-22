@@ -47,7 +47,7 @@ public abstract class QueuedRequest {
         this.priority = priority;
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

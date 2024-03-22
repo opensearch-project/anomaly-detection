@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.e2e;
 
-import static org.opensearch.ad.TestHelpers.toHttpEntity;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.BACKOFF_MINUTES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
+import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.BACKOFF_MINUTES;
+import static org.opensearch.timeseries.settings.TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.File;
 import java.io.FileReader;
@@ -29,7 +29,6 @@ import java.util.Map;
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
 import org.opensearch.ad.ODFERestTestCase;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
@@ -38,6 +37,7 @@ import org.opensearch.client.WarningsHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.TestHelpers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
@@ -45,7 +45,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class AbstractSyntheticDataTest extends ODFERestTestCase {
-
     /**
      * In real time AD, we mute a node for a detector if that node keeps returning
      * ResourceNotFoundException (5 times in a row).  This is a problem for batch mode

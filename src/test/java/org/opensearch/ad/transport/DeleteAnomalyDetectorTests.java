@@ -13,7 +13,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 
 import java.time.Instant;
@@ -35,13 +34,8 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
@@ -59,10 +53,16 @@ import org.opensearch.index.get.GetResult;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.tasks.Task;
 import org.opensearch.telemetry.tracing.noop.NoopTracer;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
-public class DeleteAnomalyDetectorTests extends AbstractADTest {
+public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private DeleteAnomalyDetectorTransportAction action;
     private TransportService transportService;
     private ActionFilters actionFilters;
@@ -72,7 +72,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
     private DeleteResponse deleteResponse;
     private GetResponse getResponse;
     ClusterService clusterService;
-    private AnomalyDetectorJob jobParameter;
+    private Job jobParameter;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -90,7 +90,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
         clusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         transportService = new TransportService(
@@ -119,7 +119,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
             adTaskManager
         );
 
-        jobParameter = mock(AnomalyDetectorJob.class);
+        jobParameter = mock(Job.class);
         when(jobParameter.getName()).thenReturn(randomAlphaOfLength(10));
         IntervalSchedule schedule = new IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES);
         when(jobParameter.getSchedule()).thenReturn(schedule);
@@ -202,7 +202,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
         Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
         immutableOpenMap
             .put(
-                ANOMALY_DETECTOR_JOB_INDEX,
+                CommonName.JOB_INDEX,
                 IndexMetadata
                     .builder("test")
                     .settings(
@@ -250,7 +250,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            AnomalyDetectorFunction function = (AnomalyDetectorFunction) args[1];
+            ExecutorFunction function = (ExecutorFunction) args[1];
 
             function.execute();
             return null;
@@ -282,7 +282,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
             }
             getResponse = new GetResponse(
                 new GetResult(
-                    AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX,
+                    CommonName.JOB_INDEX,
                     "id",
                     UNASSIGNED_SEQ_NO,
                     0,
@@ -290,7 +290,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
                     true,
                     BytesReference
                         .bytes(
-                            new AnomalyDetectorJob(
+                            new Job(
                                 "1234",
                                 jobParameter.getSchedule(),
                                 jobParameter.getWindowDelay(),
@@ -300,7 +300,7 @@ public class DeleteAnomalyDetectorTests extends AbstractADTest {
                                 Instant.now(),
                                 60L,
                                 TestHelpers.randomUser(),
-                                jobParameter.getResultIndex()
+                                jobParameter.getCustomResultIndex()
                             ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
                         ),
                     Collections.emptyMap(),
