@@ -79,7 +79,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.mock.model.MockSimpleLog;
@@ -89,6 +88,7 @@ import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.InternalStatNames;
 import org.opensearch.ad.transport.ADStatsNodeResponse;
 import org.opensearch.ad.transport.ADStatsNodesResponse;
@@ -120,6 +120,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.DuplicateTaskException;
 import org.opensearch.timeseries.constant.CommonName;
@@ -139,7 +140,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class ADTaskManagerTests extends ADUnitTestCase {
+public class ADTaskManagerTests extends AbstractTimeSeriesTest {
 
     private Settings settings;
     private Client client;
@@ -1447,10 +1448,22 @@ public class ADTaskManagerTests extends ADUnitTestCase {
     @SuppressWarnings("unchecked")
     public void testScaleTaskLaneOnCoordinatingNode() {
         ADTask adTask = mock(ADTask.class);
-        when(adTask.getCoordinatingNode()).thenReturn(node1.getId());
-        when(nodeFilter.getEligibleDataNodes()).thenReturn(new DiscoveryNode[] { node1, node2 });
-        ActionListener<JobResponse> listener = mock(ActionListener.class);
-        adTaskManager.scaleTaskLaneOnCoordinatingNode(adTask, 2, transportService, listener);
+        try {
+            // bring up real transport service as mockito cannot mock final method
+            // and transportService.sendRequest is called. A lot of null pointer
+            // exception will be thrown if we use mocked transport service.
+            setUpThreadPool(ADTaskManagerTests.class.getSimpleName());
+            setupTestNodes(AnomalyDetectorSettings.AD_MAX_ENTITIES_PER_QUERY, AnomalyDetectorSettings.AD_PAGE_SIZE);
+            when(adTask.getCoordinatingNode()).thenReturn(testNodes[1].getNodeId());
+            when(nodeFilter.getEligibleDataNodes())
+                .thenReturn(new DiscoveryNode[] { testNodes[0].discoveryNode(), testNodes[1].discoveryNode() });
+            ActionListener<JobResponse> listener = mock(ActionListener.class);
+
+            adTaskManager.scaleTaskLaneOnCoordinatingNode(adTask, 2, testNodes[1].transportService, listener);
+        } finally {
+            tearDownTestNodes();
+            tearDownThreadPool();
+        }
     }
 
     @SuppressWarnings("unchecked")

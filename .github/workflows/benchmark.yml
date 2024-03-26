@@ -38,7 +38,7 @@ jobs:
 
       # anomaly-detection
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Build and Run Tests
         run: |
