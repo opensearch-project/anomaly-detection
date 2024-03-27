@@ -744,7 +744,8 @@ public class CheckpointDao {
         if (kllThreshold.isPresent()) {
             scores = kllThreshold.get().extractScores();
         }
-        return Optional.of(new ThresholdedRandomCutForest(rcf.get(), anomalyRate, scores));
+        // last parameter is lastShingledInput. Since we don't know it, use all 0 double array
+        return Optional.of(new ThresholdedRandomCutForest(rcf.get(), anomalyRate, scores, new double[rcf.get().getDimensions()]));
     }
 
     /**

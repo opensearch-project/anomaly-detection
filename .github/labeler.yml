@@ -1,4 +1,4 @@
-backport 2.x:
+backport 1.x:
   - "*"
   - "*/*"
   - "*/**/*"

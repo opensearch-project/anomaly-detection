@@ -84,8 +84,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
     @Before
     public void setupSecureTests() throws IOException {
-        if (!isHttps())
+        if (!isHttps()) {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
+        }
         createIndexRole(indexAllAccessRole, "*");
         createSearchRole(indexSearchAccessRole, "*");
         String alicePassword = generatePassword(aliceUser);

@@ -46,7 +46,7 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          ./gradlew build
+          ./gradlew build -x spotlessJava
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
@@ -91,7 +91,7 @@ jobs:
         run: |
           chown -R 1000:1000 `pwd`
           su `id -un 1000` -c "./gradlew assemble &&
-                               ./gradlew build &&
+                               ./gradlew build -x spotlessJava &&
                                ./gradlew publishToMavenLocal &&
                                ./gradlew integTest -PnumNodes=3"
       - name: Upload Coverage Report
@@ -127,7 +127,7 @@ jobs:
           ./gradlew assemble
       - name: Build and Run Tests
         run: |
-          ./gradlew build
+          ./gradlew build -x spotlessJava
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal

@@ -20,9 +20,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-
 @RunWith(JUnitParamsRunner.class)
 public class ThresholdingResultTests {
 

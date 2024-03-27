@@ -48,8 +48,6 @@ import org.opensearch.timeseries.stats.StatNames;
 
 import com.amazon.randomcutforest.RandomCutForest;
 
-import com.amazon.randomcutforest.RandomCutForest;
-
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 

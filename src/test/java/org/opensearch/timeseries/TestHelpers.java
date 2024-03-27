@@ -18,14 +18,7 @@ import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
-import static org.opensearch.test.OpenSearchTestCase.buildNewFakeTransportAddress;
-import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
-import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
-import static org.opensearch.test.OpenSearchTestCase.randomDouble;
-import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomInt;
-import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
-import static org.opensearch.test.OpenSearchTestCase.randomLong;
+import static org.opensearch.test.OpenSearchTestCase.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

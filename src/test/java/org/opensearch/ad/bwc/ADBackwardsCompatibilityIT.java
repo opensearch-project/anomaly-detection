@@ -8,6 +8,9 @@
 
 package org.opensearch.ad.bwc;
 
+import static org.opensearch.ad.rest.ADRestTestUtils.DetectorType.MULTI_CATEGORY_HC_DETECTOR;
+import static org.opensearch.ad.rest.ADRestTestUtils.DetectorType.SINGLE_CATEGORY_HC_DETECTOR;
+import static org.opensearch.ad.rest.ADRestTestUtils.DetectorType.SINGLE_ENTITY_DETECTOR;
 import static org.opensearch.ad.rest.ADRestTestUtils.countADResultOfDetector;
 import static org.opensearch.ad.rest.ADRestTestUtils.countDetectors;
 import static org.opensearch.ad.rest.ADRestTestUtils.createAnomalyDetector;
@@ -21,9 +24,6 @@ import static org.opensearch.ad.rest.ADRestTestUtils.startHistoricalAnalysis;
 import static org.opensearch.ad.rest.ADRestTestUtils.stopHistoricalAnalysis;
 import static org.opensearch.ad.rest.ADRestTestUtils.stopRealtimeJob;
 import static org.opensearch.ad.rest.ADRestTestUtils.waitUntilTaskDone;
-import static org.opensearch.ad.rest.ADRestTestUtils.DetectorType.MULTI_CATEGORY_HC_DETECTOR;
-import static org.opensearch.ad.rest.ADRestTestUtils.DetectorType.SINGLE_CATEGORY_HC_DETECTOR;
-import static org.opensearch.ad.rest.ADRestTestUtils.DetectorType.SINGLE_ENTITY_DETECTOR;
 import static org.opensearch.timeseries.util.RestHandlerUtils.ANOMALY_DETECTOR_JOB;
 import static org.opensearch.timeseries.util.RestHandlerUtils.HISTORICAL_ANALYSIS_TASK;
 import static org.opensearch.timeseries.util.RestHandlerUtils.REALTIME_TASK;
@@ -167,7 +167,7 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
                 case MIXED:
                     // TODO: We have no way to specify whether send request to old node or new node now.
                     // Add more test later when it's possible to specify request node.
-                    Assert.assertTrue(pluginNames.contains("opensearch-anomaly-detection"));
+                    Assert.assertTrue(pluginNames.contains("opensearch-time-series-analytics"));
                     Assert.assertTrue(pluginNames.contains("opensearch-job-scheduler"));
 
                     // Create single entity detector and start realtime job
