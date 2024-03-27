@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -33,18 +33,18 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.ExpiringState;
-import org.opensearch.ad.MaintenanceState;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPoolStats;
+import org.opensearch.timeseries.ExpiringState;
+import org.opensearch.timeseries.MaintenanceState;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 
 /**
  * HCAD can bombard Opensearch with “thundering herd” traffic, in which many entities
@@ -175,7 +175,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     protected final ConcurrentSkipListMap<String, RequestQueue> requestQueues;
     private String lastSelectedRequestQueueId;
     protected Random random;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     protected ThreadPool threadPool;
     protected Instant cooldownStart;
     protected int coolDownMinutes;
@@ -194,7 +194,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -228,7 +228,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         this.lastSelectedRequestQueueId = null;
         this.requestQueues = new ConcurrentSkipListMap<>();
         this.cooldownStart = Instant.MIN;
-        this.coolDownMinutes = (int) (COOLDOWN_MINUTES.get(settings).getMinutes());
+        this.coolDownMinutes = (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes());
         this.maintenanceFreqConstant = maintenanceFreqConstant;
         this.stateTtl = stateTtl;
         this.nodeStateManager = nodeStateManager;
@@ -305,7 +305,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
             // just use the RequestQueue priority (i.e., low or high) as the key of the RequestQueue map.
             RequestQueue requestQueue = requestQueues
                 .computeIfAbsent(
-                    RequestPriority.MEDIUM == request.getPriority() ? request.getDetectorId() : request.getPriority().name(),
+                    RequestPriority.MEDIUM == request.getPriority() ? request.getId() : request.getPriority().name(),
                     k -> new RequestQueue()
                 );
 
@@ -551,15 +551,15 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 } catch (Exception e) {
                     LOG.error(new ParameterizedMessage("Fail to process requests in [{}].", this.workerName), e);
                 }
-            }, new TimeValue(coolDownMinutes, TimeUnit.MINUTES), AnomalyDetectorPlugin.AD_THREAD_POOL_NAME);
+            }, new TimeValue(coolDownMinutes, TimeUnit.MINUTES), TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
         } else {
             try {
                 triggerProcess();
             } catch (Exception e) {
                 LOG.error(String.format(Locale.ROOT, "Failed to process requests from %s", getWorkerName()), e);
-                if (e != null && e instanceof AnomalyDetectionException) {
-                    AnomalyDetectionException adExep = (AnomalyDetectionException) e;
-                    nodeStateManager.setException(adExep.getAnomalyDetectorId(), adExep);
+                if (e != null && e instanceof TimeSeriesException) {
+                    TimeSeriesException adExep = (TimeSeriesException) e;
+                    nodeStateManager.setException(adExep.getConfigId(), adExep);
                 }
             }
 

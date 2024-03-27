@@ -14,9 +14,9 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 public class ADBatchAnomalyResultRequestTests extends OpenSearchTestCase {
 

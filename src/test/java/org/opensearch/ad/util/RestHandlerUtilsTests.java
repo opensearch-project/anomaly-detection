@@ -11,13 +11,12 @@
 
 package org.opensearch.ad.util;
 
-import static org.opensearch.ad.TestHelpers.builder;
-import static org.opensearch.ad.TestHelpers.randomFeature;
-import static org.opensearch.ad.util.RestHandlerUtils.OPENSEARCH_DASHBOARDS_USER_AGENT;
+import static org.opensearch.timeseries.TestHelpers.builder;
+import static org.opensearch.timeseries.TestHelpers.randomFeature;
+import static org.opensearch.timeseries.util.RestHandlerUtils.OPENSEARCH_DASHBOARDS_USER_AGENT;
 
 import java.io.IOException;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -30,6 +29,8 @@ import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.FakeRestChannel;
 import org.opensearch.test.rest.FakeRestRequest;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -86,8 +87,8 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
 
     public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
-        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 1);
-        assertEquals("Can't create more than 1 anomaly features", error);
+        String error = RestHandlerUtils.checkFeaturesSyntax(detector, 1);
+        assertEquals("Can't create more than 1 features", error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
@@ -96,8 +97,8 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
             .randomAnomalyDetector(
                 ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
             );
-        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 2);
-        assertEquals("Detector has duplicate feature names: " + featureName, error);
+        String error = RestHandlerUtils.checkFeaturesSyntax(detector, 2);
+        assertEquals("There are duplicate feature names: " + featureName, error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateAggregationNames() throws IOException {
@@ -107,7 +108,7 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
                 ImmutableList
                     .of(randomFeature(randomAlphaOfLength(5), aggregationName), randomFeature(randomAlphaOfLength(5), aggregationName))
             );
-        String error = RestHandlerUtils.checkAnomalyDetectorFeaturesSyntax(detector, 2);
-        assertEquals("Detector has duplicate feature aggregation query names: " + aggregationName, error);
+        String error = RestHandlerUtils.checkFeaturesSyntax(detector, 2);
+        assertEquals("Config has duplicate feature aggregation query names: " + aggregationName, error);
     }
 }

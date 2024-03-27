@@ -17,7 +17,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.Version;
 import org.opensearch.action.support.nodes.BaseNodeResponse;
-import org.opensearch.ad.cluster.ADVersionUtil;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -50,8 +49,7 @@ public class ADTaskProfileNodeResponse extends BaseNodeResponse {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        if (adTaskProfile != null
-            && (ADVersionUtil.compatibleWithVersionOnOrAfter1_1(remoteAdVersion) || adTaskProfile.getNodeId() != null)) {
+        if (adTaskProfile != null && (remoteAdVersion != null || adTaskProfile.getNodeId() != null)) {
             out.writeBoolean(true);
             adTaskProfile.writeTo(out, remoteAdVersion);
         } else {

@@ -16,7 +16,7 @@ import java.io.IOException;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -98,7 +98,7 @@ public class ModelProfileOnNode implements Writeable, ToXContent {
     @Override
     public String toString() {
         ToStringBuilder builder = new ToStringBuilder(this);
-        builder.append(CommonName.MODEL, modelProfile);
+        builder.append(ADCommonName.MODEL, modelProfile);
         builder.append(NODE_ID, nodeId);
         return builder.toString();
     }

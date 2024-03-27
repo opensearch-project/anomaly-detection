@@ -11,9 +11,7 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME;
-import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_NAME_FOR_TEST;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
 
 import java.time.Clock;
 import java.util.ArrayList;
@@ -37,10 +35,7 @@ import org.opensearch.Version;
 import org.opensearch.action.admin.cluster.node.info.NodeInfo;
 import org.opensearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.SingleStreamModelIdMapper;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.ClusterAdminClient;
@@ -54,6 +49,10 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.plugins.PluginInfo;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.Sets;
 
@@ -110,8 +109,8 @@ public class HashRing {
         this.nodeFilter = nodeFilter;
         this.buildHashRingSemaphore = new Semaphore(1);
         this.clock = clock;
-        this.coolDownPeriodForRealtimeAD = COOLDOWN_MINUTES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(COOLDOWN_MINUTES, it -> coolDownPeriodForRealtimeAD = it);
+        this.coolDownPeriodForRealtimeAD = AD_COOLDOWN_MINUTES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_COOLDOWN_MINUTES, it -> coolDownPeriodForRealtimeAD = it);
 
         this.lastUpdateForRealtimeAD = 0;
         this.client = client;
@@ -216,7 +215,7 @@ public class HashRing {
      */
     private void buildCircles(Set<String> removedNodeIds, Set<String> addedNodeIds, ActionListener<Boolean> actionListener) {
         if (buildHashRingSemaphore.availablePermits() != 0) {
-            throw new AnomalyDetectionException("Must get update hash ring semaphore before building AD hash ring");
+            throw new TimeSeriesException("Must get update hash ring semaphore before building AD hash ring");
         }
         try {
             DiscoveryNode localNode = clusterService.localNode();
@@ -265,7 +264,8 @@ public class HashRing {
                         }
                         TreeMap<Integer, DiscoveryNode> circle = null;
                         for (PluginInfo pluginInfo : plugins.getPluginInfos()) {
-                            if (AD_PLUGIN_NAME.equals(pluginInfo.getName()) || AD_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
+                            if (CommonName.TIME_SERIES_PLUGIN_NAME.equals(pluginInfo.getName())
+                                || CommonName.TIME_SERIES_PLUGIN_NAME_FOR_TEST.equals(pluginInfo.getName())) {
                                 Version version = ADVersionUtil.fromString(pluginInfo.getVersion());
                                 boolean eligibleNode = nodeFilter.isEligibleNode(curNode);
                                 if (eligibleNode) {
@@ -288,7 +288,7 @@ public class HashRing {
                 // rebuild AD version hash ring with cooldown after all new node added.
                 rebuildCirclesForRealtimeAD();
 
-                if (!dataMigrator.isMigrated() && circles.size() > 0 && circles.lastEntry().getKey().onOrAfter(Version.V_1_1_0)) {
+                if (!dataMigrator.isMigrated() && circles.size() > 0) {
                     // Find owning node with highest AD version to make sure the data migration logic be compatible to
                     // latest AD version when upgrade.
                     Optional<DiscoveryNode> owningNode = getOwningNodeWithHighestAdVersion(DEFAULT_HASH_RING_MODEL_ID);
@@ -383,7 +383,7 @@ public class HashRing {
      * 1. There is node change event not consumed, and
      * 2. Have passed cool down period from last hash ring update time.
      *
-     * Check {@link org.opensearch.ad.settings.AnomalyDetectorSettings#COOLDOWN_MINUTES} about
+     * Check {@link org.opensearch.ad.settings.AnomalyDetectorSettings#AD_COOLDOWN_MINUTES} about
      * cool down settings.
      *
      * Why we need to wait for some cooldown period before rebuilding hash ring?

@@ -16,13 +16,13 @@ import java.io.IOException;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 
 /**
  * Used to show model information in profile API
@@ -43,42 +43,26 @@ public class ModelProfile implements Writeable, ToXContentObject {
 
     public ModelProfile(StreamInput in) throws IOException {
         this.modelId = in.readString();
-        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-            if (in.readBoolean()) {
-                this.entity = new Entity(in);
-            } else {
-                this.entity = null;
-            }
+        if (in.readBoolean()) {
+            this.entity = new Entity(in);
         } else {
             this.entity = null;
         }
+
         this.modelSizeInBytes = in.readLong();
-        if (!Bwc.supportMultiCategoryFields(in.getVersion())) {
-            // removed nodeId since Opensearch 1.1
-            // read it and do no assignment
-            in.readString();
-        }
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(modelId);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            if (entity != null) {
-                out.writeBoolean(true);
-                entity.writeTo(out);
-            } else {
-                out.writeBoolean(false);
-            }
+        if (entity != null) {
+            out.writeBoolean(true);
+            entity.writeTo(out);
+        } else {
+            out.writeBoolean(false);
         }
 
         out.writeLong(modelSizeInBytes);
-        // removed nodeId since Opensearch 1.1
-        if (!Bwc.supportMultiCategoryFields(out.getVersion())) {
-            // write empty string for node id as we don't have it
-            // otherwise, we will get EOFException
-            out.writeString(CommonName.EMPTY_FIELD);
-        }
     }
 
     public String getModelId() {
@@ -95,7 +79,7 @@ public class ModelProfile implements Writeable, ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(CommonName.MODEL_ID_KEY, modelId);
+        builder.field(CommonName.MODEL_ID_FIELD, modelId);
         if (entity != null) {
             builder.field(CommonName.ENTITY_KEY, entity);
         }
@@ -131,7 +115,7 @@ public class ModelProfile implements Writeable, ToXContentObject {
     @Override
     public String toString() {
         ToStringBuilder builder = new ToStringBuilder(this);
-        builder.append(CommonName.MODEL_ID_KEY, modelId);
+        builder.append(CommonName.MODEL_ID_FIELD, modelId);
         if (modelSizeInBytes > 0) {
             builder.append(CommonName.MODEL_SIZE_IN_BYTES, modelSizeInBytes);
         }

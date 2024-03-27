@@ -16,9 +16,11 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.TimeConfiguration;
 
 public class IntervalTimeConfigurationTests extends OpenSearchTestCase {
 

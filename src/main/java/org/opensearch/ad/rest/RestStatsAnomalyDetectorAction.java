@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.AnomalyDetectorPlugin.AD_BASE_URI;
-import static org.opensearch.ad.AnomalyDetectorPlugin.LEGACY_AD_BASE;
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BASE_URI;
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -20,12 +20,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -33,6 +32,7 @@ import org.opensearch.core.common.Strings;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.ImmutableList;
 
@@ -64,8 +64,8 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         ADStatsRequest adStatsRequest = getRequest(request);
         return channel -> client.execute(StatsAnomalyDetectorAction.INSTANCE, adStatsRequest, new RestToXContentListener<>(channel));

@@ -18,7 +18,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import org.opensearch.ad.common.exception.EndRunException;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.Aggregations;
@@ -30,6 +29,7 @@ import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
 import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation.SingleValue;
 import org.opensearch.search.aggregations.metrics.Percentile;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.common.exception.EndRunException;
 
 public abstract class AbstractRetriever {
     protected double parseAggregation(Aggregation aggregationToParse) {

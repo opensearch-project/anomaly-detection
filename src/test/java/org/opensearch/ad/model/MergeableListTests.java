@@ -14,9 +14,10 @@ package org.opensearch.ad.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.opensearch.ad.AbstractADTest;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.model.MergeableList;
 
-public class MergeableListTests extends AbstractADTest {
+public class MergeableListTests extends AbstractTimeSeriesTest {
 
     public void testMergeableListGetElements() {
         List<String> ls1 = new ArrayList<String>();

@@ -32,10 +32,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelState;
@@ -45,6 +44,8 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -62,7 +63,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.getKey(), 1).build();
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.getKey(), 1).build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
             Collections
@@ -70,10 +71,10 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
                     new HashSet<>(
                         Arrays
                             .asList(
-                                AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
-                                AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
-                                AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
-                                AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ
+                                AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ
                             )
                     )
                 )
@@ -84,8 +85,8 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
 
         CacheProvider cache = mock(CacheProvider.class);
         checkpointDao = mock(CheckpointDao.class);
-        String indexName = CommonName.CHECKPOINT_INDEX_NAME;
-        Setting<TimeValue> checkpointInterval = AnomalyDetectorSettings.CHECKPOINT_SAVING_FREQ;
+        String indexName = ADCommonName.CHECKPOINT_INDEX_NAME;
+        Setting<TimeValue> checkpointInterval = AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ;
         EntityCache entityCache = mock(EntityCache.class);
         when(cache.get()).thenReturn(entityCache);
         ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
@@ -104,19 +105,19 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
         cpMaintainWorker = new CheckpointMaintainWorker(
             Integer.MAX_VALUE,
             AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
-            AnomalyDetectorSettings.CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
+            AnomalyDetectorSettings.AD_CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
-            mock(ADCircuitBreakerService.class),
+            mock(CircuitBreakerService.class),
             threadPool,
             settings,
-            AnomalyDetectorSettings.MAX_QUEUED_TASKS_RATIO,
+            TimeSeriesSettings.MAX_QUEUED_TASKS_RATIO,
             clock,
-            AnomalyDetectorSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.LOW_SEGMENT_PRUNE_RATIO,
-            AnomalyDetectorSettings.MAINTENANCE_FREQ_CONSTANT,
+            TimeSeriesSettings.MEDIUM_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.LOW_SEGMENT_PRUNE_RATIO,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
             writeWorker,
-            AnomalyDetectorSettings.HOURLY_MAINTENANCE,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
             adapter
         );
@@ -134,7 +135,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
 
             TimeValue value = invocation.getArgument(1);
             // since we have only 1 request each time
-            long expectedExecutionPerRequestMilli = AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
+            long expectedExecutionPerRequestMilli = AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
                 .getDefault(Settings.EMPTY);
             long delay = value.getMillis();
             assertTrue(delay == expectedExecutionPerRequestMilli);

@@ -11,16 +11,15 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.CommonName.AD_PLUGIN_VERSION_FOR_TEST;
-
 import org.opensearch.Version;
+import org.opensearch.timeseries.constant.CommonName;
 
 public class ADVersionUtil {
 
     public static final int VERSION_SEGMENTS = 3;
 
     public static Version fromString(String adVersion) {
-        if (AD_PLUGIN_VERSION_FOR_TEST.equals(adVersion)) {
+        if (CommonName.TIME_SERIES_PLUGIN_VERSION_FOR_TEST.equals(adVersion)) {
             return Version.CURRENT;
         }
         return Version.fromString(normalizeVersion(adVersion));
@@ -41,9 +40,5 @@ public class ADVersionUtil {
             normalizedVersion.append(versions[i]);
         }
         return normalizedVersion.toString();
-    }
-
-    public static boolean compatibleWithVersionOnOrAfter1_1(Version adVersion) {
-        return adVersion != null && adVersion.onOrAfter(Version.V_1_1_0);
     }
 }

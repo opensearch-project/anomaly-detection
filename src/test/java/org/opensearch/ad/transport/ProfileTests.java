@@ -30,7 +30,7 @@ import org.junit.Test;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.ClusterName;
@@ -41,6 +41,7 @@ import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.constant.CommonName;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -115,7 +116,7 @@ public class ProfileTests extends OpenSearchTestCase {
         profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
         ProfileRequest ProfileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
         ProfileNodeRequest ProfileNodeRequest = new ProfileNodeRequest(ProfileRequest);
-        assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getDetectorId(), detectorId);
+        assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getId(), detectorId);
         assertEquals("ProfileNodeRequest has the wrong ProfileRequest", ProfileNodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
 
         // Test serialization
@@ -123,7 +124,7 @@ public class ProfileTests extends OpenSearchTestCase {
         ProfileNodeRequest.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
         ProfileNodeRequest nodeRequest = new ProfileNodeRequest(streamInput);
-        assertEquals("serialization has the wrong detector id", nodeRequest.getDetectorId(), detectorId);
+        assertEquals("serialization has the wrong detector id", nodeRequest.getId(), detectorId);
         assertEquals("serialization has the wrong ProfileRequest", nodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
 
     }
@@ -161,7 +162,7 @@ public class ProfileTests extends OpenSearchTestCase {
             );
         }
 
-        assertEquals("toXContent has the wrong shingle size", JsonDeserializer.getIntValue(json, CommonName.SHINGLE_SIZE), shingleSize);
+        assertEquals("toXContent has the wrong shingle size", JsonDeserializer.getIntValue(json, ADCommonName.SHINGLE_SIZE), shingleSize);
     }
 
     @Test
@@ -181,7 +182,7 @@ public class ProfileTests extends OpenSearchTestCase {
             readRequest.getProfilesToBeRetrieved(),
             profileRequest.getProfilesToBeRetrieved()
         );
-        assertEquals("Serialization has the wrong detector id", readRequest.getDetectorId(), profileRequest.getDetectorId());
+        assertEquals("Serialization has the wrong detector id", readRequest.getId(), profileRequest.getId());
     }
 
     @Test
@@ -249,8 +250,8 @@ public class ProfileTests extends OpenSearchTestCase {
             JsonElement element = modelsJson.get(i);
             assertTrue(
                 "toXContent has the wrong model id",
-                JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model1Id)
-                    || JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model0Id)
+                JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_FIELD).equals(model1Id)
+                    || JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_FIELD).equals(model0Id)
             );
 
             assertEquals(
@@ -259,7 +260,7 @@ public class ProfileTests extends OpenSearchTestCase {
                 modelSize
             );
 
-            if (JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_KEY).equals(model1Id)) {
+            if (JsonDeserializer.getTextValue(element, CommonName.MODEL_ID_FIELD).equals(model1Id)) {
                 assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfileOnNode.NODE_ID), node1);
             } else {
                 assertEquals("toXContent has the wrong node id", JsonDeserializer.getTextValue(element, ModelProfileOnNode.NODE_ID), node2);

@@ -15,14 +15,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkResponse;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.block.ClusterBlockLevel;
@@ -31,6 +29,8 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.util.ClientUtil;
 
 /**
  * EntityResultTransportAction depends on this class.  I cannot use
@@ -52,7 +52,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
         Client client,
         Settings settings,
         ThreadPool threadPool,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService
@@ -61,7 +61,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
             client,
             settings,
             threadPool,
-            CommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             anomalyDetectionIndices,
             clientUtil,
             indexUtils,
@@ -76,18 +76,18 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
      */
     public void flush(ADResultBulkRequest currentBulkRequest, ActionListener<ADResultBulkResponse> listener) {
         if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.indexName)) {
-            listener.onFailure(new AnomalyDetectionException(CANNOT_SAVE_RESULT_ERR_MSG));
+            listener.onFailure(new TimeSeriesException(CANNOT_SAVE_RESULT_ERR_MSG));
             return;
         }
 
         try {
-            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
-                anomalyDetectionIndices.initDefaultAnomalyResultIndexDirectly(ActionListener.wrap(initResponse -> {
+            if (!anomalyDetectionIndices.doesDefaultResultIndexExist()) {
+                anomalyDetectionIndices.initDefaultResultIndexDirectly(ActionListener.wrap(initResponse -> {
                     if (initResponse.isAcknowledged()) {
                         bulk(currentBulkRequest, listener);
                     } else {
                         LOG.warn("Creating result index with mappings call not acknowledged.");
-                        listener.onFailure(new AnomalyDetectionException("", "Creating result index with mappings call not acknowledged."));
+                        listener.onFailure(new TimeSeriesException("", "Creating result index with mappings call not acknowledged."));
                     }
                 }, exception -> {
                     if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
@@ -109,7 +109,7 @@ public class MultiEntityResultHandler extends AnomalyIndexHandler<AnomalyResult>
 
     private void bulk(ADResultBulkRequest currentBulkRequest, ActionListener<ADResultBulkResponse> listener) {
         if (currentBulkRequest.numberOfActions() <= 0) {
-            listener.onFailure(new AnomalyDetectionException("no result to save"));
+            listener.onFailure(new TimeSeriesException("no result to save"));
             return;
         }
         client.execute(ADResultBulkAction.INSTANCE, currentBulkRequest, ActionListener.<ADResultBulkResponse>wrap(response -> {

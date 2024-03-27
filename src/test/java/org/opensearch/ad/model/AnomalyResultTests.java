@@ -17,8 +17,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Locale;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
@@ -26,6 +24,8 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.base.Objects;
 
@@ -33,7 +33,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
-        return pluginList(InternalSettingsPlugin.class, AnomalyDetectorPlugin.class);
+        return pluginList(InternalSettingsPlugin.class, TimeSeriesAnalyticsPlugin.class);
     }
 
     @Override
@@ -70,7 +70,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyResult parsedDetectResult = AnomalyResult.parse(TestHelpers.parser(detectResultString));
         assertTrue(
-            Objects.equal(detectResult.getDetectorId(), parsedDetectResult.getDetectorId())
+            Objects.equal(detectResult.getConfigId(), parsedDetectResult.getConfigId())
                 && Objects.equal(detectResult.getTaskId(), parsedDetectResult.getTaskId())
                 && Objects.equal(detectResult.getAnomalyScore(), parsedDetectResult.getAnomalyScore())
                 && Objects.equal(detectResult.getAnomalyGrade(), parsedDetectResult.getAnomalyGrade())
@@ -95,7 +95,7 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
         assertNull(parsedDetectResult.getAnomalyGrade());
         assertNull(parsedDetectResult.getAnomalyScore());
         assertTrue(
-            Objects.equal(detectResult.getDetectorId(), parsedDetectResult.getDetectorId())
+            Objects.equal(detectResult.getConfigId(), parsedDetectResult.getConfigId())
                 && Objects.equal(detectResult.getTaskId(), parsedDetectResult.getTaskId())
                 && Objects.equal(detectResult.getFeatureData(), parsedDetectResult.getFeatureData())
                 && Objects.equal(detectResult.getDataStartTime(), parsedDetectResult.getDataStartTime())

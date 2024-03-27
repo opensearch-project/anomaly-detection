@@ -11,12 +11,12 @@
 
 package org.opensearch.ad.rest;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DETECTION_INTERVAL;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.DETECTION_WINDOW_DELAY;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_MULTI_ENTITY_ANOMALY_DETECTORS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_SINGLE_ENTITY_ANOMALY_DETECTORS;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
 
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -33,23 +33,21 @@ public abstract class AbstractAnomalyDetectorAction extends BaseRestHandler {
     protected volatile Integer maxAnomalyFeatures;
 
     public AbstractAnomalyDetectorAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
+        this.requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
         this.detectionInterval = DETECTION_INTERVAL.get(settings);
         this.detectionWindowDelay = DETECTION_WINDOW_DELAY.get(settings);
-        this.maxSingleEntityDetectors = MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
-        this.maxMultiEntityDetectors = MAX_MULTI_ENTITY_ANOMALY_DETECTORS.get(settings);
+        this.maxSingleEntityDetectors = AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
+        this.maxMultiEntityDetectors = AD_MAX_HC_ANOMALY_DETECTORS.get(settings);
         this.maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
         // TODO: will add more cluster setting consumer later
         // TODO: inject ClusterSettings only if clusterService is only used to get ClusterSettings
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_REQUEST_TIMEOUT, it -> requestTimeout = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_INTERVAL, it -> detectionInterval = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(DETECTION_WINDOW_DELAY, it -> detectionWindowDelay = it);
         clusterService
             .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = it);
-        clusterService
-            .getClusterSettings()
-            .addSettingsUpdateConsumer(MAX_MULTI_ENTITY_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = it);
+            .addSettingsUpdateConsumer(AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS, it -> maxSingleEntityDetectors = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_MAX_HC_ANOMALY_DETECTORS, it -> maxMultiEntityDetectors = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
 }

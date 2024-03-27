@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.getSourceContext;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.opensearch.timeseries.util.RestHandlerUtils.getSourceContext;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,8 +24,8 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
@@ -66,8 +66,8 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.parseXContent(request.contentOrSourceParamParser());

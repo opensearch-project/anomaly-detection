@@ -29,14 +29,15 @@ import org.junit.Before;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.model.Feature;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,7 +60,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
 
     public ToXContentObject[] getHistoricalAnomalyDetector(String detectorId, boolean returnTask, RestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        return getAnomalyDetector(detectorId, header, false, returnTask, client);
+        return getConfig(detectorId, header, false, returnTask, client);
     }
 
     public ADTaskProfile getADTaskProfile(String detectorId) throws IOException {
@@ -216,7 +217,7 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     protected String startHistoricalAnalysis(String detectorId) throws IOException {
         Instant endTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant startTime = endTime.minus(10, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
-        DetectionDateRange dateRange = new DetectionDateRange(startTime, endTime);
+        DateRange dateRange = new DateRange(startTime, endTime);
         Response startDetectorResponse = startAnomalyDetector(detectorId, dateRange, client());
         Map<String, Object> startDetectorResponseMap = responseAsMap(startDetectorResponse);
         String taskId = (String) startDetectorResponseMap.get("_id");

@@ -14,9 +14,10 @@ package org.opensearch.ad.model;
 import java.io.IOException;
 import java.util.Locale;
 
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.FeatureData;
 
 public class FeatureDataTests extends OpenSearchTestCase {
 

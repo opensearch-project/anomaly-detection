@@ -17,7 +17,7 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -50,7 +50,7 @@ public class DeleteAnomalyDetectorRequest extends ActionRequest {
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
         if (Strings.isEmpty(detectorID)) {
-            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         return validationException;
     }

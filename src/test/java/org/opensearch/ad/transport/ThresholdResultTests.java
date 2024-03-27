@@ -27,8 +27,8 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -120,18 +120,18 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         response.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = builder.toString();
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.ANOMALY_GRADE_JSON_KEY), response.getAnomalyGrade(), 0.001);
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
+        assertEquals(JsonDeserializer.getDoubleValue(json, ADCommonName.ANOMALY_GRADE_JSON_KEY), response.getAnomalyGrade(), 0.001);
+        assertEquals(JsonDeserializer.getDoubleValue(json, ADCommonName.CONFIDENCE_JSON_KEY), response.getConfidence(), 0.001);
     }
 
     public void testEmptyDetectorID() {
         ActionRequestValidationException e = new ThresholdResultRequest(null, "123-threshold", 2).validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testEmptyModelID() {
         ActionRequestValidationException e = new ThresholdResultRequest("123", "", 2).validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(CommonErrorMessages.MODEL_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.MODEL_ID_MISSING_MSG));
     }
 
     public void testSerialzationRequest() throws IOException {
@@ -151,7 +151,7 @@ public class ThresholdResultTests extends OpenSearchTestCase {
         request.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String json = builder.toString();
-        assertEquals(JsonDeserializer.getTextValue(json, CommonName.ID_JSON_KEY), request.getAdID());
-        assertEquals(JsonDeserializer.getDoubleValue(json, CommonName.RCF_SCORE_JSON_KEY), request.getRCFScore(), 0.001);
+        assertEquals(JsonDeserializer.getTextValue(json, ADCommonName.ID_JSON_KEY), request.getAdID());
+        assertEquals(JsonDeserializer.getDoubleValue(json, ADCommonName.RCF_SCORE_JSON_KEY), request.getRCFScore(), 0.001);
     }
 }

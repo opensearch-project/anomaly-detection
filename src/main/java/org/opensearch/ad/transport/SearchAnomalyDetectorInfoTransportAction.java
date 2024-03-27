@@ -11,9 +11,8 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR_INFO;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_INFO;
+import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,7 +20,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -32,6 +30,8 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 public class SearchAnomalyDetectorInfoTransportAction extends
@@ -60,9 +60,9 @@ public class SearchAnomalyDetectorInfoTransportAction extends
     ) {
         String name = request.getName();
         String rawPath = request.getRawPath();
-        ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_DETECTOR_INFO);
+        ActionListener<SearchAnomalyDetectorInfoResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_INFO);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            SearchRequest searchRequest = new SearchRequest().indices(ANOMALY_DETECTORS_INDEX);
+            SearchRequest searchRequest = new SearchRequest().indices(CommonName.CONFIG_INDEX);
             if (rawPath.endsWith(RestHandlerUtils.COUNT)) {
                 // Count detectors
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

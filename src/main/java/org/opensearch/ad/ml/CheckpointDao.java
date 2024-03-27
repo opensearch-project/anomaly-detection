@@ -48,18 +48,12 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.get.MultiGetAction;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
@@ -68,6 +62,12 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ScrollableHitSource;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.util.ClientUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;
@@ -98,16 +98,10 @@ public class CheckpointDao {
     static final String INDEX_DELETED_LOG_MSG = "Checkpoint index has been deleted.  Has nothing to do:";
     static final String NOT_ABLE_TO_DELETE_LOG_MSG = "Cannot delete all checkpoints of detector";
 
-    // ======================================
-    // Model serialization/deserialization
-    // ======================================
-    public static final String ENTITY_SAMPLE = "sp";
     public static final String ENTITY_RCF = "rcf";
     public static final String ENTITY_THRESHOLD = "th";
     public static final String ENTITY_TRCF = "trcf";
-    public static final String FIELD_MODEL = "model";
     public static final String FIELD_MODELV2 = "modelV2";
-    public static final String TIMESTAMP = "timestamp";
     public static final String DETECTOR_ID = "detectorId";
 
     // dependencies
@@ -133,7 +127,7 @@ public class CheckpointDao {
 
     private final Class<? extends ThresholdingModel> thresholdingModelClass;
 
-    private final AnomalyDetectionIndices indexUtil;
+    private final ADIndexManagement indexUtil;
     private final JsonParser parser = new JsonParser();
     // we won't read/write a checkpoint larger than a threshold
     private final int maxCheckpointBytes;
@@ -171,7 +165,7 @@ public class CheckpointDao {
         ThresholdedRandomCutForestMapper trcfMapper,
         Schema<ThresholdedRandomCutForestState> trcfSchema,
         Class<? extends ThresholdingModel> thresholdingModelClass,
-        AnomalyDetectionIndices indexUtil,
+        ADIndexManagement indexUtil,
         int maxCheckpointBytes,
         GenericObjectPool<LinkedBuffer> serializeRCFBufferPool,
         int serializeRCFBufferSize,
@@ -193,15 +187,11 @@ public class CheckpointDao {
         this.anomalyRate = anomalyRate;
     }
 
-    private void saveModelCheckpointSync(Map<String, Object> source, String modelId) {
-        clientUtil.<IndexRequest, IndexResponse>timedRequest(new IndexRequest(indexName).id(modelId).source(source), logger, client::index);
-    }
-
     private void putModelCheckpoint(String modelId, Map<String, Object> source, ActionListener<Void> listener) {
         if (indexUtil.doesCheckpointIndexExist()) {
             saveModelCheckpointAsync(source, modelId, listener);
         } else {
-            onCheckpointNotExist(source, modelId, true, listener);
+            onCheckpointNotExist(source, modelId, listener);
         }
     }
 
@@ -217,7 +207,7 @@ public class CheckpointDao {
         String modelCheckpoint = toCheckpoint(forest);
         if (modelCheckpoint != null) {
             source.put(FIELD_MODELV2, modelCheckpoint);
-            source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+            source.put(CommonName.TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
             putModelCheckpoint(modelId, source, listener);
         } else {
             listener.onFailure(new RuntimeException("Fail to create checkpoint to save"));
@@ -234,30 +224,22 @@ public class CheckpointDao {
     public void putThresholdCheckpoint(String modelId, ThresholdingModel threshold, ActionListener<Void> listener) {
         String modelCheckpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
         Map<String, Object> source = new HashMap<>();
-        source.put(FIELD_MODEL, modelCheckpoint);
-        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+        source.put(CommonName.FIELD_MODEL, modelCheckpoint);
+        source.put(CommonName.TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
         putModelCheckpoint(modelId, source, listener);
     }
 
-    private void onCheckpointNotExist(Map<String, Object> source, String modelId, boolean isAsync, ActionListener<Void> listener) {
+    private void onCheckpointNotExist(Map<String, Object> source, String modelId, ActionListener<Void> listener) {
         indexUtil.initCheckpointIndex(ActionListener.wrap(initResponse -> {
             if (initResponse.isAcknowledged()) {
-                if (isAsync) {
-                    saveModelCheckpointAsync(source, modelId, listener);
-                } else {
-                    saveModelCheckpointSync(source, modelId);
-                }
+                saveModelCheckpointAsync(source, modelId, listener);
             } else {
                 throw new RuntimeException("Creating checkpoint with mappings call not acknowledged.");
             }
         }, exception -> {
             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                 // It is possible the index has been created while we sending the create request
-                if (isAsync) {
-                    saveModelCheckpointAsync(source, modelId, listener);
-                } else {
-                    saveModelCheckpointSync(source, modelId);
-                }
+                saveModelCheckpointAsync(source, modelId, listener);
             } else {
                 logger.error(String.format(Locale.ROOT, "Unexpected error creating index %s", indexName), exception);
             }
@@ -310,11 +292,11 @@ public class CheckpointDao {
                 );
             return source;
         }
-        String detectorId = modelState.getDetectorId();
+        String detectorId = modelState.getId();
         source.put(DETECTOR_ID, detectorId);
         // we cannot pass Optional as OpenSearch does not know how to serialize an Optional value
         source.put(FIELD_MODELV2, serializedModel.get());
-        source.put(TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
+        source.put(CommonName.TIMESTAMP, ZonedDateTime.now(ZoneOffset.UTC));
         source.put(CommonName.SCHEMA_VERSION_FIELD, indexUtil.getSchemaVersion(ADIndex.CHECKPOINT));
         Optional<Entity> entity = model.getEntity();
         if (entity.isPresent()) {
@@ -339,7 +321,7 @@ public class CheckpointDao {
             try {
                 JsonObject json = new JsonObject();
                 if (model.getSamples() != null && !(model.getSamples().isEmpty())) {
-                    json.add(ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
+                    json.add(CommonName.ENTITY_SAMPLE, gson.toJsonTree(model.getSamples()));
                 }
                 if (model.getTrcf().isPresent()) {
                     json.addProperty(ENTITY_TRCF, toCheckpoint(model.getTrcf().get()));
@@ -439,7 +421,7 @@ public class CheckpointDao {
         // with exponential back off. If the maximum retry limit is reached, processing
         // halts and all failed requests are returned in the response. Any delete
         // requests that completed successfully still stick, they are not rolled back.
-        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(CommonName.CHECKPOINT_INDEX_NAME)
+        DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(ADCommonName.CHECKPOINT_INDEX_NAME)
             .setQuery(new MatchQueryBuilder(DETECTOR_ID, detectorID))
             .setIndicesOptions(IndicesOptions.LENIENT_EXPAND_OPEN)
             .setAbortOnVersionConflict(false) // when current delete happens, previous might not finish.
@@ -495,7 +477,7 @@ public class CheckpointDao {
                 Object modelObj = checkpoint.get(FIELD_MODELV2);
                 if (modelObj == null) {
                     // in case there is old -format checkpoint
-                    modelObj = checkpoint.get(FIELD_MODEL);
+                    modelObj = checkpoint.get(CommonName.FIELD_MODEL);
                 }
                 if (modelObj == null) {
                     logger.warn(new ParameterizedMessage("Empty model for [{}]", modelId));
@@ -508,10 +490,10 @@ public class CheckpointDao {
                 }
                 JsonObject json = parser.parse(model).getAsJsonObject();
                 ArrayDeque<double[]> samples = null;
-                if (json.has(ENTITY_SAMPLE)) {
+                if (json.has(CommonName.ENTITY_SAMPLE)) {
                     // verified, don't need privileged call to get permission
                     samples = new ArrayDeque<>(
-                        Arrays.asList(this.gson.fromJson(json.getAsJsonArray(ENTITY_SAMPLE), new double[0][0].getClass()))
+                        Arrays.asList(this.gson.fromJson(json.getAsJsonArray(CommonName.ENTITY_SAMPLE), new double[0][0].getClass()))
                     );
                 } else {
                     // avoid possible null pointer exception
@@ -545,7 +527,7 @@ public class CheckpointDao {
                     }
                 }
 
-                String lastCheckpointTimeString = (String) (checkpoint.get(TIMESTAMP));
+                String lastCheckpointTimeString = (String) (checkpoint.get(CommonName.TIMESTAMP));
                 Instant timestamp = Instant.parse(lastCheckpointTimeString);
                 Entity entity = null;
                 Object serializedEntity = checkpoint.get(CommonName.ENTITY_KEY);
@@ -612,7 +594,7 @@ public class CheckpointDao {
                 if (model != null) {
                     listener.onResponse(Optional.ofNullable(toTrcf((String) model)));
                 } else {
-                    Object modelV1 = response.getSource().get(FIELD_MODEL);
+                    Object modelV1 = response.getSource().get(CommonName.FIELD_MODEL);
                     Optional<RandomCutForest> forest = deserializeRCFModel((String) modelV1, rcfModelId);
                     if (!forest.isPresent()) {
                         logger.error("Unexpected error when deserializing [{}]", rcfModelId);
@@ -718,7 +700,7 @@ public class CheckpointDao {
             .ofNullable(response)
             .filter(GetResponse::isExists)
             .map(GetResponse::getSource)
-            .map(source -> source.get(FIELD_MODEL));
+            .map(source -> source.get(CommonName.FIELD_MODEL));
     }
 
     private Optional<Map<String, Object>> processRawCheckpoint(GetResponse response) {
@@ -738,7 +720,7 @@ public class CheckpointDao {
                     clientUtil.<BulkRequest, BulkResponse>execute(BulkAction.INSTANCE, request, listener);
                 } else {
                     // create index failure. Notify callers using listener.
-                    listener.onFailure(new AnomalyDetectionException("Creating checkpoint with mappings call not acknowledged."));
+                    listener.onFailure(new TimeSeriesException("Creating checkpoint with mappings call not acknowledged."));
                 }
             }, exception -> {
                 if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
@@ -762,7 +744,8 @@ public class CheckpointDao {
         if (kllThreshold.isPresent()) {
             scores = kllThreshold.get().extractScores();
         }
-        return Optional.of(new ThresholdedRandomCutForest(rcf.get(), anomalyRate, scores));
+        // last parameter is lastShingledInput. Since we don't know it, use all 0 double array
+        return Optional.of(new ThresholdedRandomCutForest(rcf.get(), anomalyRate, scores, new double[rcf.get().getDimensions()]));
     }
 
     /**

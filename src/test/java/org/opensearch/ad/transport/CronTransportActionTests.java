@@ -21,11 +21,8 @@ import java.util.function.Function;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.NodeStateManager;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
@@ -33,7 +30,6 @@ import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.ml.EntityColdStarter;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -43,20 +39,17 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.transport.TransportService;
 
 import com.google.gson.JsonElement;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class CronTransportActionTests extends AbstractADTest {
+public class CronTransportActionTests extends AbstractTimeSeriesTest {
     private CronTransportAction action;
     private String localNodeID;
-
-    @BeforeClass
-    public static void setUpBeforeClass() {
-        Bwc.DISABLE_BWC = false;
-    }
 
     @Override
     @Before
@@ -99,10 +92,10 @@ public class CronTransportActionTests extends AbstractADTest {
 
         CronNodeRequest nodeRequest = new CronNodeRequest();
         BytesStreamOutput nodeRequestOut = new BytesStreamOutput();
-        nodeRequestOut.setVersion(Version.V_1_0_0);
+        nodeRequestOut.setVersion(Version.V_2_0_0);
         nodeRequest.writeTo(nodeRequestOut);
         StreamInput siNode = nodeRequestOut.bytes().streamInput();
-        siNode.setVersion(Version.V_1_0_0);
+        siNode.setVersion(Version.V_2_0_0);
 
         CronNodeRequest nodeResponseRead = new CronNodeRequest(siNode);
 

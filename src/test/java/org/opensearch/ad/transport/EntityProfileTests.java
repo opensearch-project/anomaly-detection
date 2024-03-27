@@ -31,16 +31,12 @@ import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.ad.caching.CacheProvider;
 import org.opensearch.ad.caching.EntityCache;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.Entity;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
@@ -53,6 +49,11 @@ import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.tasks.Task;
 import org.opensearch.telemetry.tracing.noop.NoopTracer;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.transport.ConnectTransportException;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportException;
@@ -65,7 +66,7 @@ import org.opensearch.transport.TransportService;
 import test.org.opensearch.ad.util.FakeNode;
 import test.org.opensearch.ad.util.JsonDeserializer;
 
-public class EntityProfileTests extends AbstractADTest {
+public class EntityProfileTests extends AbstractTimeSeriesTest {
     private String detectorId = "yecrdnUBqurvo9uKU_d8";
     private String entityValue = "app_0";
     private String nodeId = "abc";
@@ -127,7 +128,6 @@ public class EntityProfileTests extends AbstractADTest {
             null,
             Collections.emptySet(),
             NoopTracer.INSTANCE
-
         );
         settings = Settings.EMPTY;
 
@@ -270,7 +270,7 @@ public class EntityProfileTests extends AbstractADTest {
         when(hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(anyString())).thenReturn(Optional.empty());
         action.doExecute(task, request, future);
 
-        assertException(future, AnomalyDetectionException.class, EntityProfileTransportAction.NO_NODE_FOUND_MSG);
+        assertException(future, TimeSeriesException.class, EntityProfileTransportAction.NO_NODE_FOUND_MSG);
     }
 
     public void testLocalNodeHit() {
@@ -361,7 +361,7 @@ public class EntityProfileTests extends AbstractADTest {
         EntityProfileResponse response = builder.build();
         String json = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         assertEquals(lastActiveTimestamp, JsonDeserializer.getLongValue(json, EntityProfileResponse.LAST_ACTIVE_TS));
-        assertEquals(modelSize, JsonDeserializer.getChildNode(json, CommonName.MODEL, CommonName.MODEL_SIZE_IN_BYTES).getAsLong());
+        assertEquals(modelSize, JsonDeserializer.getChildNode(json, ADCommonName.MODEL, CommonName.MODEL_SIZE_IN_BYTES).getAsLong());
     }
 
     public void testResponseHashCodeEquals() {
@@ -378,9 +378,9 @@ public class EntityProfileTests extends AbstractADTest {
     }
 
     public void testEntityProfileName() {
-        assertEquals("state", EntityProfileName.getName(CommonName.STATE).getName());
-        assertEquals("models", EntityProfileName.getName(CommonName.MODELS).getName());
+        assertEquals("state", EntityProfileName.getName(ADCommonName.STATE).getName());
+        assertEquals("models", EntityProfileName.getName(ADCommonName.MODELS).getName());
         IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> EntityProfileName.getName("abc"));
-        assertEquals(exception.getMessage(), CommonErrorMessages.UNSUPPORTED_PROFILE_TYPE);
+        assertEquals(exception.getMessage(), ADCommonMessages.UNSUPPORTED_PROFILE_TYPE);
     }
 }

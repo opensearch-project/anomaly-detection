@@ -12,6 +12,7 @@
 package org.opensearch.ad.ml;
 
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 
 public class SingleStreamModelIdMapperTests extends OpenSearchTestCase {
     public void testGetThresholdModelIdFromRCFModelId() {

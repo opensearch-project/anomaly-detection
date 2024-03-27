@@ -11,11 +11,11 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
-import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
-import static org.opensearch.ad.util.RestHandlerUtils.REFRESH;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.timeseries.util.RestHandlerUtils.IF_PRIMARY_TERM;
+import static org.opensearch.timeseries.util.RestHandlerUtils.IF_SEQ_NO;
+import static org.opensearch.timeseries.util.RestHandlerUtils.REFRESH;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,10 +24,9 @@ import java.util.Locale;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
@@ -43,6 +42,7 @@ import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestResponseListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.collect.ImmutableList;
 
@@ -65,8 +65,8 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         String detectorId = request.param(DETECTOR_ID, AnomalyDetector.NO_ID);
@@ -113,16 +113,16 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
                 // Create
                 new ReplacedRoute(
                     RestRequest.Method.POST,
-                    AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI,
+                    TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI,
                     RestRequest.Method.POST,
-                    AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI
+                    TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI
                 ),
                 // Update
                 new ReplacedRoute(
                     RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
                     RestRequest.Method.PUT,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
+                    String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
                 )
             );
     }
@@ -143,7 +143,7 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
                     response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS)
                 );
                 if (restStatus == RestStatus.CREATED) {
-                    String location = String.format(Locale.ROOT, "%s/%s", AnomalyDetectorPlugin.LEGACY_AD_BASE, response.getId());
+                    String location = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE, response.getId());
                     bytesRestResponse.addHeader("Location", location);
                 }
                 return bytesRestResponse;

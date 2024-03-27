@@ -13,8 +13,8 @@ package org.opensearch.ad.ml;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.opensearch.ad.MemoryTracker;
-import org.opensearch.ad.MemoryTracker.Origin;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.MemoryTracker.Origin;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
@@ -37,7 +37,7 @@ public class TRCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, Mo
         ModelState<ThresholdedRandomCutForest> deletedModelState = super.remove(key);
         if (deletedModelState != null && deletedModelState.getModel() != null) {
             long memoryToRelease = memoryTracker.estimateTRCFModelSize(deletedModelState.getModel());
-            memoryTracker.releaseMemory(memoryToRelease, true, Origin.SINGLE_ENTITY_DETECTOR);
+            memoryTracker.releaseMemory(memoryToRelease, true, Origin.REAL_TIME_DETECTOR);
         }
         return deletedModelState;
     }
@@ -47,7 +47,7 @@ public class TRCFMemoryAwareConcurrentHashmap<K> extends ConcurrentHashMap<K, Mo
         ModelState<ThresholdedRandomCutForest> previousAssociatedState = super.put(key, value);
         if (value != null && value.getModel() != null) {
             long memoryToConsume = memoryTracker.estimateTRCFModelSize(value.getModel());
-            memoryTracker.consumeMemory(memoryToConsume, true, Origin.SINGLE_ENTITY_DETECTOR);
+            memoryTracker.consumeMemory(memoryToConsume, true, Origin.REAL_TIME_DETECTOR);
         }
         return previousAssociatedState;
     }

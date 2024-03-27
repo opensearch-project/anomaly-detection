@@ -22,8 +22,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import org.mockito.ArgumentCaptor;
-import org.opensearch.ad.MemoryTracker;
 import org.opensearch.ad.ratelimit.CheckpointMaintainRequest;
+import org.opensearch.timeseries.MemoryTracker;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -83,7 +83,7 @@ public class CacheBufferTests extends AbstractCacheTest {
         assertEquals(3 * memoryPerEntity, capturedMemoryReleased.stream().reduce(0L, (a, b) -> a + b).intValue());
         assertTrue(capturedreserved.get(0));
         assertTrue(!capturedreserved.get(1));
-        assertEquals(MemoryTracker.Origin.HC_DETECTOR, capturedOrigin.get(0));
+        assertEquals(MemoryTracker.Origin.REAL_TIME_DETECTOR, capturedOrigin.get(0));
 
         assertTrue(!cacheBuffer.expired(Duration.ofHours(1)));
     }

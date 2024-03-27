@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
 
 import java.io.IOException;
 import java.util.List;
@@ -19,16 +19,16 @@ import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.rest.handler.AnomalyDetectorActionHandler;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorRequest;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 import com.google.common.collect.ImmutableList;
 
@@ -51,8 +51,8 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         String detectorId = request.param(DETECTOR_ID);
@@ -73,9 +73,9 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
                 // delete anomaly detector document
                 new ReplacedRoute(
                     RestRequest.Method.DELETE,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
+                    String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID),
                     RestRequest.Method.DELETE,
-                    String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
+                    String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID)
                 )
             );
     }

@@ -33,10 +33,8 @@ import org.opensearch.action.admin.indices.rollover.MaxDocsCondition;
 import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverResponse;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.ClusterAdminClient;
@@ -49,9 +47,12 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
-public class RolloverTests extends AbstractADTest {
-    private AnomalyDetectionIndices adIndices;
+public class RolloverTests extends AbstractTimeSeriesTest {
+    private ADIndexManagement adIndices;
     private IndicesAdminClient indicesClient;
     private ClusterAdminClient clusterAdminClient;
     private ClusterName clusterName;
@@ -77,7 +78,7 @@ public class RolloverTests extends AbstractADTest {
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
                                 AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
-                                AnomalyDetectorSettings.MAX_PRIMARY_SHARDS
+                                AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS
                             )
                     )
                 )
@@ -96,13 +97,13 @@ public class RolloverTests extends AbstractADTest {
         numberOfNodes = 2;
         when(nodeFilter.getNumberOfEligibleDataNodes()).thenReturn(numberOfNodes);
 
-        adIndices = new AnomalyDetectionIndices(
+        adIndices = new ADIndexManagement(
             client,
             clusterService,
             threadPool,
             settings,
             nodeFilter,
-            AnomalyDetectorSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
         );
 
         clusterAdminClient = mock(ClusterAdminClient.class);
@@ -110,7 +111,7 @@ public class RolloverTests extends AbstractADTest {
 
         doAnswer(invocation -> {
             ClusterStateRequest clusterStateRequest = invocation.getArgument(0);
-            assertEquals(AnomalyDetectionIndices.ALL_AD_RESULTS_INDEX_PATTERN, clusterStateRequest.indices()[0]);
+            assertEquals(ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN, clusterStateRequest.indices()[0]);
             @SuppressWarnings("unchecked")
             ActionListener<ClusterStateResponse> listener = (ActionListener<ClusterStateResponse>) invocation.getArgument(1);
             listener.onResponse(new ClusterStateResponse(clusterName, clusterState, true));
@@ -121,14 +122,14 @@ public class RolloverTests extends AbstractADTest {
     }
 
     private void assertRolloverRequest(RolloverRequest request) {
-        assertEquals(CommonName.ANOMALY_RESULT_INDEX_ALIAS, request.indices()[0]);
+        assertEquals(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, request.indices()[0]);
 
         Map<String, Condition<?>> conditions = request.getConditions();
         assertEquals(1, conditions.size());
         assertEquals(new MaxDocsCondition(defaultMaxDocs * numberOfNodes), conditions.get(MaxDocsCondition.NAME));
 
         CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
-        assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
+        assertEquals(ADIndexManagement.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
         assertTrue(createIndexRequest.mappings().contains("data_start_time"));
     }
 
@@ -146,7 +147,7 @@ public class RolloverTests extends AbstractADTest {
 
         Metadata.Builder metaBuilder = Metadata
             .builder()
-            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, CommonName.ANOMALY_RESULT_INDEX_ALIAS), true);
+            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true);
         clusterState = ClusterState.builder(clusterName).metadata(metaBuilder.build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
@@ -161,14 +162,14 @@ public class RolloverTests extends AbstractADTest {
             @SuppressWarnings("unchecked")
             ActionListener<RolloverResponse> listener = (ActionListener<RolloverResponse>) invocation.getArgument(1);
 
-            assertEquals(CommonName.ANOMALY_RESULT_INDEX_ALIAS, request.indices()[0]);
+            assertEquals(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS, request.indices()[0]);
 
             Map<String, Condition<?>> conditions = request.getConditions();
             assertEquals(1, conditions.size());
             assertEquals(new MaxDocsCondition(defaultMaxDocs * numberOfNodes), conditions.get(MaxDocsCondition.NAME));
 
             CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
-            assertEquals(AnomalyDetectionIndices.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
+            assertEquals(ADIndexManagement.AD_RESULT_HISTORY_INDEX_PATTERN, createIndexRequest.index());
             assertTrue(createIndexRequest.mappings().contains("data_start_time"));
             listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
             return null;
@@ -180,12 +181,12 @@ public class RolloverTests extends AbstractADTest {
 
         Metadata.Builder metaBuilder = Metadata
             .builder()
-            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, CommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
+            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
             .put(
                 indexMeta(
                     ".opendistro-anomaly-results-history-2020.06.24-000004",
                     Instant.now().toEpochMilli(),
-                    CommonName.ANOMALY_RESULT_INDEX_ALIAS
+                    ADCommonName.ANOMALY_RESULT_INDEX_ALIAS
                 ),
                 true
             );
@@ -201,13 +202,13 @@ public class RolloverTests extends AbstractADTest {
     private void setUpTriggerDelete() {
         Metadata.Builder metaBuilder = Metadata
             .builder()
-            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000002", 1L, CommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
-            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 2L, CommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
+            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000002", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
+            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 2L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
             .put(
                 indexMeta(
                     ".opendistro-anomaly-results-history-2020.06.24-000004",
                     Instant.now().toEpochMilli(),
-                    CommonName.ANOMALY_RESULT_INDEX_ALIAS
+                    ADCommonName.ANOMALY_RESULT_INDEX_ALIAS
                 ),
                 true
             );

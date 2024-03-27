@@ -13,7 +13,7 @@ package org.opensearch.ad.ratelimit;
 
 import java.util.Optional;
 
-import org.opensearch.ad.model.Entity;
+import org.opensearch.timeseries.model.Entity;
 
 public class EntityRequest extends QueuedRequest {
     private final Entity entity;

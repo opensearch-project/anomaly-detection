@@ -11,12 +11,12 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomIntervalTimeConfiguration;
-import static org.opensearch.ad.TestHelpers.randomQuery;
-import static org.opensearch.ad.TestHelpers.randomUser;
 import static org.opensearch.ad.model.ADTaskAction.CLEAN_CACHE;
 import static org.opensearch.ad.model.ADTaskAction.CLEAN_STALE_RUNNING_ENTITIES;
 import static org.opensearch.ad.model.ADTaskAction.START;
+import static org.opensearch.timeseries.TestHelpers.randomIntervalTimeConfiguration;
+import static org.opensearch.timeseries.TestHelpers.randomQuery;
+import static org.opensearch.timeseries.TestHelpers.randomUser;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -25,20 +25,20 @@ import java.util.Locale;
 
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.common.exception.ADVersionException;
 import org.opensearch.ad.mock.transport.MockADTaskAction_1_0;
 import org.opensearch.ad.mock.transport.MockForwardADTaskRequest_1_0;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.common.exception.VersionException;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 
@@ -46,7 +46,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
-        return pluginList(InternalSettingsPlugin.class, AnomalyDetectorPlugin.class);
+        return pluginList(InternalSettingsPlugin.class, TimeSeriesAnalyticsPlugin.class);
     }
 
     @Override
@@ -54,9 +54,9 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
         return getInstanceFromNode(NamedWriteableRegistry.class);
     }
 
-    public void testUnsupportedVersion() throws IOException {
+    public void testNullVersion() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
-        expectThrows(ADVersionException.class, () -> new ForwardADTaskRequest(detector, null, null, null, null, Version.V_1_0_0));
+        expectThrows(VersionException.class, () -> new ForwardADTaskRequest(detector, null, null, null, null, null));
     }
 
     public void testNullDetectorIdAndTaskAction() throws IOException {
@@ -71,15 +71,16 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
-            randomIntBetween(1, AnomalyDetectorSettings.MAX_SHINGLE_SIZE),
+            randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
             randomInt(),
             Instant.now(),
             null,
             randomUser(),
-            null
+            null,
+            TestHelpers.randomImputationOption()
         );
-        ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_1_1_0);
+        ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_2_1_0);
         ActionRequestValidationException validate = request.validate();
         assertEquals("Validation Failed: 1: AD ID is missing;2: AD task action is missing;", validate.getMessage());
     }
@@ -114,7 +115,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
         // Parse old forward AD task request of 1.0, will reject it directly,
         // so if old node is coordinating node, it can't use new node as worker node to run task.
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        expectThrows(ADVersionException.class, () -> new ForwardADTaskRequest(input));
+        expectThrows(VersionException.class, () -> new ForwardADTaskRequest(input));
     }
 
     public void testParseRequestFromNewNodeWithOldCode_StartAction() throws IOException {

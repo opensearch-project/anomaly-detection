@@ -11,17 +11,15 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_FIND_DETECTOR_MSG;
-import static org.opensearch.ad.constant.CommonErrorMessages.FAIL_TO_GET_DETECTOR;
+import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_GET_DETECTOR;
 import static org.opensearch.ad.model.ADTaskType.ALL_DETECTOR_TASK_TYPES;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.ad.util.ParseUtils.getUserContext;
-import static org.opensearch.ad.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
-import static org.opensearch.ad.util.RestHandlerUtils.wrapRestActionListener;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,20 +43,14 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorProfileRunner;
 import org.opensearch.ad.EntityProfileRunner;
-import org.opensearch.ad.Name;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.DiscoveryNodeFilterer;
-import org.opensearch.ad.util.RestHandlerUtils;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
@@ -72,6 +64,14 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.Name;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -125,8 +125,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
 
         this.xContentRegistry = xContentRegistry;
         this.nodeFilter = nodeFilter;
-        filterByEnabled = AnomalyDetectorSettings.FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
+        filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.transportService = transportService;
         this.adTaskManager = adTaskManager;
     }
@@ -147,7 +147,8 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
                 (anomalyDetector) -> getExecute(request, listener),
                 client,
                 clusterService,
-                xContentRegistry
+                xContentRegistry,
+                AnomalyDetector.class
             );
         } catch (Exception e) {
             LOG.error(e);
@@ -172,7 +173,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
                         client,
                         clientUtil,
                         xContentRegistry,
-                        AnomalyDetectorSettings.NUM_MIN_SAMPLES
+                        TimeSeriesSettings.NUM_MIN_SAMPLES
                     );
                     profileRunner.profile(detectorID, entity, entityProfilesToCollect, ActionListener.wrap(profile -> {
                         listener
@@ -202,7 +203,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
                         clientUtil,
                         xContentRegistry,
                         nodeFilter,
-                        AnomalyDetectorSettings.NUM_MIN_SAMPLES,
+                        TimeSeriesSettings.NUM_MIN_SAMPLES,
                         transportService,
                         adTaskManager
                     );
@@ -268,10 +269,10 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
         Optional<ADTask> historicalAdTask,
         ActionListener<GetAnomalyDetectorResponse> listener
     ) {
-        MultiGetRequest.Item adItem = new MultiGetRequest.Item(ANOMALY_DETECTORS_INDEX, detectorID);
+        MultiGetRequest.Item adItem = new MultiGetRequest.Item(CommonName.CONFIG_INDEX, detectorID);
         MultiGetRequest multiGetRequest = new MultiGetRequest().add(adItem);
         if (returnJob) {
-            MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(ANOMALY_DETECTOR_JOB_INDEX, detectorID);
+            MultiGetRequest.Item adJobItem = new MultiGetRequest.Item(CommonName.JOB_INDEX, detectorID);
             multiGetRequest.add(adJobItem);
         }
         client.multiGet(multiGetRequest, onMultiGetResponse(listener, returnJob, returnTask, realtimeAdTask, historicalAdTask, detectorID));
@@ -290,16 +291,16 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
             public void onResponse(MultiGetResponse multiGetResponse) {
                 MultiGetItemResponse[] responses = multiGetResponse.getResponses();
                 AnomalyDetector detector = null;
-                AnomalyDetectorJob adJob = null;
+                Job adJob = null;
                 String id = null;
                 long version = 0;
                 long seqNo = 0;
                 long primaryTerm = 0;
 
                 for (MultiGetItemResponse response : responses) {
-                    if (ANOMALY_DETECTORS_INDEX.equals(response.getIndex())) {
+                    if (CommonName.CONFIG_INDEX.equals(response.getIndex())) {
                         if (response.getResponse() == null || !response.getResponse().isExists()) {
-                            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_DETECTOR_MSG + detectorId, RestStatus.NOT_FOUND));
+                            listener.onFailure(new OpenSearchStatusException(FAIL_TO_FIND_CONFIG_MSG + detectorId, RestStatus.NOT_FOUND));
                             return;
                         }
                         id = response.getId();
@@ -321,7 +322,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
                         }
                     }
 
-                    if (ANOMALY_DETECTOR_JOB_INDEX.equals(response.getIndex())) {
+                    if (CommonName.JOB_INDEX.equals(response.getIndex())) {
                         if (response.getResponse() != null
                             && response.getResponse().isExists()
                             && !response.getResponse().isSourceEmpty()) {
@@ -330,7 +331,7 @@ public class GetAnomalyDetectorTransportAction extends HandledTransportAction<Ac
                                     .createXContentParserFromRegistry(xContentRegistry, response.getResponse().getSourceAsBytesRef())
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                                adJob = AnomalyDetectorJob.parse(parser);
+                                adJob = Job.parse(parser);
                             } catch (Exception e) {
                                 String message = "Failed to parse detector job " + detectorId;
                                 listener.onFailure(buildInternalServerErrorResponse(e, message));

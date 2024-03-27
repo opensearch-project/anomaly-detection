@@ -25,8 +25,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobTransportActionWithUser;
 import org.opensearch.client.Client;
@@ -45,6 +44,7 @@ import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.search.SearchHit;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.ImmutableList;
@@ -114,7 +114,7 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
                     BulkRequestBuilder bulkRequestBuilder = client.prepareBulk();
                     while (iterator.hasNext()) {
                         String id = iterator.next().getId();
-                        DeleteRequest deleteRequest = new DeleteRequest(CommonName.DETECTION_STATE_INDEX, id);
+                        DeleteRequest deleteRequest = new DeleteRequest(ADCommonName.DETECTION_STATE_INDEX, id);
                         bulkRequestBuilder.add(deleteRequest);
                     }
                     BulkRequest bulkRequest = bulkRequestBuilder.request().setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);

@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.transport.handler;
 
-import static org.opensearch.ad.constant.CommonErrorMessages.CAN_NOT_FIND_RESULT_INDEX;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.timeseries.constant.CommonMessages.CAN_NOT_FIND_RESULT_INDEX;
 
 import java.util.Iterator;
 import java.util.Locale;
@@ -25,14 +25,10 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BackoffPolicy;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.ad.common.exception.AnomalyDetectionException;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.util.BulkUtil;
-import org.opensearch.ad.util.ClientUtil;
 import org.opensearch.ad.util.IndexUtils;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.service.ClusterService;
@@ -43,6 +39,10 @@ import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 public class AnomalyIndexHandler<T extends ToXContentObject> {
     private static final Logger LOG = LogManager.getLogger(AnomalyIndexHandler.class);
@@ -56,7 +56,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
     protected final ThreadPool threadPool;
     protected final BackoffPolicy savingBackoffPolicy;
     protected final String indexName;
-    protected final AnomalyDetectionIndices anomalyDetectionIndices;
+    protected final ADIndexManagement anomalyDetectionIndices;
     // whether save to a specific doc id or not. False by default.
     protected boolean fixedDoc;
     protected final ClientUtil clientUtil;
@@ -80,7 +80,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         Settings settings,
         ThreadPool threadPool,
         String indexName,
-        AnomalyDetectionIndices anomalyDetectionIndices,
+        ADIndexManagement anomalyDetectionIndices,
         ClientUtil clientUtil,
         IndexUtils indexUtils,
         ClusterService clusterService
@@ -89,8 +89,8 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         this.threadPool = threadPool;
         this.savingBackoffPolicy = BackoffPolicy
             .exponentialBackoff(
-                AnomalyDetectorSettings.BACKOFF_INITIAL_DELAY.get(settings),
-                AnomalyDetectorSettings.MAX_RETRY_FOR_BACKOFF.get(settings)
+                AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY.get(settings),
+                AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF.get(settings)
             );
         this.indexName = indexName;
         this.anomalyDetectionIndices = anomalyDetectionIndices;
@@ -131,15 +131,15 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                 save(toSave, detectorId, customIndexName);
                 return;
             }
-            if (!anomalyDetectionIndices.doesDefaultAnomalyResultIndexExist()) {
+            if (!anomalyDetectionIndices.doesDefaultResultIndexExist()) {
                 anomalyDetectionIndices
-                    .initDefaultAnomalyResultIndexDirectly(
+                    .initDefaultResultIndexDirectly(
                         ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
                             if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                                 // It is possible the index has been created while we sending the create request
                                 save(toSave, detectorId);
                             } else {
-                                throw new AnomalyDetectionException(
+                                throw new TimeSeriesException(
                                     detectorId,
                                     String.format(Locale.ROOT, "Unexpected error creating index %s", indexName),
                                     exception
@@ -151,7 +151,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
                 save(toSave, detectorId);
             }
         } catch (Exception e) {
-            throw new AnomalyDetectionException(
+            throw new TimeSeriesException(
                 detectorId,
                 String.format(Locale.ROOT, "Error in saving %s for detector %s", indexName, detectorId),
                 e
@@ -163,7 +163,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
         if (response.isAcknowledged()) {
             save(toSave, detectorId);
         } else {
-            throw new AnomalyDetectionException(
+            throw new TimeSeriesException(
                 detectorId,
                 String.format(Locale.ROOT, "Creating %s with mappings call not acknowledged.", indexName)
             );
@@ -188,7 +188,7 @@ public class AnomalyIndexHandler<T extends ToXContentObject> {
             saveIteration(indexRequest, detectorId, savingBackoffPolicy.iterator());
         } catch (Exception e) {
             LOG.error(String.format(Locale.ROOT, "Failed to save %s", indexName), e);
-            throw new AnomalyDetectionException(detectorId, String.format(Locale.ROOT, "Cannot save %s", indexName));
+            throw new TimeSeriesException(detectorId, String.format(Locale.ROOT, "Cannot save %s", indexName));
         }
     }
 

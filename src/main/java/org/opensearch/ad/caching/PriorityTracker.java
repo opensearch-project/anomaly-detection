@@ -27,7 +27,7 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.annotation.Generated;
+import org.opensearch.timeseries.annotation.Generated;
 
 /**
  * A priority tracker for entities. Read docs/entity-priority.pdf for details.

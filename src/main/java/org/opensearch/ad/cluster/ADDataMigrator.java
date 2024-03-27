@@ -11,17 +11,15 @@
 
 package org.opensearch.ad.cluster;
 
-import static org.opensearch.ad.constant.CommonName.DETECTION_STATE_INDEX;
+import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
 import static org.opensearch.ad.model.ADTask.IS_LATEST_FIELD;
 import static org.opensearch.ad.model.ADTask.TASK_TYPE_FIELD;
-import static org.opensearch.ad.model.ADTaskType.taskTypeToString;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_DETECTOR_UPPER_LIMIT;
-import static org.opensearch.ad.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
-import static org.opensearch.ad.util.RestHandlerUtils.createXContentParserFromRegistry;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.model.TaskType.taskTypeToString;
+import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -37,17 +35,12 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.common.exception.ResourceNotFoundException;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.ADTaskState;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.rest.handler.AnomalyDetectorFunction;
-import org.opensearch.ad.util.ExceptionUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -61,6 +54,12 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.util.ExceptionUtil;
 
 /**
  * Migrate AD data to support backward compatibility.
@@ -72,14 +71,14 @@ public class ADDataMigrator {
     private final Client client;
     private final ClusterService clusterService;
     private final NamedXContentRegistry xContentRegistry;
-    private final AnomalyDetectionIndices detectionIndices;
+    private final ADIndexManagement detectionIndices;
     private final AtomicBoolean dataMigrated;
 
     public ADDataMigrator(
         Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
-        AnomalyDetectionIndices detectionIndices
+        ADIndexManagement detectionIndices
     ) {
         this.client = client;
         this.clusterService = clusterService;
@@ -95,21 +94,21 @@ public class ADDataMigrator {
         if (!dataMigrated.getAndSet(true)) {
             logger.info("Start migrating AD data");
 
-            if (!detectionIndices.doesAnomalyDetectorJobIndexExist()) {
+            if (!detectionIndices.doesJobIndexExist()) {
                 logger.info("AD job index doesn't exist, no need to migrate");
                 return;
             }
 
-            if (detectionIndices.doesDetectorStateIndexExist()) {
+            if (detectionIndices.doesStateIndexExist()) {
                 migrateDetectorInternalStateToRealtimeTask();
             } else {
                 // If detection index doesn't exist, create index and backfill realtime task.
-                detectionIndices.initDetectionStateIndex(ActionListener.wrap(r -> {
+                detectionIndices.initStateIndex(ActionListener.wrap(r -> {
                     if (r.isAcknowledged()) {
-                        logger.info("Created {} with mappings.", CommonName.DETECTION_STATE_INDEX);
+                        logger.info("Created {} with mappings.", ADCommonName.DETECTION_STATE_INDEX);
                         migrateDetectorInternalStateToRealtimeTask();
                     } else {
-                        String error = "Create index " + CommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
+                        String error = "Create index " + ADCommonName.DETECTION_STATE_INDEX + " with mappings not acknowledged";
                         logger.warn(error);
                     }
                 }, e -> {
@@ -132,19 +131,19 @@ public class ADDataMigrator {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(new MatchAllQueryBuilder())
             .size(MAX_DETECTOR_UPPER_LIMIT);
-        SearchRequest searchRequest = new SearchRequest(ANOMALY_DETECTOR_JOB_INDEX).source(searchSourceBuilder);
+        SearchRequest searchRequest = new SearchRequest(CommonName.JOB_INDEX).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(r -> {
             if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
                 logger.info("No anomaly detector job found, no need to migrate");
                 return;
             }
-            ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs = new ConcurrentLinkedQueue<>();
+            ConcurrentLinkedQueue<Job> detectorJobs = new ConcurrentLinkedQueue<>();
             Iterator<SearchHit> iterator = r.getHits().iterator();
             while (iterator.hasNext()) {
                 SearchHit searchHit = iterator.next();
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, searchHit.getSourceRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyDetectorJob job = AnomalyDetectorJob.parse(parser);
+                    Job job = Job.parse(parser);
                     detectorJobs.add(job);
                 } catch (IOException e) {
                     logger.error("Fail to parse AD job " + searchHit.getId(), e);
@@ -169,8 +168,8 @@ public class ADDataMigrator {
      * @param detectorJobs realtime AD jobs
      * @param backfillAllJob backfill task for all realtime job or not
      */
-    public void backfillRealtimeTask(ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs, boolean backfillAllJob) {
-        AnomalyDetectorJob job = detectorJobs.poll();
+    public void backfillRealtimeTask(ConcurrentLinkedQueue<Job> detectorJobs, boolean backfillAllJob) {
+        Job job = detectorJobs.poll();
         if (job == null) {
             logger.info("AD data migration done.");
             if (backfillAllJob) {
@@ -180,7 +179,7 @@ public class ADDataMigrator {
         }
         String jobId = job.getName();
 
-        AnomalyDetectorFunction createRealtimeTaskFunction = () -> {
+        ExecutorFunction createRealtimeTaskFunction = () -> {
             GetRequest getRequest = new GetRequest(DETECTION_STATE_INDEX, jobId);
             client.get(getRequest, ActionListener.wrap(r -> {
                 if (r != null && r.isExists()) {
@@ -204,9 +203,9 @@ public class ADDataMigrator {
     }
 
     private void checkIfRealtimeTaskExistsAndBackfill(
-        AnomalyDetectorJob job,
-        AnomalyDetectorFunction createRealtimeTaskFunction,
-        ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs,
+        Job job,
+        ExecutorFunction createRealtimeTaskFunction,
+        ConcurrentLinkedQueue<Job> detectorJobs,
         boolean migrateAll
     ) {
         String jobId = job.getName();
@@ -234,24 +233,19 @@ public class ADDataMigrator {
         }));
     }
 
-    private void createRealtimeADTask(
-        AnomalyDetectorJob job,
-        String error,
-        ConcurrentLinkedQueue<AnomalyDetectorJob> detectorJobs,
-        boolean migrateAll
-    ) {
-        client.get(new GetRequest(ANOMALY_DETECTORS_INDEX, job.getName()), ActionListener.wrap(r -> {
+    private void createRealtimeADTask(Job job, String error, ConcurrentLinkedQueue<Job> detectorJobs, boolean migrateAll) {
+        client.get(new GetRequest(CommonName.CONFIG_INDEX, job.getName()), ActionListener.wrap(r -> {
             if (r != null && r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                     AnomalyDetector detector = AnomalyDetector.parse(parser, r.getId());
-                    ADTaskType taskType = detector.isMultientityDetector()
+                    ADTaskType taskType = detector.isHighCardinality()
                         ? ADTaskType.REALTIME_HC_DETECTOR
                         : ADTaskType.REALTIME_SINGLE_ENTITY;
                     Instant now = Instant.now();
                     String userName = job.getUser() != null ? job.getUser().getName() : null;
                     ADTask adTask = new ADTask.Builder()
-                        .detectorId(detector.getDetectorId())
+                        .configId(detector.getId())
                         .detector(detector)
                         .error(error)
                         .isLatest(true)
@@ -259,7 +253,7 @@ public class ADDataMigrator {
                         .executionStartTime(now)
                         .taskProgress(0.0f)
                         .initProgress(0.0f)
-                        .state(ADTaskState.CREATED.name())
+                        .state(TaskState.CREATED.name())
                         .lastUpdateTime(now)
                         .startedBy(userName)
                         .coordinatingNode(null)

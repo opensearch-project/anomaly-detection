@@ -20,24 +20,24 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.transport.TransportService;
 
 public class RCFResultTransportAction extends HandledTransportAction<RCFResultRequest, RCFResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(RCFResultTransportAction.class);
     private ModelManager manager;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     private HashRing hashRing;
     private ADStats adStats;
 
@@ -46,7 +46,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
         ActionFilters actionFilters,
         TransportService transportService,
         ModelManager manager,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         HashRing hashRing,
         ADStats adStats
     ) {
@@ -60,7 +60,7 @@ public class RCFResultTransportAction extends HandledTransportAction<RCFResultRe
     @Override
     protected void doExecute(Task task, RCFResultRequest request, ActionListener<RCFResultResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
-            listener.onFailure(new LimitExceededException(request.getAdID(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
+            listener.onFailure(new LimitExceededException(request.getAdID(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG));
             return;
         }
         Optional<DiscoveryNode> remoteNode = hashRing.getNodeByAddress(request.remoteAddress());

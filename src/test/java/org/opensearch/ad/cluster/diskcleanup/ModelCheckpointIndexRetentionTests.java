@@ -26,11 +26,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
 
-public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
+public class ModelCheckpointIndexRetentionTests extends AbstractTimeSeriesTest {
 
     Duration defaultCheckpointTtl = Duration.ofDays(3);
 
@@ -70,12 +70,14 @@ public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
             ActionListener<Boolean> listener = (ActionListener<Boolean>) args[3];
             listener.onResponse(true);
             return null;
-        }).when(indexCleanup).deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
+        })
+            .when(indexCleanup)
+            .deleteDocsBasedOnShardSize(eq(ADCommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
 
         modelCheckpointIndexRetention.run();
         verify(indexCleanup, times(2))
-            .deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
-        verify(indexCleanup).deleteDocsByQuery(eq(CommonName.CHECKPOINT_INDEX_NAME), any(), any());
+            .deleteDocsBasedOnShardSize(eq(ADCommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
+        verify(indexCleanup).deleteDocsByQuery(eq(ADCommonName.CHECKPOINT_INDEX_NAME), any(), any());
     }
 
     @SuppressWarnings("unchecked")
@@ -86,10 +88,12 @@ public class ModelCheckpointIndexRetentionTests extends AbstractADTest {
             ActionListener<Boolean> listener = (ActionListener<Boolean>) args[3];
             listener.onResponse(false);
             return null;
-        }).when(indexCleanup).deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
+        })
+            .when(indexCleanup)
+            .deleteDocsBasedOnShardSize(eq(ADCommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
 
         modelCheckpointIndexRetention.run();
-        verify(indexCleanup).deleteDocsBasedOnShardSize(eq(CommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
-        verify(indexCleanup).deleteDocsByQuery(eq(CommonName.CHECKPOINT_INDEX_NAME), any(), any());
+        verify(indexCleanup).deleteDocsBasedOnShardSize(eq(ADCommonName.CHECKPOINT_INDEX_NAME), eq(50 * 1024 * 1024 * 1024L), any(), any());
+        verify(indexCleanup).deleteDocsByQuery(eq(ADCommonName.CHECKPOINT_INDEX_NAME), any(), any());
     }
 }

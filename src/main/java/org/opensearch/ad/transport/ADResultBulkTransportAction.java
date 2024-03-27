@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.INDEX_PRESSURE_HARD_LIMIT;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.INDEX_PRESSURE_SOFT_LIMIT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_INDEX_PRESSURE_HARD_LIMIT;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_INDEX_PRESSURE_SOFT_LIMIT;
 import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.index.IndexingPressure.MAX_INDEXING_BYTES;
 
@@ -27,11 +27,10 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.util.BulkUtil;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -41,6 +40,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
 public class ADResultBulkTransportAction extends HandledTransportAction<ADResultBulkRequest, ADResultBulkResponse> {
@@ -66,12 +66,12 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
         super(ADResultBulkAction.NAME, transportService, actionFilters, ADResultBulkRequest::new, ThreadPool.Names.SAME);
         this.indexingPressure = indexingPressure;
         this.primaryAndCoordinatingLimits = MAX_INDEXING_BYTES.get(settings).getBytes();
-        this.softLimit = INDEX_PRESSURE_SOFT_LIMIT.get(settings);
-        this.hardLimit = INDEX_PRESSURE_HARD_LIMIT.get(settings);
-        this.indexName = CommonName.ANOMALY_RESULT_INDEX_ALIAS;
+        this.softLimit = AD_INDEX_PRESSURE_SOFT_LIMIT.get(settings);
+        this.hardLimit = AD_INDEX_PRESSURE_HARD_LIMIT.get(settings);
+        this.indexName = ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
         this.client = client;
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_SOFT_LIMIT, it -> softLimit = it);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(INDEX_PRESSURE_HARD_LIMIT, it -> hardLimit = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_INDEX_PRESSURE_SOFT_LIMIT, it -> softLimit = it);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_INDEX_PRESSURE_HARD_LIMIT, it -> hardLimit = it);
         // random seed is 42. Can be any number
         this.random = new Random(42);
     }
@@ -94,7 +94,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
 
         if (indexingPressurePercent <= softLimit) {
             for (ResultWriteRequest resultWriteRequest : results) {
-                addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getResultIndex());
+                addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getCustomResultIndex());
             }
         } else if (indexingPressurePercent <= hardLimit) {
             // exceed soft limit (60%) but smaller than hard limit (90%)
@@ -102,7 +102,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             for (ResultWriteRequest resultWriteRequest : results) {
                 AnomalyResult result = resultWriteRequest.getResult();
                 if (result.isHighPriority() || random.nextFloat() < acceptProbability) {
-                    addResult(bulkRequest, result, resultWriteRequest.getResultIndex());
+                    addResult(bulkRequest, result, resultWriteRequest.getCustomResultIndex());
                 }
             }
         } else {
@@ -110,7 +110,7 @@ public class ADResultBulkTransportAction extends HandledTransportAction<ADResult
             for (ResultWriteRequest resultWriteRequest : results) {
                 AnomalyResult result = resultWriteRequest.getResult();
                 if (result.isHighPriority()) {
-                    addResult(bulkRequest, result, resultWriteRequest.getResultIndex());
+                    addResult(bulkRequest, result, resultWriteRequest.getCustomResultIndex());
                 }
             }
         }

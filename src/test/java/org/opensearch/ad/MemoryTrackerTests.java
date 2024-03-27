@@ -18,8 +18,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
-import org.opensearch.ad.common.exception.LimitExceededException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
@@ -30,6 +28,10 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmInfo.Mem;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
@@ -57,7 +59,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     double modelDesiredSizePercentage;
     JvmService jvmService;
     AnomalyDetector detector;
-    ADCircuitBreakerService circuitBreaker;
+    CircuitBreakerService circuitBreaker;
 
     @Override
     public void setUp() throws Exception {
@@ -85,10 +87,10 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
 
         clusterService = mock(ClusterService.class);
         modelMaxPercen = 0.1f;
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE.getKey(), modelMaxPercen).build();
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(), modelMaxPercen).build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.MODEL_MAX_SIZE_PERCENTAGE)))
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE)))
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
@@ -106,7 +108,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .shingleSize(shingleSize)
             .internalShinglingEnabled(true)
             .transformMethod(TransformMethod.NORMALIZE)
@@ -118,20 +120,20 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         when(detector.getEnabledFeatureIds()).thenReturn(Collections.singletonList("a"));
         when(detector.getShingleSize()).thenReturn(1);
 
-        circuitBreaker = mock(ADCircuitBreakerService.class);
+        circuitBreaker = mock(CircuitBreakerService.class);
         when(circuitBreaker.isOpen()).thenReturn(false);
     }
 
     private void setUpBigHeap() {
         ByteSizeValue value = new ByteSizeValue(largeHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, circuitBreaker);
+        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, clusterService, circuitBreaker);
     }
 
     private void setUpSmallHeap() {
         ByteSizeValue value = new ByteSizeValue(smallHeapSize);
         when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, modelDesiredSizePercentage, clusterService, circuitBreaker);
+        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, clusterService, circuitBreaker);
     }
 
     public void testEstimateModelSize() {
@@ -151,7 +153,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(shingleSize)
@@ -173,7 +175,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(false)
             // same with dimension for opportunistic memory saving
             .shingleSize(1)
@@ -193,7 +195,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(1)
@@ -213,7 +215,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(2)
@@ -233,7 +235,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(4)
@@ -253,7 +255,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(16)
@@ -273,7 +275,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(32)
@@ -293,7 +295,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(64)
@@ -313,7 +315,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
-            .boundingBoxCacheFraction(AnomalyDetectorSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
+            .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
             .shingleSize(65)
@@ -331,10 +333,10 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         assertTrue(!tracker.canAllocate((long) (largeHeapSize * modelMaxPercen + 10)));
 
         long bytesToUse = 100_000;
-        tracker.consumeMemory(bytesToUse, false, MemoryTracker.Origin.HC_DETECTOR);
+        tracker.consumeMemory(bytesToUse, false, MemoryTracker.Origin.REAL_TIME_DETECTOR);
         assertTrue(!tracker.canAllocate((long) (largeHeapSize * modelMaxPercen)));
 
-        tracker.releaseMemory(bytesToUse, false, MemoryTracker.Origin.HC_DETECTOR);
+        tracker.releaseMemory(bytesToUse, false, MemoryTracker.Origin.REAL_TIME_DETECTOR);
         assertTrue(tracker.canAllocate((long) (largeHeapSize * modelMaxPercen)));
     }
 
@@ -347,12 +349,11 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         setUpSmallHeap();
         long bytesToUse = 100_000;
         assertEquals(bytesToUse, tracker.getHeapLimit());
-        assertEquals((long) (smallHeapSize * modelDesiredSizePercentage), tracker.getDesiredModelSize());
-        tracker.consumeMemory(bytesToUse, false, MemoryTracker.Origin.HC_DETECTOR);
-        tracker.consumeMemory(bytesToUse, true, MemoryTracker.Origin.HC_DETECTOR);
+        tracker.consumeMemory(bytesToUse, false, MemoryTracker.Origin.REAL_TIME_DETECTOR);
+        tracker.consumeMemory(bytesToUse, true, MemoryTracker.Origin.REAL_TIME_DETECTOR);
         assertEquals(2 * bytesToUse, tracker.getTotalMemoryBytes());
 
         assertEquals(bytesToUse, tracker.memoryToShed());
-        assertTrue(!tracker.syncMemoryState(MemoryTracker.Origin.HC_DETECTOR, 2 * bytesToUse, bytesToUse));
+        assertTrue(!tracker.syncMemoryState(MemoryTracker.Origin.REAL_TIME_DETECTOR, 2 * bytesToUse, bytesToUse));
     }
 }

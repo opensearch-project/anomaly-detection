@@ -28,10 +28,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.model.Feature;
-import org.opensearch.ad.util.ParseUtils;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -49,6 +45,11 @@ import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation.
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 
 /**
  *
@@ -157,7 +158,7 @@ public class CompositeRetriever extends AbstractRetriever {
         CompositeAggregationBuilder composite = AggregationBuilders
             .composite(
                 AGG_NAME_COMP,
-                anomalyDetector.getCategoryField().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
+                anomalyDetector.getCategoryFields().stream().map(f -> new TermsValuesSourceBuilder(f).field(f)).collect(Collectors.toList())
             )
             .size(pageSize);
         for (Feature feature : anomalyDetector.getFeatureAttributes()) {
@@ -218,8 +219,9 @@ public class CompositeRetriever extends AbstractRetriever {
                 .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                     searchRequest,
                     client::search,
-                    anomalyDetector.getDetectorId(),
+                    anomalyDetector.getId(),
                     client,
+                    AnalysisType.AD,
                     searchResponseListener
                 );
         }

@@ -26,16 +26,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
-import org.opensearch.ad.AbstractADTest;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
-import org.opensearch.ad.util.ClientUtil;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.util.ClientUtil;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;
@@ -52,7 +52,7 @@ import io.protostuff.Schema;
  * class for tests requiring checking logs.
  *
  */
-public class CheckpointDeleteTests extends AbstractADTest {
+public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
     private enum DeleteExecutionMode {
         NORMAL,
         INDEX_NOT_FOUND,
@@ -64,7 +64,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
     private Client client;
     private ClientUtil clientUtil;
     private Gson gson;
-    private AnomalyDetectionIndices indexUtil;
+    private ADIndexManagement indexUtil;
     private String detectorId;
     private int maxCheckpointBytes;
     private GenericObjectPool<LinkedBuffer> objectPool;
@@ -87,7 +87,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
         client = mock(Client.class);
         clientUtil = mock(ClientUtil.class);
         gson = null;
-        indexUtil = mock(AnomalyDetectionIndices.class);
+        indexUtil = mock(ADIndexManagement.class);
         detectorId = "123";
         maxCheckpointBytes = 1_000_000;
 
@@ -100,7 +100,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
         checkpointDao = new CheckpointDao(
             client,
             clientUtil,
-            CommonName.CHECKPOINT_INDEX_NAME,
+            ADCommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
             converter,
@@ -140,7 +140,7 @@ public class CheckpointDeleteTests extends AbstractADTest {
 
             assertTrue(listener != null);
             if (mode == DeleteExecutionMode.INDEX_NOT_FOUND) {
-                listener.onFailure(new IndexNotFoundException(CommonName.CHECKPOINT_INDEX_NAME));
+                listener.onFailure(new IndexNotFoundException(ADCommonName.CHECKPOINT_INDEX_NAME));
             } else if (mode == DeleteExecutionMode.FAILURE) {
                 listener.onFailure(new OpenSearchException(""));
             } else {

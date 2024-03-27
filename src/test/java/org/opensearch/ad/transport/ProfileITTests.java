@@ -16,20 +16,20 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
 import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 
 public class ProfileITTests extends OpenSearchIntegTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> nodePlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
+        return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-        return Collections.singletonList(AnomalyDetectorPlugin.class);
+        return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     public void testNormalProfile() throws ExecutionException, InterruptedException {

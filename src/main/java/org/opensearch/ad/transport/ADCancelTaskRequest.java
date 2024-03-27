@@ -17,7 +17,7 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -56,7 +56,7 @@ public class ADCancelTaskRequest extends BaseNodesRequest<ADCancelTaskRequest> {
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
         if (Strings.isEmpty(detectorId)) {
-            validationException = addValidationError(CommonErrorMessages.AD_ID_MISSING_MSG, validationException);
+            validationException = addValidationError(ADCommonMessages.AD_ID_MISSING_MSG, validationException);
         }
         return validationException;
     }
@@ -70,7 +70,7 @@ public class ADCancelTaskRequest extends BaseNodesRequest<ADCancelTaskRequest> {
         out.writeOptionalString(reason);
     }
 
-    public String getDetectorId() {
+    public String getId() {
         return detectorId;
     }
 

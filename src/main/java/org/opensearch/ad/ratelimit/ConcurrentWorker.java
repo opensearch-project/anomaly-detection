@@ -19,13 +19,13 @@ import java.util.concurrent.Semaphore;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 
 /**
  * A queue to run concurrent requests (either batch or single request).
@@ -74,7 +74,7 @@ public abstract class ConcurrentWorker<RequestType extends QueuedRequest> extend
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -132,7 +132,7 @@ public abstract class ConcurrentWorker<RequestType extends QueuedRequest> extend
      */
     @Override
     protected void triggerProcess() {
-        threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> {
+        threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME).execute(() -> {
             if (permits.tryAcquire()) {
                 try {
                     lastExecuteTime = clock.instant();

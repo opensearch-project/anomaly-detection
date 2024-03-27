@@ -16,8 +16,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
@@ -25,12 +23,15 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.TaskState;
 
 public class ADTaskTests extends OpenSearchSingleNodeTestCase {
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
-        return pluginList(InternalSettingsPlugin.class, AnomalyDetectorPlugin.class);
+        return pluginList(InternalSettingsPlugin.class, TimeSeriesAnalyticsPlugin.class);
     }
 
     @Override
@@ -39,7 +40,7 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testAdTaskSerialization() throws IOException {
-        ADTask adTask = TestHelpers.randomAdTask(randomAlphaOfLength(5), ADTaskState.STOPPED, Instant.now(), randomAlphaOfLength(5), true);
+        ADTask adTask = TestHelpers.randomAdTask(randomAlphaOfLength(5), TaskState.STOPPED, Instant.now(), randomAlphaOfLength(5), true);
         BytesStreamOutput output = new BytesStreamOutput();
         adTask.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
@@ -48,7 +49,7 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testAdTaskSerializationWithNullDetector() throws IOException {
-        ADTask adTask = TestHelpers.randomAdTask(randomAlphaOfLength(5), ADTaskState.STOPPED, Instant.now(), randomAlphaOfLength(5), false);
+        ADTask adTask = TestHelpers.randomAdTask(randomAlphaOfLength(5), TaskState.STOPPED, Instant.now(), randomAlphaOfLength(5), false);
         BytesStreamOutput output = new BytesStreamOutput();
         adTask.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
@@ -58,7 +59,7 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
 
     public void testParseADTask() throws IOException {
         ADTask adTask = TestHelpers
-            .randomAdTask(null, ADTaskState.STOPPED, Instant.now().truncatedTo(ChronoUnit.SECONDS), randomAlphaOfLength(5), true);
+            .randomAdTask(null, TaskState.STOPPED, Instant.now().truncatedTo(ChronoUnit.SECONDS), randomAlphaOfLength(5), true);
         String taskId = randomAlphaOfLength(5);
         adTask.setTaskId(taskId);
         String adTaskString = TestHelpers.xContentBuilderToString(adTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
@@ -69,7 +70,7 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
     public void testParseADTaskWithoutTaskId() throws IOException {
         String taskId = null;
         ADTask adTask = TestHelpers
-            .randomAdTask(taskId, ADTaskState.STOPPED, Instant.now().truncatedTo(ChronoUnit.SECONDS), randomAlphaOfLength(5), true);
+            .randomAdTask(taskId, TaskState.STOPPED, Instant.now().truncatedTo(ChronoUnit.SECONDS), randomAlphaOfLength(5), true);
         String adTaskString = TestHelpers.xContentBuilderToString(adTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADTask parsedADTask = ADTask.parse(TestHelpers.parser(adTaskString));
         assertEquals("Parsing AD task doesn't work", adTask, parsedADTask);
@@ -78,7 +79,7 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
     public void testParseADTaskWithNullDetector() throws IOException {
         String taskId = randomAlphaOfLength(5);
         ADTask adTask = TestHelpers
-            .randomAdTask(taskId, ADTaskState.STOPPED, Instant.now().truncatedTo(ChronoUnit.SECONDS), randomAlphaOfLength(5), false);
+            .randomAdTask(taskId, TaskState.STOPPED, Instant.now().truncatedTo(ChronoUnit.SECONDS), randomAlphaOfLength(5), false);
         String adTaskString = TestHelpers.xContentBuilderToString(adTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADTask parsedADTask = ADTask.parse(TestHelpers.parser(adTaskString), taskId);
         assertEquals("Parsing AD task doesn't work", adTask, parsedADTask);

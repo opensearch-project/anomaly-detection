@@ -23,7 +23,7 @@ import org.junit.Ignore;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
@@ -83,7 +83,7 @@ public class SearchADTasksTransportActionTests extends HistoricalAnalysisIntegTe
         BoolQueryBuilder query = new BoolQueryBuilder();
         query.filter(new TermQueryBuilder(ADTask.IS_LATEST_FIELD, isLatest));
         sourceBuilder.query(query);
-        SearchRequest request = new SearchRequest().source(sourceBuilder).indices(CommonName.DETECTION_STATE_INDEX);
+        SearchRequest request = new SearchRequest().source(sourceBuilder).indices(ADCommonName.DETECTION_STATE_INDEX);
         return request;
     }
 

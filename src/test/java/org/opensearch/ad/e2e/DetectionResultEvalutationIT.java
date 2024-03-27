@@ -11,7 +11,7 @@
 
 package org.opensearch.ad.e2e;
 
-import static org.opensearch.ad.TestHelpers.toHttpEntity;
+import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
 
 import java.text.SimpleDateFormat;
 import java.time.Clock;
@@ -27,12 +27,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
-import org.opensearch.ad.TestHelpers;
-import org.opensearch.ad.constant.CommonErrorMessages;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonMessages;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
@@ -117,10 +117,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
-        assertEquals(
-            CommonErrorMessages.DETECTOR_INTERVAL_REC + recDetectorIntervalMinutes,
-            messageMap.get("detection_interval").get("message")
-        );
+        assertEquals(CommonMessages.INTERVAL_REC + recDetectorIntervalMinutes, messageMap.get("detection_interval").get("message"));
     }
 
     public void testValidationWindowDelayRecommendation() throws Exception {
@@ -158,7 +155,7 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
         assertEquals(
-            String.format(Locale.ROOT, CommonErrorMessages.WINDOW_DELAY_REC, expectedWindowDelayMinutes, expectedWindowDelayMinutes),
+            String.format(Locale.ROOT, CommonMessages.WINDOW_DELAY_REC, expectedWindowDelayMinutes, expectedWindowDelayMinutes),
             messageMap.get("window_delay").get("message")
         );
     }

@@ -50,7 +50,7 @@ public class ResultWriteRequest extends QueuedRequest implements Writeable {
         return result;
     }
 
-    public String getResultIndex() {
+    public String getCustomResultIndex() {
         return resultIndex;
     }
 }

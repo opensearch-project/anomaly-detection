@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_READ_QUEUE_CONCURRENCY;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_READ_QUEUE_CONCURRENCY;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -32,14 +32,10 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.CheckpointDao;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
@@ -47,17 +43,23 @@ import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.timeseries.util.ParseUtils;
 
 /**
  * a queue for loading model checkpoint. The read is a multi-get query. Possible results are:
@@ -78,7 +80,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
     private final CheckpointDao checkpointDao;
     private final EntityColdStartWorker entityColdStartQueue;
     private final ResultWriteWorker resultWriteQueue;
-    private final AnomalyDetectionIndices indexUtil;
+    private final ADIndexManagement indexUtil;
     private final CacheProvider cacheProvider;
     private final CheckpointWriteWorker checkpointWriteQueue;
     private final ADStats adStats;
@@ -89,7 +91,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -103,7 +105,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         EntityColdStartWorker entityColdStartQueue,
         ResultWriteWorker resultWriteQueue,
         NodeStateManager stateManager,
-        AnomalyDetectionIndices indexUtil,
+        ADIndexManagement indexUtil,
         CacheProvider cacheProvider,
         Duration stateTtl,
         CheckpointWriteWorker checkpointWriteQueue,
@@ -124,9 +126,9 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             mediumSegmentPruneRatio,
             lowSegmentPruneRatio,
             maintenanceFreqConstant,
-            CHECKPOINT_READ_QUEUE_CONCURRENCY,
+            AD_CHECKPOINT_READ_QUEUE_CONCURRENCY,
             executionTtl,
-            CHECKPOINT_READ_QUEUE_BATCH_SIZE,
+            AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE,
             stateTtl,
             stateManager
         );
@@ -161,7 +163,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             if (false == modelId.isPresent()) {
                 continue;
             }
-            multiGetRequest.add(new MultiGetRequest.Item(CommonName.CHECKPOINT_INDEX_NAME, modelId.get()));
+            multiGetRequest.add(new MultiGetRequest.Item(ADCommonName.CHECKPOINT_INDEX_NAME, modelId.get()));
         }
         return multiGetRequest;
     }
@@ -246,7 +248,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                         nodeStateManager
                             .setException(
                                 adID,
-                                new EndRunException(adID, CommonErrorMessages.BUG_RESPONSE, stopDetectorRequests.get(modelId.get()), false)
+                                new EndRunException(adID, CommonMessages.BUG_RESPONSE, stopDetectorRequests.get(modelId.get()), false)
                             );
                     }
                 }
@@ -292,7 +294,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 return;
             }
 
-            String detectorId = origRequest.getDetectorId();
+            String detectorId = origRequest.getId();
             Entity entity = origRequest.getEntity();
 
             String modelId = modelIdOptional.get();
@@ -310,8 +312,9 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 }
 
                 nodeStateManager
-                    .getAnomalyDetector(
+                    .getConfig(
                         detectorId,
+                        AnalysisType.AD,
                         onGetDetector(
                             origRequest,
                             i,
@@ -336,7 +339,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         EntityFeatureRequest origRequest,
         int index,
         String detectorId,
@@ -354,7 +357,7 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
 
             ModelState<EntityModel> modelState = modelManager
                 .processEntityCheckpoint(checkpoint, entity, modelId, detectorId, detector.getShingleSize());
@@ -386,31 +389,35 @@ public class CheckpointReadWorker extends BatchWorker<EntityFeatureRequest, Mult
             }
 
             if (result != null && result.getRcfScore() > 0) {
-                AnomalyResult resultToSave = result
-                    .toAnomalyResult(
+                RequestPriority requestPriority = result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM;
+
+                List<AnomalyResult> resultsToSave = result
+                    .toIndexableResults(
                         detector,
                         Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
-                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getDetectorIntervalInMilliseconds()),
+                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + detector.getIntervalInMilliseconds()),
                         Instant.now(),
                         Instant.now(),
                         ParseUtils.getFeatureData(origRequest.getCurrentFeature(), detector),
-                        entity,
+                        Optional.ofNullable(entity),
                         indexUtil.getSchemaVersion(ADIndex.RESULT),
                         modelId,
                         null,
                         null
                     );
 
-                resultWriteQueue
-                    .put(
-                        new ResultWriteRequest(
-                            origRequest.getExpirationEpochMs(),
-                            detectorId,
-                            result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                            resultToSave,
-                            detector.getResultIndex()
-                        )
-                    );
+                for (AnomalyResult r : resultsToSave) {
+                    resultWriteQueue
+                        .put(
+                            new ResultWriteRequest(
+                                origRequest.getExpirationEpochMs(),
+                                detectorId,
+                                requestPriority,
+                                r,
+                                detector.getCustomResultIndex()
+                            )
+                        );
+                }
             }
 
             // try to load to cache

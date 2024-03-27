@@ -26,23 +26,16 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.common.exception.EndRunException;
-import org.opensearch.ad.common.exception.LimitExceededException;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.indices.AnomalyDetectionIndices;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.EntityModel;
 import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.ratelimit.CheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ColdEntityWorker;
 import org.opensearch.ad.ratelimit.EntityColdStartWorker;
@@ -51,13 +44,22 @@ import org.opensearch.ad.ratelimit.RequestPriority;
 import org.opensearch.ad.ratelimit.ResultWriteRequest;
 import org.opensearch.ad.ratelimit.ResultWriteWorker;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.StatNames;
-import org.opensearch.ad.util.ExceptionUtil;
-import org.opensearch.ad.util.ParseUtils;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.LimitExceededException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportService;
 
 /**
@@ -83,10 +85,10 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
 
     private static final Logger LOG = LogManager.getLogger(EntityResultTransportAction.class);
     private ModelManager modelManager;
-    private ADCircuitBreakerService adCircuitBreakerService;
+    private CircuitBreakerService adCircuitBreakerService;
     private CacheProvider cache;
     private final NodeStateManager stateManager;
-    private AnomalyDetectionIndices indexUtil;
+    private ADIndexManagement indexUtil;
     private ResultWriteWorker resultWriteQueue;
     private CheckpointReadWorker checkpointReadQueue;
     private ColdEntityWorker coldEntityQueue;
@@ -99,10 +101,10 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
         ActionFilters actionFilters,
         TransportService transportService,
         ModelManager manager,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         CacheProvider entityCache,
         NodeStateManager stateManager,
-        AnomalyDetectionIndices indexUtil,
+        ADIndexManagement indexUtil,
         ResultWriteWorker resultWriteQueue,
         CheckpointReadWorker checkpointReadQueue,
         ColdEntityWorker coldEntityQueue,
@@ -127,14 +129,15 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
     @Override
     protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
         if (adCircuitBreakerService.isOpen()) {
-            threadPool.executor(AnomalyDetectorPlugin.AD_THREAD_POOL_NAME).execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
-            listener
-                .onFailure(new LimitExceededException(request.getDetectorId(), CommonErrorMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
+            threadPool
+                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
+                .execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
+            listener.onFailure(new LimitExceededException(request.getId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
             return;
         }
 
         try {
-            String detectorId = request.getDetectorId();
+            String detectorId = request.getId();
 
             Optional<Exception> previousException = stateManager.fetchExceptionAndClear(detectorId);
 
@@ -152,14 +155,14 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 listener = ExceptionUtil.wrapListener(listener, exception, detectorId);
             }
 
-            stateManager.getAnomalyDetector(detectorId, onGetDetector(listener, detectorId, request, previousException));
+            stateManager.getConfig(detectorId, AnalysisType.AD, onGetDetector(listener, detectorId, request, previousException));
         } catch (Exception exception) {
             LOG.error("fail to get entity's anomaly grade", exception);
             listener.onFailure(exception);
         }
     }
 
-    private ActionListener<Optional<AnomalyDetector>> onGetDetector(
+    private ActionListener<Optional<? extends Config>> onGetDetector(
         ActionListener<AcknowledgedResponse> listener,
         String detectorId,
         EntityResultRequest request,
@@ -171,7 +174,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 return;
             }
 
-            AnomalyDetector detector = detectorOptional.get();
+            AnomalyDetector detector = (AnomalyDetector) detectorOptional.get();
 
             if (request.getEntities() == null) {
                 listener.onFailure(new EndRunException(detectorId, "Fail to get any entities from request.", false));
@@ -184,12 +187,12 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 Entity categoricalValues = entityEntry.getKey();
 
                 if (isEntityFromOldNodeMsg(categoricalValues)
-                    && detector.getCategoryField() != null
-                    && detector.getCategoryField().size() == 1) {
+                    && detector.getCategoryFields() != null
+                    && detector.getCategoryFields().size() == 1) {
                     Map<String, String> attrValues = categoricalValues.getAttributes();
                     // handle a request from a version before OpenSearch 1.1.
                     categoricalValues = Entity
-                        .createSingleAttributeEntity(detector.getCategoryField().get(0), attrValues.get(CommonName.EMPTY_FIELD));
+                        .createSingleAttributeEntity(detector.getCategoryFields().get(0), attrValues.get(ADCommonName.EMPTY_FIELD));
                 }
 
                 Optional<String> modelIdOptional = categoricalValues.getModelId(detectorId);
@@ -212,31 +215,32 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     // result.getGrade() = 0 means it is not an anomaly
                     // So many OpenSearchRejectedExecutionException if we write no matter what
                     if (result.getRcfScore() > 0) {
-                        AnomalyResult resultToSave = result
-                            .toAnomalyResult(
+                        List<AnomalyResult> resultsToSave = result
+                            .toIndexableResults(
                                 detector,
                                 Instant.ofEpochMilli(request.getStart()),
                                 Instant.ofEpochMilli(request.getEnd()),
                                 executionStartTime,
                                 Instant.now(),
                                 ParseUtils.getFeatureData(datapoint, detector),
-                                categoricalValues,
+                                Optional.ofNullable(categoricalValues),
                                 indexUtil.getSchemaVersion(ADIndex.RESULT),
                                 modelId,
                                 null,
                                 null
                             );
-
-                        resultWriteQueue
-                            .put(
-                                new ResultWriteRequest(
-                                    System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
-                                    detectorId,
-                                    result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
-                                    resultToSave,
-                                    detector.getResultIndex()
-                                )
-                            );
+                        for (AnomalyResult r : resultsToSave) {
+                            resultWriteQueue
+                                .put(
+                                    new ResultWriteRequest(
+                                        System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
+                                        detectorId,
+                                        result.getGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
+                                        r,
+                                        detector.getCustomResultIndex()
+                                    )
+                                );
+                        }
                     }
                 } catch (IllegalArgumentException e) {
                     // fail to score likely due to model corruption. Re-cold start to recover.
@@ -246,7 +250,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                     entityColdStartWorker
                         .put(
                             new EntityFeatureRequest(
-                                System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                                System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                                 detectorId,
                                 RequestPriority.MEDIUM,
                                 categoricalValues,
@@ -274,7 +278,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 hotEntityRequests
                     .add(
                         new EntityFeatureRequest(
-                            System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                            System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                             detectorId,
                             // hot entities has MEDIUM priority
                             RequestPriority.MEDIUM,
@@ -294,7 +298,7 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
                 coldEntityRequests
                     .add(
                         new EntityFeatureRequest(
-                            System.currentTimeMillis() + detector.getDetectorIntervalInMilliseconds(),
+                            System.currentTimeMillis() + detector.getIntervalInMilliseconds(),
                             detectorId,
                             // cold entities has LOW priority
                             RequestPriority.LOW,
@@ -347,6 +351,6 @@ public class EntityResultTransportAction extends HandledTransportAction<EntityRe
      */
     private boolean isEntityFromOldNodeMsg(Entity categoricalValues) {
         Map<String, String> attrValues = categoricalValues.getAttributes();
-        return (attrValues != null && attrValues.containsKey(CommonName.EMPTY_FIELD));
+        return (attrValues != null && attrValues.containsKey(ADCommonName.EMPTY_FIELD));
     }
 }

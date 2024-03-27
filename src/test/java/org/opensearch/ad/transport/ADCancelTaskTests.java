@@ -11,14 +11,14 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.TestHelpers.randomDiscoveryNode;
+import static org.opensearch.timeseries.TestHelpers.randomDiscoveryNode;
 
 import java.io.IOException;
 import java.util.List;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.ad.constant.CommonErrorMessages;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.task.ADTaskCancellationState;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -41,14 +41,14 @@ public class ADCancelTaskTests extends ADUnitTestCase {
         request.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ADCancelTaskRequest parsedRequest = new ADCancelTaskRequest(input);
-        assertEquals(request.getDetectorId(), parsedRequest.getDetectorId());
+        assertEquals(request.getId(), parsedRequest.getId());
         assertEquals(request.getUserName(), parsedRequest.getUserName());
     }
 
     public void testInvalidADCancelTaskRequest() {
         ADCancelTaskRequest request = new ADCancelTaskRequest(null, null, null, randomDiscoveryNode());
         ActionRequestValidationException validationException = request.validate();
-        assertTrue(validationException.getMessage().contains(CommonErrorMessages.AD_ID_MISSING_MSG));
+        assertTrue(validationException.getMessage().contains(ADCommonMessages.AD_ID_MISSING_MSG));
     }
 
     public void testSerializeResponse() throws IOException {

@@ -1,0 +1,133 @@
+{
+  "dynamic": false,
+  "_meta": {
+    "schema_version": 1
+  },
+  "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
+    "last_update_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "error": {
+      "type": "text"
+    },
+    "started_by": {
+      "type": "keyword"
+    },
+    "stopped_by": {
+      "type": "keyword"
+    },
+    "forecaster_id": {
+      "type": "keyword"
+    },
+    "state": {
+      "type": "keyword"
+    },
+    "task_progress": {
+      "type": "float"
+    },
+    "init_progress": {
+      "type": "float"
+    },
+    "current_piece": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "is_latest": {
+      "type": "boolean"
+    },
+    "task_type": {
+      "type": "keyword"
+    },
+    "checkpoint_id": {
+      "type": "keyword"
+    },
+    "coordinating_node": {
+      "type": "keyword"
+    },
+    "worker_node": {
+      "type": "keyword"
+    },
+    "user": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "backend_roles": {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "roles": {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword"
+            }
+          }
+        },
+        "custom_attribute_names": {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword"
+            }
+          }
+        }
+      }
+    },
+    "forecaster": {
+      FORECASTER_INDEX_MAPPING_PLACE_HOLDER
+    },
+    "date_range": {
+      "properties": {
+        "start_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "end_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        }
+      }
+    },
+    "parent_task_id": {
+      "type": "keyword"
+    },
+    "entity": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "value": {
+          "type": "keyword"
+        }
+      }
+    },
+    "estimated_minutes_left": {
+      "type": "integer"
+    }
+  }
+}

@@ -11,17 +11,18 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.constant.CommonName.AD_TASK;
+import static org.opensearch.ad.constant.ADCommonName.AD_TASK;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.timeseries.transport.JobResponse;
 
-public class ForwardADTaskAction extends ActionType<AnomalyDetectorJobResponse> {
+public class ForwardADTaskAction extends ActionType<JobResponse> {
     // Internal Action which is not used for public facing RestAPIs.
     public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detector/" + AD_TASK + "/forward";
     public static final ForwardADTaskAction INSTANCE = new ForwardADTaskAction();
 
     private ForwardADTaskAction() {
-        super(NAME, AnomalyDetectorJobResponse::new);
+        super(NAME, JobResponse::new);
     }
 }

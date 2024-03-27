@@ -25,13 +25,13 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.DataByFeatureId;
 
 import com.google.common.base.Objects;
 
 public class ExpectedValueList implements ToXContentObject, Writeable {
     public static final String LIKELIHOOD_FIELD = "likelihood";
-    public static final String VALUE_LIST_FIELD = "value_list";
-
     private Double likelihood;
     private List<DataByFeatureId> valueList;
 
@@ -52,7 +52,7 @@ public class ExpectedValueList implements ToXContentObject, Writeable {
             xContentBuilder.field(LIKELIHOOD_FIELD, likelihood);
         }
         if (valueList != null) {
-            xContentBuilder.field(VALUE_LIST_FIELD, valueList.toArray());
+            xContentBuilder.field(CommonName.VALUE_LIST_FIELD, valueList.toArray());
         }
         return xContentBuilder.endObject();
     }
@@ -75,7 +75,7 @@ public class ExpectedValueList implements ToXContentObject, Writeable {
                 case LIKELIHOOD_FIELD:
                     likelihood = parser.doubleValue();
                     break;
-                case VALUE_LIST_FIELD:
+                case CommonName.VALUE_LIST_FIELD:
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
                     while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
                         valueList.add(DataByFeatureId.parse(parser));

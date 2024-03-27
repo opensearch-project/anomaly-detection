@@ -20,10 +20,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.nodes.BaseNodesResponse;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
-import org.opensearch.ad.util.Bwc;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -36,13 +35,13 @@ import org.opensearch.core.xcontent.XContentBuilder;
 public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> implements ToXContentFragment {
     private static final Logger LOG = LogManager.getLogger(ProfileResponse.class);
     // filed name in toXContent
-    static final String COORDINATING_NODE = CommonName.COORDINATING_NODE;
-    static final String SHINGLE_SIZE = CommonName.SHINGLE_SIZE;
-    static final String TOTAL_SIZE = CommonName.TOTAL_SIZE_IN_BYTES;
-    static final String ACTIVE_ENTITY = CommonName.ACTIVE_ENTITIES;
-    static final String MODELS = CommonName.MODELS;
-    static final String TOTAL_UPDATES = CommonName.TOTAL_UPDATES;
-    static final String MODEL_COUNT = CommonName.MODEL_COUNT;
+    static final String COORDINATING_NODE = ADCommonName.COORDINATING_NODE;
+    static final String SHINGLE_SIZE = ADCommonName.SHINGLE_SIZE;
+    static final String TOTAL_SIZE = ADCommonName.TOTAL_SIZE_IN_BYTES;
+    static final String ACTIVE_ENTITY = ADCommonName.ACTIVE_ENTITIES;
+    static final String MODELS = ADCommonName.MODELS;
+    static final String TOTAL_UPDATES = ADCommonName.TOTAL_UPDATES;
+    static final String MODEL_COUNT = ADCommonName.MODEL_COUNT;
 
     // changed from ModelProfile to ModelProfileOnNode since Opensearch 1.1
     private ModelProfileOnNode[] modelProfile;
@@ -65,13 +64,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         int size = in.readVInt();
         modelProfile = new ModelProfileOnNode[size];
         for (int i = 0; i < size; i++) {
-            if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-                modelProfile[i] = new ModelProfileOnNode(in);
-            } else {
-                // we don't have model information from old node
-                ModelProfile profile = new ModelProfile(in);
-                modelProfile[i] = new ModelProfileOnNode(CommonName.EMPTY_FIELD, profile);
-            }
+            modelProfile[i] = new ModelProfileOnNode(in);
         }
 
         shingleSize = in.readInt();
@@ -79,9 +72,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         totalSizeInBytes = in.readVLong();
         activeEntities = in.readVLong();
         totalUpdates = in.readVLong();
-        if (Bwc.supportMultiCategoryFields(in.getVersion())) {
-            modelCount = in.readVLong();
-        }
+        modelCount = in.readVLong();
     }
 
     /**
@@ -140,15 +131,8 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         super.writeTo(out);
         out.writeVInt(modelProfile.length);
 
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            for (ModelProfileOnNode profile : modelProfile) {
-                profile.writeTo(out);
-            }
-        } else {
-            for (ModelProfileOnNode profile : modelProfile) {
-                ModelProfile oldFormatModelProfile = profile.getModelProfile();
-                oldFormatModelProfile.writeTo(out);
-            }
+        for (ModelProfileOnNode profile : modelProfile) {
+            profile.writeTo(out);
         }
 
         out.writeInt(shingleSize);
@@ -156,9 +140,7 @@ public class ProfileResponse extends BaseNodesResponse<ProfileNodeResponse> impl
         out.writeVLong(totalSizeInBytes);
         out.writeVLong(activeEntities);
         out.writeVLong(totalUpdates);
-        if (Bwc.supportMultiCategoryFields(out.getVersion())) {
-            out.writeVLong(modelCount);
-        }
+        out.writeVLong(modelCount);
     }
 
     @Override

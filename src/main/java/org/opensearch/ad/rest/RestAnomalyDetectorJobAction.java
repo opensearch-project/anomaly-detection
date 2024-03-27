@@ -11,22 +11,20 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.REQUEST_TIMEOUT;
-import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.IF_PRIMARY_TERM;
-import static org.opensearch.ad.util.RestHandlerUtils.IF_SEQ_NO;
-import static org.opensearch.ad.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.ad.util.RestHandlerUtils.STOP_JOB;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.timeseries.util.RestHandlerUtils.IF_PRIMARY_TERM;
+import static org.opensearch.timeseries.util.RestHandlerUtils.IF_SEQ_NO;
+import static org.opensearch.timeseries.util.RestHandlerUtils.START_JOB;
+import static org.opensearch.timeseries.util.RestHandlerUtils.STOP_JOB;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobRequest;
 import org.opensearch.client.node.NodeClient;
@@ -38,6 +36,8 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.DateRange;
 
 import com.google.common.collect.ImmutableList;
 
@@ -50,8 +50,8 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
     private volatile TimeValue requestTimeout;
 
     public RestAnomalyDetectorJobAction(Settings settings, ClusterService clusterService) {
-        this.requestTimeout = REQUEST_TIMEOUT.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(REQUEST_TIMEOUT, it -> requestTimeout = it);
+        this.requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_REQUEST_TIMEOUT, it -> requestTimeout = it);
     }
 
     @Override
@@ -61,8 +61,8 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
 
         String detectorId = request.param(DETECTOR_ID);
@@ -70,7 +70,7 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
         long primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM);
         boolean historical = request.paramAsBoolean("historical", false);
         String rawPath = request.rawPath();
-        DetectionDateRange detectionDateRange = parseDetectionDateRange(request);
+        DateRange detectionDateRange = parseDetectionDateRange(request);
 
         AnomalyDetectorJobRequest anomalyDetectorJobRequest = new AnomalyDetectorJobRequest(
             detectorId,
@@ -85,13 +85,13 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));
     }
 
-    private DetectionDateRange parseDetectionDateRange(RestRequest request) throws IOException {
+    private DateRange parseDetectionDateRange(RestRequest request) throws IOException {
         if (!request.hasContent()) {
             return null;
         }
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-        DetectionDateRange dateRange = DetectionDateRange.parse(parser);
+        DateRange dateRange = DateRange.parse(parser);
         return dateRange;
     }
 
@@ -107,16 +107,17 @@ public class RestAnomalyDetectorJobAction extends BaseRestHandler {
                 // start AD Job
                 new ReplacedRoute(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, START_JOB),
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, START_JOB)
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, START_JOB)
                 ),
                 // stop AD Job
                 new ReplacedRoute(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, STOP_JOB),
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, STOP_JOB)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, STOP_JOB)
                 )
             );
     }

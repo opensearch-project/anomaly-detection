@@ -26,9 +26,6 @@ import org.apache.http.message.BasicHeader;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.DetectionDateRange;
-import org.opensearch.ad.util.RestHandlerUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -44,6 +41,10 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParserUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -122,9 +123,9 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         AnomalyDetector createdDetector = createAnomalyDetector(detector, refresh, client);
 
         if (withMetadata) {
-            return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), client);
+            return getConfig(createdDetector.getId(), new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), client);
         }
-        return getAnomalyDetector(createdDetector.getDetectorId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"), client);
+        return getConfig(createdDetector.getId(), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"), client);
     }
 
     protected AnomalyDetector createAnomalyDetector(AnomalyDetector detector, Boolean refresh, RestClient client) throws IOException {
@@ -141,7 +142,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         do {
             i++;
             try {
-                detectorInIndex = getAnomalyDetector(detectorId, client);
+                detectorInIndex = getConfig(detectorId, client);
                 assertNotNull(detectorInIndex);
                 break;
             } catch (Exception e) {
@@ -164,7 +165,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         return detectorInIndex;
     }
 
-    protected Response startAnomalyDetector(String detectorId, DetectionDateRange dateRange, RestClient client) throws IOException {
+    protected Response startAnomalyDetector(String detectorId, DateRange dateRange, RestClient client) throws IOException {
         return TestHelpers
             .makeRequest(
                 client,
@@ -206,8 +207,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public AnomalyDetector getAnomalyDetector(String detectorId, RestClient client) throws IOException {
-        return (AnomalyDetector) getAnomalyDetector(detectorId, false, client)[0];
+    public AnomalyDetector getConfig(String detectorId, RestClient client) throws IOException {
+        return (AnomalyDetector) getConfig(detectorId, false, client)[0];
     }
 
     public Response updateAnomalyDetector(String detectorId, AnomalyDetector newDetector, RestClient client) throws IOException {
@@ -223,22 +224,17 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public AnomalyDetector getAnomalyDetector(String detectorId, BasicHeader header, RestClient client) throws IOException {
-        return (AnomalyDetector) getAnomalyDetector(detectorId, header, false, false, client)[0];
+    public AnomalyDetector getConfig(String detectorId, BasicHeader header, RestClient client) throws IOException {
+        return (AnomalyDetector) getConfig(detectorId, header, false, false, client)[0];
     }
 
-    public ToXContentObject[] getAnomalyDetector(String detectorId, boolean returnJob, RestClient client) throws IOException {
+    public ToXContentObject[] getConfig(String detectorId, boolean returnJob, RestClient client) throws IOException {
         BasicHeader header = new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        return getAnomalyDetector(detectorId, header, returnJob, false, client);
+        return getConfig(detectorId, header, returnJob, false, client);
     }
 
-    public ToXContentObject[] getAnomalyDetector(
-        String detectorId,
-        BasicHeader header,
-        boolean returnJob,
-        boolean returnTask,
-        RestClient client
-    ) throws IOException {
+    public ToXContentObject[] getConfig(String detectorId, BasicHeader header, boolean returnJob, boolean returnTask, RestClient client)
+        throws IOException {
         Response response = TestHelpers
             .makeRequest(
                 client,
@@ -256,7 +252,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
         String id = null;
         Long version = null;
         AnomalyDetector detector = null;
-        AnomalyDetectorJob detectorJob = null;
+        Job detectorJob = null;
         ADTask realtimeAdTask = null;
         ADTask historicalAdTask = null;
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -273,7 +269,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                     detector = AnomalyDetector.parse(parser);
                     break;
                 case "anomaly_detector_job":
-                    detectorJob = AnomalyDetectorJob.parse(parser);
+                    detectorJob = Job.parse(parser);
                     break;
                 case "realtime_detection_task":
                     if (parser.currentToken() != XContentParser.Token.VALUE_NULL) {
@@ -301,7 +297,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getIndices(),
                 detector.getFeatureAttributes(),
                 detector.getFilterQuery(),
-                detector.getDetectionInterval(),
+                detector.getInterval(),
                 detector.getWindowDelay(),
                 detector.getShingleSize(),
                 detector.getUiMetadata(),
@@ -309,7 +305,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getResultIndex()
+                detector.getCustomResultIndex(),
+                detector.getImputationOption()
             ),
             detectorJob,
             historicalAdTask,
@@ -633,15 +630,16 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             anomalyDetector.getIndices(),
             anomalyDetector.getFeatureAttributes(),
             anomalyDetector.getFilterQuery(),
-            anomalyDetector.getDetectionInterval(),
+            anomalyDetector.getInterval(),
             anomalyDetector.getWindowDelay(),
             anomalyDetector.getShingleSize(),
             anomalyDetector.getUiMetadata(),
             anomalyDetector.getSchemaVersion(),
             Instant.now(),
-            anomalyDetector.getCategoryField(),
+            anomalyDetector.getCategoryFields(),
             null,
-            resultIndex
+            resultIndex,
+            anomalyDetector.getImputationOption()
         );
         return detector;
     }

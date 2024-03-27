@@ -11,8 +11,8 @@
 
 package org.opensearch.ad.ratelimit;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -23,13 +23,13 @@ import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.NodeStateManager;
-import org.opensearch.ad.breaker.ADCircuitBreakerService;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.breaker.CircuitBreakerService;
 
 public class CheckpointMaintainWorker extends ScheduledWorker<CheckpointMaintainRequest, CheckpointWriteRequest> {
     private static final Logger LOG = LogManager.getLogger(CheckpointMaintainWorker.class);
@@ -43,7 +43,7 @@ public class CheckpointMaintainWorker extends ScheduledWorker<CheckpointMaintain
         Setting<Float> maxHeapPercentForQueueSetting,
         ClusterService clusterService,
         Random random,
-        ADCircuitBreakerService adCircuitBreakerService,
+        CircuitBreakerService adCircuitBreakerService,
         ThreadPool threadPool,
         Settings settings,
         float maxQueuedTaskRatio,
@@ -76,15 +76,15 @@ public class CheckpointMaintainWorker extends ScheduledWorker<CheckpointMaintain
             nodeStateManager
         );
 
-        this.batchSize = CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(CHECKPOINT_WRITE_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
+        this.batchSize = AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE.get(settings);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_CHECKPOINT_WRITE_QUEUE_BATCH_SIZE, it -> this.batchSize = it);
 
-        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
+        this.expectedExecutionTimeInMilliSecsPerRequest = AnomalyDetectorSettings.AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS
             .get(settings);
         clusterService
             .getClusterSettings()
             .addSettingsUpdateConsumer(
-                EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
+                AD_EXPECTED_CHECKPOINT_MAINTAIN_TIME_IN_MILLISECS,
                 it -> this.expectedExecutionTimeInMilliSecsPerRequest = it
             );
         this.adapter = adapter;

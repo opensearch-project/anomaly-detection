@@ -14,11 +14,11 @@ import java.util.List;
 
 import org.junit.Assert;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.ad.TestHelpers;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 public class SearchTopAnomalyResultRequestTests extends OpenSearchTestCase {
 
@@ -38,7 +38,7 @@ public class SearchTopAnomalyResultRequestTests extends OpenSearchTestCase {
         originalRequest.writeTo(output);
         StreamInput input = output.bytes().streamInput();
         SearchTopAnomalyResultRequest parsedRequest = new SearchTopAnomalyResultRequest(input);
-        assertEquals(originalRequest.getDetectorId(), parsedRequest.getDetectorId());
+        assertEquals(originalRequest.getId(), parsedRequest.getId());
         assertEquals(originalRequest.getTaskId(), parsedRequest.getTaskId());
         assertEquals(originalRequest.getHistorical(), parsedRequest.getHistorical());
         assertEquals(originalRequest.getSize(), parsedRequest.getSize());
@@ -78,7 +78,7 @@ public class SearchTopAnomalyResultRequestTests extends OpenSearchTestCase {
         assertEquals(order, parsedRequest.getOrder());
         assertEquals(startTime.toEpochMilli(), parsedRequest.getStartTime().toEpochMilli());
         assertEquals(endTime.toEpochMilli(), parsedRequest.getEndTime().toEpochMilli());
-        assertEquals(detectorId, parsedRequest.getDetectorId());
+        assertEquals(detectorId, parsedRequest.getId());
         assertEquals(historical, parsedRequest.getHistorical());
     }
 

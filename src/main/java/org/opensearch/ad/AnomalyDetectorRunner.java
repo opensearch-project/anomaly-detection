@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -30,13 +31,13 @@ import org.opensearch.ad.ml.ModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityAnomalyResult;
-import org.opensearch.ad.model.Feature;
-import org.opensearch.ad.model.FeatureData;
-import org.opensearch.ad.util.MultiResponsesDelegateActionListener;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.FeatureData;
+import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 
 /**
  * Runner to trigger an anomaly detector.
@@ -72,7 +73,7 @@ public final class AnomalyDetectorRunner {
         ActionListener<List<AnomalyResult>> listener
     ) throws IOException {
         context.restore();
-        List<String> categoryField = detector.getCategoryField();
+        List<String> categoryField = detector.getCategoryFields();
         if (categoryField != null && !categoryField.isEmpty()) {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
 
@@ -85,12 +86,12 @@ public final class AnomalyDetectorRunner {
                 }
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener.wrap(entityAnomalyResult -> {
                     listener.onResponse(entityAnomalyResult.getAnomalyResults());
-                }, e -> onFailure(e, listener, detector.getDetectorId()));
+                }, e -> onFailure(e, listener, detector.getId()));
                 MultiResponsesDelegateActionListener<EntityAnomalyResult> multiEntitiesResponseListener =
                     new MultiResponsesDelegateActionListener<EntityAnomalyResult>(
                         entityAnomalyResultListener,
                         entities.size(),
-                        String.format(Locale.ROOT, "Fail to get preview result for multi entity detector %s", detector.getDetectorId()),
+                        String.format(Locale.ROOT, "Fail to get preview result for multi entity detector %s", detector.getId()),
                         true
                     );
                 for (Entity entity : entities) {
@@ -111,7 +112,7 @@ public final class AnomalyDetectorRunner {
                             }, e -> multiEntitiesResponseListener.onFailure(e))
                         );
                 }
-            }, e -> onFailure(e, listener, detector.getDetectorId())));
+            }, e -> onFailure(e, listener, detector.getId())));
         } else {
             featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
                 try {
@@ -119,9 +120,9 @@ public final class AnomalyDetectorRunner {
                         .getPreviewResults(features.getProcessedFeatures(), detector.getShingleSize());
                     listener.onResponse(sample(parsePreviewResult(detector, features, results, null), maxPreviewResults));
                 } catch (Exception e) {
-                    onFailure(e, listener, detector.getDetectorId());
+                    onFailure(e, listener, detector.getId());
                 }
-            }, e -> onFailure(e, listener, detector.getDetectorId())));
+            }, e -> onFailure(e, listener, detector.getId())));
         }
     }
 
@@ -166,23 +167,26 @@ public final class AnomalyDetectorRunner {
                 AnomalyResult result;
                 if (results != null && results.size() > i) {
                     ThresholdingResult thresholdingResult = results.get(i);
-                    result = thresholdingResult
-                        .toAnomalyResult(
+                    List<AnomalyResult> resultsToSave = thresholdingResult
+                        .toIndexableResults(
                             detector,
                             Instant.ofEpochMilli(timeRange.getKey()),
                             Instant.ofEpochMilli(timeRange.getValue()),
                             null,
                             null,
                             featureDatas,
-                            entity,
+                            Optional.ofNullable(entity),
                             CommonValue.NO_SCHEMA_VERSION,
                             null,
                             null,
                             null
                         );
+                    for (AnomalyResult r : resultsToSave) {
+                        anomalyResults.add(r);
+                    }
                 } else {
                     result = new AnomalyResult(
-                        detector.getDetectorId(),
+                        detector.getId(),
                         null,
                         featureDatas,
                         Instant.ofEpochMilli(timeRange.getKey()),
@@ -190,14 +194,13 @@ public final class AnomalyDetectorRunner {
                         null,
                         null,
                         null,
-                        entity,
+                        Optional.ofNullable(entity),
                         detector.getUser(),
                         CommonValue.NO_SCHEMA_VERSION,
                         null
                     );
+                    anomalyResults.add(result);
                 }
-
-                anomalyResults.add(result);
             }
         }
         return anomalyResults;

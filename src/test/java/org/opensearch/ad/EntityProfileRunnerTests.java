@@ -14,8 +14,6 @@ package org.opensearch.ad;
 import static java.util.Collections.emptyMap;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.opensearch.ad.model.AnomalyDetector.ANOMALY_DETECTORS_INDEX;
-import static org.opensearch.ad.model.AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX;
 
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
@@ -33,24 +31,21 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyDetectorJob;
-import org.opensearch.ad.model.Entity;
 import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.ad.model.EntityProfileName;
 import org.opensearch.ad.model.EntityState;
 import org.opensearch.ad.model.InitProgressProfile;
-import org.opensearch.ad.model.IntervalTimeConfiguration;
 import org.opensearch.ad.model.ModelProfile;
 import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.ad.transport.EntityProfileAction;
 import org.opensearch.ad.transport.EntityProfileResponse;
-import org.opensearch.ad.util.SecurityClientUtil;
 import org.opensearch.client.Client;
+import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
@@ -58,8 +53,18 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 
-public class EntityProfileRunnerTests extends AbstractADTest {
+public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private AnomalyDetector detector;
     private int detectorIntervalMin;
     private Client client;
@@ -71,7 +76,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
     private String detectorId;
     private String entityValue;
     private int requiredSamples;
-    private AnomalyDetectorJob job;
+    private Job job;
 
     private int smallUpdates;
     private String categoryField;
@@ -128,10 +133,10 @@ public class EntityProfileRunnerTests extends AbstractADTest {
         when(client.threadPool()).thenReturn(threadPool);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(1);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getAnomalyDetector(any(String.class), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
 
         runner = new EntityProfileRunner(client, clientUtil, xContentRegistry(), requiredSamples);
@@ -142,20 +147,17 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
-                listener
-                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            } else if (indexName.equals(ANOMALY_DETECTOR_JOB_INDEX)) {
-                listener
-                    .onResponse(
-                        TestHelpers.createGetResponse(job, detector.getDetectorId(), AnomalyDetectorJob.ANOMALY_DETECTOR_JOB_INDEX)
-                    );
+            if (indexName.equals(CommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            } else if (indexName.equals(CommonName.JOB_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
             }
 
             return null;
         }).when(client).get(any(), any());
 
         entity = Entity.createSingleAttributeEntity(categoryField, entityValue);
+        modelId = entity.getModelId(detectorId).get();
     }
 
     @SuppressWarnings("unchecked")
@@ -166,7 +168,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             SearchRequest request = (SearchRequest) args[0];
             String indexName = request.indices()[0];
             ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
-            if (indexName.equals(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            if (indexName.equals(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
                 InternalMax maxAgg = new InternalMax(CommonName.AGG_NAME_MAX_TIME, latestSampleTimestamp, DocValueFormat.RAW, emptyMap());
                 InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(maxAgg));
 
@@ -226,7 +228,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             String indexName = request.indices()[0];
             ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
             SearchResponse searchResponse = null;
-            if (indexName.equals(CommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
+            if (indexName.equals(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS)) {
                 InternalMax maxAgg = new InternalMax(CommonName.AGG_NAME_MAX_TIME, latestSampleTimestamp, DocValueFormat.RAW, emptyMap());
                 InternalAggregations internalAggregations = InternalAggregations.from(Collections.singletonList(maxAgg));
 
@@ -306,7 +308,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             assertTrue("Should not reach here", false);
             inProgressLatch.countDown();
         }, exception -> {
-            assertTrue(exception.getMessage().contains(CommonErrorMessages.EMPTY_PROFILES_COLLECT));
+            assertTrue(exception.getMessage().contains(CommonMessages.EMPTY_PROFILES_COLLECT));
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
@@ -315,6 +317,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
     public void testModel() throws InterruptedException {
         setUpExecuteEntityProfileAction(InittedEverResultStatus.INITTED);
         EntityProfile.Builder expectedProfile = new EntityProfile.Builder();
+
         ModelProfileOnNode modelProfile = new ModelProfileOnNode(nodeId, new ModelProfile(modelId, entity, modelSize));
         expectedProfile.modelProfile(modelProfile);
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -326,6 +329,18 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testEmptyModelProfile() throws IOException {
+        ModelProfile modelProfile = new ModelProfile(modelId, null, modelSize);
+        BytesStreamOutput output = new BytesStreamOutput();
+        modelProfile.writeTo(output);
+        StreamInput streamInput = output.bytes().streamInput();
+        ModelProfile readResponse = new ModelProfile(streamInput);
+        assertEquals("serialization has the wrong model id", modelId, readResponse.getModelId());
+        assertTrue("serialization has null entity", null == readResponse.getEntity());
+        assertEquals("serialization has the wrong model size", modelSize, readResponse.getModelSizeInBytes());
+
     }
 
     @SuppressWarnings("unchecked")
@@ -340,11 +355,10 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
-                listener
-                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
-            } else if (indexName.equals(ANOMALY_DETECTOR_JOB_INDEX)) {
-                listener.onFailure(new IndexNotFoundException(ANOMALY_DETECTOR_JOB_INDEX));
+            if (indexName.equals(CommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            } else if (indexName.equals(CommonName.JOB_INDEX)) {
+                listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));
             }
 
             return null;
@@ -373,9 +387,8 @@ public class EntityProfileRunnerTests extends AbstractADTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(ANOMALY_DETECTORS_INDEX)) {
-                listener
-                    .onResponse(TestHelpers.createGetResponse(detector, detector.getDetectorId(), AnomalyDetector.ANOMALY_DETECTORS_INDEX));
+            if (indexName.equals(CommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
             }
 
             return null;
@@ -401,11 +414,7 @@ public class EntityProfileRunnerTests extends AbstractADTest {
 
         // 1 / 128 rounded to 1%
         int neededSamples = requiredSamples - smallUpdates;
-        InitProgressProfile profile = new InitProgressProfile(
-            "1%",
-            neededSamples * detector.getDetectorIntervalInSeconds() / 60,
-            neededSamples
-        );
+        InitProgressProfile profile = new InitProgressProfile("1%", neededSamples * detector.getIntervalInSeconds() / 60, neededSamples);
         expectedProfile.initProgress(profile);
         expectedProfile.isActive(isActive);
         expectedProfile.lastActiveTimestampMs(latestActiveTimestamp);

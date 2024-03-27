@@ -11,9 +11,9 @@
 
 package org.opensearch.ad.rest;
 
-import static org.opensearch.ad.util.RestHandlerUtils.DETECTOR_ID;
-import static org.opensearch.ad.util.RestHandlerUtils.PROFILE;
-import static org.opensearch.ad.util.RestHandlerUtils.TYPE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
+import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.TYPE;
 
 import java.io.IOException;
 import java.util.List;
@@ -22,11 +22,9 @@ import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.AnomalyDetectorPlugin;
-import org.opensearch.ad.constant.CommonErrorMessages;
-import org.opensearch.ad.constant.CommonName;
-import org.opensearch.ad.model.Entity;
-import org.opensearch.ad.settings.EnabledSetting;
+import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.client.node.NodeClient;
@@ -35,6 +33,9 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Entity;
 
 import com.google.common.collect.ImmutableList;
 
@@ -55,8 +56,8 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!EnabledSetting.isADPluginEnabled()) {
-            throw new IllegalStateException(CommonErrorMessages.DISABLED_ERR_MSG);
+        if (!ADEnabledSetting.isADEnabled()) {
+            throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
         String detectorId = request.param(DETECTOR_ID);
         String typesStr = request.param(TYPE);
@@ -65,7 +66,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         boolean returnJob = request.paramAsBoolean("job", false);
         boolean returnTask = request.paramAsBoolean("task", false);
         boolean all = request.paramAsBoolean("_all", false);
-        GetAnomalyDetectorRequest getAnomalyDetectorRequest = new GetAnomalyDetectorRequest(
+        GetAnomalyDetectorRequest getConfigRequest = new GetAnomalyDetectorRequest(
             detectorId,
             RestActions.parseVersion(request),
             returnJob,
@@ -76,8 +77,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             buildEntity(request, detectorId)
         );
 
-        return channel -> client
-            .execute(GetAnomalyDetectorAction.INSTANCE, getAnomalyDetectorRequest, new RestToXContentListener<>(channel));
+        return channel -> client.execute(GetAnomalyDetectorAction.INSTANCE, getConfigRequest, new RestToXContentListener<>(channel));
     }
 
     @Override
@@ -87,40 +87,49 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                 // Opensearch-only API. Considering users may provide entity in the search body, support POST as well.
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE)
                 ),
                 new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
+                    String
+                        .format(Locale.ROOT, "%s/{%s}/%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE)
                 )
             );
     }
 
     @Override
     public List<ReplacedRoute> replacedRoutes() {
-        String path = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
-        String newPath = String.format(Locale.ROOT, "%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
+        String path = String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID);
+        String newPath = String.format(Locale.ROOT, "%s/{%s}", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID);
         return ImmutableList
             .of(
                 new ReplacedRoute(RestRequest.Method.GET, newPath, RestRequest.Method.GET, path),
                 new ReplacedRoute(RestRequest.Method.HEAD, newPath, RestRequest.Method.HEAD, path),
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE),
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s", AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE)
+                    String.format(Locale.ROOT, "%s/{%s}/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, DETECTOR_ID, PROFILE)
                 ),
                 // types is a profile names. See a complete list of supported profiles names in
                 // org.opensearch.ad.model.ProfileName.
                 new ReplacedRoute(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/{%s}/%s/{%s}", AnomalyDetectorPlugin.AD_BASE_DETECTORS_URI, DETECTOR_ID, PROFILE, TYPE),
+                    String
+                        .format(
+                            Locale.ROOT,
+                            "%s/{%s}/%s/{%s}",
+                            TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI,
+                            DETECTOR_ID,
+                            PROFILE,
+                            TYPE
+                        ),
                     RestRequest.Method.GET,
                     String
                         .format(
                             Locale.ROOT,
                             "%s/{%s}/%s/{%s}",
-                            AnomalyDetectorPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
+                            TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI,
                             DETECTOR_ID,
                             PROFILE,
                             TYPE
@@ -131,10 +140,10 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
 
     private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
         if (Strings.isEmpty(detectorId)) {
-            throw new IllegalStateException(CommonErrorMessages.AD_ID_MISSING_MSG);
+            throw new IllegalStateException(ADCommonMessages.AD_ID_MISSING_MSG);
         }
 
-        String entityName = request.param(CommonName.CATEGORICAL_FIELD);
+        String entityName = request.param(ADCommonName.CATEGORICAL_FIELD);
         String entityValue = request.param(CommonName.ENTITY_KEY);
 
         if (entityName != null && entityValue != null) {
