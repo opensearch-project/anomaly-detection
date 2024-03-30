@@ -188,7 +188,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         );
     }
 
-    @SuppressWarnings("unchecked")
     public void testMoreThanTenThousandSingleEntityDetectors() throws IOException {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;

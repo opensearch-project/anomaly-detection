@@ -14,22 +14,12 @@ package org.opensearch.ad;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.monitor.jvm.JvmInfo;
-import org.opensearch.monitor.jvm.JvmInfo.Mem;
-import org.opensearch.monitor.jvm.JvmService;
-import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.AbstractMemoryTrackerTest;
 import org.opensearch.timeseries.MemoryTracker;
-import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
@@ -37,65 +27,16 @@ import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public class MemoryTrackerTests extends OpenSearchTestCase {
-
-    int inputFeatures;
-    int rcfSampleSize;
-    int numberOfTrees;
-    double rcfTimeDecay;
-    int numMinSamples;
-    int shingleSize;
-    int dimension;
-    MemoryTracker tracker;
+public class TRCFMemoryTests extends AbstractMemoryTrackerTest {
     long expectedRCFModelSize;
-    String detectorId;
-    long largeHeapSize;
-    long smallHeapSize;
-    Mem mem;
     ThresholdedRandomCutForest trcf;
-    float modelMaxPercen;
-    ClusterService clusterService;
-    double modelMaxSizePercentage;
-    double modelDesiredSizePercentage;
-    JvmService jvmService;
     AnomalyDetector detector;
-    CircuitBreakerService circuitBreaker;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        inputFeatures = 1;
-        rcfSampleSize = 256;
-        numberOfTrees = 30;
-        rcfTimeDecay = 0.2;
-        numMinSamples = 128;
-        shingleSize = 8;
-        dimension = inputFeatures * shingleSize;
-
-        jvmService = mock(JvmService.class);
-        JvmInfo info = mock(JvmInfo.class);
-        mem = mock(Mem.class);
-        // 800 MB is the limit
-        largeHeapSize = 800_000_000;
-        smallHeapSize = 1_000_000;
-
-        when(jvmService.info()).thenReturn(info);
-        when(info.getMem()).thenReturn(mem);
-
-        modelMaxSizePercentage = 0.1;
-        modelDesiredSizePercentage = 0.0002;
-
-        clusterService = mock(ClusterService.class);
-        modelMaxPercen = 0.1f;
-        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(), modelMaxPercen).build();
-        ClusterSettings clusterSettings = new ClusterSettings(
-            settings,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE)))
-        );
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
         expectedRCFModelSize = 382784;
-        detectorId = "123";
 
         trcf = ThresholdedRandomCutForest
             .builder()
@@ -119,15 +60,6 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
         detector = mock(AnomalyDetector.class);
         when(detector.getEnabledFeatureIds()).thenReturn(Collections.singletonList("a"));
         when(detector.getShingleSize()).thenReturn(1);
-
-        circuitBreaker = mock(CircuitBreakerService.class);
-        when(circuitBreaker.isOpen()).thenReturn(false);
-    }
-
-    private void setUpBigHeap() {
-        ByteSizeValue value = new ByteSizeValue(largeHeapSize);
-        when(mem.getHeapMax()).thenReturn(value);
-        tracker = new MemoryTracker(jvmService, modelMaxSizePercentage, clusterService, circuitBreaker);
     }
 
     private void setUpSmallHeap() {
@@ -139,8 +71,8 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
     public void testEstimateModelSize() {
         setUpBigHeap();
 
-        assertEquals(403491, tracker.estimateTRCFModelSize(trcf));
-        assertTrue(tracker.isHostingAllowed(detectorId, trcf));
+        assertEquals(400768, tracker.estimateTRCFModelSize(trcf));
+        assertTrue(tracker.isHostingAllowed(configId, trcf));
 
         ThresholdedRandomCutForest rcf2 = ThresholdedRandomCutForest
             .builder()
@@ -161,8 +93,8 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(603708, tracker.estimateTRCFModelSize(rcf2));
-        assertTrue(tracker.isHostingAllowed(detectorId, rcf2));
+        assertEquals(623944, tracker.estimateTRCFModelSize(rcf2));
+        assertTrue(tracker.isHostingAllowed(configId, rcf2));
 
         ThresholdedRandomCutForest rcf3 = ThresholdedRandomCutForest
             .builder()
@@ -183,7 +115,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(1685208, tracker.estimateTRCFModelSize(rcf3));
+        assertEquals(1789092, tracker.estimateTRCFModelSize(rcf3));
 
         ThresholdedRandomCutForest rcf4 = ThresholdedRandomCutForest
             .builder()
@@ -203,7 +135,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(521304, tracker.estimateTRCFModelSize(rcf4));
+        assertEquals(609244, tracker.estimateTRCFModelSize(rcf4));
 
         ThresholdedRandomCutForest rcf5 = ThresholdedRandomCutForest
             .builder()
@@ -223,7 +155,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(467340, tracker.estimateTRCFModelSize(rcf5));
+        assertEquals(518960, tracker.estimateTRCFModelSize(rcf5));
 
         ThresholdedRandomCutForest rcf6 = ThresholdedRandomCutForest
             .builder()
@@ -243,7 +175,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(603676, tracker.estimateTRCFModelSize(rcf6));
+        assertEquals(746392, tracker.estimateTRCFModelSize(rcf6));
 
         ThresholdedRandomCutForest rcf7 = ThresholdedRandomCutForest
             .builder()
@@ -263,7 +195,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(401481, tracker.estimateTRCFModelSize(rcf7));
+        assertEquals(434080, tracker.estimateTRCFModelSize(rcf7));
 
         ThresholdedRandomCutForest rcf8 = ThresholdedRandomCutForest
             .builder()
@@ -283,7 +215,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(1040432, tracker.estimateTRCFModelSize(rcf8));
+        assertEquals(1571852, tracker.estimateTRCFModelSize(rcf8));
 
         ThresholdedRandomCutForest rcf9 = ThresholdedRandomCutForest
             .builder()
@@ -303,11 +235,11 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .alertOnce(true)
             .autoAdjust(true)
             .build();
-        assertEquals(1040688, tracker.estimateTRCFModelSize(rcf9));
+        assertEquals(1243540, tracker.estimateTRCFModelSize(rcf9));
 
         ThresholdedRandomCutForest rcf10 = ThresholdedRandomCutForest
             .builder()
-            .dimensions(325)
+            .dimensions(387)
             .sampleSize(rcfSampleSize)
             .numberOfTrees(numberOfTrees)
             .timeDecay(rcfTimeDecay)
@@ -318,7 +250,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
             .boundingBoxCacheFraction(TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO)
             .internalShinglingEnabled(true)
             // same with dimension for opportunistic memory saving
-            .shingleSize(65)
+            .shingleSize(129)
             .transformMethod(TransformMethod.NORMALIZE)
             .alertOnce(true)
             .autoAdjust(true)
@@ -342,7 +274,7 @@ public class MemoryTrackerTests extends OpenSearchTestCase {
 
     public void testCannotHost() {
         setUpSmallHeap();
-        expectThrows(LimitExceededException.class, () -> tracker.isHostingAllowed(detectorId, trcf));
+        expectThrows(LimitExceededException.class, () -> tracker.isHostingAllowed(configId, trcf));
     }
 
     public void testMemoryToShed() {
