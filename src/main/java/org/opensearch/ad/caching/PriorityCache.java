@@ -496,7 +496,7 @@ public class PriorityCache implements EntityCache {
                 numberOfTrees,
                 TimeSeriesSettings.REAL_TIME_BOUNDING_BOX_CACHE_RATIO,
                 detector.getShingleSize().intValue(),
-                true
+                TimeSeriesSettings.NUM_SAMPLES_PER_TREE
             );
     }
 
