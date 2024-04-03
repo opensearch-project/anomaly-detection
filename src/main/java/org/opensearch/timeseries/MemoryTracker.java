@@ -276,7 +276,8 @@ public class MemoryTracker {
             throw new IllegalArgumentException("out of range shingle size " + shingleSize);
         }
 
-        int pointStoreCapacity = Math.max(sampleSize * numberOfTrees + 1, 2 * sampleSize);
+        int capacity = sampleSize * numberOfTrees;
+        int pointStoreCapacity = Math.max(capacity + 1, 2 * sampleSize);
         int pointStoreTypeConstant = shingleSize * pointStoreCapacity >= Character.MAX_VALUE ? 4 : 2;
         int boundingBoxExistsConstant = boundingBoxCacheFraction > 0 ? 1 : 0;
 
@@ -293,10 +294,9 @@ public class MemoryTracker {
             nodeStoreSize = 20 * sampleSize + 198;
         }
         // NodeStoreLarge
-        return (long) (152 * baseDimension + 4 * dimension * pointStoreSizeConstant * sampleSize * numberOfTrees + 64 * dimension
-            + pointStoreTypeConstant * sampleSize * numberOfTrees + 4 * shingleSize + sampleSize * numberOfTrees + numberOfTrees * (32
-                * boundingBoxExistsConstant + 8 * boundingBoxCacheFraction * dimension * sampleSize + 8 * boundingBoxCacheFraction
-                    * sampleSize + nodeStoreSize + 8 * sampleSize + 352) + 3944);
+        return (long) (152 * baseDimension + 4 * dimension * pointStoreSizeConstant * capacity + 64 * dimension + pointStoreTypeConstant
+            * capacity + 4 * shingleSize + capacity + numberOfTrees * (32 * boundingBoxExistsConstant + 8 * boundingBoxCacheFraction
+                * dimension * sampleSize + 8 * boundingBoxCacheFraction * sampleSize + nodeStoreSize + 8 * sampleSize + 352) + 3944);
     }
 
     /**
