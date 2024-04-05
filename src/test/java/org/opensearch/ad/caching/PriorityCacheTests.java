@@ -137,7 +137,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         cacheProvider.set(cache);
         entityCache = cacheProvider.get();
 
-        when(memoryTracker.estimateTRCFModelSize(anyInt(), anyInt(), anyDouble(), anyInt(), anyBoolean())).thenReturn(memoryPerEntity);
+        when(memoryTracker.estimateTRCFModelSize(anyInt(), anyInt(), anyDouble(), anyInt(), anyInt())).thenReturn(memoryPerEntity);
         when(memoryTracker.canAllocateReserved(anyLong())).thenReturn(true);
 
         detector2 = mock(AnomalyDetector.class);
@@ -213,7 +213,7 @@ public class PriorityCacheTests extends AbstractCacheTest {
         ArgumentCaptor<MemoryTracker.Origin> origin = ArgumentCaptor.forClass(MemoryTracker.Origin.class);
 
         // input dimension: 3, shingle: 4
-        long expectedMemoryPerEntity = 436828L;
+        long expectedMemoryPerEntity = 467872L;
         verify(memoryTracker, times(1)).consumeMemory(memoryConsumed.capture(), reserved.capture(), origin.capture());
         assertEquals(dedicatedCacheSize * expectedMemoryPerEntity, memoryConsumed.getValue().intValue());
         assertEquals(true, reserved.getValue().booleanValue());

@@ -323,7 +323,7 @@ public class ADTaskCacheManager extends TaskCacheManager {
                 TimeSeriesSettings.NUM_TREES,
                 TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
                 detector.getShingleSize().intValue(),
-                false
+                TimeSeriesSettings.NUM_SAMPLES_PER_TREE
             ) + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
     }
 
@@ -339,7 +339,14 @@ public class ADTaskCacheManager extends TaskCacheManager {
         RandomCutForest rcfForest = tRCF.getForest();
         int dimensions = rcfForest.getDimensions();
         int numberOfTrees = rcfForest.getNumberOfTrees();
-        return memoryTracker.estimateTRCFModelSize(dimensions, numberOfTrees, TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO, 1, false);
+        return memoryTracker
+            .estimateTRCFModelSize(
+                dimensions,
+                numberOfTrees,
+                TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
+                1,
+                TimeSeriesSettings.NUM_SAMPLES_PER_TREE
+            );
     }
 
     /**

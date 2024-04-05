@@ -19,16 +19,42 @@ public class TimeSeriesSettings {
 
     // max shingle size we have seen from external users
     // the larger shingle size, the harder to fill in a complete shingle
-    public static final int MAX_SHINGLE_SIZE = 60;
+    public static final int MAX_SHINGLE_SIZE = 64;
+
+    // shingle size = seasonality / 2
+    public static final int SEASONALITY_TO_SHINGLE_RATIO = 2;
 
     public static final String CONFIG_INDEX_MAPPING_FILE = "mappings/config.json";
 
     public static final String JOBS_INDEX_MAPPING_FILE = "mappings/job.json";
 
-    // 100,000 insertions costs roughly 1KB.
+    /**
+     * Memory Usage Estimation for a Map&lt;String, Integer&gt; with 100,000 entries:
+     *
+     * 1. HashMap Object Overhead: This can vary, but let's assume it's about 36 bytes.
+     * 2. Array Overhead:
+     *    - The array size will be the nearest power of 2 greater than or equal to 100,000 / load factor.
+     *    - Assuming a load factor of 0.75, the array size will be 2^17 = 131,072.
+     *    - The memory usage will be 131,072 * 4 bytes = 524,288 bytes.
+     * 3. Entry Overhead: Each entry has an overhead of about 32 bytes (object header, hash code, and three references).
+     * 4. Key Overhead:
+     *    - Each key has an overhead of about 36 bytes (object header, length, hash cache) plus the character data.
+     *    - Assuming the character data is 64 bytes, the total key overhead per entry is 100 bytes.
+     * 5. Value Overhead: Each Integer object has an overhead of about 16 bytes (object header plus int value).
+     *
+     * Total Memory Usage Formula:
+     * Total Memory Usage = HashMap Object Overhead + Array Overhead +
+     *                      (Entry Overhead + Key Overhead + Value Overhead) * Number of Entries
+     *
+     * Plugging in the numbers:
+     * Total Memory Usage = 36 + 524,288 + (32 + 100 + 16) * 100,000
+     *                    ≈ 14,965 kilobytes (≈ 15 MB)
+     *
+     * Note:
+     * This estimation is quite simplistic and the actual memory usage may be different based on the JVM implementation,
+     * the actual Map implementation being used, and other factors.
+     */
     public static final int DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION = 100_000;
-
-    public static final double DOOR_KEEPER_FALSE_POSITIVE_RATE = 0.01;
 
     // clean up door keeper every 60 intervals
     public static final int DOOR_KEEPER_MAINTENANCE_FREQ = 60;
@@ -39,6 +65,10 @@ public class TimeSeriesSettings {
     // for a real-time operation, we trade off speed for memory as real time opearation
     // only has to do one update/scoring per interval
     public static final double REAL_TIME_BOUNDING_BOX_CACHE_RATIO = 0;
+
+    // max number of historical buckets for cold start. Corresponds to max buckets in OpenSearch.
+    // We send one query including one bucket per interval. So we don't want to surpass OS limit.
+    public static final int MAX_HISTORY_INTERVALS = 10000;
 
     // ======================================
     // Historical analysis
@@ -92,7 +122,7 @@ public class TimeSeriesSettings {
     public static int CHECKPOINT_WRITE_QUEUE_SIZE_IN_BYTES = 200_000;
 
     /**
-     * ResultWriteRequest consists of index request (roughly 1KB), and QueuedRequest
+     * ADResultWriteRequest consists of index request (roughly 1KB), and QueuedRequest
      * fields (148 bytes, read comments of ENTITY_REQUEST_SIZE_CONSTANT).
      * Plus Java object size (12 bytes), we have roughly 1160 bytes per request
      *
@@ -104,18 +134,18 @@ public class TimeSeriesSettings {
     public static int RESULT_WRITE_QUEUE_SIZE_IN_BYTES = 1160;
 
     /**
-     * FeatureRequest has entityName (# category fields * 256, the recommended limit
-     * of a keyword field length), model Id (roughly 256 bytes), and QueuedRequest
-     * fields including config Id(roughly 128 bytes), dataStartTimeMillis (long,
+     * FeatureRequest has entity (max 2 category fields * 256, the recommended limit
+     * of a keyword field length, 512 bytes), model Id (roughly 256 bytes), runOnce
+     * boolean (roughly 8 bytes), dataStartTimeMillis (long,
      *  8 bytes), and currentFeature (16 bytes, assume two features on average).
-     * Plus Java object size (12 bytes), we have roughly 932 bytes per request
+     * Plus Java object size (12 bytes), we have roughly 812 bytes per request
      * assuming we have 2 categorical fields (plan to support 2 categorical fields now).
      * We don't want the total size exceeds 0.1% of the heap.
-     * We can have at most 0.1% heap / 932 = heap / 932,000.
+     * We can have at most 0.1% heap / 812 = heap / 812,000.
      * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
-     * 10^ 6 / 932 = 1072
+     * 10^ 6 / 812 = 1231
      */
-    public static int FEATURE_REQUEST_SIZE_IN_BYTES = 932;
+    public static int FEATURE_REQUEST_SIZE_IN_BYTES = 812;
 
     /**
      * CheckpointMaintainRequest has model Id (roughly 256 bytes), and QueuedRequest
@@ -146,9 +176,9 @@ public class TimeSeriesSettings {
     // RCF
     public static final int NUM_SAMPLES_PER_TREE = 256;
 
-    public static final int NUM_TREES = 30;
+    public static final int NUM_TREES = 50;
 
-    public static final double TIME_DECAY = 0.0001;
+    public static final int DEFAULT_RECENCY_EMPHASIS = 10 * NUM_SAMPLES_PER_TREE;
 
     // If we have 32 + shingleSize (hopefully recent) values, RCF can get up and running. It will be noisy —
     // there is a reason that default size is 256 (+ shingle size), but it may be more useful for people to
@@ -157,6 +187,11 @@ public class TimeSeriesSettings {
 
     // for a batch operation, we want all of the bounding box in-place for speed
     public static final double BATCH_BOUNDING_BOX_CACHE_RATIO = 1;
+
+    // feature processing
+    public static final int TRAIN_SAMPLE_TIME_RANGE_IN_HOURS = 24;
+
+    public static final int MIN_TRAIN_SAMPLES = 512;
 
     // ======================================
     // Cold start setting
@@ -209,4 +244,35 @@ public class TimeSeriesSettings {
     // such as "there are at least 10000 entities", the default is set to 10,000. That is, requests will count the
     // total entities up to 10,000.
     public static final int MAX_TOTAL_ENTITIES_TO_TRACK = 10_000;
+
+    // ======================================
+    // Validate Detector API setting
+    // ======================================
+    public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 10_000;
+
+    public static final double INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE = 0.75;
+
+    public static final double INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER = 1.2;
+
+    public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 60L;
+
+    public static final int MAX_DESCRIPTION_LENGTH = 1000;
+
+    // ======================================
+    // Cache setting
+    // ======================================
+    // We don't want to retry cold start once it exceeds the threshold.
+    // It is larger than 1 since cx may have ingested new data or the
+    // system is unstable
+    public static final int COLD_START_DOOR_KEEPER_COUNT_THRESHOLD = 3;
+
+    // we don't admit model to cache before it exceeds the threshold
+    public static final int CACHE_DOOR_KEEPER_COUNT_THRESHOLD = 1;
+
+    // max entities to track per detector
+    public static final int MAX_TRACKING_ENTITIES = 1000000;
+
+    public static final double DOOR_KEEPER_FALSE_POSITIVE_RATE = 0.01;
+
+    public static final double TIME_DECAY = 0.0001;
 }

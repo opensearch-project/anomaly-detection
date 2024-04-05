@@ -25,6 +25,7 @@ import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.RCFCaster;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
@@ -136,117 +137,211 @@ public class MemoryTracker {
     }
 
     /**
-     * Gets the estimated size of an entity's model.
+     * Gets the estimated size (bytes) of a TRCF model.
      *
      * RCF size:
-     * Assume the sample size is 256. I measured the memory size of a ThresholdedRandomCutForest
-     * using heap dump.  A ThresholdedRandomCutForest comprises a compact rcf model and
-     * a threshold model.
+     * I measured the memory size of a ThresholdedRandomCutForest/RCFCaster using heap dump.
+     * Internal shingling is required. A ThresholdedRandomCutForest/RCFCaster comprises rcf
+     * model, threshold model, and other fields.
+     *
+     * Symbols:
+     * b   base dimension
+     * s   shingle size
+     * d   dimension = b * s
+     * r   {@code point store constant = IF(s*0.05>1,s*0.05,IF(s>1,1.5,1)}
+     * t   # trees
+     * ss  sample size
+     * br  bounding box ratio
+     * c   max capacity of point store max(sampleSize * numberOfTrees + 1, 2 * sampleSize), defined in RandomCutForest
+     * pt  {@code location list constant = 2 or 4. If shingleSize * capacity < Character.MAX_VALUE use PointStoreSmall, * 2; otherwise use PointStoreLarge, *4}
+     * be  {@code br > 0}
+     * ci  number of internal nodes = ss - 1
+     * nt  {@code node store type = ci<256&&d<=256  => NodeStoreSmall
+                             ci<65535&&d<=65535 => NodeStoreMedium
+                             otherwise => NodeStoreLarge}
+     * ns  {@code node store size = IF(AND(ci<256,d<=256),10*ss + 208,IF(AND(ci<65535,d<=65535),16*s + 202,20*s + 198))} (direct translation of RCF logic)
      *
      * A compact RCF forest consists of:
      * - Random number generator: 56 bytes
      * - PointStoreCoordinator: 24 bytes
      * - SequentialForestUpdateExecutor: 24 bytes
      * - SequentialForestTraversalExecutor: 16 bytes
-     * - PointStoreFloat
-     *   + IndexManager
-     *     - int array for free indexes: 256 * numberOfTrees * 4, where 4 is the size of an integer
-     *   - two int array for locationList and refCount: 256 * numberOfTrees * 4 bytes * 2
-     *   - a float array for data store: 256 * trees * dimension * 4 bytes: due to various
-     *     optimization like shingleSize(dimensions), we don't use all of the array.  The average
-     *     usage percentage depends on shingle size and if internal shingling is enabled.
+     * + PointStoreFloat: ss * t * 4 * r * b+ss * t *  pt+ss * t +1776+48+s*4
+     *   - IndexManager + HashMap+shingleSize*4: 1776+48+shingleSize*4 bytes
+     *   - refCount: ss * trees * 1 (*1 since refCount is of byte[])
+     *   - locationList: ss * trees *  pt
+     *   - a float array for data store: ss * # trees * 4 bytes * point store constant * b,
+     *     where ss * # trees is the maximum allowed points in the forest;  * 4 since float is of 4 bytes.
+     *     since internal shingling is enabled, we don't use all of the array and need to multiply by
+     *     some factor to account for saved space.
+     *
+     *     The average usage percentage depends on shingle size and if internal shingling is enabled.
      *     I did experiments with power-of-two shingle sizes and internal shingling on/off
      *     by running ThresholdedRandomCutForest over a million points.
      *     My experiment shows that
-     *     * if internal shingling is off, data store is filled at full
+     *     - if internal shingling is off, data store is filled at full
      *     capacity.
-     *     * otherwise, data store usage depends on shingle size:
+     *     - otherwise, data store usage depends on shingle size:
+     *       {@code IF(s*0.05>1,s*0.05,IF(s>1,1.5,1) }
      *
-     *     Shingle Size           usage
-     *     1                       1
-     *     2                      0.53
-     *     4                      0.27
-     *     8                      0.27
-     *     16                     0.13
-     *     32                     0.07
-     *     64                     0.07
-     *
-     *    The formula reflects the data and fits the point store usage to the closest power-of-two case.
-     *    For example, if shingle size is 17, we use the usage 0.13 since it is closer to 16.
-     *
-     *     {@code IF(dimensions>=32, 1/(LOG(dimensions+1, 2)+LOG(dimensions+1, 10)), 1/LOG(dimensions+1, 2))}
-     *     where LOG gets the logarithm of a number and the syntax of LOG is {@code LOG (number, [base])}.
-     *     We derive the formula by observing the point store usage ratio is a decreasing function of dimensions
-     *     and the relationship is logarithm. Adding 1 to dimension to ensure dimension 1 results in a ratio 1.
-     * - ComponentList: an array of size numberOfTrees
-     *   + SamplerPlusTree
-     *    - CompactSampler: 2248
-     *    + CompactRandomCutTreeFloat
-     *      - other fields: 152
-     *      - SmallNodeStore (small node store since our sample size is 256, less than the max of short): 6120
+     * - ComponentList: an array of size numberOfTrees = (2*(ss* 4 + 16)+80+88 + (ns+128+(br*ss*d*8+16*be) + (br*ss*8+16*be)) + 24)  * t
+     *   + SamplerPlusTree = (2*(ss* 4 + 16)+80+88 + (ns+128+(br*ss*d*8+16*be) + (br*ss*8+16*be)) + 24)
+     *    - other: 24
+     *    + CompactSampler: 2*(ss* 4 + 16)+80+88
+     *      - weight: sample size* 4 + 16
+     *      - pointIndex: sample size* 4 + 16
+     *      - evictedPoint: 48
+     *      - random: 32
+     *    + RandomCutTree: ns+128+(br*ss*d*8+16*be) + (br*ss*8+16*be)
+     *      - other fields: 80
+     *      - leafMass: 48
+     *      + NodeStore (ss-1)*4+20+(ss-1)*2+18+(ss-1)*2+18+(ss-1)+17+(ss-1)+17+80+48
+     *        - cutValue: (sample size-1)*4+20
+     *        - freeNodeManager: 80
+     *                        The following fields are organized on node store type
+     *                        NodeStoreSmall           NodeStoreMedium         NodeStoreLarge
+     *        - leftIndex    (sample size-1)*2+18    (sample size-1)*4+18    (sample size-1)*4+18
+     *        - rightIndex   (sample size-1)*2+18    (sample size-1)*4+18    (sample size-1)*4+18
+     *        - cutDimension (sample size-1)+17      (sample size-1)*2+17    (sample size-1)*4+17
+     *        - mass         (sample size-1)+17      (sample size-1)*2+17    (sample size-1)*4+17
      *      + BoxCacheFloat
      *        - other: 104
-     *        - BoundingBoxFloat: (1040 + 255* ((dimension * 4 + 16) * 2 + 32)) * actual bounding box cache usage,
-     *           {@code actual bounding box cache usage = (bounding box cache fraction >= 0.3? 1: bounding box cache fraction)}
-     *           {@code >= 0.3} we will still initialize bounding box cache array of the max size.
-     *           1040 is the size of BoundingBoxFloat's fields unrelated to tree size (255 nodes in our formula)
-     * In total, RCF size is
-     *  56 + # trees * (2248 + 152 + 6120 + 104 + (1040 + 255* (dimension * 4 + 16) * 2 + 32)) * adjusted bounding box cache ratio) +
-     *  (256 * # trees  * 2 + 256 * # trees * dimension) * 4 bytes  * point store ratio + 30744 * 2 + 15432 + 208) + 24 + 24 + 16
-     *  = 56 + # trees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actual bounding box cache usage) + 256 * # trees *
-     *   dimension * 4 * point store ratio + 77192
+     *        - BoundingBoxFloat: {@code bounding box ratio * ss * dimension* 2 * 4 + (bounding box ratio > 0 ? 16 : 0) }
+     *        - rangeSumData: {@code br * ss * 8 + (bounding box ratio > 0 ? 16 : 0) }
+     *
      *
      *  Thresholder size
-     *   + Preprocessor:
-     *     - lastShingledInput and lastShingledPoint: 2*(dimension*8 + 16) (2 due to 2 double arrays, 16 are array object size)
-     *     - previousTimeStamps: shingle*8
-     *     - other: 248
-     *   - BasicThrehsolder: 256
-     *   + lastAnomalyAttribution:
-     *      - high and low: 2*(dimension*8 + 16)(2 due to 2 double arrays, 16 are array object)
-     *      - other 24
-     *   - lastAnomalyPoint and lastExpectedPoint:  2*(dimension*8 + 16)
-     *   -  other like ThresholdedRandomCutForest object size: 96
-     * In total, thresholder size is:
-     *  6*(dimension*8 + 16) + shingle*8 + 248 + 256 + 24 + 96
-     *  = 6*(dimension*8 + 16) + shingle*8 + 624
+     *    + Preprocessor: 280+d*8+16+24+280+72+3*(d*8 + 16)+16+128
+     *      + transformer: 280+dimension*8+16+24 (24 is object size)
+     *        - deviations = 280
+     *        - weights = dimension*8+16
+     *      - timeStampDeviations = 280
+     *      - dataQuality = 72
+     *      - lastShingledInput, previousTimeStamps and lastShingledPoint = 3*(dimension*8 + 16) (3 due to 2 double arrays, 16 are array object size)
+     *      - stopNormalization = 16
+     *      - other: 128
+     *  + PredictorCorrector: 472+4*(8*d+16)+184+(48*b+24)*2+32+96+104
+     *    - thresholders: 472
+     *    + lastDescriptor: 4*(8*dimension+16)+184
+     *      - currentInput: 8*dimension+16(16 is array size)
+     *      - RCFPoint: 8*dimension+16(16 is array size)
+     *      - shift: 8*dimension+16(16 is array size)
+     *      - scale: 8*dimension+16(16 is array size)
+     *      - other: 184
+     *    - deviationsActual: 48*base dimension+24 (24 is object size)
+     *    - deviationsExpected: 48*base dimension+24 (24 is object size)
+     *    - lastScore: 32
+     *    - 4 ignores array: 96
+     *  + lastAnomalyDescriptor: 24 + (b * 8+16)*7
+     *    - attribution: 2 * (b * 8+16) + 24
+     *      - high: basic dimension * 8+16
+     *      - low: basic dimension * 8+16
+     *    - currentInput: basic dimension * 8+16
+     *    - RCFPoint: d * 8+16
+     *    - scale: basic dimension * 8+16
+     *    - shift: basic dimension * 8+16
+     *    - postShift: basic dimension * 8+16
+     *
+     *  Total: 152*b + 4*d*r*ss*t + 64*d + pt*ss*t + 4*s + ss*t + t*(32*be + 8*br*d*ss + 8*br*ss + ns + 8*ss + 352) + 3944
      *
      * @param dimension The number of feature dimensions in RCF
      * @param numberOfTrees The number of trees in RCF
      * @param boundingBoxCacheFraction Bounding box cache usage in RCF
      * @param shingleSize shingle size
-     * @param internalShingling whether internal shingling is enabled or not
+     * @param sampleSize sample size
      * @return estimated TRCF model size
      *
-     * @throws IllegalArgumentException when the input shingle size is out of range [1, 64]
      */
-    public long estimateTRCFModelSize(
-        int dimension,
-        int numberOfTrees,
-        double boundingBoxCacheFraction,
-        int shingleSize,
-        boolean internalShingling
-    ) {
-        double averagePointStoreUsage = 0;
-        if (!internalShingling || shingleSize == 1) {
-            averagePointStoreUsage = 1;
-        } else if (shingleSize <= 3) {
-            averagePointStoreUsage = 0.53;
-        } else if (shingleSize <= 12) {
-            averagePointStoreUsage = 0.27;
-        } else if (shingleSize <= 24) {
-            averagePointStoreUsage = 0.13;
+    public long estimateTRCFModelSize(int dimension, int numberOfTrees, double boundingBoxCacheFraction, int shingleSize, int sampleSize) {
+        double baseDimension = dimension / shingleSize;
+        // rounding it up to the next power of two, in terms of selecting the pointStoreSizeConstant. T
+        double pointStoreSizeConstant = 1;
+        if (shingleSize == 1) {
+            pointStoreSizeConstant = 1;
+        } else if (shingleSize == 2) {
+            pointStoreSizeConstant = 0.53;
+        } else if (shingleSize <= 4) {
+            pointStoreSizeConstant = 0.27;
+        } else if (shingleSize <= 8) {
+            pointStoreSizeConstant = 0.18;
+        } else if (shingleSize <= 16) {
+            pointStoreSizeConstant = 0.13;
+        } else if (shingleSize <= 32) {
+            pointStoreSizeConstant = 0.07;
         } else if (shingleSize <= 64) {
-            averagePointStoreUsage = 0.07;
+            pointStoreSizeConstant = 0.05;
+        } else if (shingleSize <= 128) {
+            pointStoreSizeConstant = 0.05;
         } else {
             throw new IllegalArgumentException("out of range shingle size " + shingleSize);
         }
 
-        double actualBoundingBoxUsage = boundingBoxCacheFraction >= 0.3 ? 1d : boundingBoxCacheFraction;
-        long compactRcfSize = (long) (56 + numberOfTrees * (8624 + (1040 + 255 * (dimension * 8 + 64)) * actualBoundingBoxUsage) + 256
-            * numberOfTrees * dimension * 4 * averagePointStoreUsage + 77192);
-        long thresholdSize = 6 * (dimension * 8 + 16) + shingleSize * 8 + 624;
-        return compactRcfSize + thresholdSize;
+        int capacity = sampleSize * numberOfTrees;
+        int pointStoreCapacity = Math.max(capacity + 1, 2 * sampleSize);
+        int pointStoreTypeConstant = shingleSize * pointStoreCapacity >= Character.MAX_VALUE ? 4 : 2;
+        int boundingBoxExistsConstant = boundingBoxCacheFraction > 0 ? 1 : 0;
+
+        int nodeStoreSize = 0;
+        int numberOfInternalNodes = sampleSize - 1;
+        if (numberOfInternalNodes < 256 && dimension <= 256) {
+            // NodeStoreSmall
+            nodeStoreSize = 10 * sampleSize + 208;
+        } else if (numberOfInternalNodes < 65535 && dimension <= 65535) {
+            // NodeStoreMedium
+            nodeStoreSize = 16 * sampleSize + 202;
+        } else {
+            // NodeStoreLarge
+            nodeStoreSize = 20 * sampleSize + 198;
+        }
+        // NodeStoreLarge
+        return (long) (152 * baseDimension + 4 * dimension * pointStoreSizeConstant * capacity + 64 * dimension + pointStoreTypeConstant
+            * capacity + 4 * shingleSize + capacity + numberOfTrees * (32 * boundingBoxExistsConstant + 8 * boundingBoxCacheFraction
+                * dimension * sampleSize + 8 * boundingBoxCacheFraction * sampleSize + nodeStoreSize + 8 * sampleSize + 352) + 3944);
+    }
+
+    /**
+     * Gets the estimated size (bytes) of a RCFCaster model. On top of trcf model, RCFCaster adds an ErrorHandler.
+     *
+     * Symbols:
+     * b   base dimension
+     * h   horizon
+     *
+     * ErrorHandler size:
+     *   - pastForecasts: h*(3*(l*4+16)+24), h RangeVector, we have 3 float array in RangeVector,
+     *    and each float array is of size l, 16 is float array object size, 24 is RangeVector object size
+     *   - rmseLowDeviations: l * 48 + 784 , l Deviation, each Deviation is of size 48, 784 is Deviation array size
+     *   - rmseHighDeviations: l * 48 + 784, similar to   rmseLowDeviations
+     * intervalPrecision l * 48 + 784    similar to   rmseLowDeviations
+     * errorRMSE 2*(l*8+14)+24   2 double array of size l, plus 14 bytes for each array object; 24 is DiVector object size
+     * errorDistribution (3*(l*4+16)+24) Similar to  pastForecasts, with only 1 RangeVector
+     * errorMean 4*l+16  a float array of size l, plus array object size 16
+     * lastInputs    8*2*b+16    a double array of size 2*b, plus double array object size 16
+     * lastDataDeviations    4*b+16  a float array of size b, plus array object size 16
+     * upperLimit    4*b+16  similar to  lastDataDeviations
+     * lowerLimit    4*b+16  similar to  lastDataDeviations
+     *
+     * Total: 176*b*h + 28*b + 12*h*(b*h + 6) + 2556
+     *
+     * @param dimension The number of feature dimensions in RCF
+     * @param numberOfTrees The number of trees in RCF
+     * @param boundingBoxCacheFraction Bounding box cache usage in RCF
+     * @param shingleSize shingle size
+     * @param sampleSize sample size
+     * @param horizon Forecast horizon
+     * @return estimated RCFCaster model size
+     */
+    public long estimateCasterModelSize(
+        int dimension,
+        int numberOfTrees,
+        double boundingBoxCacheFraction,
+        int shingleSize,
+        int sampleSize,
+        int horizon
+    ) {
+        long trcfModelSize = estimateTRCFModelSize(dimension, numberOfTrees, boundingBoxCacheFraction, shingleSize, sampleSize);
+        double baseDimension = dimension / shingleSize;
+        double errorHandlerSize = 176 * baseDimension * horizon + 28 * baseDimension + 12 * horizon * (baseDimension * horizon + 6) + 2556;
+        return (long) (trcfModelSize + errorHandlerSize);
     }
 
     /**
@@ -290,7 +385,7 @@ public class MemoryTracker {
                     .format(
                         Locale.ROOT,
                         "Memory states do not match.  Recorded: total bytes %d, reserved bytes %d."
-                            + "Actual: total bytes %d, reserved bytes: %d",
+                            + " Actual: total bytes %d, reserved bytes: %d",
                         recordedTotalBytes,
                         recordedReservedBytes,
                         totalBytes,
@@ -348,7 +443,7 @@ public class MemoryTracker {
     }
 
     /**
-     * Gets the estimated size of an entity's model.
+     * Gets the estimated size (bytes) of a TRCF model.
      *
      * @param trcf ThresholdedRandomCutForest object
      * @return estimated model size in bytes
@@ -360,7 +455,25 @@ public class MemoryTracker {
             forest.getNumberOfTrees(),
             forest.getBoundingBoxCacheFraction(),
             forest.getShingleSize(),
-            forest.isInternalShinglingEnabled()
+            forest.getSampleSize()
+        );
+    }
+
+    /**
+     * Gets the estimated size (bytes) of a RCFCaster model.
+     *
+     * @param caster RCFCaster object
+     * @return estimated model size in bytes
+     */
+    public long estimateCasterModelSize(RCFCaster caster) {
+        RandomCutForest forest = caster.getForest();
+        return estimateCasterModelSize(
+            forest.getDimensions(),
+            forest.getNumberOfTrees(),
+            forest.getBoundingBoxCacheFraction(),
+            forest.getShingleSize(),
+            forest.getSampleSize(),
+            caster.getForecastHorizon()
         );
     }
 }
