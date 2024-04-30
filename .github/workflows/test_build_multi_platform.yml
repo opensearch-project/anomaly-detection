@@ -108,7 +108,7 @@ jobs:
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin
-    runs-on: macos-latest
+    runs-on: macos-13
     env:
       JENKINS_URL: build.ci.opensearch.org
 
