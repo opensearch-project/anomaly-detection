@@ -13,22 +13,23 @@ package org.opensearch.ad.cluster;
 
 import org.opensearch.Version;
 import org.opensearch.ad.ADUnitTestCase;
+import org.opensearch.timeseries.cluster.VersionUtil;
 
 public class ADVersionUtilTests extends ADUnitTestCase {
 
     public void testParseVersionFromString() {
-        Version version = ADVersionUtil.fromString("2.1.0.0");
+        Version version = VersionUtil.fromString("2.1.0.0");
         assertEquals(Version.V_2_1_0, version);
 
-        version = ADVersionUtil.fromString("2.1.0");
+        version = VersionUtil.fromString("2.1.0");
         assertEquals(Version.V_2_1_0, version);
     }
 
     public void testParseVersionFromStringWithNull() {
-        expectThrows(IllegalArgumentException.class, () -> ADVersionUtil.fromString(null));
+        expectThrows(IllegalArgumentException.class, () -> VersionUtil.fromString(null));
     }
 
     public void testParseVersionFromStringWithWrongFormat() {
-        expectThrows(IllegalArgumentException.class, () -> ADVersionUtil.fromString("1.1"));
+        expectThrows(IllegalArgumentException.class, () -> VersionUtil.fromString("1.1"));
     }
 }

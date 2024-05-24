@@ -35,8 +35,8 @@ public class RealtimeTaskCache {
     // track last job run time, will clean up cache if no access after 2 intervals
     private long lastJobRunTime;
 
-    // detector interval in milliseconds.
-    private long detectorIntervalInMillis;
+    // interval in milliseconds.
+    private long intervalInMillis;
 
     // we query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
     // To avoid repeated query when there is no data, record whether we have done that or not.
@@ -47,7 +47,7 @@ public class RealtimeTaskCache {
         this.initProgress = initProgress;
         this.error = error;
         this.lastJobRunTime = Instant.now().toEpochMilli();
-        this.detectorIntervalInMillis = detectorIntervalInMillis;
+        this.intervalInMillis = detectorIntervalInMillis;
         this.queriedResultIndex = false;
     }
 
@@ -88,6 +88,6 @@ public class RealtimeTaskCache {
     }
 
     public boolean expired() {
-        return lastJobRunTime + 2 * detectorIntervalInMillis < Instant.now().toEpochMilli();
+        return lastJobRunTime + 2 * intervalInMillis < Instant.now().toEpochMilli();
     }
 }

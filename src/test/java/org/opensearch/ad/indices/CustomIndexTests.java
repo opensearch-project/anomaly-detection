@@ -142,7 +142,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         entity_nested_mapping.put("name", Collections.singletonMap("type", "keyword"));
         entity_nested_mapping.put("value", Collections.singletonMap("type", "keyword"));
         entity_mapping.put(CommonName.PROPERTIES, entity_nested_mapping);
-        mappings.put(CommonName.ENTITY_FIELD, entity_mapping);
+        mappings.put(CommonName.ENTITY_KEY, entity_mapping);
 
         Map<String, Object> error_mapping = new HashMap<>();
         error_mapping.put("type", "text");
@@ -168,6 +168,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("feature_name", Collections.singletonMap("type", "keyword"));
         mappings.put(CommonName.FEATURE_DATA_FIELD, feature_mapping);
         mappings.put(AnomalyResult.IS_ANOMALY_FIELD, Collections.singletonMap("type", "boolean"));
         mappings.put(CommonName.MODEL_ID_FIELD, Collections.singletonMap("type", "keyword"));
@@ -188,7 +189,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         attribution_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
         mappings.put(AnomalyResult.RELEVANT_ATTRIBUTION_FIELD, attribution_mapping);
 
-        mappings.put(CommonName.SCHEMA_VERSION_FIELD, Collections.singletonMap("type", "integer"));
+        mappings.put(org.opensearch.timeseries.constant.CommonName.SCHEMA_VERSION_FIELD, Collections.singletonMap("type", "integer"));
 
         mappings.put(CommonName.TASK_ID_FIELD, Collections.singletonMap("type", "keyword"));
 
@@ -254,6 +255,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         // feature_id comes before data compared with what createMapping returned
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("feature_name", Collections.singletonMap("type", "keyword"));
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         mappings.put(CommonName.FEATURE_DATA_FIELD, feature_mapping);
 
@@ -286,6 +288,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         Map<String, Object> feature_nested_mapping = new HashMap<>();
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("feature_name", Collections.singletonMap("type", "keyword"));
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         mappings.put("a", feature_mapping);
 

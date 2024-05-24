@@ -22,9 +22,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -32,7 +32,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
-import org.mockito.ArgumentCaptor;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.get.GetAction;
@@ -46,7 +45,6 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -54,7 +52,6 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.rest.RestRequest;
@@ -64,6 +61,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -78,14 +76,13 @@ import org.opensearch.transport.TransportService;
  */
 public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTest {
     static ThreadPool threadPool;
-    private ThreadContext threadContext;
     private String TEXT_FIELD_TYPE = "text";
     private IndexAnomalyDetectorActionHandler handler;
     private ClusterService clusterService;
     private NodeClient clientMock;
     private SecurityClientUtil clientUtil;
     private TransportService transportService;
-    private ActionListener<IndexAnomalyDetectorResponse> channel;
+    // private ActionListener<IndexAnomalyDetectorResponse> channel;
     private ADIndexManagement anomalyDetectionIndices;
     private String detectorId;
     private Long seqNo;
@@ -96,11 +93,11 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
     private Integer maxSingleEntityAnomalyDetectors;
     private Integer maxMultiEntityAnomalyDetectors;
     private Integer maxAnomalyFeatures;
+    private Integer maxCategoricalFields;
     private Settings settings;
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
     private SearchFeatureDao searchFeatureDao;
-    private Clock clock;
 
     @BeforeClass
     public static void beforeClass() {
@@ -113,7 +110,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         threadPool = null;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     @Before
     public void setUp() throws Exception {
@@ -122,12 +118,11 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         settings = Settings.EMPTY;
         clusterService = mock(ClusterService.class);
         clientMock = spy(new NodeClient(settings, threadPool));
-        clock = mock(Clock.class);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         transportService = mock(TransportService.class);
 
-        channel = mock(ActionListener.class);
+        // channel = mock(ActionListener.class);
 
         anomalyDetectionIndices = mock(ADIndexManagement.class);
         when(anomalyDetectionIndices.doesConfigIndexExist()).thenReturn(true);
@@ -149,6 +144,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
 
         maxAnomalyFeatures = 5;
 
+        maxCategoricalFields = 2;
+
         method = RestRequest.Method.POST;
 
         adTaskManager = mock(ADTaskManager.class);
@@ -160,7 +157,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientMock,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -171,6 +167,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -188,7 +185,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         );
     }
 
-    public void testMoreThanTenThousandSingleEntityDetectors() throws IOException {
+    public void testMoreThanTenThousandSingleEntityDetectors() throws IOException, InterruptedException {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = 1001;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -210,7 +207,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientSpy,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -222,6 +218,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -230,23 +227,27 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        handler.start();
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof IllegalArgumentException);
+            String errorMsg = String
+                .format(
+                    Locale.ROOT,
+                    IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_STREAM_DETECTORS_PREFIX_MSG,
+                    maxSingleEntityAnomalyDetectors
+                );
+            assertTrue(e.getMessage().contains(errorMsg));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
         verify(clientMock, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof IllegalArgumentException);
-        String errorMsg = String
-            .format(
-                Locale.ROOT,
-                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG,
-                maxSingleEntityAnomalyDetectors
-            );
-        assertTrue(value.getMessage().contains(errorMsg));
     }
 
     @SuppressWarnings("unchecked")
-    public void testTextField() throws IOException {
+    public void testTextField() throws IOException, InterruptedException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
@@ -288,7 +289,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             client,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -299,6 +299,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -307,18 +308,19 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-
-        handler.start();
-
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof Exception);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.CATEGORICAL_FIELD_TYPE_ERR_MSG));
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e.getMessage().contains(CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     @SuppressWarnings("unchecked")
-    private void testValidTypeTemplate(String filedTypeName) throws IOException {
+    private void testValidTypeTemplate(String filedTypeName) throws IOException, InterruptedException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
@@ -375,7 +377,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientSpy,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -386,6 +387,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -394,27 +396,32 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-
-        handler.start();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof IllegalArgumentException);
+            String errorMsg = String
+                .format(Locale.ROOT, IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG, "[" + detector.getIndices().get(0) + "]");
+            assertTrue("actual: " + e.getMessage(), e.getMessage().contains(errorMsg));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
         verify(clientSpy, times(2)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
     }
 
-    public void testIpField() throws IOException {
+    public void testIpField() throws IOException, InterruptedException {
         testValidTypeTemplate(CommonName.IP_TYPE);
     }
 
-    public void testKeywordField() throws IOException {
+    public void testKeywordField() throws IOException, InterruptedException {
         testValidTypeTemplate(CommonName.KEYWORD_TYPE);
     }
 
     @SuppressWarnings("unchecked")
-    private void testUpdateTemplate(String fieldTypeName) throws IOException {
+    private void testUpdateTemplate(String fieldTypeName) throws IOException, InterruptedException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
@@ -473,7 +480,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientSpy,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -484,6 +490,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
@@ -492,32 +499,35 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
-
-        handler.start();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            if (fieldTypeName.equals(CommonName.IP_TYPE) || fieldTypeName.equals(CommonName.KEYWORD_TYPE)) {
+                assertTrue(e.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
+            } else {
+                assertTrue(e.getMessage().contains(CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG));
+            }
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
         verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        if (fieldTypeName.equals(CommonName.IP_TYPE) || fieldTypeName.equals(CommonName.KEYWORD_TYPE)) {
-            assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
-        } else {
-            assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.CATEGORICAL_FIELD_TYPE_ERR_MSG));
-        }
     }
 
     @Ignore
-    public void testUpdateIpField() throws IOException {
+    public void testUpdateIpField() throws IOException, InterruptedException {
         testUpdateTemplate(CommonName.IP_TYPE);
     }
 
     @Ignore
-    public void testUpdateKeywordField() throws IOException {
+    public void testUpdateKeywordField() throws IOException, InterruptedException {
         testUpdateTemplate(CommonName.KEYWORD_TYPE);
     }
 
     @Ignore
-    public void testUpdateTextField() throws IOException {
+    public void testUpdateTextField() throws IOException, InterruptedException {
         testUpdateTemplate(TEXT_FIELD_TYPE);
     }
 
@@ -556,8 +566,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         };
     }
 
-    @SuppressWarnings("unchecked")
-    public void testMoreThanTenMultiEntityDetectors() throws IOException {
+    public void testMoreThanTenMultiEntityDetectors() throws IOException, InterruptedException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
         SearchResponse detectorResponse = mock(SearchResponse.class);
@@ -579,7 +588,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientSpy,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -590,6 +598,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -598,24 +607,28 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        handler.start();
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof IllegalArgumentException);
+            String errorMsg = String
+                .format(
+                    Locale.ROOT,
+                    IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_HC_DETECTORS_PREFIX_MSG,
+                    maxMultiEntityAnomalyDetectors
+                );
+            assertTrue(e.getMessage().contains(errorMsg));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
         verify(clientSpy, times(1)).search(any(SearchRequest.class), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof IllegalArgumentException);
-        String errorMsg = String
-            .format(
-                Locale.ROOT,
-                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG,
-                maxMultiEntityAnomalyDetectors
-            );
-        assertTrue(value.getMessage().contains(errorMsg));
     }
 
     @Ignore
     @SuppressWarnings("unchecked")
-    public void testTenMultiEntityDetectorsUpdateSingleEntityAdToMulti() throws IOException {
+    public void testTenMultiEntityDetectorsUpdateSingleEntityAdToMulti() throws IOException, InterruptedException {
         int totalHits = 10;
         AnomalyDetector existingDetector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, null);
         GetResponse getDetectorResponse = TestHelpers
@@ -667,7 +680,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientMock,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -678,6 +690,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
@@ -686,20 +699,24 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        handler.start();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof IllegalArgumentException);
+            assertTrue(e.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_HC_DETECTORS_PREFIX_MSG));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(1)).search(any(SearchRequest.class), any());
         verify(clientMock, times(1)).get(any(GetRequest.class), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof IllegalArgumentException);
-        assertTrue(value.getMessage().contains(IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG));
     }
 
     @Ignore
     @SuppressWarnings("unchecked")
-    public void testTenMultiEntityDetectorsUpdateExistingMultiEntityAd() throws IOException {
+    public void testTenMultiEntityDetectorsUpdateExistingMultiEntityAd() throws IOException, InterruptedException {
         int totalHits = 10;
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
         GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
@@ -750,7 +767,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             clientMock,
             clientUtil,
             transportService,
-            channel,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -761,6 +777,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             RestRequest.Method.PUT,
             xContentRegistry(),
             null,
@@ -769,15 +786,19 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             Settings.EMPTY
         );
 
-        handler.start();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should throw eror", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            // make sure execution passes all necessary checks
+            assertTrue(e instanceof IllegalStateException);
+            assertTrue(e.getMessage().contains("NodeClient has not been initialized"));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
         verify(clientMock, times(0)).search(any(SearchRequest.class), any());
         verify(clientMock, times(1)).get(any(GetRequest.class), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        // make sure execution passes all necessary checks
-        assertTrue(value instanceof IllegalStateException);
-        assertTrue(value.getMessage().contains("NodeClient has not been initialized"));
     }
 }

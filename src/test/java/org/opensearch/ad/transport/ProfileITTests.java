@@ -16,10 +16,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
-import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.ProfileName;
+import org.opensearch.timeseries.transport.ProfileRequest;
+import org.opensearch.timeseries.transport.ProfileResponse;
 
 public class ProfileITTests extends OpenSearchIntegTestCase {
 
@@ -33,9 +35,9 @@ public class ProfileITTests extends OpenSearchIntegTestCase {
     }
 
     public void testNormalProfile() throws ExecutionException, InterruptedException {
-        ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<DetectorProfileName>(), false);
+        ProfileRequest profileRequest = new ProfileRequest("123", new HashSet<ProfileName>());
 
-        ProfileResponse response = client().execute(ProfileAction.INSTANCE, profileRequest).get();
+        ProfileResponse response = client().execute(ADProfileAction.INSTANCE, profileRequest).get();
         assertTrue("getting profile failed", !response.hasFailures());
     }
 }

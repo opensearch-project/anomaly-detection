@@ -19,7 +19,6 @@ import static org.opensearch.timeseries.MemoryTracker.Origin.HISTORICAL_SINGLE_E
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -142,7 +141,7 @@ public class ADTaskCacheManager extends TaskCacheManager {
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
         // It's possible that multiple entity tasks of one detector run on same data node.
-        if (!adTask.isEntityTask() && containsTaskOfDetector(detectorId)) {
+        if (!adTask.isHistoricalEntityTask() && containsTaskOfDetector(detectorId)) {
             throw new DuplicateTaskException(DETECTOR_IS_RUNNING);
         }
         checkRunningTaskLimit();
@@ -154,7 +153,7 @@ public class ADTaskCacheManager extends TaskCacheManager {
         ADBatchTaskCache taskCache = new ADBatchTaskCache(adTask);
         taskCache.getCacheMemorySize().set(neededCacheSize);
         batchTaskCaches.put(taskId, taskCache);
-        if (adTask.isEntityTask()) {
+        if (adTask.isHistoricalEntityTask()) {
             ADHCBatchTaskRunState hcBatchTaskRunState = getHCBatchTaskRunState(detectorId, adTask.getConfigLevelTaskId());
             if (hcBatchTaskRunState != null) {
                 hcBatchTaskRunState.setLastTaskRunTimeInMillis(Instant.now().toEpochMilli());
@@ -243,16 +242,6 @@ public class ADTaskCacheManager extends TaskCacheManager {
     }
 
     /**
-     * Get shingle data.
-     *
-     * @param taskId AD task id
-     * @return shingle data
-     */
-    public Deque<Map.Entry<Long, Optional<double[]>>> getShingle(String taskId) {
-        return getBatchTaskCache(taskId).getShingle();
-    }
-
-    /**
      * Check if task exists in cache.
      *
      * @param taskId task id
@@ -324,7 +313,7 @@ public class ADTaskCacheManager extends TaskCacheManager {
                 TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
                 detector.getShingleSize().intValue(),
                 TimeSeriesSettings.NUM_SAMPLES_PER_TREE
-            ) + shingleMemorySize(detector.getShingleSize(), detector.getEnabledFeatureIds().size());
+            );
     }
 
     /**
@@ -339,14 +328,7 @@ public class ADTaskCacheManager extends TaskCacheManager {
         RandomCutForest rcfForest = tRCF.getForest();
         int dimensions = rcfForest.getDimensions();
         int numberOfTrees = rcfForest.getNumberOfTrees();
-        return memoryTracker
-            .estimateTRCFModelSize(
-                dimensions,
-                numberOfTrees,
-                TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO,
-                1,
-                TimeSeriesSettings.NUM_SAMPLES_PER_TREE
-            );
+        return memoryTracker.estimateTRCFModelSize(dimensions, numberOfTrees, TimeSeriesSettings.BATCH_BOUNDING_BOX_CACHE_RATIO, 1, 256);
     }
 
     /**
@@ -519,22 +501,6 @@ public class ADTaskCacheManager extends TaskCacheManager {
      */
     public long trainingDataMemorySize(int size) {
         return numberSize * size;
-    }
-
-    /**
-     * Estimate max memory usage of shingle data.
-     * One feature aggregated data point(double) consumes 8 bytes.
-     * The shingle data is stored in {@link java.util.Deque}. From testing,
-     * other parts except feature data consume 80 bytes.
-     *
-     * Check {@link ADBatchTaskCache#getShingle()}
-     *
-     * @param shingleSize shingle data point count
-     * @param enabledFeatureSize enabled feature count
-     * @return how many bytes will consume
-     */
-    public long shingleMemorySize(int shingleSize, int enabledFeatureSize) {
-        return (80 + numberSize * enabledFeatureSize) * shingleSize;
     }
 
     /**

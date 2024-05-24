@@ -21,7 +21,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
@@ -42,7 +41,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      * @param client                  ES node client that executes actions on the local node
      * @param clientUtil              AD client util
      * @param transportService        ES transport service
-     * @param listener                 ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices anomaly detector index manager
      * @param detectorId              detector identifier
      * @param seqNo                   sequence number of last modification
@@ -50,9 +48,10 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      * @param refreshPolicy           refresh policy
      * @param anomalyDetector         anomaly detector instance
      * @param requestTimeout          request time out configuration
-     * @param maxSingleEntityAnomalyDetectors     max single-entity anomaly detectors allowed
-     * @param maxMultiEntityAnomalyDetectors      max multi-entity detectors allowed
-     * @param maxAnomalyFeatures      max features allowed per detector
+     * @param maxSingleStreamDetectors max single-stream anomaly detectors allowed
+     * @param maxHCDetectors          max HC detectors allowed
+     * @param maxFeatures             max features allowed per detector
+     * @param maxCategoricalFields    max number of categorical fields
      * @param method                  Rest Method type
      * @param xContentRegistry        Registry which is used for XContentParser
      * @param user                    User context
@@ -65,7 +64,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         Client client,
         SecurityClientUtil clientUtil,
         TransportService transportService,
-        ActionListener<IndexAnomalyDetectorResponse> listener,
         ADIndexManagement anomalyDetectionIndices,
         String detectorId,
         Long seqNo,
@@ -73,9 +71,10 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         WriteRequest.RefreshPolicy refreshPolicy,
         AnomalyDetector anomalyDetector,
         TimeValue requestTimeout,
-        Integer maxSingleEntityAnomalyDetectors,
-        Integer maxMultiEntityAnomalyDetectors,
-        Integer maxAnomalyFeatures,
+        Integer maxSingleStreamDetectors,
+        Integer maxHCDetectors,
+        Integer maxFeatures,
+        Integer maxCategoricalFields,
         RestRequest.Method method,
         NamedXContentRegistry xContentRegistry,
         User user,
@@ -88,7 +87,6 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
             client,
             clientUtil,
             transportService,
-            listener,
             anomalyDetectionIndices,
             detectorId,
             seqNo,
@@ -96,9 +94,10 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
             refreshPolicy,
             anomalyDetector,
             requestTimeout,
-            maxSingleEntityAnomalyDetectors,
-            maxMultiEntityAnomalyDetectors,
-            maxAnomalyFeatures,
+            maxSingleStreamDetectors,
+            maxHCDetectors,
+            maxFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry,
             user,
@@ -109,13 +108,5 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
             null,
             settings
         );
-    }
-
-    /**
-     * Start function to process create/update anomaly detector request.
-     */
-    @Override
-    public void start() {
-        super.start();
     }
 }

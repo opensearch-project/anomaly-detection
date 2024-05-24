@@ -18,6 +18,8 @@ import java.util.concurrent.ExecutionException;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.transport.StatsNodesResponse;
+import org.opensearch.timeseries.transport.StatsRequest;
 
 public class ADStatsITTests extends OpenSearchIntegTestCase {
 
@@ -31,9 +33,9 @@ public class ADStatsITTests extends OpenSearchIntegTestCase {
     }
 
     public void testNormalADStats() throws ExecutionException, InterruptedException {
-        ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
+        StatsRequest adStatsRequest = new StatsRequest(new String[0]);
 
-        ADStatsNodesResponse response = client().execute(ADStatsNodesAction.INSTANCE, adStatsRequest).get();
+        StatsNodesResponse response = client().execute(ADStatsNodesAction.INSTANCE, adStatsRequest).get();
         assertTrue("getting stats failed", !response.hasFailures());
     }
 }

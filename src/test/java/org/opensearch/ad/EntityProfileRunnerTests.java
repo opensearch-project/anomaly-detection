@@ -33,14 +33,7 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.EntityProfile;
-import org.opensearch.ad.model.EntityProfileName;
-import org.opensearch.ad.model.EntityState;
-import org.opensearch.ad.model.InitProgressProfile;
-import org.opensearch.ad.model.ModelProfile;
-import org.opensearch.ad.model.ModelProfileOnNode;
-import org.opensearch.ad.transport.EntityProfileAction;
-import org.opensearch.ad.transport.EntityProfileResponse;
+import org.opensearch.ad.transport.ADEntityProfileAction;
 import org.opensearch.client.Client;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
@@ -60,8 +53,15 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.EntityProfile;
+import org.opensearch.timeseries.model.EntityProfileName;
+import org.opensearch.timeseries.model.EntityState;
+import org.opensearch.timeseries.model.InitProgressProfile;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.ModelProfile;
+import org.opensearch.timeseries.model.ModelProfileOnNode;
+import org.opensearch.timeseries.transport.EntityProfileResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 
 public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
@@ -69,7 +69,7 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private int detectorIntervalMin;
     private Client client;
     private SecurityClientUtil clientUtil;
-    private EntityProfileRunner runner;
+    private ADEntityProfileRunner runner;
     private Set<EntityProfileName> state;
     private Set<EntityProfileName> initNInfo;
     private Set<EntityProfileName> model;
@@ -139,7 +139,7 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
         }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
 
-        runner = new EntityProfileRunner(client, clientUtil, xContentRegistry(), requiredSamples);
+        runner = new ADEntityProfileRunner(client, clientUtil, xContentRegistry(), requiredSamples);
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -220,7 +220,7 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
             listener.onResponse(profileResponseBuilder.build());
 
             return null;
-        }).when(client).execute(any(EntityProfileAction.class), any(), any());
+        }).when(client).execute(any(ADEntityProfileAction.class), any(), any());
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -400,7 +400,7 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
             assertTrue("Should not reach here", false);
             inProgressLatch.countDown();
         }, exception -> {
-            assertTrue(exception.getMessage().contains(EntityProfileRunner.NOT_HC_DETECTOR_ERR_MSG));
+            assertTrue(exception.getMessage().contains(ADEntityProfileRunner.NOT_HC_DETECTOR_ERR_MSG));
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));

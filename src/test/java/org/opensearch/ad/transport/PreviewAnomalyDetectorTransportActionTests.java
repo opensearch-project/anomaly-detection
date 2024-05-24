@@ -45,10 +45,8 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.feature.Features;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -74,6 +72,8 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.feature.FeatureManager;
+import org.opensearch.timeseries.feature.Features;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -85,7 +85,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private AnomalyDetectorRunner runner;
     private ClusterService clusterService;
     private FeatureManager featureManager;
-    private ModelManager modelManager;
+    private ADModelManager modelManager;
     private Task task;
     private CircuitBreakerService circuitBreaker;
 
@@ -127,7 +127,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         when(clusterService.state()).thenReturn(clusterState);
 
         featureManager = mock(FeatureManager.class);
-        modelManager = mock(ModelManager.class);
+        modelManager = mock(ADModelManager.class);
         runner = new AnomalyDetectorRunner(modelManager, featureManager, AnomalyDetectorSettings.MAX_PREVIEW_RESULTS);
         circuitBreaker = mock(CircuitBreakerService.class);
         when(circuitBreaker.isOpen()).thenReturn(false);
@@ -173,7 +173,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
 
-        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), anyInt());
+        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), anyInt(), anyInt());
 
         doAnswer(responseMock -> {
             Long startTime = responseMock.getArgument(1);
@@ -373,7 +373,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
                 Assert.assertTrue(false);
             }
         };
-        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), anyInt());
+        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), anyInt(), anyInt());
 
         doAnswer(responseMock -> {
             Long startTime = responseMock.getArgument(1);

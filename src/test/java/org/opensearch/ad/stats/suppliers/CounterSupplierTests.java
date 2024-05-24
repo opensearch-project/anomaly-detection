@@ -13,6 +13,7 @@ package org.opensearch.ad.stats.suppliers;
 
 import org.junit.Test;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
 
 public class CounterSupplierTests extends OpenSearchTestCase {
     @Test

@@ -12,11 +12,11 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.constant.ADCommonValue;
 
 public class SearchTopAnomalyResultAction extends ActionType<SearchTopAnomalyResultResponse> {
     // External Action which used for public facing RestAPIs.
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "result/topAnomalies";
+    public static final String NAME = ADCommonValue.EXTERNAL_ACTION_PREFIX + "result/topAnomalies";
     public static final SearchTopAnomalyResultAction INSTANCE = new SearchTopAnomalyResultAction();
 
     private SearchTopAnomalyResultAction() {

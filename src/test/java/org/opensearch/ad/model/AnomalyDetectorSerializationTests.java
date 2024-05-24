@@ -14,6 +14,7 @@ package org.opensearch.ad.model;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Locale;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
@@ -72,7 +73,7 @@ public class AnomalyDetectorSerializationTests extends OpenSearchSingleNodeTestC
         detector.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyDetector parsedDetector = new AnomalyDetector(input);
-        assertTrue(parsedDetector.equals(detector));
+        assertTrue(String.format(Locale.ROOT, "expected %s, but got %s", detector, parsedDetector), detector.equals(parsedDetector));
     }
 
 }

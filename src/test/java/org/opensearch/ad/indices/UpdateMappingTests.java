@@ -17,6 +17,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,7 +56,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -77,7 +77,6 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
         resultIndexName = ".opendistro-anomaly-results-history-2020.06.24-000003";
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -111,9 +110,10 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
         when(clusterService.state()).thenReturn(clusterState);
 
         Map<String, IndexMetadata> openMap = new HashMap<>();
-        Metadata metadata = Metadata.builder().indices(openMap).build();
+        Metadata metadata = spy(Metadata.builder().indices(openMap).build());
         when(clusterState.getMetadata()).thenReturn(metadata);
         when(clusterState.metadata()).thenReturn(metadata);
+        when(metadata.hasIndex(anyString())).thenReturn(true);
 
         RoutingTable routingTable = mock(RoutingTable.class);
         when(clusterState.getRoutingTable()).thenReturn(routingTable);
@@ -136,11 +136,12 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
     public void testNoIndexToUpdate() {
         adIndices.update();
         verify(indicesAdminClient, never()).putMapping(any(), any());
-        // for an index, we may check doesAliasExists/doesIndexExists
-        verify(clusterService, times(5)).state();
+        // for an index, we may check doesAliasExists/doesIndexExists for both mapping and setting
+        // 5 indices * mapping/setting checks = 10
+        verify(clusterService, times(10)).state();
         adIndices.update();
         // we will not trigger new check since we have checked all indices before
-        verify(clusterService, times(5)).state();
+        verify(clusterService, times(10)).state();
     }
 
     @SuppressWarnings({ "serial", "unchecked" })
@@ -168,7 +169,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
                     put(ADIndexManagement.META, new HashMap<String, Object>() {
                         {
                             // version 1 will cause update
-                            put(CommonName.SCHEMA_VERSION_FIELD, 1);
+                            put(org.opensearch.timeseries.constant.CommonName.SCHEMA_VERSION_FIELD, 1);
                         }
                     });
                 }

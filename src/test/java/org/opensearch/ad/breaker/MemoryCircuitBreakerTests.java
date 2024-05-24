@@ -61,7 +61,7 @@ public class MemoryCircuitBreakerTests {
     public void testIsOpen2() {
         CircuitBreaker breaker = new MemoryCircuitBreaker(jvmService);
 
-        when(mem.getHeapUsedPercent()).thenReturn((short) 95);
+        when(mem.getHeapUsedPercent()).thenReturn((short) 96);
         assertThat(breaker.isOpen(), equalTo(true));
     }
 
@@ -69,7 +69,7 @@ public class MemoryCircuitBreakerTests {
     public void testIsOpen3() {
         CircuitBreaker breaker = new MemoryCircuitBreaker((short) 90, jvmService);
 
-        when(mem.getHeapUsedPercent()).thenReturn((short) 95);
+        when(mem.getHeapUsedPercent()).thenReturn((short) 96);
         assertThat(breaker.isOpen(), equalTo(true));
     }
 }

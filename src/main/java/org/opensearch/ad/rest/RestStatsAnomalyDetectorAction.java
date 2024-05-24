@@ -14,47 +14,36 @@ package org.opensearch.ad.rest;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BASE_URI;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.transport.ADStatsRequest;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.core.common.Strings;
-import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
+import org.opensearch.timeseries.rest.RestStatsAction;
+import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import com.google.common.collect.ImmutableList;
 
 /**
- * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from the anomaly detector plugin.
+ * RestStatsAnomalyDetectorAction consists of the REST handler to get the stats from AD.
  */
-public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
+public class RestStatsAnomalyDetectorAction extends RestStatsAction {
 
     private static final String STATS_ANOMALY_DETECTOR_ACTION = "stats_anomaly_detector";
-    private ADStats adStats;
-    private ClusterService clusterService;
-    private DiscoveryNodeFilterer nodeFilter;
 
     /**
      * Constructor
      *
-     * @param adStats ADStats object
+     * @param timeSeriesStats TimeSeriesStats object
      * @param nodeFilter util class to get eligible data nodes
      */
-    public RestStatsAnomalyDetectorAction(ADStats adStats, DiscoveryNodeFilterer nodeFilter) {
-        this.adStats = adStats;
-        this.nodeFilter = nodeFilter;
+    public RestStatsAnomalyDetectorAction(ADStats timeSeriesStats, DiscoveryNodeFilterer nodeFilter) {
+        super(timeSeriesStats, nodeFilter);
     }
 
     @Override
@@ -67,62 +56,8 @@ public class RestStatsAnomalyDetectorAction extends BaseRestHandler {
         if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }
-        ADStatsRequest adStatsRequest = getRequest(request);
+        StatsRequest adStatsRequest = getRequest(request);
         return channel -> client.execute(StatsAnomalyDetectorAction.INSTANCE, adStatsRequest, new RestToXContentListener<>(channel));
-    }
-
-    /**
-     * Creates a ADStatsRequest from a RestRequest
-     *
-     * @param request RestRequest
-     * @return ADStatsRequest Request containing stats to be retrieved
-     */
-    private ADStatsRequest getRequest(RestRequest request) {
-        // parse the nodes the user wants to query the stats for
-        String nodesIdsStr = request.param("nodeId");
-        Set<String> validStats = adStats.getStats().keySet();
-
-        ADStatsRequest adStatsRequest = null;
-        if (!Strings.isEmpty(nodesIdsStr)) {
-            String[] nodeIdsArr = nodesIdsStr.split(",");
-            adStatsRequest = new ADStatsRequest(nodeIdsArr);
-        } else {
-            DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
-            adStatsRequest = new ADStatsRequest(dataNodes);
-        }
-
-        adStatsRequest.timeout(request.param("timeout"));
-
-        // parse the stats the user wants to see
-        HashSet<String> statsSet = null;
-        String statsStr = request.param("stat");
-        if (!Strings.isEmpty(statsStr)) {
-            statsSet = new HashSet<>(Arrays.asList(statsStr.split(",")));
-        }
-
-        if (statsSet == null) {
-            adStatsRequest.addAll(validStats); // retrieve all stats if none are specified
-        } else if (statsSet.size() == 1 && statsSet.contains(ADStatsRequest.ALL_STATS_KEY)) {
-            adStatsRequest.addAll(validStats);
-        } else if (statsSet.contains(ADStatsRequest.ALL_STATS_KEY)) {
-            throw new IllegalArgumentException(
-                "Request " + request.path() + " contains " + ADStatsRequest.ALL_STATS_KEY + " and individual stats"
-            );
-        } else {
-            Set<String> invalidStats = new TreeSet<>();
-            for (String stat : statsSet) {
-                if (validStats.contains(stat)) {
-                    adStatsRequest.addStat(stat);
-                } else {
-                    invalidStats.add(stat);
-                }
-            }
-
-            if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(unrecognized(request, invalidStats, adStatsRequest.getStatsToBeRetrieved(), "stat"));
-            }
-        }
-        return adStatsRequest;
     }
 
     @Override

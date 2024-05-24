@@ -23,12 +23,12 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.SearchAnomalyDetectorInfoAction;
-import org.opensearch.ad.transport.SearchAnomalyDetectorInfoRequest;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.transport.SearchConfigInfoRequest;
 
 import com.google.common.collect.ImmutableList;
 
@@ -54,7 +54,7 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
         String detectorName = request.param("name", null);
         String rawPath = request.rawPath();
 
-        SearchAnomalyDetectorInfoRequest searchAnomalyDetectorInfoRequest = new SearchAnomalyDetectorInfoRequest(detectorName, rawPath);
+        SearchConfigInfoRequest searchAnomalyDetectorInfoRequest = new SearchConfigInfoRequest(detectorName, rawPath);
         return channel -> client
             .execute(SearchAnomalyDetectorInfoAction.INSTANCE, searchAnomalyDetectorInfoRequest, new RestToXContentListener<>(channel));
     }

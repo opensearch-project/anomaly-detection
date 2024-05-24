@@ -18,24 +18,20 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.TYPE;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.core.common.Strings;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
 import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
-import org.opensearch.timeseries.constant.CommonName;
-import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 
@@ -66,7 +62,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         boolean returnJob = request.paramAsBoolean("job", false);
         boolean returnTask = request.paramAsBoolean("task", false);
         boolean all = request.paramAsBoolean("_all", false);
-        GetAnomalyDetectorRequest getConfigRequest = new GetAnomalyDetectorRequest(
+        GetConfigRequest getConfigRequest = new GetConfigRequest(
             detectorId,
             RestActions.parseVersion(request),
             returnJob,
@@ -74,7 +70,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
             typesStr,
             rawPath,
             all,
-            buildEntity(request, detectorId)
+            RestHandlerUtils.buildEntity(request, detectorId)
         );
 
         return channel -> client.execute(GetAnomalyDetectorAction.INSTANCE, getConfigRequest, new RestToXContentListener<>(channel));
@@ -136,36 +132,5 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
                         )
                 )
             );
-    }
-
-    private Entity buildEntity(RestRequest request, String detectorId) throws IOException {
-        if (Strings.isEmpty(detectorId)) {
-            throw new IllegalStateException(ADCommonMessages.AD_ID_MISSING_MSG);
-        }
-
-        String entityName = request.param(ADCommonName.CATEGORICAL_FIELD);
-        String entityValue = request.param(CommonName.ENTITY_KEY);
-
-        if (entityName != null && entityValue != null) {
-            // single-stream profile request:
-            // GET _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress?category_field=<field-name>&entity=<value>
-            return Entity.createSingleAttributeEntity(entityName, entityValue);
-        } else if (request.hasContent()) {
-            /* HCAD profile request:
-             * GET _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress
-             * {
-             *     "entity": [{
-             *         "name": "clientip",
-             *         "value": "13.24.0.0"
-             *      }]
-             * }
-             */
-            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
-            if (entity.isPresent()) {
-                return entity.get();
-            }
-        }
-        // not a valid profile request with correct entity information
-        return null;
     }
 }

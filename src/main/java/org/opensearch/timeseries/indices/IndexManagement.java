@@ -157,7 +157,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         this.threadPool = threadPool;
         this.clusterService.addLocalNodeClusterManagerListener(this);
         this.nodeFilter = nodeFilter;
-        this.settings = Settings.builder().put("index.hidden", true).build();
+        this.settings = Settings.builder().put(IndexMetadata.SETTING_INDEX_HIDDEN, true).build();
         this.maxUpdateRunningTimes = maxUpdateRunningTimes;
         this.indexType = indexType;
         this.maxPrimaryShards = maxPrimaryShards;
@@ -259,7 +259,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                     .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, getNumberOfPrimaryShards())
                     // 1 replica for better search performance and fail-over
                     .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
-                    .put("index.hidden", hiddenIndex)
+                    .put(IndexMetadata.SETTING_INDEX_HIDDEN, hiddenIndex)
             );
     }
 
@@ -492,7 +492,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                         // accordingly.
                         // At least 1 replica for fail-over.
                         .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, minJobIndexReplicas + "-" + maxJobIndexReplicas)
-                        .put("index.hidden", true)
+                        .put(IndexMetadata.SETTING_INDEX_HIDDEN, true)
                 );
             adminClient.indices().create(request, actionListener);
         } catch (IOException e) {
@@ -501,10 +501,42 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }
     }
 
-    public <T> void validateCustomResultIndexAndExecute(String resultIndex, ExecutorFunction function, ActionListener<T> listener) {
+    /**
+     * Validates the result index and executes the provided function.
+     *
+     * <p>
+     * This method first checks if the mapping for the given result index is valid. If the mapping is not validated
+     * and is found to be invalid, the method logs a warning and notifies the listener of the failure.
+     * </p>
+     *
+     * <p>
+     * If the mapping is valid or has been previously validated, the method attempts to write and then immediately
+     * delete a dummy forecast result to the index. This is a workaround to verify the user's write permission on
+     * the custom result index, as there is currently no straightforward method to check for write permissions directly.
+     * </p>
+     *
+     * <p>
+     * If both write and delete operations are successful, the provided function is executed. If any step fails,
+     * the method logs an error and notifies the listener of the failure.
+     * </p>
+     *
+     * @param <T>               The type of the action listener's response.
+     * @param resultIndex       The custom result index to validate.
+     * @param function          The function to be executed if validation is successful.
+     * @param mappingValidated  Indicates whether the mapping for the result index has been previously validated.
+     * @param listener          The listener to be notified of the success or failure of the operation.
+     *
+     * @throws IllegalArgumentException If the result index mapping is found to be invalid.
+     */
+    public <T> void validateResultIndexAndExecute(
+        String resultIndex,
+        ExecutorFunction function,
+        boolean mappingValidated,
+        ActionListener<T> listener
+    ) {
         try {
-            if (!isValidResultIndexMapping(resultIndex)) {
-                logger.warn("Can't create detector with custom result index {} as its mapping is invalid", resultIndex);
+            if (!mappingValidated && !isValidResultIndexMapping(resultIndex)) {
+                logger.warn("Can't create analysis with custom result index {} as its mapping is invalid", resultIndex);
                 listener.onFailure(new IllegalArgumentException(CommonMessages.INVALID_RESULT_INDEX_MAPPING + resultIndex));
                 return;
             }
@@ -583,14 +615,14 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         );
         for (IndexType timeseriesIndex : updates) {
             logger.info(new ParameterizedMessage("Check [{}]'s setting", timeseriesIndex.getIndexName()));
-            if (timeseriesIndex.isJobIndex()) {
+            if (timeseriesIndex.isJobIndex() && doesIndexExist(timeseriesIndex.getIndexName())) {
                 updateJobIndexSettingIfNecessary(
                     ADIndex.JOB.getIndexName(),
                     indexStates.computeIfAbsent(timeseriesIndex, k -> new IndexState(k.getMapping())),
                     conglomerateListeneer
                 );
             } else {
-                // we don't have settings to update for other indices
+                // we don't have settings to update for other cases
                 IndexState indexState = indexStates.computeIfAbsent(timeseriesIndex, k -> new IndexState(k.getMapping()));
                 indexState.settingUpToDate = true;
                 logger.info(new ParameterizedMessage("Mark [{}]'s setting up-to-date", timeseriesIndex.getIndexName()));
@@ -629,20 +661,20 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             updates.size()
         );
 
-        for (IndexType adIndex : updates) {
-            logger.info(new ParameterizedMessage("Check [{}]'s mapping", adIndex.getIndexName()));
-            shouldUpdateIndex(adIndex, ActionListener.wrap(shouldUpdate -> {
+        for (IndexType index : updates) {
+            logger.info(new ParameterizedMessage("Check [{}]'s mapping", index.getIndexName()));
+            shouldUpdateIndex(index, ActionListener.wrap(shouldUpdate -> {
                 if (shouldUpdate) {
                     adminClient
                         .indices()
                         .putMapping(
-                            new PutMappingRequest().indices(adIndex.getIndexName()).source(adIndex.getMapping(), XContentType.JSON),
+                            new PutMappingRequest().indices(index.getIndexName()).source(index.getMapping(), XContentType.JSON),
                             ActionListener.wrap(putMappingResponse -> {
                                 if (putMappingResponse.isAcknowledged()) {
-                                    logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", adIndex.getIndexName()));
-                                    markMappingUpdated(adIndex);
+                                    logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", index.getIndexName()));
+                                    markMappingUpdated(index);
                                 } else {
-                                    logger.error(new ParameterizedMessage("Fail to update [{}]'s mapping", adIndex.getIndexName()));
+                                    logger.error(new ParameterizedMessage("Fail to update [{}]'s mapping", index.getIndexName()));
                                 }
                                 conglomerateListeneer.onResponse(null);
                             }, exception -> {
@@ -650,7 +682,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                                     .error(
                                         new ParameterizedMessage(
                                             "Fail to update [{}]'s mapping due to [{}]",
-                                            adIndex.getIndexName(),
+                                            index.getIndexName(),
                                             exception.getMessage()
                                         )
                                     );
@@ -661,14 +693,14 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                     // index does not exist or the version is already up-to-date.
                     // When creating index, new mappings will be used.
                     // We don't need to update it.
-                    logger.info(new ParameterizedMessage("We don't need to update [{}]'s mapping", adIndex.getIndexName()));
-                    markMappingUpdated(adIndex);
+                    logger.info(new ParameterizedMessage("We don't need to update [{}]'s mapping", index.getIndexName()));
+                    markMappingUpdated(index);
                     conglomerateListeneer.onResponse(null);
                 }
             }, exception -> {
                 logger
                     .error(
-                        new ParameterizedMessage("Fail to check whether we should update [{}]'s mapping", adIndex.getIndexName()),
+                        new ParameterizedMessage("Fail to check whether we should update [{}]'s mapping", index.getIndexName()),
                         exception
                     );
                 conglomerateListeneer.onFailure(exception);
@@ -737,7 +769,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             initCustomResultIndexDirectly(resultIndex, ActionListener.wrap(response -> {
                 if (response.isAcknowledged()) {
                     logger.info("Successfully created result index {}", resultIndex);
-                    validateCustomResultIndexAndExecute(resultIndex, function, listener);
+                    validateResultIndexAndExecute(resultIndex, function, false, listener);
                 } else {
                     String error = "Creating result index with mappings call not acknowledged: " + resultIndex;
                     logger.error(error);
@@ -746,14 +778,14 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             }, exception -> {
                 if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
                     // It is possible the index has been created while we sending the create request
-                    validateCustomResultIndexAndExecute(resultIndex, function, listener);
+                    validateResultIndexAndExecute(resultIndex, function, false, listener);
                 } else {
                     logger.error("Failed to create result index " + resultIndex, exception);
                     listener.onFailure(exception);
                 }
             }));
         } else {
-            validateCustomResultIndexAndExecute(resultIndex, function, listener);
+            validateResultIndexAndExecute(resultIndex, function, false, listener);
         }
     }
 
@@ -779,10 +811,10 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                 injectSecurity.close();
                 listener.onFailure(e);
             });
-            validateCustomResultIndexAndExecute(resultIndex, () -> {
+            validateResultIndexAndExecute(resultIndex, () -> {
                 injectSecurity.close();
                 function.execute();
-            }, wrappedListener);
+            }, true, wrappedListener);
         } catch (Exception e) {
             logger.error("Failed to validate custom index for backend job " + securityLogId, e);
             listener.onFailure(e);
@@ -863,7 +895,6 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                 return false;
             }
             LinkedHashMap<String, Object> mapping = (LinkedHashMap<String, Object>) indexMapping.get(propertyName);
-
             boolean correctResultIndexMapping = true;
 
             for (String fieldName : RESULT_FIELD_CONFIGS.keySet()) {
@@ -874,6 +905,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                 // feature_id={type=keyword}}}}}
                 // if it is a map of map, Object.equals can compare them regardless of order
                 if (!mapping.containsKey(fieldName) || !defaultSchema.equals(mapping.get(fieldName))) {
+                    logger.warn("mapping mismatch due to {}", fieldName);
                     correctResultIndexMapping = false;
                     break;
                 }

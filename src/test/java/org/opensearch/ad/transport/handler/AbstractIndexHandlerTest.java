@@ -29,9 +29,11 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlocks;
+import org.opensearch.cluster.coordination.NoClusterManagerBlockService;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -42,6 +44,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.timeseries.util.IndexUtils;
 
 public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
     enum IndexCreation {
@@ -92,7 +95,7 @@ public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
         setWriteBlockAdResultIndex(false);
         context = TestHelpers.createThreadPool();
         clientUtil = new ClientUtil(client);
-        indexUtil = new IndexUtils(client, clientUtil, clusterService, indexNameResolver);
+        indexUtil = new IndexUtils(clusterService, indexNameResolver);
     }
 
     protected void setWriteBlockAdResultIndex(boolean blocked) {
@@ -105,7 +108,12 @@ public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
         when(indexNameResolver.concreteIndexNames(any(), any(), any(String.class))).thenReturn(new String[] { indexName });
     }
 
-    @SuppressWarnings("unchecked")
+    protected void setGlobalWriteBlocked() {
+        ClusterBlocks.Builder builder = ClusterBlocks.builder().addGlobalBlock(NoClusterManagerBlockService.NO_CLUSTER_MANAGER_BLOCK_ALL);
+        ClusterState blockedClusterState = ClusterState.builder(new ClusterName("test cluster")).blocks(builder).build();
+        when(clusterService.state()).thenReturn(blockedClusterState);
+    }
+
     protected void setUpSavingAnomalyResultIndex(boolean anomalyResultIndexExists, IndexCreation creationResult) throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();

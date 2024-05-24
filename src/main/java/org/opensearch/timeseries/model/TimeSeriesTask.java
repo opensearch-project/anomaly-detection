@@ -41,6 +41,8 @@ public abstract class TimeSeriesTask implements ToXContentObject, Writeable {
     public static final String ESTIMATED_MINUTES_LEFT_FIELD = "estimated_minutes_left";
     public static final String USER_FIELD = "user";
     public static final String HISTORICAL_TASK_PREFIX = "HISTORICAL";
+    public static final String RUN_ONCE_TASK_PREFIX = "RUN_ONCE";
+    public static final String REAL_TIME_TASK_PREFIX = "REALTIME";
 
     protected String configId = null;
     protected String taskId = null;
@@ -198,6 +200,14 @@ public abstract class TimeSeriesTask implements ToXContentObject, Writeable {
 
     public boolean isHistoricalTask() {
         return taskType.startsWith(TimeSeriesTask.HISTORICAL_TASK_PREFIX);
+    }
+
+    public boolean isRunOnceTask() {
+        return taskType.startsWith(TimeSeriesTask.RUN_ONCE_TASK_PREFIX);
+    }
+
+    public boolean isRealTimeTask() {
+        return taskType.startsWith(TimeSeriesTask.REAL_TIME_TASK_PREFIX);
     }
 
     /**
@@ -440,7 +450,7 @@ public abstract class TimeSeriesTask implements ToXContentObject, Writeable {
             );
     }
 
-    public abstract boolean isEntityTask();
+    public abstract boolean isHistoricalEntityTask();
 
     public String getEntityModelId() {
         return entity == null ? null : entity.getModelId(configId).orElse(null);

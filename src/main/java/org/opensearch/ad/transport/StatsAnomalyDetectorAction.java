@@ -12,15 +12,16 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.constant.ADCommonValue;
+import org.opensearch.timeseries.transport.StatsTimeSeriesResponse;
 
-public class StatsAnomalyDetectorAction extends ActionType<StatsAnomalyDetectorResponse> {
+public class StatsAnomalyDetectorAction extends ActionType<StatsTimeSeriesResponse> {
     // External Action which used for public facing RestAPIs.
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/stats";
+    public static final String NAME = ADCommonValue.EXTERNAL_ACTION_PREFIX + "detector/stats";
     public static final StatsAnomalyDetectorAction INSTANCE = new StatsAnomalyDetectorAction();
 
     private StatsAnomalyDetectorAction() {
-        super(NAME, StatsAnomalyDetectorResponse::new);
+        super(NAME, StatsTimeSeriesResponse::new);
     }
 
 }
