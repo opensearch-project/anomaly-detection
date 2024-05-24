@@ -94,7 +94,8 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             requestTimeout,
             maxSingleEntityDetectors,
             maxMultiEntityDetectors,
-            maxAnomalyFeatures
+            maxAnomalyFeatures,
+            maxCategoricalFields
         );
 
         return channel -> client

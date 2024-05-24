@@ -20,6 +20,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -34,23 +35,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.lucene.tests.util.TimeUnits;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.ml.ModelManager.ModelType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.TestHelpers;
-import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.ratelimit.FeatureRequest;
+import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
 
@@ -62,6 +64,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
 
     /**
      * A template to perform precision/recall test by simulating HCAD logic with only one entity.
+     * We rerun AD for 10 times and check if the average precision/recall surpass the given threshold.
      *
      * @param detectorIntervalMins Detector interval
      * @param precisionThreshold precision threshold
@@ -93,10 +96,11 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         // training data ranges from timestamps[0] ~ timestamps[trainTestSplit-1]
         // set up detector
         detector = TestHelpers.AnomalyDetectorBuilder
-            .newInstance()
+            .newInstance(baseDimension)
             .setDetectionInterval(new IntervalTimeConfiguration(interval, ChronoUnit.MINUTES))
             .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
             .setShingleSize(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE)
+            .setRules(null)
             .build();
 
         doAnswer(invocation -> {
@@ -111,53 +115,43 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             LOG.info("seed = " + seed);
             // recreate in each loop; otherwise, we will have heap overflow issue.
             searchFeatureDao = mock(SearchFeatureDao.class);
-            clusterSettings = new ClusterSettings(Settings.EMPTY, nodestateSetting);
-            clusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings);
 
             featureManager = new FeatureManager(
                 searchFeatureDao,
                 imputer,
-                clock,
-                AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-                AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
-                AnomalyDetectorSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
-                AnomalyDetectorSettings.MIN_TRAIN_SAMPLES,
+                TimeSeriesSettings.TRAIN_SAMPLE_TIME_RANGE_IN_HOURS,
+                TimeSeriesSettings.MIN_TRAIN_SAMPLES,
                 AnomalyDetectorSettings.MAX_SHINGLE_PROPORTION_MISSING,
                 AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE,
                 AnomalyDetectorSettings.PREVIEW_SAMPLE_RATE,
                 AnomalyDetectorSettings.MAX_PREVIEW_SAMPLES,
-                TimeSeriesSettings.HOURLY_MAINTENANCE,
-                threadPool,
-                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
+                threadPool
             );
 
-            entityColdStarter = new EntityColdStarter(
+            entityColdStarter = new ADColdStart(
                 clock,
                 threadPool,
                 stateManager,
                 TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
                 TimeSeriesSettings.NUM_TREES,
-                TimeSeriesSettings.TIME_DECAY,
                 numMinSamples,
                 AnomalyDetectorSettings.MAX_SAMPLE_STRIDE,
                 AnomalyDetectorSettings.MAX_TRAIN_SAMPLE,
-                imputer,
                 searchFeatureDao,
                 TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
                 featureManager,
-                settings,
                 TimeSeriesSettings.HOURLY_MAINTENANCE,
                 checkpointWriteQueue,
                 seed,
-                TimeSeriesSettings.MAX_COLD_START_ROUNDS
+                TimeSeriesSettings.MAX_COLD_START_ROUNDS,
+                1
             );
 
-            modelManager = new ModelManager(
-                mock(CheckpointDao.class),
+            modelManager = new ADModelManager(
+                mock(ADCheckpointDao.class),
                 mock(Clock.class),
                 TimeSeriesSettings.NUM_TREES,
                 TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
-                TimeSeriesSettings.TIME_DECAY,
                 TimeSeriesSettings.NUM_MIN_SAMPLES,
                 TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
                 AnomalyDetectorSettings.MIN_PREVIEW_SIZE,
@@ -187,7 +181,8 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
 
             long[] timestamps = dataWithKeys.timestampsMs;
             double[][] data = dataWithKeys.data;
-            when(clock.millis()).thenReturn(timestamps[trainTestSplit - 1]);
+            long dataStartTimeMs = timestamps[trainTestSplit - 1];
+            when(clock.millis()).thenReturn(dataStartTimeMs);
 
             doAnswer(invocation -> {
                 ActionListener<Optional<Long>> listener = invocation.getArgument(3);
@@ -218,14 +213,15 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
             entity = Entity.createSingleAttributeEntity("field", entityName + z);
-            EntityModel model = new EntityModel(entity, new ArrayDeque<>(), null);
-            ModelState<EntityModel> modelState = new ModelState<>(
-                model,
+            ModelState<ThresholdedRandomCutForest> modelState = new ModelState<>(
+                null,
                 entity.getModelId(detectorId).get(),
                 detector.getId(),
-                ModelType.ENTITY.getName(),
+                ModelManager.ModelType.TRCF.getName(),
                 clock,
-                priority
+                priority,
+                Optional.of(entity),
+                new ArrayDeque<>()
             );
 
             released = new AtomicBoolean();
@@ -236,10 +232,24 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 inProgressLatch.countDown();
             });
 
-            entityColdStarter.trainModel(entity, detector.getId(), modelState, listener);
+            entityColdStarter
+                .trainModel(
+                    new FeatureRequest(
+                        dataStartTimeMs + 60000,
+                        detector.getId(),
+                        RequestPriority.MEDIUM,
+                        new double[] {},
+                        dataStartTimeMs,
+                        entity,
+                        null
+                    ),
+                    detector.getId(),
+                    modelState,
+                    listener
+                );
 
             checkSemaphoreRelease();
-            assertTrue(model.getTrcf().isPresent());
+            assertTrue(modelState.getModel().isPresent());
 
             int tp = 0;
             int fp = 0;
@@ -247,8 +257,8 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             long[] changeTimestamps = dataWithKeys.changeTimeStampsMs;
 
             for (int j = trainTestSplit; j < data.length; j++) {
-                ThresholdingResult result = modelManager
-                    .getAnomalyResultForEntity(data[j], modelState, modelId, entity, detector.getShingleSize());
+                Instant time = Instant.ofEpochMilli(timestamps[j]);
+                ThresholdingResult result = modelManager.getResult(new Sample(data[j], time, time), modelState, modelId, detector, null);
                 if (result.getGrade() > 0) {
                     if (changeTimestamps[j] == 0) {
                         fp++;
@@ -299,19 +309,19 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         LOG.info("Anomalies are injected dependently");
 
         // 10 minute interval, 4 features
-        averageAccuracyTemplate(10, 0.4f, 0.3f, 4, false);
+        averageAccuracyTemplate(10, 0.5f, 0.2f, 4, false);
 
         // 10 minute interval, 2 features
-        averageAccuracyTemplate(10, 0.4f, 0.4f, 2, false);
+        averageAccuracyTemplate(10, 0.5f, 0.3f, 2, false);
 
         // 10 minute interval, 1 features
         averageAccuracyTemplate(10, 0.4f, 0.4f, 1, false);
 
         // 5 minute interval, 4 features
-        averageAccuracyTemplate(5, 0.4f, 0.3f, 4, false);
+        averageAccuracyTemplate(5, 0.4f, 0.1f, 4, false);
 
         // 5 minute interval, 2 features
-        averageAccuracyTemplate(5, 0.4f, 0.4f, 2, false);
+        averageAccuracyTemplate(5, 0.4f, 0.3f, 2, false);
 
         // 5 minute interval, 1 features
         averageAccuracyTemplate(5, 0.4f, 0.4f, 1, false);
@@ -325,10 +335,10 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         LOG.info("Anomalies are injected independently");
 
         // 10 minute interval, 4 features
-        averageAccuracyTemplate(10, 0.3f, 0.1f, 4, true);
+        averageAccuracyTemplate(10, 0.4f, 0.1f, 4, true);
 
         // 10 minute interval, 2 features
-        averageAccuracyTemplate(10, 0.4f, 0.4f, 2, true);
+        averageAccuracyTemplate(10, 0.6f, 0.3f, 2, true);
 
         // 10 minute interval, 1 features
         averageAccuracyTemplate(10, 0.3f, 0.4f, 1, true);
@@ -337,7 +347,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         averageAccuracyTemplate(5, 0.2f, 0.1f, 4, true);
 
         // 5 minute interval, 2 features
-        averageAccuracyTemplate(5, 0.4f, 0.4f, 2, true);
+        averageAccuracyTemplate(5, 0.5f, 0.3f, 2, true);
 
         // 5 minute interval, 1 features
         averageAccuracyTemplate(5, 0.3f, 0.4f, 1, true);

@@ -17,10 +17,10 @@ import java.util.function.Predicate;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.timeseries.constant.CommonName;
 
 /**
  * Util class to filter unwanted node types
@@ -91,8 +91,8 @@ public class DiscoveryNodeFilterer {
             return discoveryNode.isDataNode()
                 && discoveryNode
                     .getAttributes()
-                    .getOrDefault(ADCommonName.BOX_TYPE_KEY, ADCommonName.HOT_BOX_TYPE)
-                    .equals(ADCommonName.HOT_BOX_TYPE);
+                    .getOrDefault(CommonName.BOX_TYPE_KEY, CommonName.HOT_BOX_TYPE)
+                    .equals(CommonName.HOT_BOX_TYPE);
         }
     }
 }

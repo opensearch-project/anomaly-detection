@@ -21,9 +21,11 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.common.unit.TimeValue;
@@ -39,6 +41,7 @@ import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonValue;
@@ -47,10 +50,14 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ShingleGetter;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ParseUtils;
+
+import com.google.common.base.Objects;
 
 /**
  * An AnomalyDetector is used to represent anomaly detection model(RCF) related parameters.
@@ -59,6 +66,34 @@ import org.opensearch.timeseries.util.ParseUtils;
  *      in code rather than config it in anomaly-detection-state.json file.
  */
 public class AnomalyDetector extends Config {
+    static class ADShingleGetter implements ShingleGetter {
+        private Integer seasonIntervals;
+
+        public ADShingleGetter(Integer seasonIntervals) {
+            this.seasonIntervals = seasonIntervals;
+        }
+
+        /**
+         * If the given shingle size not null, return given shingle size;
+         * if seasonality not null, return seasonality hint / 2
+         * otherwise, return default shingle size.
+         *
+         * @param customShingleSize Given shingle size
+         * @return Shingle size
+         */
+        @Override
+        public Integer getShingleSize(Integer customShingleSize) {
+            if (customShingleSize != null) {
+                return customShingleSize;
+            }
+
+            if (seasonIntervals != null) {
+                return seasonIntervals / TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO;
+            }
+
+            return TimeSeriesSettings.DEFAULT_SHINGLE_SIZE;
+        }
+    }
 
     public static final String PARSE_FIELD_NAME = "AnomalyDetector";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
@@ -73,6 +108,7 @@ public class AnomalyDetector extends Config {
     public static final String DETECTOR_TYPE_FIELD = "detector_type";
     @Deprecated
     public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
+    public static final String RULES_FIELD = "rules";
 
     protected String detectorType;
 
@@ -83,6 +119,8 @@ public class AnomalyDetector extends Config {
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
         + " characters";
+
+    private List<Rule> rules;
 
     /**
      * Constructor function.
@@ -105,6 +143,10 @@ public class AnomalyDetector extends Config {
      * @param user              user to which detector is associated
      * @param resultIndex       result index
      * @param imputationOption interpolation method and optional default values
+     * @param recencyEmphasis Aggregation period to smooth the emphasis on the most recent data.
+     * @param seasonIntervals seasonality in terms of intervals
+     * @param historyIntervals history intervals we look back during cold start
+     * @param rules custom rules to filter out AD results
      */
     public AnomalyDetector(
         String detectorId,
@@ -124,7 +166,11 @@ public class AnomalyDetector extends Config {
         List<String> categoryFields,
         User user,
         String resultIndex,
-        ImputationOption imputationOption
+        ImputationOption imputationOption,
+        Integer recencyEmphasis,
+        Integer seasonIntervals,
+        Integer historyIntervals,
+        List<Rule> rules
     ) {
         super(
             detectorId,
@@ -144,7 +190,11 @@ public class AnomalyDetector extends Config {
             user,
             resultIndex,
             detectionInterval,
-            imputationOption
+            imputationOption,
+            recencyEmphasis,
+            seasonIntervals,
+            new ADShingleGetter(seasonIntervals),
+            historyIntervals
         );
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
@@ -166,6 +216,8 @@ public class AnomalyDetector extends Config {
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
 
         this.detectorType = isHC(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
+
+        this.rules = rules == null ? getDefaultRule() : rules;
     }
 
     /*
@@ -210,7 +262,12 @@ public class AnomalyDetector extends Config {
         } else {
             this.imputationOption = null;
         }
-        this.imputer = createImputer();
+        this.recencyEmphasis = input.readInt();
+        this.seasonIntervals = input.readInt();
+        this.historyIntervals = input.readInt();
+        if (input.readBoolean()) {
+            this.rules = input.readList(Rule::new);
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -264,6 +321,15 @@ public class AnomalyDetector extends Config {
         } else {
             output.writeBoolean(false);
         }
+        output.writeInt(recencyEmphasis);
+        output.writeInt(seasonIntervals);
+        output.writeInt(historyIntervals);
+        if (rules != null) {
+            output.writeBoolean(true);
+            output.writeList(rules);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     @Override
@@ -277,6 +343,9 @@ public class AnomalyDetector extends Config {
         }
         if (detectionDateRange != null) {
             xContentBuilder.field(DETECTION_DATE_RANGE_FIELD, detectionDateRange);
+        }
+        if (rules != null) {
+            xContentBuilder.field(RULES_FIELD, rules.toArray());
         }
 
         return xContentBuilder.endObject();
@@ -350,6 +419,11 @@ public class AnomalyDetector extends Config {
 
         List<String> categoryField = null;
         ImputationOption imputationOption = null;
+        Integer recencyEmphasis = null;
+        Integer seasonality = null;
+        Integer historyIntervals = null;
+
+        List<Rule> rules = new ArrayList<>();
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -460,6 +534,21 @@ public class AnomalyDetector extends Config {
                 case IMPUTATION_OPTION_FIELD:
                     imputationOption = ImputationOption.parse(parser);
                     break;
+                case RECENCY_EMPHASIS_FIELD:
+                    recencyEmphasis = parser.intValue();
+                    break;
+                case SEASONALITY_FIELD:
+                    seasonality = parser.currentToken() == XContentParser.Token.VALUE_NULL ? null : parser.intValue();
+                    break;
+                case HISTORY_INTERVAL_FIELD:
+                    historyIntervals = parser.intValue();
+                    break;
+                case RULES_FIELD:
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        rules.add(Rule.parse(parser));
+                    }
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -476,14 +565,18 @@ public class AnomalyDetector extends Config {
             filterQuery,
             detectionInterval,
             windowDelay,
-            getShingleSize(shingleSize),
+            shingleSize,
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
             categoryField,
             user,
             resultIndex,
-            imputationOption
+            imputationOption,
+            recencyEmphasis,
+            seasonality,
+            historyIntervals,
+            rules
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;
@@ -501,6 +594,10 @@ public class AnomalyDetector extends Config {
         return detectionDateRange;
     }
 
+    public List<Rule> getRules() {
+        return rules;
+    }
+
     @Override
     protected ValidationAspect getConfigValidationAspect() {
         return ValidationAspect.DETECTOR;
@@ -512,5 +609,51 @@ public class AnomalyDetector extends Config {
             return ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
         }
         return super.validateCustomResultIndex(resultIndex);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AnomalyDetector detector = (AnomalyDetector) o;
+        return super.equals(o) && Objects.equal(rules, detector.rules);
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = super.hashCode();
+        result = prime * result + Objects.hashCode(rules);
+        return result;
+    }
+
+    @Generated
+    @Override
+    public String toString() {
+        return super.toString() + ", " + new ToStringBuilder(this).append("rules", rules).toString();
+    }
+
+    private List<Rule> getDefaultRule() {
+        List<Rule> rules = new ArrayList<>();
+        for (Feature feature : featureAttributes) {
+            if (feature.getEnabled()) {
+                rules
+                    .add(
+                        new Rule(
+                            Action.IGNORE_ANOMALY,
+                            Arrays
+                                .asList(
+                                    new Condition(feature.getName(), ThresholdType.ACTUAL_OVER_EXPECTED_RATIO, Operator.LTE, 0.2),
+                                    new Condition(feature.getName(), ThresholdType.EXPECTED_OVER_ACTUAL_RATIO, Operator.LTE, 0.2)
+                                )
+                        )
+                    );
+            }
+        }
+        return rules;
     }
 }

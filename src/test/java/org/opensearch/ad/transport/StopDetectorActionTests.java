@@ -26,6 +26,8 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchIntegTestCase;
+import org.opensearch.timeseries.transport.StopConfigRequest;
+import org.opensearch.timeseries.transport.StopConfigResponse;
 
 public class StopDetectorActionTests extends OpenSearchIntegTestCase {
 
@@ -43,7 +45,7 @@ public class StopDetectorActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void fromActionRequest_Success() {
-        StopDetectorRequest stopDetectorRequest = new StopDetectorRequest("adID");
+        StopConfigRequest stopDetectorRequest = new StopConfigRequest("adID");
         ActionRequest actionRequest = new ActionRequest() {
             @Override
             public ActionRequestValidationException validate() {
@@ -55,41 +57,41 @@ public class StopDetectorActionTests extends OpenSearchIntegTestCase {
                 stopDetectorRequest.writeTo(out);
             }
         };
-        StopDetectorRequest result = StopDetectorRequest.fromActionRequest(actionRequest);
+        StopConfigRequest result = StopConfigRequest.fromActionRequest(actionRequest);
         assertNotSame(result, stopDetectorRequest);
-        assertEquals(result.getAdID(), stopDetectorRequest.getAdID());
+        assertEquals(result.getConfigID(), stopDetectorRequest.getConfigID());
     }
 
     @Test
     public void writeTo_Success() throws IOException {
         BytesStreamOutput bytesStreamOutput = new BytesStreamOutput();
-        StopDetectorResponse response = new StopDetectorResponse(true);
+        StopConfigResponse response = new StopConfigResponse(true);
         response.writeTo(bytesStreamOutput);
-        StopDetectorResponse parsedResponse = new StopDetectorResponse(bytesStreamOutput.bytes().streamInput());
+        StopConfigResponse parsedResponse = new StopConfigResponse(bytesStreamOutput.bytes().streamInput());
         assertNotEquals(response, parsedResponse);
         assertEquals(response.success(), parsedResponse.success());
     }
 
     @Test
     public void fromActionResponse_Success() throws IOException {
-        StopDetectorResponse stopDetectorResponse = new StopDetectorResponse(true);
+        StopConfigResponse stopDetectorResponse = new StopConfigResponse(true);
         ActionResponse actionResponse = new ActionResponse() {
             @Override
             public void writeTo(StreamOutput streamOutput) throws IOException {
                 stopDetectorResponse.writeTo(streamOutput);
             }
         };
-        StopDetectorResponse result = stopDetectorResponse.fromActionResponse(actionResponse);
+        StopConfigResponse result = stopDetectorResponse.fromActionResponse(actionResponse);
         assertNotSame(result, stopDetectorResponse);
         assertEquals(result.success(), stopDetectorResponse.success());
 
-        StopDetectorResponse parsedStopDetectorResponse = stopDetectorResponse.fromActionResponse(stopDetectorResponse);
+        StopConfigResponse parsedStopDetectorResponse = stopDetectorResponse.fromActionResponse(stopDetectorResponse);
         assertEquals(parsedStopDetectorResponse, stopDetectorResponse);
     }
 
     @Test
     public void toXContentTest() throws IOException {
-        StopDetectorResponse stopDetectorResponse = new StopDetectorResponse(true);
+        StopConfigResponse stopDetectorResponse = new StopConfigResponse(true);
         XContentBuilder builder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
         stopDetectorResponse.toXContent(builder, ToXContent.EMPTY_PARAMS);
         assertNotNull(builder);

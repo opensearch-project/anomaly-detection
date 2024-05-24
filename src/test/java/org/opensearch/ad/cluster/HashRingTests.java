@@ -37,7 +37,7 @@ import org.opensearch.action.admin.cluster.node.info.NodesInfoResponse;
 import org.opensearch.action.admin.cluster.node.info.PluginsAndModules;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.ClusterAdminClient;
@@ -50,6 +50,9 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.plugins.PluginInfo;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.cluster.ADDataMigrator;
+import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -74,7 +77,7 @@ public class HashRingTests extends ADUnitTestCase {
     private DiscoveryNode localNode;
     private DiscoveryNode newNode;
     private DiscoveryNode warmNode;
-    private ModelManager modelManager;
+    private ADModelManager modelManager;
 
     @Override
     @Before
@@ -86,11 +89,11 @@ public class HashRingTests extends ADUnitTestCase {
         newNodeId = "newNode";
         newNode = createNode(newNodeId, "127.0.0.2", 9201, emptyMap());
         warmNodeId = "warmNode";
-        warmNode = createNode(warmNodeId, "127.0.0.3", 9202, ImmutableMap.of(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE));
+        warmNode = createNode(warmNodeId, "127.0.0.3", 9202, ImmutableMap.of(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE));
 
         settings = Settings.builder().put(AD_COOLDOWN_MINUTES.getKey(), TimeValue.timeValueSeconds(5)).build();
         ClusterSettings clusterSettings = clusterSetting(settings, AD_COOLDOWN_MINUTES);
-        clusterService = spy(new ClusterService(settings, clusterSettings, null));
+        clusterService = spy(new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null));
 
         nodeFilter = spy(new DiscoveryNodeFilterer(clusterService));
         client = mock(Client.class);
@@ -107,7 +110,7 @@ public class HashRingTests extends ADUnitTestCase {
         when(adminClient.cluster()).thenReturn(clusterAdminClient);
 
         String modelId = "123_model_threshold";
-        modelManager = mock(ModelManager.class);
+        modelManager = mock(ADModelManager.class);
         doAnswer(invocation -> {
             Set<String> res = new HashSet<>();
             res.add(modelId);
@@ -121,7 +124,7 @@ public class HashRingTests extends ADUnitTestCase {
         DiscoveryNode node1 = createNode(Integer.toString(1), "127.0.0.4", 9204, emptyMap());
         doReturn(node1).when(clusterService).localNode();
 
-        Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD("http-latency-rcf-1");
+        Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalVersionForRealtime("http-latency-rcf-1");
         assertFalse(node.isPresent());
     }
 
@@ -130,10 +133,10 @@ public class HashRingTests extends ADUnitTestCase {
 
         // Add first node,
         hashRing.buildCircles(delta, ActionListener.wrap(r -> {
-            Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD("http-latency-rcf-1");
+            Optional<DiscoveryNode> node = hashRing.getOwningNodeWithSameLocalVersionForRealtime("http-latency-rcf-1");
             assertTrue(node.isPresent());
             assertTrue(asList(newNodeId, localNodeId).contains(node.get().getId()));
-            DiscoveryNode[] nodesWithSameLocalAdVersion = hashRing.getNodesWithSameLocalAdVersion();
+            DiscoveryNode[] nodesWithSameLocalAdVersion = hashRing.getNodesWithSameLocalVersion();
             Set<String> nodesWithSameLocalAdVersionIds = new HashSet<>();
             for (DiscoveryNode n : nodesWithSameLocalAdVersion) {
                 nodesWithSameLocalAdVersionIds.add(n.getId());
@@ -143,10 +146,10 @@ public class HashRingTests extends ADUnitTestCase {
             assertEquals(
                 "Wrong hash ring size for historical analysis",
                 2,
-                hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, false).size()
+                hashRing.getNodesWithSameVersion(Version.V_2_1_0, false).size()
             );
             // Circles for realtime AD will change as it's eligible to build for when its empty
-            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, true).size());
+            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameVersion(Version.V_2_1_0, true).size());
         }, e -> {
             logger.error("building hash ring failed", e);
             assertFalse("Build hash ring failed", true);
@@ -162,10 +165,10 @@ public class HashRingTests extends ADUnitTestCase {
             assertEquals(
                 "Wrong hash ring size for historical analysis",
                 3,
-                hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, false).size()
+                hashRing.getNodesWithSameVersion(Version.V_2_1_0, false).size()
             );
             // Circles for realtime AD will not change as it's eligible to rebuild
-            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, true).size());
+            assertEquals("Wrong hash ring size for realtime AD", 2, hashRing.getNodesWithSameVersion(Version.V_2_1_0, true).size());
         }, e -> {
             logger.error("building hash ring failed", e);
 
@@ -183,9 +186,9 @@ public class HashRingTests extends ADUnitTestCase {
             assertEquals(
                 "Wrong hash ring size for historical analysis",
                 4,
-                hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, false).size()
+                hashRing.getNodesWithSameVersion(Version.V_2_1_0, false).size()
             );
-            assertEquals("Wrong hash ring size for realtime AD", 4, hashRing.getNodesWithSameAdVersion(Version.V_2_1_0, true).size());
+            assertEquals("Wrong hash ring size for realtime AD", 4, hashRing.getNodesWithSameVersion(Version.V_2_1_0, true).size());
         }, e -> {
             logger.error("building hash ring failed", e);
             assertFalse("Failed to build hash ring", true);
@@ -194,7 +197,7 @@ public class HashRingTests extends ADUnitTestCase {
 
     public void testGetAllEligibleDataNodesWithKnownAdVersionAndGetNodeByAddress() {
         setupNodeDelta();
-        hashRing.getAllEligibleDataNodesWithKnownAdVersion(nodes -> {
+        hashRing.getAllEligibleDataNodesWithKnownVersion(nodes -> {
             assertEquals("Wrong hash ring size for historical analysis", 2, nodes.length);
             Optional<DiscoveryNode> node = hashRing.getNodeByAddress(newNode.getAddress());
             assertTrue(node.isPresent());
@@ -205,7 +208,7 @@ public class HashRingTests extends ADUnitTestCase {
     public void testBuildAndGetOwningNodeWithSameLocalAdVersion() {
         setupNodeDelta();
         hashRing
-            .buildAndGetOwningNodeWithSameLocalAdVersion(
+            .buildAndGetOwningNodeWithSameLocalVersion(
                 "testModelId",
                 node -> { assertTrue(node.isPresent()); },
                 ActionListener.wrap(r -> {}, e -> {
@@ -251,7 +254,7 @@ public class HashRingTests extends ADUnitTestCase {
         plugins
             .add(
                 new PluginInfo(
-                    CommonName.TIME_SERIES_PLUGIN_NAME,
+                    ADCommonName.AD_PLUGIN_NAME,
                     randomAlphaOfLengthBetween(3, 10),
                     version,
                     Version.CURRENT,

@@ -11,8 +11,6 @@
 
 package org.opensearch.ad.constant;
 
-import org.opensearch.timeseries.stats.StatNames;
-
 public class ADCommonName {
     // ======================================
     // Index name
@@ -26,45 +24,13 @@ public class ADCommonName {
     public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";
 
     // ======================================
-    // Format name
-    // ======================================
-    public static final String EPOCH_MILLIS_FORMAT = "epoch_millis";
-
-    // ======================================
     // Anomaly Detector name for X-Opaque-Id header
     // ======================================
     public static final String ANOMALY_DETECTOR = "[Anomaly Detector]";
+    public static final String AD_PLUGIN_NAME = "opensearch-anomaly-detection";
+    public static final String AD_PLUGIN_NAME_FOR_TEST = "org.opensearch.ad.AnomalyDetectorPlugin";
+    public static final String AD_PLUGIN_VERSION_FOR_TEST = "NA";
 
-    // ======================================
-    // Ultrawarm node attributes
-    // ======================================
-
-    // hot node
-    public static String HOT_BOX_TYPE = "hot";
-
-    // warm node
-    public static String WARM_BOX_TYPE = "warm";
-
-    // box type
-    public static final String BOX_TYPE_KEY = "box_type";
-
-    // ======================================
-    // Profile name
-    // ======================================
-    public static final String STATE = "state";
-    public static final String ERROR = "error";
-    public static final String COORDINATING_NODE = "coordinating_node";
-    public static final String SHINGLE_SIZE = "shingle_size";
-    public static final String TOTAL_SIZE_IN_BYTES = "total_size_in_bytes";
-    public static final String MODELS = "models";
-    public static final String MODEL = "model";
-    public static final String INIT_PROGRESS = "init_progress";
-    public static final String CATEGORICAL_FIELD = "category_field";
-    public static final String TOTAL_ENTITIES = "total_entities";
-    public static final String ACTIVE_ENTITIES = "active_entities";
-    public static final String ENTITY_INFO = "entity_info";
-    public static final String TOTAL_UPDATES = "total_updates";
-    public static final String MODEL_COUNT = StatNames.MODEL_COUNT.getName();
     // ======================================
     // Historical detectors
     // ======================================
@@ -87,11 +53,8 @@ public class ADCommonName {
     public static final String CONFIDENCE_JSON_KEY = "confidence";
     public static final String ANOMALY_GRADE_JSON_KEY = "anomalyGrade";
     public static final String QUEUE_JSON_KEY = "queue";
-    // ======================================
-    // Used for backward-compatibility in messaging
-    // ======================================
-    public static final String EMPTY_FIELD = "";
 
+    // ======================================
     // Validation
     // ======================================
     // detector validation aspect

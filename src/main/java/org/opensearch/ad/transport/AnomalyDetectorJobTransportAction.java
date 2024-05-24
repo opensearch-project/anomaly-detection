@@ -15,47 +15,28 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_START_DETECTOR
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_STOP_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
-import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
-import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.rest.handler.IndexAnomalyDetectorJobActionHandler;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
+import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.authuser.User;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.tasks.Task;
-import org.opensearch.timeseries.model.DateRange;
-import org.opensearch.timeseries.transport.JobResponse;
-import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.timeseries.transport.BaseJobTransportAction;
 import org.opensearch.transport.TransportService;
 
-public class AnomalyDetectorJobTransportAction extends HandledTransportAction<AnomalyDetectorJobRequest, JobResponse> {
-    private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);
-
-    private final Client client;
-    private final ClusterService clusterService;
-    private final Settings settings;
-    private final ADIndexManagement anomalyDetectionIndices;
-    private final NamedXContentRegistry xContentRegistry;
-    private volatile Boolean filterByEnabled;
-    private final ADTaskManager adTaskManager;
-    private final TransportService transportService;
-    private final ExecuteADResultResponseRecorder recorder;
-
+public class AnomalyDetectorJobTransportAction extends
+    BaseJobTransportAction<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction, ExecuteADResultResponseRecorder, ADIndexJobActionHandler> {
     @Inject
     public AnomalyDetectorJobTransportAction(
         TransportService transportService,
@@ -63,95 +44,23 @@ public class AnomalyDetectorJobTransportAction extends HandledTransportAction<An
         Client client,
         ClusterService clusterService,
         Settings settings,
-        ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
-        ADTaskManager adTaskManager,
-        ExecuteADResultResponseRecorder recorder
+        ADIndexJobActionHandler adIndexJobActionHandler
     ) {
-        super(AnomalyDetectorJobAction.NAME, transportService, actionFilters, AnomalyDetectorJobRequest::new);
-        this.transportService = transportService;
-        this.client = client;
-        this.clusterService = clusterService;
-        this.settings = settings;
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
-        this.xContentRegistry = xContentRegistry;
-        this.adTaskManager = adTaskManager;
-        filterByEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-        this.recorder = recorder;
-    }
-
-    @Override
-    protected void doExecute(Task task, AnomalyDetectorJobRequest request, ActionListener<JobResponse> actionListener) {
-        String detectorId = request.getDetectorID();
-        DateRange detectionDateRange = request.getDetectionDateRange();
-        boolean historical = request.isHistorical();
-        long seqNo = request.getSeqNo();
-        long primaryTerm = request.getPrimaryTerm();
-        String rawPath = request.getRawPath();
-        TimeValue requestTimeout = AD_REQUEST_TIMEOUT.get(settings);
-        String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? FAIL_TO_START_DETECTOR : FAIL_TO_STOP_DETECTOR;
-        ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
-
-        // By the time request reaches here, the user permissions are validated by Security plugin.
-        User user = getUserContext(client);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
-                user,
-                detectorId,
-                filterByEnabled,
-                listener,
-                (anomalyDetector) -> executeDetector(
-                    listener,
-                    detectorId,
-                    detectionDateRange,
-                    historical,
-                    seqNo,
-                    primaryTerm,
-                    rawPath,
-                    requestTimeout,
-                    user,
-                    context
-                ),
-                client,
-                clusterService,
-                xContentRegistry,
-                AnomalyDetector.class
-            );
-        } catch (Exception e) {
-            logger.error(e);
-            listener.onFailure(e);
-        }
-    }
-
-    private void executeDetector(
-        ActionListener<JobResponse> listener,
-        String detectorId,
-        DateRange detectionDateRange,
-        boolean historical,
-        long seqNo,
-        long primaryTerm,
-        String rawPath,
-        TimeValue requestTimeout,
-        User user,
-        ThreadContext.StoredContext context
-    ) {
-        IndexAnomalyDetectorJobActionHandler handler = new IndexAnomalyDetectorJobActionHandler(
-            client,
-            anomalyDetectionIndices,
-            detectorId,
-            seqNo,
-            primaryTerm,
-            requestTimeout,
-            xContentRegistry,
+        super(
             transportService,
-            adTaskManager,
-            recorder
+            actionFilters,
+            client,
+            clusterService,
+            settings,
+            xContentRegistry,
+            AD_FILTER_BY_BACKEND_ROLES,
+            AnomalyDetectorJobAction.NAME,
+            AD_REQUEST_TIMEOUT,
+            FAIL_TO_START_DETECTOR,
+            FAIL_TO_STOP_DETECTOR,
+            AnomalyDetector.class,
+            adIndexJobActionHandler
         );
-        if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            adTaskManager.startDetector(detectorId, detectionDateRange, handler, user, transportService, context, listener);
-        } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
-            adTaskManager.stopDetector(detectorId, historical, handler, user, transportService, listener);
-        }
     }
 }

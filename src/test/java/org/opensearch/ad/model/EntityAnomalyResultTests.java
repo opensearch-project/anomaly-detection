@@ -18,8 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Test;
-import org.opensearch.ad.stats.ADStatsResponse;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.transport.StatsResponse;
 
 public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
@@ -90,7 +90,7 @@ public class EntityAnomalyResultTests extends OpenSearchTestCase {
 
     @Test
     public void testMerge_otherClass() {
-        ADStatsResponse adStatsResponse = new ADStatsResponse();
+        StatsResponse adStatsResponse = new StatsResponse();
         AnomalyResult anomalyResult = randomHCADAnomalyDetectResult(0.25, 0.25, "error");
 
         EntityAnomalyResult entityAnomalyResult = new EntityAnomalyResult(new ArrayList<AnomalyResult>() {

@@ -20,16 +20,17 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.transport.ResultBulkResponse;
 
 public class ADResultBulkResponseTests extends OpenSearchTestCase {
     public void testSerialization() throws IOException {
         BytesStreamOutput output = new BytesStreamOutput();
         List<IndexRequest> retryRequests = new ArrayList<>();
         retryRequests.add(new IndexRequest("index").id("blah").source(Collections.singletonMap("foo", "bar")));
-        ADResultBulkResponse response = new ADResultBulkResponse(retryRequests);
+        ResultBulkResponse response = new ResultBulkResponse(retryRequests);
         response.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADResultBulkResponse readResponse = new ADResultBulkResponse(streamInput);
+        ResultBulkResponse readResponse = new ResultBulkResponse(streamInput);
         assertTrue(readResponse.hasFailures());
     }
 }

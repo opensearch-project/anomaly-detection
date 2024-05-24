@@ -1,7 +1,7 @@
 {
   "dynamic": true,
   "_meta": {
-    "schema_version": 3
+    "schema_version": 4
   },
   "properties": {
     "detectorId": {
@@ -35,6 +35,30 @@
     },
     "modelV2": {
       "type": "text"
+    },
+    "samples": {
+      "type": "nested",
+      "properties": {
+        "value_list": {
+          "type": "nested",
+          "properties": {
+            "feature_id": {
+              "type": "keyword"
+            },
+            "data": {
+              "type": "double"
+            }
+          }
+        },
+        "data_start_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "data_end_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        }
+      }
     }
   }
 }

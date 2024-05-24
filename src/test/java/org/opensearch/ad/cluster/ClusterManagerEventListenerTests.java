@@ -24,11 +24,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 
 import org.junit.Before;
-import org.opensearch.ad.cluster.diskcleanup.ModelCheckpointIndexRetention;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -36,9 +35,14 @@ import org.opensearch.common.lifecycle.LifecycleListener;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.cluster.ClusterManagerEventListener;
+import org.opensearch.timeseries.cluster.HourlyCron;
+import org.opensearch.timeseries.cluster.diskcleanup.BaseModelCheckpointIndexRetention;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -69,13 +73,13 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
         checkpointIndexRetentionCancellable = mock(Cancellable.class);
         when(threadPool.scheduleWithFixedDelay(any(HourlyCron.class), any(TimeValue.class), any(String.class)))
             .thenReturn(hourlyCancellable);
-        when(threadPool.scheduleWithFixedDelay(any(ModelCheckpointIndexRetention.class), any(TimeValue.class), any(String.class)))
+        when(threadPool.scheduleWithFixedDelay(any(BaseModelCheckpointIndexRetention.class), any(TimeValue.class), any(String.class)))
             .thenReturn(checkpointIndexRetentionCancellable);
         client = mock(Client.class);
         clock = mock(Clock.class);
         clientUtil = mock(ClientUtil.class);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
-        ignoredAttributes.put(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE);
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
         clusterManagerService = new ClusterManagerEventListener(
@@ -86,6 +90,7 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
             clientUtil,
             nodeFilter,
             AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
+            ForecastSettings.FORECAST_CHECKPOINT_TTL,
             Settings.EMPTY
         );
     }
@@ -95,9 +100,14 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
         assertThat(hourlyCancellable, is(notNullValue()));
         assertThat(checkpointIndexRetentionCancellable, is(notNullValue()));
         assertTrue(!clusterManagerService.getHourlyCron().isCancelled());
-        assertTrue(!clusterManagerService.getCheckpointIndexRetentionCron().isCancelled());
+        List<Cancellable> checkpointIndexRetention = clusterManagerService.getCheckpointIndexRetentionCron();
+        for (Cancellable cancellable : checkpointIndexRetention) {
+            assertTrue(!cancellable.isCancelled());
+        }
         clusterManagerService.offClusterManager();
-        assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
+        for (Cancellable cancellable : clusterManagerService.getCheckpointIndexRetentionCron()) {
+            assertThat(cancellable, is(nullValue()));
+        }
         assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
     }
 
@@ -121,10 +131,14 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
         }).when(clusterService).addLifecycleListener(any());
 
         clusterManagerService.onClusterManager();
-        assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
+        for (Cancellable cancellable : clusterManagerService.getCheckpointIndexRetentionCron()) {
+            assertThat(cancellable, is(nullValue()));
+        }
         assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
         clusterManagerService.offClusterManager();
-        assertThat(clusterManagerService.getCheckpointIndexRetentionCron(), is(nullValue()));
+        for (Cancellable cancellable : clusterManagerService.getCheckpointIndexRetentionCron()) {
+            assertThat(cancellable, is(nullValue()));
+        }
         assertThat(clusterManagerService.getHourlyCron(), is(nullValue()));
     }
 }

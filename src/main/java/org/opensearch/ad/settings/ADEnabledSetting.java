@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.ad.settings;
@@ -34,12 +28,16 @@ public class ADEnabledSetting extends DynamicNumericSetting {
      */
     public static final String AD_ENABLED = "plugins.anomaly_detection.enabled";
 
+    // use TimeSeriesEnabledSetting.BREAKER_ENABLED instead
+    @Deprecated
     public static final String AD_BREAKER_ENABLED = "plugins.anomaly_detection.breaker.enabled";
 
     public static final String LEGACY_OPENDISTRO_AD_ENABLED = "opendistro.anomaly_detection.enabled";
 
     public static final String LEGACY_OPENDISTRO_AD_BREAKER_ENABLED = "opendistro.anomaly_detection.breaker.enabled";
 
+    // we don't support interpolation during cold start starting 3.0 (TODO replace with the right version)
+    @Deprecated
     public static final String INTERPOLATION_IN_HCAD_COLD_START_ENABLED = "plugins.anomaly_detection.hcad_cold_start_interpolation.enabled";
 
     public static final String DOOR_KEEPER_IN_CACHE_ENABLED = "plugins.anomaly_detection.door_keeper_in_cache.enabled";
@@ -81,6 +79,11 @@ public class ADEnabledSetting extends DynamicNumericSetting {
              * We have a bloom filter placed in front of inactive entity cache to
              * filter out unpopular items that are not likely to appear more
              * than once. Whether this bloom filter is enabled or not.
+             *
+             * disable the door keeper by default so that
+             * 1) we won't have to wait an extra interval before HCAD cold start.
+             * 2) long interval detector (> 1hr) will have their model cleared in cache due to ttl. Door keeper will
+             * keep those detectors from getting results.
              */
             put(DOOR_KEEPER_IN_CACHE_ENABLED, Setting.boolSetting(DOOR_KEEPER_IN_CACHE_ENABLED, false, NodeScope, Dynamic));
         }

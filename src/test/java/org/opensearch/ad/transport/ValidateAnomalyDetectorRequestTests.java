@@ -21,7 +21,9 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.transport.ValidateConfigRequest;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -38,14 +40,14 @@ public class ValidateAnomalyDetectorRequestTests extends OpenSearchSingleNodeTes
         TimeValue requestTimeout = new TimeValue(1000L);
         String typeStr = "type";
 
-        ValidateAnomalyDetectorRequest request1 = new ValidateAnomalyDetectorRequest(detector, typeStr, 1, 1, 1, requestTimeout);
+        ValidateConfigRequest request1 = new ValidateConfigRequest(AnalysisType.AD, detector, typeStr, 1, 1, 1, requestTimeout, 10);
 
         // Test serialization
         BytesStreamOutput output = new BytesStreamOutput();
         request1.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        ValidateAnomalyDetectorRequest request2 = new ValidateAnomalyDetectorRequest(input);
-        assertEquals("serialization has the wrong detector", request2.getDetector(), detector);
+        ValidateConfigRequest request2 = new ValidateConfigRequest(input);
+        assertEquals("serialization has the wrong detector", request2.getConfig(), detector);
         assertEquals("serialization has the wrong typeStr", request2.getValidationType(), typeStr);
         assertEquals("serialization has the wrong requestTimeout", request2.getRequestTimeout(), requestTimeout);
     }

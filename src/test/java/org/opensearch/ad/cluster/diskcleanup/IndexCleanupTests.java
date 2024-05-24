@@ -37,6 +37,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.store.StoreStats;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.cluster.diskcleanup.IndexCleanup;
 import org.opensearch.timeseries.util.ClientUtil;
 
 public class IndexCleanupTests extends AbstractTimeSeriesTest {

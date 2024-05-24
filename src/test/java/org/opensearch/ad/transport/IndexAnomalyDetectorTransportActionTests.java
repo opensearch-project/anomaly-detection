@@ -176,7 +176,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             TimeValue.timeValueSeconds(60),
             1000,
             10,
-            5
+            5,
+            10
         );
         response = new ActionListener<IndexAnomalyDetectorResponse>() {
             @Override

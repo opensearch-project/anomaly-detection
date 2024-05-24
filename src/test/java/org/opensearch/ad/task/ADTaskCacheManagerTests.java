@@ -98,7 +98,6 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertTrue(adTaskCacheManager.contains(adTask.getTaskId()));
         assertTrue(adTaskCacheManager.containsTaskOfDetector(adTask.getConfigId()));
         assertNotNull(adTaskCacheManager.getTRcfModel(adTask.getTaskId()));
-        assertNotNull(adTaskCacheManager.getShingle(adTask.getTaskId()));
         assertFalse(adTaskCacheManager.isThresholdModelTrained(adTask.getTaskId()));
         adTaskCacheManager.remove(adTask.getTaskId(), randomAlphaOfLength(5), randomAlphaOfLength(5));
         assertEquals(0, adTaskCacheManager.size());
@@ -246,7 +245,7 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertTrue(adTaskCacheManager.topEntityInited(detectorId));
     }
 
-    public void testEntityCache() throws IOException {
+    public void testADPriorityCache() throws IOException {
         String detectorId = randomAlphaOfLength(10);
         assertEquals(0, adTaskCacheManager.getPendingEntityCount(detectorId));
         assertEquals(0, adTaskCacheManager.getRunningEntityCount(detectorId));
@@ -321,14 +320,14 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
 
         adTaskCacheManager.updateRealtimeTaskCache(detectorId1, newState, newInitProgress, newError);
         assertFalse(adTaskCacheManager.isRealtimeTaskChangeNeeded(detectorId1, newState, newInitProgress, newError));
-        assertArrayEquals(new String[] { detectorId1 }, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache());
+        assertArrayEquals(new String[] { detectorId1 }, adTaskCacheManager.getConfigIdsInRealtimeTaskCache());
 
         String detectorId2 = randomAlphaOfLength(10);
         adTaskCacheManager.updateRealtimeTaskCache(detectorId2, newState, newInitProgress, newError);
-        assertEquals(1, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache().length);
+        assertEquals(1, adTaskCacheManager.getConfigIdsInRealtimeTaskCache().length);
         adTaskCacheManager.initRealtimeTaskCache(detectorId2, 60_000);
         adTaskCacheManager.updateRealtimeTaskCache(detectorId2, newState, newInitProgress, newError);
-        assertEquals(2, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache().length);
+        assertEquals(2, adTaskCacheManager.getConfigIdsInRealtimeTaskCache().length);
 
         newState = TaskState.RUNNING.name();
         newInitProgress = 1.0f;
@@ -340,10 +339,10 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         assertEquals(newError, adTaskCacheManager.getRealtimeTaskCache(detectorId1).getError());
 
         adTaskCacheManager.removeRealtimeTaskCache(detectorId1);
-        assertArrayEquals(new String[] { detectorId2 }, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache());
+        assertArrayEquals(new String[] { detectorId2 }, adTaskCacheManager.getConfigIdsInRealtimeTaskCache());
 
         adTaskCacheManager.clearRealtimeTaskCache();
-        assertEquals(0, adTaskCacheManager.getDetectorIdsInRealtimeTaskCache().length);
+        assertEquals(0, adTaskCacheManager.getConfigIdsInRealtimeTaskCache().length);
 
     }
 

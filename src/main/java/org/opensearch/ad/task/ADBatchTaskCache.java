@@ -11,24 +11,17 @@
 
 package org.opensearch.ad.task;
 
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_MIN_SAMPLES;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_SAMPLES_PER_TREE;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.NUM_TREES;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.TIME_DECAY;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
+import com.amazon.randomcutforest.config.ForestMode;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -47,7 +40,6 @@ public class ADBatchTaskCache {
     private final String detectorTaskId;
     private ThresholdedRandomCutForest rcfModel;
     private boolean thresholdModelTrained;
-    private Deque<Map.Entry<Long, Optional<double[]>>> shingle;
     private AtomicInteger thresholdModelTrainingDataSize = new AtomicInteger(0);
     private AtomicBoolean cancelled = new AtomicBoolean(false);
     private AtomicLong cacheMemorySize = new AtomicLong(0);
@@ -62,19 +54,18 @@ public class ADBatchTaskCache {
         this.entity = adTask.getEntity();
 
         AnomalyDetector detector = adTask.getDetector();
-        int numberOfTrees = NUM_TREES;
+        int numberOfTrees = TimeSeriesSettings.NUM_TREES;
         int shingleSize = detector.getShingleSize();
-        this.shingle = new ArrayDeque<>(shingleSize);
         int dimensions = detector.getShingleSize() * detector.getEnabledFeatureIds().size();
 
-        rcfModel = ThresholdedRandomCutForest
+        ThresholdedRandomCutForest.Builder rcfBuilder = ThresholdedRandomCutForest
             .builder()
             .dimensions(dimensions)
             .numberOfTrees(numberOfTrees)
-            .timeDecay(TIME_DECAY)
-            .sampleSize(NUM_SAMPLES_PER_TREE)
-            .outputAfter(NUM_MIN_SAMPLES)
-            .initialAcceptFraction(NUM_MIN_SAMPLES * 1.0d / NUM_SAMPLES_PER_TREE)
+            .timeDecay(detector.getTimeDecay())
+            .sampleSize(TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
+            .outputAfter(TimeSeriesSettings.NUM_MIN_SAMPLES)
+            .initialAcceptFraction(TimeSeriesSettings.NUM_MIN_SAMPLES * 1.0d / TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
             .parallelExecutionEnabled(false)
             .compact(true)
             .precision(Precision.FLOAT_32)
@@ -84,9 +75,17 @@ public class ADBatchTaskCache {
             .transformMethod(TransformMethod.NORMALIZE)
             .alertOnce(true)
             .autoAdjust(true)
-            .internalShinglingEnabled(false)
-            .build();
+            .internalShinglingEnabled(true);
 
+        if (shingleSize > 1) {
+            rcfBuilder.forestMode(ForestMode.STREAMING_IMPUTE);
+            rcfBuilder = ModelColdStart.applyImputationMethod(detector, rcfBuilder);
+        } else {
+            // imputation with shingle size 1 is not meaningful
+            rcfBuilder.forestMode(ForestMode.STANDARD);
+        }
+
+        rcfModel = rcfBuilder.build();
         this.thresholdModelTrained = false;
     }
 
@@ -104,10 +103,6 @@ public class ADBatchTaskCache {
 
     protected ThresholdedRandomCutForest getTRcfModel() {
         return rcfModel;
-    }
-
-    protected Deque<Map.Entry<Long, Optional<double[]>>> getShingle() {
-        return shingle;
     }
 
     protected void setThresholdModelTrained(boolean thresholdModelTrained) {

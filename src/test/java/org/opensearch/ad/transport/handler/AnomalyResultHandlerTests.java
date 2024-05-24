@@ -34,7 +34,10 @@ import org.mockito.Mock;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
+import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
@@ -42,6 +45,7 @@ import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.transport.handler.ResultIndexingHandler;
 
 public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     @Mock
@@ -54,7 +58,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        super.setUpLog4jForJUnit(AnomalyIndexHandler.class);
+        super.setUpLog4jForJUnit(ResultIndexingHandler.class);
     }
 
     @Override
@@ -81,7 +85,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             listener.onResponse(mock(IndexResponse.class));
             return null;
         }).when(client).index(any(IndexRequest.class), ArgumentMatchers.<ActionListener<IndexResponse>>any());
-        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
             client,
             settings,
             threadPool,
@@ -89,19 +93,21 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
-        assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
+        assertEquals(1, testAppender.countMessage(ResultIndexingHandler.SUCCESS_SAVING_MSG, true));
     }
 
     @Test
     public void testSavingFailureNotRetry() throws InterruptedException, IOException {
         savingFailureTemplate(false, 1, true);
 
-        assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.FAIL_TO_SAVE_ERR_MSG, true));
-        assertTrue(!testAppender.containsMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
-        assertTrue(!testAppender.containsMessage(AnomalyIndexHandler.RETRY_SAVING_ERR_MSG, true));
+        assertEquals(1, testAppender.countMessage(ResultIndexingHandler.FAIL_TO_SAVE_ERR_MSG, true));
+        assertTrue(!testAppender.containsMessage(ResultIndexingHandler.SUCCESS_SAVING_MSG, true));
+        assertTrue(!testAppender.containsMessage(ResultIndexingHandler.RETRY_SAVING_ERR_MSG, true));
     }
 
     @Test
@@ -109,15 +115,15 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
         setWriteBlockAdResultIndex(false);
         savingFailureTemplate(true, 3, true);
 
-        assertEquals(2, testAppender.countMessage(AnomalyIndexHandler.RETRY_SAVING_ERR_MSG, true));
-        assertEquals(1, testAppender.countMessage(AnomalyIndexHandler.FAIL_TO_SAVE_ERR_MSG, true));
-        assertTrue(!testAppender.containsMessage(AnomalyIndexHandler.SUCCESS_SAVING_MSG, true));
+        assertEquals(2, testAppender.countMessage(ResultIndexingHandler.RETRY_SAVING_ERR_MSG, true));
+        assertEquals(1, testAppender.countMessage(ResultIndexingHandler.FAIL_TO_SAVE_ERR_MSG, true));
+        assertTrue(!testAppender.containsMessage(ResultIndexingHandler.SUCCESS_SAVING_MSG, true));
     }
 
     @Test
     public void testIndexWriteBlock() {
         setWriteBlockAdResultIndex(true);
-        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
             client,
             settings,
             threadPool,
@@ -125,17 +131,39 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
 
-        assertTrue(testAppender.containsMessage(AnomalyIndexHandler.CANNOT_SAVE_ERR_MSG, true));
+        assertTrue(testAppender.containsMessage(ResultIndexingHandler.CANNOT_SAVE_ERR_MSG, true));
+    }
+
+    @Test
+    public void testCustomIndexWriteBlock() {
+        setWriteBlockAdResultIndex(true);
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, "test");
+
+        assertTrue(testAppender.containsMessage(ResultIndexingHandler.CANNOT_SAVE_ERR_MSG, true));
     }
 
     @Test
     public void testAdResultIndexExist() throws IOException {
         setUpSavingAnomalyResultIndex(false, IndexCreation.RESOURCE_EXISTS_EXCEPTION);
-        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
             client,
             settings,
             threadPool,
@@ -143,7 +171,9 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
         verify(client, times(1)).index(any(), any());
@@ -155,7 +185,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
         expectedEx.expectMessage("Error in saving .opendistro-anomaly-results for detector " + detectorId);
 
         setUpSavingAnomalyResultIndex(false, IndexCreation.RUNTIME_EXCEPTION);
-        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
             client,
             settings,
             threadPool,
@@ -163,7 +193,9 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
         verify(client, never()).index(any(), any());
@@ -213,7 +245,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             .put("plugins.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
             .build();
 
-        AnomalyIndexHandler<AnomalyResult> handler = new AnomalyIndexHandler<AnomalyResult>(
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
             client,
             backoffSettings,
             threadPool,
@@ -221,7 +253,9 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
             anomalyDetectionIndices,
             clientUtil,
             indexUtil,
-            clusterService
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
         );
 
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);

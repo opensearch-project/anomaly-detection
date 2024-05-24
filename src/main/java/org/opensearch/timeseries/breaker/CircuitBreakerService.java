@@ -16,8 +16,8 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.monitor.jvm.JvmService;
+import org.opensearch.timeseries.settings.TimeSeriesEnabledSetting;
 
 /**
  * Class {@code CircuitBreakerService} provide storing, retrieving circuit breakers functions.
@@ -76,7 +76,7 @@ public class CircuitBreakerService {
     }
 
     public Boolean isOpen() {
-        if (!ADEnabledSetting.isADBreakerEnabled()) {
+        if (!TimeSeriesEnabledSetting.isBreakerEnabled()) {
             return false;
         }
 

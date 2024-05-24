@@ -11,28 +11,16 @@ import org.opensearch.test.OpenSearchTestCase;
 
 public class ForecastTaskTypeTests extends OpenSearchTestCase {
 
-    public void testHistoricalForecasterTaskTypes() {
+    public void testRunOnceForecasterTaskTypes() {
         assertEquals(
-            Arrays.asList(ForecastTaskType.FORECAST_HISTORICAL_HC_FORECASTER, ForecastTaskType.FORECAST_HISTORICAL_SINGLE_STREAM),
-            ForecastTaskType.HISTORICAL_FORECASTER_TASK_TYPES
-        );
-    }
-
-    public void testAllHistoricalTaskTypes() {
-        assertEquals(
-            Arrays
-                .asList(
-                    ForecastTaskType.FORECAST_HISTORICAL_HC_FORECASTER,
-                    ForecastTaskType.FORECAST_HISTORICAL_SINGLE_STREAM,
-                    ForecastTaskType.FORECAST_HISTORICAL_HC_ENTITY
-                ),
-            ForecastTaskType.ALL_HISTORICAL_TASK_TYPES
+            Arrays.asList(ForecastTaskType.RUN_ONCE_FORECAST_SINGLE_STREAM, ForecastTaskType.RUN_ONCE_FORECAST_HC_FORECASTER),
+            ForecastTaskType.RUN_ONCE_TASK_TYPES
         );
     }
 
     public void testRealtimeTaskTypes() {
         assertEquals(
-            Arrays.asList(ForecastTaskType.FORECAST_REALTIME_SINGLE_STREAM, ForecastTaskType.FORECAST_REALTIME_HC_FORECASTER),
+            Arrays.asList(ForecastTaskType.REALTIME_FORECAST_SINGLE_STREAM, ForecastTaskType.REALTIME_FORECAST_HC_FORECASTER),
             ForecastTaskType.REALTIME_TASK_TYPES
         );
     }
@@ -41,11 +29,10 @@ public class ForecastTaskTypeTests extends OpenSearchTestCase {
         assertEquals(
             Arrays
                 .asList(
-                    ForecastTaskType.FORECAST_REALTIME_SINGLE_STREAM,
-                    ForecastTaskType.FORECAST_REALTIME_HC_FORECASTER,
-                    ForecastTaskType.FORECAST_HISTORICAL_SINGLE_STREAM,
-                    ForecastTaskType.FORECAST_HISTORICAL_HC_FORECASTER,
-                    ForecastTaskType.FORECAST_HISTORICAL_HC_ENTITY
+                    ForecastTaskType.REALTIME_FORECAST_SINGLE_STREAM,
+                    ForecastTaskType.REALTIME_FORECAST_HC_FORECASTER,
+                    ForecastTaskType.RUN_ONCE_FORECAST_SINGLE_STREAM,
+                    ForecastTaskType.RUN_ONCE_FORECAST_HC_FORECASTER
                 ),
             ForecastTaskType.ALL_FORECAST_TASK_TYPES
         );

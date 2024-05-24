@@ -14,11 +14,11 @@ package org.opensearch.ad.transport;
 import static org.opensearch.ad.constant.ADCommonName.AD_TASK;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.constant.ADCommonValue;
 
 public class ADTaskProfileAction extends ActionType<ADTaskProfileResponse> {
 
-    public static final String NAME = CommonValue.INTERNAL_ACTION_PREFIX + "detectors/profile/" + AD_TASK;
+    public static final String NAME = ADCommonValue.INTERNAL_ACTION_PREFIX + "detectors/profile/" + AD_TASK;
     public static final ADTaskProfileAction INSTANCE = new ADTaskProfileAction();
 
     private ADTaskProfileAction() {

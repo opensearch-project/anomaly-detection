@@ -12,10 +12,8 @@
 package org.opensearch.timeseries.feature;
 
 import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -31,7 +29,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
@@ -163,9 +160,7 @@ public class SearchFeatureDaoParamTests {
             return null;
         }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
-        searchFeatureDao = spy(
-            new SearchFeatureDao(client, xContent, imputer, clientUtil, settings, null, TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
-        );
+        searchFeatureDao = spy(new SearchFeatureDao(client, xContent, clientUtil, settings, null, TimeSeriesSettings.NUM_SAMPLES_PER_TREE));
 
         detectionInterval = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         detectorId = "123";
@@ -231,46 +226,6 @@ public class SearchFeatureDaoParamTests {
         verify(listener).onResponse(captor.capture());
         Optional<double[]> result = captor.getValue();
         assertTrue(Arrays.equals(expected, result.orElse(null)));
-    }
-
-    @Test
-    @Parameters(method = "getFeaturesForSampledPeriodsData")
-    @SuppressWarnings("unchecked")
-    public void getFeaturesForSampledPeriods_returnExpectedToListener(
-        Long[][] queryRanges,
-        double[][] queryResults,
-        long endTime,
-        int maxStride,
-        int maxSamples,
-        Optional<Entry<double[][], Integer>> expected
-    ) {
-        doAnswer(invocation -> {
-            ActionListener<Optional<double[]>> listener = invocation.getArgument(3);
-            listener.onResponse(Optional.empty());
-            return null;
-        }).when(searchFeatureDao).getFeaturesForPeriod(any(), anyLong(), anyLong(), any(ActionListener.class));
-        for (int i = 0; i < queryRanges.length; i++) {
-            double[] queryResult = queryResults[i];
-            doAnswer(invocation -> {
-                ActionListener<Optional<double[]>> listener = invocation.getArgument(3);
-                listener.onResponse(Optional.of(queryResult));
-                return null;
-            })
-                .when(searchFeatureDao)
-                .getFeaturesForPeriod(eq(detector), eq(queryRanges[i][0]), eq(queryRanges[i][1]), any(ActionListener.class));
-        }
-
-        ActionListener<Optional<Entry<double[][], Integer>>> listener = mock(ActionListener.class);
-        searchFeatureDao.getFeaturesForSampledPeriods(detector, maxSamples, maxStride, endTime, listener);
-
-        ArgumentCaptor<Optional<Entry<double[][], Integer>>> captor = ArgumentCaptor.forClass(Optional.class);
-        verify(listener).onResponse(captor.capture());
-        Optional<Entry<double[][], Integer>> result = captor.getValue();
-        assertEquals(expected.isPresent(), result.isPresent());
-        if (expected.isPresent()) {
-            assertTrue(Arrays.deepEquals(expected.get().getKey(), result.get().getKey()));
-            assertEquals(expected.get().getValue(), result.get().getValue());
-        }
     }
 
     @SuppressWarnings("unchecked")

@@ -17,6 +17,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
@@ -35,6 +36,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.ScrollableHitSource;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.ml.CheckpointDao;
 import org.opensearch.timeseries.util.ClientUtil;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
@@ -60,7 +62,7 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
         PARTIAL_FAILURE
     }
 
-    private CheckpointDao checkpointDao;
+    private ADCheckpointDao checkpointDao;
     private Client client;
     private ClientUtil clientUtil;
     private Gson gson;
@@ -76,6 +78,8 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
     private Schema<ThresholdedRandomCutForestState> ercfSchema;
 
     double anomalyRate;
+
+    private Clock clock;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -97,10 +101,10 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
         objectPool = mock(GenericObjectPool.class);
         int deserializeRCFBufferSize = 512;
         anomalyRate = 0.005;
-        checkpointDao = new CheckpointDao(
+        clock = mock(Clock.class);
+        checkpointDao = new ADCheckpointDao(
             client,
             clientUtil,
-            ADCommonName.CHECKPOINT_INDEX_NAME,
             gson,
             mapper,
             converter,
@@ -111,7 +115,8 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
             maxCheckpointBytes,
             objectPool,
             deserializeRCFBufferSize,
-            anomalyRate
+            anomalyRate,
+            clock
         );
     }
 
@@ -157,7 +162,7 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
 
-        checkpointDao.deleteModelCheckpointByDetectorId(detectorId);
+        checkpointDao.deleteModelCheckpointByConfigId(detectorId);
     }
 
     public void testDeleteSingleNormal() throws Exception {
@@ -172,7 +177,7 @@ public class CheckpointDeleteTests extends AbstractTimeSeriesTest {
 
     public void testDeleteSingleResultFailure() throws Exception {
         delete_by_detector_id_template(DeleteExecutionMode.FAILURE);
-        assertTrue(testAppender.containsMessage(CheckpointDao.NOT_ABLE_TO_DELETE_LOG_MSG));
+        assertTrue(testAppender.containsMessage(CheckpointDao.NOT_ABLE_TO_DELETE_CHECKPOINT_MSG));
     }
 
     public void testDeleteSingleResultPartialFailure() throws Exception {

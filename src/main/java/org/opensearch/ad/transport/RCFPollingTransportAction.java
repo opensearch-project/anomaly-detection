@@ -19,8 +19,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.cluster.HashRing;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -30,6 +29,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.transport.TransportException;
@@ -48,7 +48,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
     static final String FAIL_TO_GET_RCF_UPDATE_MSG = "Cannot find hosted model or related checkpoint";
 
     private final TransportService transportService;
-    private final ModelManager modelManager;
+    private final ADModelManager modelManager;
     private final HashRing hashRing;
     private final TransportRequestOptions option;
     private final ClusterService clusterService;
@@ -58,7 +58,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
         ActionFilters actionFilters,
         TransportService transportService,
         Settings settings,
-        ModelManager modelManager,
+        ADModelManager modelManager,
         HashRing hashRing,
         ClusterService clusterService
     ) {
@@ -81,7 +81,7 @@ public class RCFPollingTransportAction extends HandledTransportAction<RCFPolling
 
         String rcfModelID = SingleStreamModelIdMapper.getRcfModelId(adID, 0);
 
-        Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalAdVersionForRealtimeAD(rcfModelID);
+        Optional<DiscoveryNode> rcfNode = hashRing.getOwningNodeWithSameLocalVersionForRealtime(rcfModelID);
         if (!rcfNode.isPresent()) {
             listener.onFailure(new TimeSeriesException(adID, NO_NODE_FOUND_MSG));
             return;
