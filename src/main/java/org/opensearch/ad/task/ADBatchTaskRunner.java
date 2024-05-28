@@ -48,6 +48,7 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.ADEnabledSetting;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
@@ -75,7 +76,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
-import org.opensearch.timeseries.breaker.MemoryCircuitBreakerNumericSetting;
 import org.opensearch.timeseries.caching.PriorityTracker;
 import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.common.exception.EndRunException;
@@ -704,15 +704,12 @@ public class ADBatchTaskRunner {
                 List<StatsNodeResponse> candidateNodeResponse = adStatsResponse
                     .getNodes()
                     .stream()
-                    .filter(
-                        stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < MemoryCircuitBreakerNumericSetting
-                            .getJVMHeapUsageThreshold()
-                    )
+                    .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < ADNumericSetting.getJVMHeapUsageThreshold())
                     .collect(Collectors.toList());
 
                 if (candidateNodeResponse.size() == 0) {
                     StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
-                        .append(MemoryCircuitBreakerNumericSetting.getJVMHeapUsageThreshold())
+                        .append(ADNumericSetting.getJVMHeapUsageThreshold())
                         .append("%. ")
                         .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
                         .append(adTask.getConfigId());

@@ -11,6 +11,7 @@
 
 package org.opensearch.timeseries.breaker;
 
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.monitor.jvm.JvmService;
 
 /**
@@ -21,7 +22,7 @@ public class MemoryCircuitBreaker extends ThresholdCircuitBreaker<Integer> {
     private final JvmService jvmService;
 
     public MemoryCircuitBreaker(JvmService jvmService) {
-        super(MemoryCircuitBreakerNumericSetting.getJVMHeapUsageThreshold());
+        super(ADNumericSetting.getJVMHeapUsageThreshold());
         this.jvmService = jvmService;
     }
 
