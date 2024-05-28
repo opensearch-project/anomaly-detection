@@ -68,7 +68,7 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
     @Override
     protected BulkRequest prepareBulkRequest(float indexingPressurePercent, ADResultBulkRequest request) {
         BulkRequest bulkRequest = new BulkRequest();
-        List<ADResultWriteRequest> results = request.getAnomalyResults();
+        List<ADResultWriteRequest> results = request.getResults();
 
         if (indexingPressurePercent <= softLimit) {
             for (ADResultWriteRequest resultWriteRequest : results) {

@@ -54,6 +54,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -129,7 +130,8 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
             threadPool,
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
     }
 
@@ -308,7 +310,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
             return null;
         }).when(indicesAdminClient).updateSettings(any(), any());
 
-        adIndices = new ADIndexManagement(client, clusterService, threadPool, settings, nodeFilter, 1);
+        adIndices = new ADIndexManagement(client, clusterService, threadPool, settings, nodeFilter, 1, NamedXContentRegistry.EMPTY);
 
         adIndices.update();
         adIndices.update();

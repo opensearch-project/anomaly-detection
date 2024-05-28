@@ -19,6 +19,7 @@ import org.junit.Before;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
@@ -59,7 +60,8 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
             client().threadPool(),
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
     }
 

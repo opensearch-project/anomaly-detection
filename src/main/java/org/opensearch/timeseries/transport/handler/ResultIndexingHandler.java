@@ -110,48 +110,63 @@ public class ResultIndexingHandler<ResultType extends IndexableResult, IndexType
     }
 
     // TODO: check if user has permission to index.
-    public void index(ResultType toSave, String detectorId, String customIndexName) {
+    public void index(ResultType toSave, String detectorId, String indexOrAliasName) {
         try {
-            if (customIndexName != null) {
-                if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, customIndexName)) {
+            if (indexOrAliasName != null) {
+                if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, indexOrAliasName)) {
                     LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
                     return;
                 }
-                // Only create custom AD result index when create detector, won’t recreate custom AD result index in realtime
-                // job and historical analysis later if it’s deleted. If user delete the custom AD result index, and AD plugin
-                // recreate it, that may bring confusion.
-                if (!timeSeriesIndices.doesIndexExist(customIndexName)) {
-                    throw new EndRunException(detectorId, CommonMessages.CAN_NOT_FIND_RESULT_INDEX + customIndexName, true);
+                // We create custom result index when creating a detector. Custom result index can be rolled over and thus we may need to
+                // create a new one.
+                if (!timeSeriesIndices.doesIndexExist(indexOrAliasName) && !timeSeriesIndices.doesAliasExist(indexOrAliasName)) {
+                    timeSeriesIndices.initCustomResultIndexDirectly(indexOrAliasName, ActionListener.wrap(response -> {
+                        if (response.isAcknowledged()) {
+                            save(toSave, detectorId, indexOrAliasName);
+                        } else {
+                            throw new TimeSeriesException(detectorId, String.format(Locale.ROOT, "Creating custom result index %s with mappings call not acknowledged", indexOrAliasName));
+                        }
+                    }, exception -> {
+                        if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                            // It is possible the index has been created while we sending the create request
+                            save(toSave, detectorId, indexOrAliasName);
+                        } else {
+                            throw new TimeSeriesException(detectorId, String.format(Locale.ROOT, "cannot create result index %s", indexOrAliasName), exception);
+                        }
+                    }));
+                } else {
+                    timeSeriesIndices.validateResultIndexMapping(indexOrAliasName, ActionListener.wrap(valid -> {
+                        if (!valid) {
+                            throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
+                        } else {
+                            save(toSave, detectorId, indexOrAliasName);
+                        }
+                    }, exception -> {throw new TimeSeriesException(detectorId, String.format(Locale.ROOT, "cannot validate result index %s", indexOrAliasName), exception); }));
                 }
-                if (!timeSeriesIndices.isValidResultIndexMapping(customIndexName)) {
-                    throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
-                }
-                save(toSave, detectorId, customIndexName);
-                return;
-            }
-
-            if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.defaultResultIndexName)) {
-                LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
-                return;
-            }
-            if (!timeSeriesIndices.doesDefaultResultIndexExist()) {
-                timeSeriesIndices
-                    .initDefaultResultIndexDirectly(
-                        ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
-                            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                                // It is possible the index has been created while we sending the create request
-                                save(toSave, detectorId);
-                            } else {
-                                throw new TimeSeriesException(
-                                    detectorId,
-                                    String.format(Locale.ROOT, "Unexpected error creating index %s", defaultResultIndexName),
-                                    exception
-                                );
-                            }
-                        })
-                    );
             } else {
-                save(toSave, detectorId);
+                if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.defaultResultIndexName)) {
+                    LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
+                    return;
+                }
+                if (!timeSeriesIndices.doesDefaultResultIndexExist()) {
+                    timeSeriesIndices
+                        .initDefaultResultIndexDirectly(
+                            ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
+                                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                                    // It is possible the index has been created while we sending the create request
+                                    save(toSave, detectorId);
+                                } else {
+                                    throw new TimeSeriesException(
+                                        detectorId,
+                                        String.format(Locale.ROOT, "Unexpected error creating index %s", defaultResultIndexName),
+                                        exception
+                                    );
+                                }
+                            })
+                        );
+                } else {
+                    save(toSave, detectorId);
+                }
             }
         } catch (Exception e) {
             throw new TimeSeriesException(

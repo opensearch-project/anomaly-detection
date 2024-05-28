@@ -249,7 +249,7 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
             Instant.now(),
             config.getCategoryFields(),
             user,
-            config.getCustomResultIndex(),
+            config.getCustomResultIndexOrAlias(),
             ((Forecaster) config).getHorizon(),
             config.getImputationOption(),
             config.getRecencyEmphasis(),

@@ -242,7 +242,8 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
             assertTrue(response.getInitProgress() != null);
             called.getAndIncrement();
         }, exception -> {
-            assertTrue("Should not reach here ", false);
+            LOG.error(exception);
+            assertTrue("Should not reach here", false);
             called.getAndIncrement();
         }), totalInitProgress);
 

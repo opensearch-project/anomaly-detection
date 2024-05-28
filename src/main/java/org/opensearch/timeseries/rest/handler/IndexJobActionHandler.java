@@ -222,7 +222,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                 Instant.now(),
                 duration.getSeconds(),
                 config.getUser(),
-                config.getCustomResultIndex(),
+                config.getCustomResultIndexOrAlias(),
                 analysisType
             );
 
@@ -276,7 +276,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                         Instant.now(),
                         job.getLockDurationSeconds(),
                         job.getUser(),
-                        job.getCustomResultIndex(),
+                        job.getCustomResultIndexOrAlias(),
                         job.getAnalysisType()
                     );
                     // Get latest realtime task and check its state before index job. Will reset running realtime task
@@ -429,7 +429,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                             Instant.now(),
                             job.getLockDurationSeconds(),
                             job.getUser(),
-                            job.getCustomResultIndex(),
+                            job.getCustomResultIndexOrAlias(),
                             job.getAnalysisType()
                         );
                         indexJob(
@@ -538,7 +538,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                 listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST));
                 return;
             }
-            String resultIndex = config.get().getCustomResultIndex();
+            String resultIndex = config.get().getCustomResultIndexOrAlias();
             if (resultIndex == null) {
                 startRealtimeOrHistoricalAnalysis(dateRange, user, transportService, listener, config);
                 return;

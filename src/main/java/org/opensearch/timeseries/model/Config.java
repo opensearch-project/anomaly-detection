@@ -39,6 +39,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
+import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.owasp.encoder.Encode;
 
@@ -90,7 +91,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected TimeConfiguration interval;
     protected TimeConfiguration windowDelay;
     protected Integer shingleSize;
-    protected String customResultIndex;
+    protected String customResultIndexOrAlias;
     protected Map<String, Object> uiMetadata;
     protected Integer schemaVersion;
     protected Instant lastUpdateTime;
@@ -255,7 +256,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.lastUpdateTime = lastUpdateTime;
         this.categoryFields = categoryFields;
         this.user = user;
-        this.customResultIndex = Strings.trimToNull(resultIndex);
+        this.customResultIndexOrAlias = Strings.trimToNull(resultIndex);
         this.imputationOption = imputationOption;
         this.issueType = null;
         this.errorMessage = null;
@@ -297,14 +298,14 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             this.uiMetadata = null;
         }
-        customResultIndex = input.readOptionalString();
+        customResultIndexOrAlias = input.readOptionalString();
         if (input.readBoolean()) {
             this.imputationOption = new ImputationOption(input);
         } else {
             this.imputationOption = null;
         }
         this.recencyEmphasis = input.readInt();
-        this.seasonIntervals = input.readInt();
+        this.seasonIntervals = input.readOptionalInt();
         this.historyIntervals = input.readInt();
         this.customResultIndexMinSize = input.readOptionalInt();
         this.customResultIndexMinAge = input.readOptionalInt();
@@ -348,7 +349,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             output.writeBoolean(false);
         }
-        output.writeOptionalString(customResultIndex);
+        output.writeOptionalString(customResultIndexOrAlias);
         if (imputationOption != null) {
             output.writeBoolean(true);
             imputationOption.writeTo(output);
@@ -356,7 +357,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             output.writeBoolean(false);
         }
         output.writeInt(recencyEmphasis);
-        output.writeInt(seasonIntervals);
+        output.writeOptionalInt(seasonIntervals);
         output.writeInt(historyIntervals);
         output.writeOptionalInt(customResultIndexMinSize);
         output.writeOptionalInt(customResultIndexMinAge);
@@ -410,7 +411,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(shingleSize, config.shingleSize)
             && Objects.equal(categoryFields, config.categoryFields)
             && Objects.equal(user, config.user)
-            && Objects.equal(customResultIndex, config.customResultIndex)
+            && Objects.equal(customResultIndexOrAlias, config.customResultIndexOrAlias)
             && Objects.equal(imputationOption, config.imputationOption)
             && Objects.equal(recencyEmphasis, config.recencyEmphasis)
             && Objects.equal(seasonIntervals, config.seasonIntervals)
@@ -437,7 +438,7 @@ public abstract class Config implements Writeable, ToXContentObject {
                 categoryFields,
                 schemaVersion,
                 user,
-                customResultIndex,
+                customResultIndexOrAlias,
                 imputationOption,
                 recencyEmphasis,
                 seasonIntervals,
@@ -475,8 +476,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         if (user != null) {
             builder.field(USER_FIELD, user);
         }
-        if (customResultIndex != null) {
-            builder.field(RESULT_INDEX_FIELD, customResultIndex);
+        if (customResultIndexOrAlias != null) {
+            builder.field(RESULT_INDEX_FIELD, customResultIndexOrAlias);
         }
         if (imputationOption != null) {
             builder.field(IMPUTATION_OPTION_FIELD, imputationOption);
@@ -593,8 +594,16 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.user = user;
     }
 
-    public String getCustomResultIndex() {
-        return customResultIndex;
+    /**
+     * Since 2.15, custom result index is changed to an alias to ease rollover as rollover target can only be an alias or data stream.
+     * @return custom result index name or alias
+     */
+    public String getCustomResultIndexOrAlias() {
+        return customResultIndexOrAlias;
+    }
+
+    public String getCustomResultIndexPattern() {
+        return IndexManagement.getAllCustomResultIndexPattern(customResultIndexOrAlias);
     }
 
     public boolean isHighCardinality() {
@@ -739,7 +748,7 @@ public abstract class Config implements Writeable, ToXContentObject {
                 .append("categoryFields", categoryFields)
                 .append("schemaVersion", schemaVersion)
                 .append("user", user)
-                .append("customResultIndex", customResultIndex)
+                .append("customResultIndex", customResultIndexOrAlias)
                 .append("imputationOption", imputationOption)
                 .append("recencyEmphasis", recencyEmphasis)
                 .append("seasonIntervals", seasonIntervals)

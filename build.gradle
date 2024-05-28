@@ -695,8 +695,8 @@ List<String> jacocoExclusions = [
         'org.opensearch.ad.task.ADTaskManager',
         // TODO: add forecast test coverage before release
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.*',
-        'org.opensearch.ad.*',
+        //'org.opensearch.timeseries.*',
+        //'org.opensearch.ad.*',
 ]
 
 

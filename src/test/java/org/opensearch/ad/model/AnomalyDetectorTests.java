@@ -79,7 +79,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         detectorString = detectorString
             .replaceFirst("\\{", String.format(Locale.ROOT, "{\"%s\":\"%s\",", randomAlphaOfLength(5), randomAlphaOfLength(5)));
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
-        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getCustomResultIndex());
+        assertEquals("Parsing result index doesn't work", resultIndex, parsedDetector.getCustomResultIndexOrAlias());
         assertEquals("Parsing anomaly detector doesn't work", detector, parsedDetector);
     }
 

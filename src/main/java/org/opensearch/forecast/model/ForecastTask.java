@@ -334,7 +334,7 @@ public class ForecastTask extends TimeSeriesTask {
                 forecaster.getLastUpdateTime(),
                 forecaster.getCategoryFields(),
                 forecaster.getUser(),
-                forecaster.getCustomResultIndex(),
+                forecaster.getCustomResultIndexOrAlias(),
                 forecaster.getHorizon(),
                 forecaster.getImputationOption(),
                 forecaster.getRecencyEmphasis(),

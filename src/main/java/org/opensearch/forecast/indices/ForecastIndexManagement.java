@@ -43,10 +43,12 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.InjectSecurity;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -72,6 +74,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
      * @param settings       OS cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host forecast indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
+     * @param xContentRegistry registry for json parser
      * @throws IOException
      */
     public ForecastIndexManagement(
@@ -80,7 +83,8 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
-        int maxUpdateRunningTimes
+        int maxUpdateRunningTimes,
+        NamedXContentRegistry xContentRegistry
     )
         throws IOException {
         super(
@@ -95,7 +99,9 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
             FORECAST_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings),
             FORECAST_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings),
             FORECAST_RESULT_HISTORY_RETENTION_PERIOD.get(settings),
-            ForecastIndex.RESULT.getMapping()
+            ForecastIndex.RESULT.getMapping(),
+            xContentRegistry,
+            Forecaster::parse
         );
         this.indexStates = new EnumMap<ForecastIndex, IndexState>(ForecastIndex.class);
 
@@ -268,7 +274,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
             FORECAST_RESULT_HISTORY_INDEX_PATTERN,
             ForecastIndex.RESULT.getIndexName(),
             false,
-            FORECAST_RESULT_HISTORY_INDEX_PATTERN,
+            true,
             ForecastIndex.RESULT,
             actionListener
         );
@@ -276,8 +282,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
 
     @Override
     public void initCustomResultIndexDirectly(String resultIndex, ActionListener<CreateIndexResponse> actionListener) {
-        // throws IOException {
-        initResultIndexDirectly(resultIndex, null, false, FORECAST_RESULT_HISTORY_INDEX_PATTERN, ForecastIndex.RESULT, actionListener);
+        initResultIndexDirectly(getCustomResultIndexPattern(resultIndex), resultIndex, false, false, ForecastIndex.RESULT, actionListener);
     }
 
     public <T> void validateDefaultResultIndexForBackendJob(
@@ -288,47 +293,15 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
         ActionListener<T> listener
     ) {
         if (doesAliasExist(ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS)) {
-            handleExistingIndex(configId, user, roles, function, listener);
+            validateResultIndexAndExecute(
+                    ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS,
+                    () -> executeWithSecurityContext(configId, user, roles, function, listener, ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS),
+                    false,
+                    listener
+                );
         } else {
             initDefaultResultIndex(configId, user, roles, function, listener);
         }
-    }
-
-    private <T> void handleExistingIndex(
-        String configId,
-        String user,
-        List<String> roles,
-        ExecutorFunction function,
-        ActionListener<T> listener
-    ) {
-        GetAliasesRequest getAliasRequest = new GetAliasesRequest()
-            .aliases(ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS)
-            .indicesOptions(IndicesOptions.lenientExpandOpenHidden());
-
-        adminClient.indices().getAliases(getAliasRequest, ActionListener.wrap(getAliasResponse -> {
-            String concreteIndex = getConcreteIndexFromAlias(getAliasResponse);
-            if (concreteIndex == null) {
-                listener.onFailure(new EndRunException("Result index alias mapping is empty", false));
-                return;
-            }
-
-            if (!isValidResultIndexMapping(concreteIndex)) {
-                listener.onFailure(new EndRunException("Result index mapping is not correct", false));
-                return;
-            }
-
-            executeWithSecurityContext(configId, user, roles, function, listener, concreteIndex);
-
-        }, listener::onFailure));
-    }
-
-    private String getConcreteIndexFromAlias(GetAliasesResponse getAliasResponse) {
-        for (Map.Entry<String, List<AliasMetadata>> entry : getAliasResponse.getAliases().entrySet()) {
-            if (!entry.getValue().isEmpty()) {
-                return entry.getKey();
-            }
-        }
-        return null;
     }
 
     private <T> void initDefaultResultIndex(
