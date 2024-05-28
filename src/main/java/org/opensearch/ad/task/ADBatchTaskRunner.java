@@ -19,7 +19,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENT
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_TOP_ENTITIES_LIMIT_FOR_HISTORICAL_ANALYSIS;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_BATCH_TASK_THREAD_POOL_NAME;
-import static org.opensearch.timeseries.breaker.MemoryCircuitBreaker.DEFAULT_JVM_HEAP_USAGE_THRESHOLD;
 import static org.opensearch.timeseries.stats.InternalStatNames.JVM_HEAP_USAGE;
 import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_COUNT;
 
@@ -76,6 +75,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.breaker.MemoryCircuitBreakerNumericSetting;
 import org.opensearch.timeseries.caching.PriorityTracker;
 import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.common.exception.EndRunException;
@@ -704,12 +704,15 @@ public class ADBatchTaskRunner {
                 List<StatsNodeResponse> candidateNodeResponse = adStatsResponse
                     .getNodes()
                     .stream()
-                    .filter(stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
+                    .filter(
+                        stat -> (long) stat.getStatsMap().get(JVM_HEAP_USAGE.getName()) < MemoryCircuitBreakerNumericSetting
+                            .getJVMHeapUsageThreshold()
+                    )
                     .collect(Collectors.toList());
 
                 if (candidateNodeResponse.size() == 0) {
                     StringBuilder errorMessageBuilder = new StringBuilder("All nodes' memory usage exceeds limitation ")
-                        .append(DEFAULT_JVM_HEAP_USAGE_THRESHOLD)
+                        .append(MemoryCircuitBreakerNumericSetting.getJVMHeapUsageThreshold())
                         .append("%. ")
                         .append(NO_ELIGIBLE_NODE_TO_RUN_DETECTOR)
                         .append(adTask.getConfigId());

@@ -16,17 +16,16 @@ import org.opensearch.monitor.jvm.JvmService;
 /**
  * A circuit breaker for memory usage.
  */
-public class MemoryCircuitBreaker extends ThresholdCircuitBreaker<Short> {
+public class MemoryCircuitBreaker extends ThresholdCircuitBreaker<Integer> {
 
-    public static final short DEFAULT_JVM_HEAP_USAGE_THRESHOLD = 95;
     private final JvmService jvmService;
 
     public MemoryCircuitBreaker(JvmService jvmService) {
-        super(DEFAULT_JVM_HEAP_USAGE_THRESHOLD);
+        super(MemoryCircuitBreakerNumericSetting.getJVMHeapUsageThreshold());
         this.jvmService = jvmService;
     }
 
-    public MemoryCircuitBreaker(short threshold, JvmService jvmService) {
+    public MemoryCircuitBreaker(int threshold, JvmService jvmService) {
         super(threshold);
         this.jvmService = jvmService;
     }
