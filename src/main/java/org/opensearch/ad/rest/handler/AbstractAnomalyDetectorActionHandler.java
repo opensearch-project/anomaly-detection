@@ -231,7 +231,7 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             Instant.now(),
             config.getCategoryFields(),
             user,
-            config.getCustomResultIndex(),
+            config.getCustomResultIndexOrAlias(),
             config.getImputationOption(),
             config.getRecencyEmphasis(),
             config.getSeasonIntervals(),

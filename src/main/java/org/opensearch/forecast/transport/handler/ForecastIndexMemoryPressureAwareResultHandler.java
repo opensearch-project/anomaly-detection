@@ -19,6 +19,8 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
+import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.ratelimit.ForecastResultWriteRequest;
 import org.opensearch.forecast.transport.ForecastResultBulkAction;
 import org.opensearch.forecast.transport.ForecastResultBulkRequest;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -27,7 +29,7 @@ import org.opensearch.timeseries.transport.ResultBulkResponse;
 import org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler;
 
 public class ForecastIndexMemoryPressureAwareResultHandler extends
-    IndexMemoryPressureAwareResultHandler<ForecastResultBulkRequest, ResultBulkResponse, ForecastIndex, ForecastIndexManagement> {
+    IndexMemoryPressureAwareResultHandler<ForecastResult, ForecastResultWriteRequest, ForecastResultBulkRequest, ResultBulkResponse, ForecastIndex, ForecastIndexManagement> {
     private static final Logger LOG = LogManager.getLogger(ForecastIndexMemoryPressureAwareResultHandler.class);
 
     @Inject

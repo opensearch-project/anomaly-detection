@@ -15,6 +15,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.ratelimit.ADResultWriteRequest;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.client.Client;
@@ -27,7 +29,7 @@ import org.opensearch.timeseries.transport.ResultBulkResponse;
 import org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler;
 
 public class ADIndexMemoryPressureAwareResultHandler extends
-    IndexMemoryPressureAwareResultHandler<ADResultBulkRequest, ResultBulkResponse, ADIndex, ADIndexManagement> {
+    IndexMemoryPressureAwareResultHandler<AnomalyResult, ADResultWriteRequest, ADResultBulkRequest, ResultBulkResponse, ADIndex, ADIndexManagement> {
     private static final Logger LOG = LogManager.getLogger(ADIndexMemoryPressureAwareResultHandler.class);
 
     @Inject

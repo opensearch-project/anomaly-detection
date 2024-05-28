@@ -42,6 +42,7 @@ import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -187,6 +188,21 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
 
     protected String getEntity(JsonObject source) {
         return source.get("entity").getAsJsonArray().get(0).getAsJsonObject().get("value").getAsString();
+    }
+
+    /**
+     * We can detect anomaly late. If yes, use approx_anomaly_start_time; otherwise, use defaultVal.
+     * @param source source response containing anomaly result.
+     * @param defaultVal default anomaly time. Usually data end time.
+     * @return anomaly event time.
+     */
+    protected Instant getAnomalyTime(JsonObject source, Instant defaultVal) {
+        JsonElement anomalyTime = source.get("approx_anomaly_start_time");
+        if (anomalyTime != null) {
+            long epochhMillis = anomalyTime.getAsLong();
+            return Instant.ofEpochMilli(epochhMillis);
+        }
+        return defaultVal;
     }
 
     protected void createIndex(String datasetName, RestClient client, String mapping) throws IOException, InterruptedException {

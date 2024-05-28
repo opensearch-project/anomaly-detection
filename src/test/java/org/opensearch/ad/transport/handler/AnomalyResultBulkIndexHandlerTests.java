@@ -14,6 +14,7 @@ package org.opensearch.ad.transport.handler;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -104,17 +105,22 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
 
     public void testAnomalyResultBulkIndexHandler_IndexNotExist() {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist("testIndex")).thenReturn(false);
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
         when(anomalyResult.getConfigId()).thenReturn(configId);
 
         bulkIndexHandler.bulk("testIndex", ImmutableList.of(anomalyResult), configId, listener);
-        verify(listener, times(1)).onFailure(exceptionCaptor.capture());
-        assertEquals("Can't find result index testIndex", exceptionCaptor.getValue().getMessage());
+        verify(anomalyDetectionIndices, times(1)).initCustomResultIndexDirectly(eq("testIndex"), any());
     }
 
     public void testAnomalyResultBulkIndexHandler_InValidResultIndexMapping() {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
-        when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(false);
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(false);
+            return null;
+        }).when(anomalyDetectionIndices).validateResultIndexMapping(eq("testIndex"), any());
+
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
 
         when(anomalyResult.getConfigId()).thenReturn(configId);
@@ -126,7 +132,11 @@ public class AnomalyResultBulkIndexHandlerTests extends ADUnitTestCase {
 
     public void testAnomalyResultBulkIndexHandler_FailBulkIndexAnomaly() throws IOException {
         when(anomalyDetectionIndices.doesIndexExist("testIndex")).thenReturn(true);
-        when(anomalyDetectionIndices.isValidResultIndexMapping("testIndex")).thenReturn(true);
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(true);
+            return null;
+        }).when(anomalyDetectionIndices).validateResultIndexMapping(eq("testIndex"), any());
         AnomalyResult anomalyResult = mock(AnomalyResult.class);
         when(anomalyResult.getConfigId()).thenReturn(configId);
         when(anomalyResult.toXContent(any(), any())).thenThrow(new RuntimeException());

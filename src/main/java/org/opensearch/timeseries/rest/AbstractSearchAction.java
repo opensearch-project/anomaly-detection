@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.timeseries;
+package org.opensearch.timeseries.rest;
 
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.opensearch.timeseries.util.RestHandlerUtils.getSourceContext;
@@ -47,7 +47,7 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
     protected final List<String> urlPaths;
     protected final List<Pair<String, String>> deprecatedPaths;
     protected final ActionType<SearchResponse> actionType;
-    protected final Supplier<Boolean> adEnabledSupplier;
+    protected final Supplier<Boolean> enabledSupplier;
     protected final String disabledMsg;
 
     private final Logger logger = LogManager.getLogger(AbstractSearchAction.class);
@@ -66,13 +66,13 @@ public abstract class AbstractSearchAction<T extends ToXContentObject> extends B
         this.urlPaths = urlPaths;
         this.deprecatedPaths = deprecatedPaths;
         this.actionType = actionType;
-        this.adEnabledSupplier = adEnabledSupplier;
+        this.enabledSupplier = adEnabledSupplier;
         this.disabledMsg = disabledMsg;
     }
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        if (!adEnabledSupplier.get()) {
+        if (!enabledSupplier.get()) {
             throw new IllegalStateException(disabledMsg);
         }
         try {

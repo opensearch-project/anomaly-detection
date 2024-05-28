@@ -267,7 +267,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
             && Objects.equal(getDisabledTime(), that.getDisabledTime())
             && Objects.equal(getLastUpdateTime(), that.getLastUpdateTime())
             && Objects.equal(getLockDurationSeconds(), that.getLockDurationSeconds())
-            && Objects.equal(getCustomResultIndex(), that.getCustomResultIndex())
+            && Objects.equal(getCustomResultIndexOrAlias(), that.getCustomResultIndexOrAlias())
             && Objects.equal(getAnalysisType(), that.getAnalysisType());
     }
 
@@ -318,7 +318,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
         return user;
     }
 
-    public String getCustomResultIndex() {
+    public String getCustomResultIndexOrAlias() {
         return resultIndex;
     }
 

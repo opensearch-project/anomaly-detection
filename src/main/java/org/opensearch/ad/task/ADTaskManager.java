@@ -571,10 +571,9 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         TransportService transportService,
         ActionListener<JobResponse> listener
     ) {
-        DiscoveryNode coordinatingNode = getCoordinatingNode(adTask);
         transportService
             .sendRequest(
-                coordinatingNode,
+                getCoordinatingNode(adTask),
                 ForwardADTaskAction.NAME,
                 new ForwardADTaskRequest(adTask, approvedTaskSlot, ADTaskAction.SCALE_ENTITY_TASK_SLOTS),
                 transportRequestOptions,
@@ -582,20 +581,56 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
             );
     }
 
+    /**
+     * Retrieves the coordinating node for the given ADTask.
+     *
+     * This method looks for a node in the list of eligible data nodes that matches the coordinating node ID
+     * and version specified in the ADTask. The matching criteria are:
+     * 1. The node ID must be equal to the coordinating node ID.
+     * 2. Both node versions must be either null or equal.
+     *
+     * If the coordinating node ID and the local node have different software versions, this method will
+     * throw a ResourceNotFoundException.
+     *
+     * @param adTask the ADTask containing the coordinating node information.
+     * @return a DiscoveryNode containing the matching DiscoveryNode if found, or throws ResourceNotFoundException if no match is found.
+     * The caller is supposed to handle the thrown exception.
+     * @throws ResourceNotFoundException if the coordinating node has a different version than the local node or if the coordinating node is not found.
+     */
     private DiscoveryNode getCoordinatingNode(ADTask adTask) {
-        String coordinatingNode = adTask.getCoordinatingNode();
-        DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
-        DiscoveryNode targetNode = null;
-        for (DiscoveryNode node : eligibleDataNodes) {
-            if (node.getId().equals(coordinatingNode)) {
-                targetNode = node;
-                break;
+        try {
+            String coordinatingNodeId = adTask.getCoordinatingNode();
+            Version coordinatingNodeVersion = hashRing.getVersion(coordinatingNodeId);
+            Version localNodeVersion = hashRing.getVersion(clusterService.localNode().getId());
+            if (!isSameVersion(coordinatingNodeVersion, localNodeVersion)) {
+                throw new ResourceNotFoundException(
+                    adTask.getConfigId(),
+                    "AD task coordinating node has different version than local node"
+                );
             }
-        }
-        if (targetNode == null) {
+
+            DiscoveryNode[] eligibleDataNodes = nodeFilter.getEligibleDataNodes();
+
+            for (DiscoveryNode node : eligibleDataNodes) {
+                String nodeId = node.getId();
+                if (nodeId == null) {
+                    continue;
+                }
+
+                if (nodeId.equals(coordinatingNodeId)) {
+                    return node;
+                }
+            }
+
+            throw new ResourceNotFoundException(adTask.getConfigId(), "AD task coordinating node not found");
+        } catch (Exception e) {
+            logger.error("Error locating coordinating node", e);
             throw new ResourceNotFoundException(adTask.getConfigId(), "AD task coordinating node not found");
         }
-        return targetNode;
+    }
+
+    private boolean isSameVersion(Version version1, Version version2) {
+        return (version1 == null && version2 == null) || (version1 != null && version2 != null && version1.compareTo(version2) == 0);
     }
 
     @Override
@@ -791,7 +826,7 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         } catch (ResourceNotFoundException e) {
             logger
                 .warn(
-                    "Task coordinating node left cluster, taskId: {}, detectorId: {}, coordinatingNode: {}",
+                    "Task coordinating node left cluster or has different software version, taskId: {}, detectorId: {}, coordinatingNode: {}",
                     taskId,
                     detectorId,
                     coordinatingNode

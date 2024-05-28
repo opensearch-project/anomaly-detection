@@ -13,7 +13,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
-import org.opensearch.timeseries.AbstractSearchAction;
+import org.opensearch.timeseries.rest.AbstractSearchAction;
 
 /**
  * Provides an abstract base class for handling search actions within the forecast module.
