@@ -25,7 +25,7 @@ public class ADNumericSetting extends DynamicNumericSetting {
      */
     public static final String CATEGORY_FIELD_LIMIT = "plugins.anomaly_detection.category_field_limit";
 
-    public static final String JVM_HEAP_USAGE_THRESHOLD = "plugins.ad.jvm_heap_usage.threshold";
+    public static final String JVM_HEAP_USAGE_THRESHOLD = "plugins.anomaly_detection.jvm_heap_usage_threshold";
 
     private static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
