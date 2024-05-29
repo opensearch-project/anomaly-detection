@@ -20,6 +20,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.timeseries.util.IndexUtils;
 
 public class IndexUtilsTests extends OpenSearchIntegTestCase {
 
@@ -36,7 +37,7 @@ public class IndexUtilsTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testGetIndexHealth_NoIndex() {
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
+        IndexUtils indexUtils = new IndexUtils(clusterService(), indexNameResolver);
         String output = indexUtils.getIndexHealthStatus("test");
         assertEquals(IndexUtils.NONEXISTENT_INDEX_STATUS, output);
     }
@@ -46,7 +47,7 @@ public class IndexUtilsTests extends OpenSearchIntegTestCase {
         String indexName = "test-2";
         createIndex(indexName);
         flush();
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
+        IndexUtils indexUtils = new IndexUtils(clusterService(), indexNameResolver);
         String status = indexUtils.getIndexHealthStatus(indexName);
         assertTrue(status.equals("green") || status.equals("yellow"));
     }
@@ -59,7 +60,7 @@ public class IndexUtilsTests extends OpenSearchIntegTestCase {
         flush();
         AcknowledgedResponse response = client().admin().indices().prepareAliases().addAlias(indexName, aliasName).execute().actionGet();
         assertTrue(response.isAcknowledged());
-        IndexUtils indexUtils = new IndexUtils(client(), clientUtil, clusterService(), indexNameResolver);
+        IndexUtils indexUtils = new IndexUtils(clusterService(), indexNameResolver);
         String status = indexUtils.getIndexHealthStatus(aliasName);
         assertTrue(status.equals("green") || status.equals("yellow"));
     }

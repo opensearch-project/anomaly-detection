@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.junit.Before;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.caching.PriorityTracker;
 
 public class PriorityTrackerTests extends OpenSearchTestCase {
     Clock clock;

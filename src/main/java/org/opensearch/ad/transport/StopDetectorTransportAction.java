@@ -27,10 +27,13 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.common.exception.InternalFailure;
+import org.opensearch.timeseries.transport.DeleteModelRequest;
+import org.opensearch.timeseries.transport.StopConfigRequest;
+import org.opensearch.timeseries.transport.StopConfigResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
 
-public class StopDetectorTransportAction extends HandledTransportAction<ActionRequest, StopDetectorResponse> {
+public class StopDetectorTransportAction extends HandledTransportAction<ActionRequest, StopConfigResponse> {
 
     private static final Logger LOG = LogManager.getLogger(StopDetectorTransportAction.class);
 
@@ -44,19 +47,19 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
         ActionFilters actionFilters,
         Client client
     ) {
-        super(StopDetectorAction.NAME, transportService, actionFilters, StopDetectorRequest::new);
+        super(StopDetectorAction.NAME, transportService, actionFilters, StopConfigRequest::new);
         this.client = client;
         this.nodeFilter = nodeFilter;
     }
 
     @Override
-    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<StopDetectorResponse> listener) {
-        StopDetectorRequest request = StopDetectorRequest.fromActionRequest(actionRequest);
-        String adID = request.getAdID();
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<StopConfigResponse> listener) {
+        StopConfigRequest request = StopConfigRequest.fromActionRequest(actionRequest);
+        String adID = request.getConfigID();
         try {
             DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
             DeleteModelRequest modelDeleteRequest = new DeleteModelRequest(adID, dataNodes);
-            client.execute(DeleteModelAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
+            client.execute(DeleteADModelAction.INSTANCE, modelDeleteRequest, ActionListener.wrap(response -> {
                 if (response.hasFailures()) {
                     LOG.warn("Cannot delete all models of detector {}", adID);
                     for (FailedNodeException failedNodeException : response.failures()) {
@@ -64,14 +67,14 @@ public class StopDetectorTransportAction extends HandledTransportAction<ActionRe
                     }
                     // if customers are using an updated detector and we haven't deleted old
                     // checkpoints, customer would have trouble
-                    listener.onResponse(new StopDetectorResponse(false));
+                    listener.onResponse(new StopConfigResponse(false));
                 } else {
                     LOG.info("models of detector {} get deleted", adID);
-                    listener.onResponse(new StopDetectorResponse(true));
+                    listener.onResponse(new StopConfigResponse(true));
                 }
             }, exception -> {
                 LOG.error(new ParameterizedMessage("Deletion of detector [{}] has exception.", adID), exception);
-                listener.onResponse(new StopDetectorResponse(false));
+                listener.onResponse(new StopConfigResponse(false));
             }));
         } catch (Exception e) {
             LOG.error(FAIL_TO_STOP_DETECTOR + " " + adID, e);

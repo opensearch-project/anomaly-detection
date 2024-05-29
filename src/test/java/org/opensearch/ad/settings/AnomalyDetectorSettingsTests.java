@@ -155,7 +155,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(Settings.EMPTY)
         );
         assertEquals(
-            TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.get(Settings.EMPTY)
         );
         assertEquals(
@@ -163,7 +163,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
             LegacyOpenDistroAnomalyDetectorSettings.COOLDOWN_MINUTES.get(Settings.EMPTY)
         );
         assertEquals(
-            TimeSeriesSettings.BACKOFF_MINUTES.get(Settings.EMPTY),
+            AnomalyDetectorSettings.AD_BACKOFF_MINUTES.get(Settings.EMPTY),
             LegacyOpenDistroAnomalyDetectorSettings.BACKOFF_MINUTES.get(Settings.EMPTY)
         );
         assertEquals(

@@ -21,7 +21,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.FailedNodeException;
-import org.opensearch.ad.stats.ADStatsResponse;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -30,6 +29,10 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.transport.StatsNodeResponse;
+import org.opensearch.timeseries.transport.StatsNodesResponse;
+import org.opensearch.timeseries.transport.StatsResponse;
+import org.opensearch.timeseries.transport.StatsTimeSeriesResponse;
 
 public class StatsAnomalyDetectorActionTests extends OpenSearchTestCase {
 
@@ -47,20 +50,20 @@ public class StatsAnomalyDetectorActionTests extends OpenSearchTestCase {
 
     @Test
     public void testStatsResponse() throws IOException {
-        ADStatsResponse adStatsResponse = new ADStatsResponse();
+        StatsResponse adStatsResponse = new StatsResponse();
         Map<String, Object> testClusterStats = new HashMap<>();
         testClusterStats.put("test_response", 1);
         adStatsResponse.setClusterStats(testClusterStats);
-        List<ADStatsNodeResponse> responses = Collections.emptyList();
+        List<StatsNodeResponse> responses = Collections.emptyList();
         List<FailedNodeException> failures = Collections.emptyList();
-        ADStatsNodesResponse adStatsNodesResponse = new ADStatsNodesResponse(ClusterName.DEFAULT, responses, failures);
-        adStatsResponse.setADStatsNodesResponse(adStatsNodesResponse);
+        StatsNodesResponse adStatsNodesResponse = new StatsNodesResponse(ClusterName.DEFAULT, responses, failures);
+        adStatsResponse.setStatsNodesResponse(adStatsNodesResponse);
 
-        StatsAnomalyDetectorResponse response = new StatsAnomalyDetectorResponse(adStatsResponse);
+        StatsTimeSeriesResponse response = new StatsTimeSeriesResponse(adStatsResponse);
         BytesStreamOutput out = new BytesStreamOutput();
         response.writeTo(out);
         StreamInput input = out.bytes().streamInput();
-        StatsAnomalyDetectorResponse newResponse = new StatsAnomalyDetectorResponse(input);
+        StatsTimeSeriesResponse newResponse = new StatsTimeSeriesResponse(input);
         assertNotNull(newResponse);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();

@@ -20,12 +20,14 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -34,8 +36,6 @@ import org.junit.Test;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.ModelState;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -45,9 +45,16 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.transport.StatsNodeRequest;
+import org.opensearch.timeseries.transport.StatsNodeResponse;
+import org.opensearch.timeseries.transport.StatsNodesResponse;
+import org.opensearch.timeseries.transport.StatsRequest;
 
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
@@ -78,18 +85,18 @@ public class ADStatsTests extends OpenSearchTestCase {
 
     @Test
     public void testADStatsNodeRequest() throws IOException {
-        ADStatsNodeRequest adStatsNodeRequest1 = new ADStatsNodeRequest();
+        StatsNodeRequest adStatsNodeRequest1 = new StatsNodeRequest();
         assertNull("ADStatsNodeRequest default constructor failed", adStatsNodeRequest1.getADStatsRequest());
 
-        ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
-        ADStatsNodeRequest adStatsNodeRequest2 = new ADStatsNodeRequest(adStatsRequest);
+        StatsRequest adStatsRequest = new StatsRequest(new String[0]);
+        StatsNodeRequest adStatsNodeRequest2 = new StatsNodeRequest(adStatsRequest);
         assertEquals("ADStatsNodeRequest has the wrong ADStatsRequest", adStatsNodeRequest2.getADStatsRequest(), adStatsRequest);
 
         // Test serialization
         BytesStreamOutput output = new BytesStreamOutput();
         adStatsNodeRequest2.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        adStatsNodeRequest1 = new ADStatsNodeRequest(streamInput);
+        adStatsNodeRequest1 = new StatsNodeRequest(streamInput);
         assertEquals(
             "readStats failed",
             adStatsNodeRequest2.getADStatsRequest().getStatsToBeRetrieved(),
@@ -106,11 +113,11 @@ public class ADStatsTests extends OpenSearchTestCase {
         };
 
         // Test serialization
-        ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, stats);
+        StatsNodeResponse adStatsNodeResponse = new StatsNodeResponse(discoveryNode1, stats);
         BytesStreamOutput output = new BytesStreamOutput();
         adStatsNodeResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADStatsNodeResponse readResponse = ADStatsNodeResponse.readStats(streamInput);
+        StatsNodeResponse readResponse = StatsNodeResponse.readStats(streamInput);
         assertEquals("readStats failed", readResponse.getStatsMap(), adStatsNodeResponse.getStatsMap());
 
         // Test toXContent
@@ -139,25 +146,26 @@ public class ADStatsTests extends OpenSearchTestCase {
         attributes.put(name2, val2);
         String detectorId = "detectorId";
         Entity entity = Entity.createEntityFromOrderedMap(attributes);
-        EntityModel entityModel = new EntityModel(entity, null, null);
         Clock clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
-        ModelState<EntityModel> state = new ModelState<EntityModel>(
-            entityModel,
+        ModelState<ThresholdedRandomCutForest> state = new ModelState<ThresholdedRandomCutForest>(
+            null,
             entity.getModelId(detectorId).get(),
             detectorId,
-            "entity",
+            ModelManager.ModelType.TRCF.getName(),
             clock,
-            0.1f
+            0.1f,
+            Optional.empty(),
+            new ArrayDeque<>()
         );
         Map<String, Object> stats = state.getModelStateAsMap();
 
         // Test serialization
-        ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, stats);
+        StatsNodeResponse adStatsNodeResponse = new StatsNodeResponse(discoveryNode1, stats);
         BytesStreamOutput output = new BytesStreamOutput();
         adStatsNodeResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADStatsNodeResponse readResponse = ADStatsNodeResponse.readStats(streamInput);
+        StatsNodeResponse readResponse = StatsNodeResponse.readStats(streamInput);
         assertEquals("readStats failed", readResponse.getStatsMap(), adStatsNodeResponse.getStatsMap());
 
         // Test toXContent
@@ -192,7 +200,7 @@ public class ADStatsTests extends OpenSearchTestCase {
     @Test
     public void testADStatsRequest() throws IOException {
         List<String> allStats = Arrays.stream(StatNames.values()).map(StatNames::getName).collect(Collectors.toList());
-        ADStatsRequest adStatsRequest = new ADStatsRequest(new String[0]);
+        StatsRequest adStatsRequest = new StatsRequest(new String[0]);
 
         // Test clear()
         adStatsRequest.clear();
@@ -215,7 +223,7 @@ public class ADStatsTests extends OpenSearchTestCase {
         BytesStreamOutput output = new BytesStreamOutput();
         adStatsRequest.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADStatsRequest readRequest = new ADStatsRequest(streamInput);
+        StatsRequest readRequest = new StatsRequest(streamInput);
         assertEquals("Serialization fails", readRequest.getStatsToBeRetrieved(), adStatsRequest.getStatsToBeRetrieved());
     }
 
@@ -227,10 +235,10 @@ public class ADStatsTests extends OpenSearchTestCase {
             }
         };
 
-        ADStatsNodeResponse adStatsNodeResponse = new ADStatsNodeResponse(discoveryNode1, nodeStats);
-        List<ADStatsNodeResponse> adStatsNodeResponses = Collections.singletonList(adStatsNodeResponse);
+        StatsNodeResponse adStatsNodeResponse = new StatsNodeResponse(discoveryNode1, nodeStats);
+        List<StatsNodeResponse> adStatsNodeResponses = Collections.singletonList(adStatsNodeResponse);
         List<FailedNodeException> failures = Collections.emptyList();
-        ADStatsNodesResponse adStatsNodesResponse = new ADStatsNodesResponse(new ClusterName(clusterName), adStatsNodeResponses, failures);
+        StatsNodesResponse adStatsNodesResponse = new StatsNodesResponse(new ClusterName(clusterName), adStatsNodeResponses, failures);
 
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
@@ -256,7 +264,7 @@ public class ADStatsTests extends OpenSearchTestCase {
 
         adStatsNodesResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ADStatsNodesResponse readRequest = new ADStatsNodesResponse(streamInput);
+        StatsNodesResponse readRequest = new StatsNodesResponse(streamInput);
 
         builder = jsonBuilder();
         String readJson = readRequest.toXContent(builder.startObject(), ToXContent.EMPTY_PARAMS).endObject().toString();

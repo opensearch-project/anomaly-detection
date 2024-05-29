@@ -25,12 +25,16 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.transport.ValidateConfigRequest;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
@@ -44,30 +48,34 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         AnomalyDetector anomalyDetector = TestHelpers
             .randomAnomalyDetector(timeField, "test-index", ImmutableList.of(sumValueFeature(nameField, ipField + ".is_error", "test-2")));
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNull(response.getIssue());
     }
 
     @Test
     public void testValidateAnomalyDetectorWithNoIndexFound() throws IOException {
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.INDICES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
@@ -80,15 +88,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         createDetectorIndex();
         createDetector(anomalyDetector);
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
@@ -99,15 +109,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         Feature maxFeature = maxValueFeature(nameField, "non_existing_field", nameField);
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature));
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
@@ -123,15 +135,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         AnomalyDetector anomalyDetector = TestHelpers
             .randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature, maxFeatureTwo));
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertTrue(response.getIssue().getMessage().contains("Config has duplicate feature aggregation query names:"));
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
@@ -141,22 +155,26 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     @Test
     public void testValidateAnomalyDetectorWithDuplicateFeatureNamesAndDuplicateAggregationNames() throws IOException {
         Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
-        Feature maxFeatureTwo = maxValueFeature(nameField, categoryField, nameField);
+        Feature maxFeatureTwo = maxValueFeature(nameField, categoryField, nameField2);
         AnomalyDetector anomalyDetector = TestHelpers
             .randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature, maxFeatureTwo));
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
-        assertTrue(response.getIssue().getMessage().contains("Config has duplicate feature aggregation query names:"));
-        assertTrue(response.getIssue().getMessage().contains("There are duplicate feature names:"));
+        assertTrue(
+            "Unexpected message: " + response.getIssue().getMessage(),
+            response.getIssue().getMessage().contains("Config has duplicate feature aggregation query names:")
+        );
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
     }
@@ -165,25 +183,18 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
         Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
         Feature maxFeatureTwo = maxValueFeature("test_1", categoryField, nameField);
-        AnomalyDetector anomalyDetector = TestHelpers
-            .randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature, maxFeatureTwo));
-        ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
-            anomalyDetector,
-            ValidationAspect.DETECTOR.getName(),
-            5,
-            5,
-            5,
-            new TimeValue(5_000L)
+        ValidationException exception = assertThrows(
+            ValidationException.class,
+            () -> TestHelpers.randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature, maxFeatureTwo))
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
-        assertNotNull(response.getIssue());
+
+        assertNotNull(exception.getType());
         assertTrue(
-            "actual: " + response.getIssue().getMessage(),
-            response.getIssue().getMessage().contains("There are duplicate feature names:")
+            "actual: " + exception.getMessage(),
+            exception.getMessage().contains("appears more than once. Feature name has to be unique")
         );
-        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
-        assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, exception.getType());
+        assertEquals(ValidationAspect.DETECTOR, exception.getAspect());
     }
 
     @Test
@@ -191,15 +202,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         Feature maxFeature = maxValueFeature(nameField, categoryField, nameField);
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature));
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
@@ -218,15 +231,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
                 ImmutableList.of(new Feature(randomAlphaOfLength(5), nameField, true, aggregationBuilder))
             );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
@@ -241,15 +256,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         AnomalyDetector anomalyDetector = TestHelpers
             .randomAnomalyDetector(timeField, "test-index", ImmutableList.of(maxFeature, maxFeatureTwo));
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNotNull(response.getIssue());
         assertEquals(response.getIssue().getSubIssues().keySet().size(), 2);
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
@@ -273,15 +290,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
                 resultIndex
             );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNull(response.getIssue());
     }
 
@@ -311,15 +330,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
                 resultIndex
             );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.RESULT_INDEX, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains(CommonMessages.INVALID_RESULT_INDEX_MAPPING));
@@ -340,20 +361,23 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
                 resultIndex
             );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertNull(response.getIssue());
     }
 
     @Test
     public void testValidateAnomalyDetectorWithInvalidDetectorName() throws IOException {
+        Feature feature = TestHelpers.randomFeature();
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -361,7 +385,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             randomAlphaOfLength(5),
             timeField,
             ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
-            ImmutableList.of(TestHelpers.randomFeature()),
+            ImmutableList.of(feature),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -372,18 +396,24 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(CommonMessages.INVALID_NAME, response.getIssue().getMessage());
@@ -391,6 +421,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
 
     @Test
     public void testValidateAnomalyDetectorWithDetectorNameTooLong() throws IOException {
+        Feature feature = TestHelpers.randomFeature();
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -398,7 +429,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             randomAlphaOfLength(5),
             timeField,
             ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
-            ImmutableList.of(TestHelpers.randomFeature()),
+            ImmutableList.of(feature),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -409,18 +440,24 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.NAME, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(response.getIssue().getMessage().contains("Name should be shortened. The maximum limit is"));
@@ -430,15 +467,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     public void testValidateAnomalyDetectorWithNonExistentTimefield() throws IOException {
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(ImmutableMap.of(), Instant.now());
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(
@@ -451,15 +490,17 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     public void testValidateAnomalyDetectorWithNonDateTimeField() throws IOException {
         AnomalyDetector anomalyDetector = TestHelpers.randomAnomalyDetector(categoryField, "index-test");
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
-        ValidateAnomalyDetectorRequest request = new ValidateAnomalyDetectorRequest(
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
             anomalyDetector,
             ValidationAspect.DETECTOR.getName(),
             5,
             5,
             5,
-            new TimeValue(5_000L)
+            new TimeValue(5_000L),
+            10
         );
-        ValidateAnomalyDetectorResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertEquals(

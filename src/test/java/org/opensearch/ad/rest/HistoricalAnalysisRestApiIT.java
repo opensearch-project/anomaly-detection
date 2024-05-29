@@ -17,8 +17,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENT
 import static org.opensearch.timeseries.TestHelpers.AD_BASE_STATS_URI;
 import static org.opensearch.timeseries.TestHelpers.HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS;
 import static org.opensearch.timeseries.stats.StatNames.AD_TOTAL_BATCH_TASK_EXECUTION_COUNT;
-import static org.opensearch.timeseries.stats.StatNames.MULTI_ENTITY_DETECTOR_COUNT;
-import static org.opensearch.timeseries.stats.StatNames.SINGLE_ENTITY_DETECTOR_COUNT;
+import static org.opensearch.timeseries.stats.StatNames.HC_DETECTOR_COUNT;
+import static org.opensearch.timeseries.stats.StatNames.SINGLE_STREAM_DETECTOR_COUNT;
 
 import java.io.IOException;
 import java.util.List;
@@ -38,9 +38,11 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.timeseries.TaskProfile;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -91,9 +93,9 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
 
     private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, Set<String> states) throws InterruptedException {
         List<Object> results = waitUntilTaskDone(detectorId);
-        ADTaskProfile endTaskProfile = (ADTaskProfile) results.get(0);
+        TaskProfile<ADTask> endTaskProfile = (TaskProfile<ADTask>) results.get(0);
         Integer retryCount = (Integer) results.get(1);
-        ADTask stoppedAdTask = endTaskProfile.getAdTask();
+        ADTask stoppedAdTask = endTaskProfile.getTask();
         assertEquals(taskId, stoppedAdTask.getTaskId());
         if (retryCount < MAX_RETRY_TIMES) {
             // It's possible that historical analysis still running after max retry times
@@ -117,14 +119,14 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         // get task profile
         ADTaskProfile adTaskProfile = waitUntilGetTaskProfile(detectorId);
         if (categoryFieldSize > 0) {
-            if (!TaskState.RUNNING.name().equals(adTaskProfile.getAdTask().getState())) {
+            if (!TaskState.RUNNING.name().equals(adTaskProfile.getTask().getState())) {
                 adTaskProfile = (ADTaskProfile) waitUntilTaskReachState(detectorId, ImmutableSet.of(TaskState.RUNNING.name())).get(0);
             }
             assertEquals((int) Math.pow(categoryFieldDocCount, categoryFieldSize), adTaskProfile.getTotalEntitiesCount().intValue());
             assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
             assertTrue(adTaskProfile.getRunningEntitiesCount() > 0);
         }
-        ADTask adTask = adTaskProfile.getAdTask();
+        ADTask adTask = adTaskProfile.getTask();
         assertEquals(taskId, adTask.getTaskId());
         assertTrue(TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(adTask.getState()));
 
@@ -132,7 +134,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
         String statsResult = EntityUtils.toString(statsResponse.getEntity());
         Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
-        String detectorCountState = categoryFieldSize > 0 ? MULTI_ENTITY_DETECTOR_COUNT.getName() : SINGLE_ENTITY_DETECTOR_COUNT.getName();
+        String detectorCountState = categoryFieldSize > 0 ? HC_DETECTOR_COUNT.getName() : SINGLE_STREAM_DETECTOR_COUNT.getName();
         assertTrue((long) stringObjectMap.get(detectorCountState) > 0);
         Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
         long totalBatchTaskExecution = 0;
@@ -180,7 +182,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         Response statsResponse = TestHelpers.makeRequest(client(), "GET", AD_BASE_STATS_URI, ImmutableMap.of(), "", null);
         String statsResult = EntityUtils.toString(statsResponse.getEntity());
         Map<String, Object> stringObjectMap = TestHelpers.parseStatsResult(statsResult);
-        assertTrue((long) stringObjectMap.get("single_entity_detector_count") > 0);
+        assertTrue((long) stringObjectMap.get("single_stream_detector_count") > 0);
         Map<String, Object> nodes = (Map<String, Object>) stringObjectMap.get("nodes");
         long cancelledTaskCount = 0;
         for (String key : nodes.keySet()) {
@@ -230,7 +232,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Detector is running",
+                "Historical is running",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -316,7 +318,11 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             detector.getCategoryFields(),
             detector.getUser(),
             detector.getCustomResultIndex(),
-            detector.getImputationOption()
+            detector.getImputationOption(),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null
         );
     }
 

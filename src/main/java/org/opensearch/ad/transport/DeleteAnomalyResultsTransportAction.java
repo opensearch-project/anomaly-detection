@@ -13,8 +13,6 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_DELETE_AD_RESULT;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -32,6 +30,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportService;
 
 public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<DeleteByQueryRequest, BulkByScrollResponse> {
@@ -61,7 +60,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     }
 
     public void delete(DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
-        User user = getUserContext(client);
+        User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             validateRole(request, user, listener);
         } catch (Exception e) {
@@ -79,7 +78,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         } else {
             // Security is enabled and backend role filter is enabled
             try {
-                addUserBackendRolesFilter(user, request.getSearchRequest().source());
+                ParseUtils.addUserBackendRolesFilter(user, request.getSearchRequest().source());
                 client.execute(DeleteByQueryAction.INSTANCE, request, listener);
             } catch (Exception e) {
                 listener.onFailure(e);

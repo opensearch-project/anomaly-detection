@@ -10,7 +10,6 @@ import java.util.function.Function;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
-import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
@@ -18,6 +17,7 @@ import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.timeseries.transport.GetConfigRequest;
 
 public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     private final Client client;
@@ -43,7 +43,7 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     }
 
     @Override
-    public void getDetectorProfile(GetAnomalyDetectorRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener) {
+    public void getDetectorProfile(GetConfigRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener) {
         this.client.execute(GetAnomalyDetectorAction.INSTANCE, profileRequest, getAnomalyDetectorResponseActionListener(listener));
     }
 

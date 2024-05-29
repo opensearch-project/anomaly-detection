@@ -20,6 +20,10 @@ import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.transport.DeleteModelRequest;
+import org.opensearch.timeseries.transport.DeleteModelResponse;
+import org.opensearch.timeseries.transport.StopConfigRequest;
+import org.opensearch.timeseries.transport.StopConfigResponse;
 
 public class DeleteITTests extends ADIntegTestCase {
 
@@ -28,23 +32,24 @@ public class DeleteITTests extends ADIntegTestCase {
         return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
+    @Override
     protected Collection<Class<? extends Plugin>> transportClientPlugins() {
         return Collections.singletonList(TimeSeriesAnalyticsPlugin.class);
     }
 
     public void testNormalStopDetector() throws ExecutionException, InterruptedException {
-        StopDetectorRequest request = new StopDetectorRequest().adID("123");
+        StopConfigRequest request = new StopConfigRequest().adID("123");
 
-        ActionFuture<StopDetectorResponse> future = client().execute(StopDetectorAction.INSTANCE, request);
+        ActionFuture<StopConfigResponse> future = client().execute(StopDetectorAction.INSTANCE, request);
 
-        StopDetectorResponse response = future.get();
+        StopConfigResponse response = future.get();
         assertTrue(response.success());
     }
 
     public void testNormalDeleteModel() throws ExecutionException, InterruptedException {
         DeleteModelRequest request = new DeleteModelRequest("123");
 
-        ActionFuture<DeleteModelResponse> future = client().execute(DeleteModelAction.INSTANCE, request);
+        ActionFuture<DeleteModelResponse> future = client().execute(DeleteADModelAction.INSTANCE, request);
 
         DeleteModelResponse response = future.get();
         assertTrue(!response.hasFailures());
@@ -53,15 +58,15 @@ public class DeleteITTests extends ADIntegTestCase {
     public void testEmptyIDDeleteModel() throws ExecutionException, InterruptedException {
         DeleteModelRequest request = new DeleteModelRequest("");
 
-        ActionFuture<DeleteModelResponse> future = client().execute(DeleteModelAction.INSTANCE, request);
+        ActionFuture<DeleteModelResponse> future = client().execute(DeleteADModelAction.INSTANCE, request);
 
         expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }
 
     public void testEmptyIDStopDetector() throws ExecutionException, InterruptedException {
-        StopDetectorRequest request = new StopDetectorRequest();
+        StopConfigRequest request = new StopConfigRequest();
 
-        ActionFuture<StopDetectorResponse> future = client().execute(StopDetectorAction.INSTANCE, request);
+        ActionFuture<StopConfigResponse> future = client().execute(StopDetectorAction.INSTANCE, request);
 
         expectThrows(ActionRequestValidationException.class, () -> future.actionGet());
     }

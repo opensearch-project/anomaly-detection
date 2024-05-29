@@ -22,17 +22,26 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_STATE_I
 
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
+import org.opensearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.commons.InjectSecurity;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -40,6 +49,8 @@ import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -268,4 +279,104 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
         // throws IOException {
         initResultIndexDirectly(resultIndex, null, false, FORECAST_RESULT_HISTORY_INDEX_PATTERN, ForecastIndex.RESULT, actionListener);
     }
+
+    public <T> void validateDefaultResultIndexForBackendJob(
+        String configId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener
+    ) {
+        if (doesAliasExist(ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS)) {
+            handleExistingIndex(configId, user, roles, function, listener);
+        } else {
+            initDefaultResultIndex(configId, user, roles, function, listener);
+        }
+    }
+
+    private <T> void handleExistingIndex(
+        String configId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener
+    ) {
+        GetAliasesRequest getAliasRequest = new GetAliasesRequest()
+            .aliases(ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS)
+            .indicesOptions(IndicesOptions.lenientExpandOpenHidden());
+
+        adminClient.indices().getAliases(getAliasRequest, ActionListener.wrap(getAliasResponse -> {
+            String concreteIndex = getConcreteIndexFromAlias(getAliasResponse);
+            if (concreteIndex == null) {
+                listener.onFailure(new EndRunException("Result index alias mapping is empty", false));
+                return;
+            }
+
+            if (!isValidResultIndexMapping(concreteIndex)) {
+                listener.onFailure(new EndRunException("Result index mapping is not correct", false));
+                return;
+            }
+
+            executeWithSecurityContext(configId, user, roles, function, listener, concreteIndex);
+
+        }, listener::onFailure));
+    }
+
+    private String getConcreteIndexFromAlias(GetAliasesResponse getAliasResponse) {
+        for (Map.Entry<String, List<AliasMetadata>> entry : getAliasResponse.getAliases().entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private <T> void initDefaultResultIndex(
+        String configId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener
+    ) {
+        initDefaultResultIndexDirectly(ActionListener.wrap(response -> {
+            if (response.isAcknowledged()) {
+                executeWithSecurityContext(configId, user, roles, function, listener, ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS);
+            } else {
+                String error = "Creating result index with mappings call not acknowledged";
+                logger.error(error);
+                listener.onFailure(new TimeSeriesException(error));
+            }
+        }, exception -> {
+            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                executeWithSecurityContext(configId, user, roles, function, listener, ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS);
+            } else {
+                listener.onFailure(exception);
+            }
+        }));
+    }
+
+    private <T> void executeWithSecurityContext(
+        String securityLogId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener,
+        String indexOrAlias
+    ) {
+        try (InjectSecurity injectSecurity = new InjectSecurity(securityLogId, settings, client.threadPool().getThreadContext())) {
+            injectSecurity.inject(user, roles);
+            ActionListener<T> wrappedListener = ActionListener.wrap(listener::onResponse, e -> {
+                injectSecurity.close();
+                listener.onFailure(e);
+            });
+            validateResultIndexAndExecute(indexOrAlias, () -> {
+                injectSecurity.close();
+                function.execute();
+            }, true, wrappedListener);
+        } catch (Exception e) {
+            logger.error("Failed to validate custom index for backend job " + securityLogId, e);
+            listener.onFailure(e);
+        }
+    }
+
 }

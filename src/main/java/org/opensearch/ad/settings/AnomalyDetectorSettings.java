@@ -115,7 +115,7 @@ public final class AnomalyDetectorSettings {
     /**
      * @deprecated This setting is deprecated because we need to manage fault tolerance for
      * multiple analysis such as AD and forecasting.
-     * Use TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE instead.
+     * Use TimeSeriesSettings#MAX_RETRY_FOR_UNRESPONSIVE_NODE instead.
      */
     @Deprecated
     public static final Setting<Integer> AD_MAX_RETRY_FOR_UNRESPONSIVE_NODE = Setting
@@ -130,7 +130,7 @@ public final class AnomalyDetectorSettings {
     /**
      * @deprecated This setting is deprecated because we need to manage fault tolerance for
      * multiple analysis such as AD and forecasting.
-     * Use TimeSeriesSettings.COOLDOWN_MINUTES instead.
+     * Use {@link TimeSeriesSettings#COOLDOWN_MINUTES} instead.
      */
     @Deprecated
     public static final Setting<TimeValue> AD_COOLDOWN_MINUTES = Setting
@@ -144,7 +144,7 @@ public final class AnomalyDetectorSettings {
     /**
      * @deprecated This setting is deprecated because we need to manage fault tolerance for
      * multiple analysis such as AD and forecasting.
-     * Use TimeSeriesSettings.BACKOFF_MINUTES instead.
+     * Use {@link TimeSeriesSettings#BACKOFF_MINUTES} instead.
      */
     @Deprecated
     public static final Setting<TimeValue> AD_BACKOFF_MINUTES = Setting
@@ -238,10 +238,6 @@ public final class AnomalyDetectorSettings {
 
     public static final int MAX_SAMPLE_STRIDE = 64;
 
-    public static final int TRAIN_SAMPLE_TIME_RANGE_IN_HOURS = 24;
-
-    public static final int MIN_TRAIN_SAMPLES = 512;
-
     public static final int MAX_IMPUTATION_NEIGHBOR_DISTANCE = 2;
 
     // shingling
@@ -273,15 +269,15 @@ public final class AnomalyDetectorSettings {
      * if the size increases, we may reject the setting change if we cannot fulfill
      * that request (e.g., when it will uses more memory than allowed for AD).
      *
-     * With compact rcf, rcf with 30 trees and shingle size 4 is of 500KB.
+     * With compact rcf, rcf with 50 trees, 1 base dimension, shingle size 8 is of 400KB.
      * The recommended max heap size is 32 GB. Even if users use all of the heap
      * for AD, the max number of entity model cannot surpass
-     * 3.2 GB/500KB = 3.2 * 10^10 / 5*10^5 = 6.4 * 10 ^4
+     * 3.2 GB/500KB = 3.2 * 10^10 / 4*10^5 = 8 * 10 ^4
      * where 3.2 GB is from 10% memory limit of AD plugin.
-     * That's why I am using 60_000 as the max limit.
+     * That's why I am using 80_000 as the max limit.
      */
     public static final Setting<Integer> AD_DEDICATED_CACHE_SIZE = Setting
-        .intSetting("plugins.anomaly_detection.dedicated_cache_size", 10, 0, 60_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .intSetting("plugins.anomaly_detection.dedicated_cache_size", 10, 0, 80_000, Setting.Property.NodeScope, Setting.Property.Dynamic);
 
     // We only keep priority (4 bytes float) in inactive cache. 1 million priorities
     // take up 4 MB.
@@ -592,37 +588,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    /**
-     * EntityRequest has entityName (# category fields * 256, the recommended limit
-     * of a keyword field length), model Id (roughly 256 bytes), and QueuedRequest
-     * fields including detector Id(roughly 128 bytes), expirationEpochMs (long,
-     *  8 bytes), and priority (12 bytes).
-     * Plus Java object size (12 bytes), we have roughly 928 bytes per request
-     * assuming we have 2 categorical fields (plan to support 2 categorical fields now).
-     * We don't want the total size exceeds 0.1% of the heap.
-     * We can have at most 0.1% heap / 928 = heap / 928,000.
-     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
-     * 10^ 6 / 928 = 1078
-     */
-    // to be replaced by TimeSeriesSettings.FEATURE_REQUEST_SIZE_IN_BYTES
-    @Deprecated
-    public static int ENTITY_REQUEST_SIZE_IN_BYTES = 928;
-
-    /**
-     * EntityFeatureRequest consists of EntityRequest (928 bytes, read comments
-     * of ENTITY_COLD_START_QUEUE_SIZE_CONSTANT), pointer to current feature
-     * (8 bytes), and dataStartTimeMillis (8 bytes).  We have roughly
-     * 928 + 16 = 944 bytes per request.
-     *
-     * We don't want the total size exceeds 0.1% of the heap.
-     * We should have at most 0.1% heap / 944 = heap / 944,000
-     * For t3.small, 0.1% heap is of 1MB. The queue's size is up to
-     * 10^ 6 / 944 = 1059
-     */
-    // to be replaced by TimeSeriesSettings.FEATURE_REQUEST_SIZE_IN_BYTES
-    @Deprecated
-    public static int ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES = 944;
-
     // ======================================
     // pagination setting
     // ======================================
@@ -701,14 +666,6 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
-    // ======================================
-    // Validate Detector API setting
-    // ======================================
-    public static final long TOP_VALIDATE_TIMEOUT_IN_MILLIS = 10_000;
-    public static final long MAX_INTERVAL_REC_LENGTH_IN_MINUTES = 60L;
-    public static final double INTERVAL_RECOMMENDATION_INCREASING_MULTIPLIER = 1.2;
-    public static final double INTERVAL_RECOMMENDATION_DECREASING_MULTIPLIER = 0.8;
-    public static final double INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE = 0.75;
     public static final double CONFIG_BUCKET_MINIMUM_SUCCESS_RATE = 0.25;
     // This value is set to decrease the number of times we decrease the interval when recommending a new one
     // The reason we need a max is because user could give an arbitrarly large interval where we don't know even

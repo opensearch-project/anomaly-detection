@@ -13,8 +13,10 @@ package org.opensearch.timeseries;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A super type for enum types returning names
@@ -29,5 +31,9 @@ public interface Name {
             res.add(getName.apply(name));
         }
         return res;
+    }
+
+    static Set<String> getListStrs(List<? extends Name> profileList) {
+        return profileList.stream().map(profile -> profile.getName()).collect(Collectors.toSet());
     }
 }

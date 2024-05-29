@@ -13,6 +13,8 @@ package org.opensearch.timeseries.constant;
 
 import java.util.Locale;
 
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+
 public class CommonMessages {
     // ======================================
     // Validation message
@@ -65,6 +67,11 @@ public class CommonMessages {
     public static String FEATURE_QUERY_TOO_SPARSE =
         "Data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
     public static String TIMEOUT_ON_INTERVAL_REC = "Timed out getting interval recommendation";
+    public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
+    public static final String NOT_EXISTENT_SUGGEST_TYPE = "The given suggest type doesn't exist";
+    public static final String DESCRIPTION_LENGTH_TOO_LONG = "Description length is too long. Max length is "
+        + TimeSeriesSettings.MAX_DESCRIPTION_LENGTH
+        + " characters.";
 
     // ======================================
     // Index message
@@ -77,7 +84,7 @@ public class CommonMessages {
     // Resource constraints
     // ======================================
     public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG =
-        "The total OpenSearch memory usage exceeds our threshold, opening the AD memory circuit.";
+        "The total OpenSearch memory usage exceeds our threshold, opening the memory circuit.";
 
     // ======================================
     // Transport
@@ -139,4 +146,9 @@ public class CommonMessages {
     // Stats API
     // ======================================
     public static String FAIL_TO_GET_STATS = "Fail to get stats";
+
+    // ======================================
+    // Suggest API
+    // ======================================
+    public static String FAIL_SUGGEST_ERR_MSG = "Fail to suggest parameters for ";
 }

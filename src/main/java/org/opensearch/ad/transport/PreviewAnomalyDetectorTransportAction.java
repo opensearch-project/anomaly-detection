@@ -16,7 +16,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -56,6 +55,7 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 
@@ -103,7 +103,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> actionListener
     ) {
         String detectorId = request.getId();
-        User user = getUserContext(client);
+        User user = ParseUtils.getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(

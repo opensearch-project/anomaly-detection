@@ -16,12 +16,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
-import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.ConfigValidationIssue;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 
 public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest {
 
@@ -30,22 +31,22 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest
         Map<String, String> subIssues = new HashMap<>();
         subIssues.put("a", "b");
         subIssues.put("c", "d");
-        DetectorValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithSubIssues(subIssues);
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse(issue);
+        ConfigValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithSubIssues(subIssues);
+        ValidateConfigResponse response = new ValidateConfigResponse(issue);
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ValidateAnomalyDetectorResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
+        ValidateConfigResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
         assertEquals("serialization has the wrong issue", issue, readResponse.getIssue());
     }
 
     @Test
     public void testResponseSerializationWithEmptyIssue() throws IOException {
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse((DetectorValidationIssue) null);
+        ValidateConfigResponse response = new ValidateConfigResponse((ConfigValidationIssue) null);
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ValidateAnomalyDetectorResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
+        ValidateConfigResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
         assertNull("serialization should have empty issue", readResponse.getIssue());
     }
 
@@ -53,8 +54,8 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest
         Map<String, String> subIssues = new HashMap<>();
         subIssues.put("a", "b");
         subIssues.put("c", "d");
-        DetectorValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithSubIssues(subIssues);
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse(issue);
+        ConfigValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithSubIssues(subIssues);
+        ValidateConfigResponse response = new ValidateConfigResponse(issue);
         String validationResponse = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder()));
         String message = issue.getMessage();
         assertEquals(
@@ -64,23 +65,23 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest
     }
 
     public void testResponseToXContent() throws IOException {
-        DetectorValidationIssue issue = TestHelpers.randomDetectorValidationIssue();
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse(issue);
+        ConfigValidationIssue issue = TestHelpers.randomDetectorValidationIssue();
+        ValidateConfigResponse response = new ValidateConfigResponse(issue);
         String validationResponse = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder()));
         String message = issue.getMessage();
         assertEquals("{\"detector\":{\"name\":{\"message\":\"" + message + "\"}}}", validationResponse);
     }
 
     public void testResponseToXContentNull() throws IOException {
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse((DetectorValidationIssue) null);
+        ValidateConfigResponse response = new ValidateConfigResponse((ConfigValidationIssue) null);
         String validationResponse = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder()));
         assertEquals("{}", validationResponse);
     }
 
     public void testResponseToXContentWithIntervalRec() throws IOException {
         long intervalRec = 5;
-        DetectorValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithDetectorIntervalRec(intervalRec);
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse(issue);
+        ConfigValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithDetectorIntervalRec(intervalRec);
+        ValidateConfigResponse response = new ValidateConfigResponse(issue);
         String validationResponse = TestHelpers.xContentBuilderToString(response.toXContent(TestHelpers.builder()));
         assertEquals(
             "{\"model\":{\"detection_interval\":{\"message\":\""
@@ -94,12 +95,12 @@ public class ValidateAnomalyDetectorResponseTests extends AbstractTimeSeriesTest
     @Test
     public void testResponseSerializationWithIntervalRec() throws IOException {
         long intervalRec = 5;
-        DetectorValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithDetectorIntervalRec(intervalRec);
-        ValidateAnomalyDetectorResponse response = new ValidateAnomalyDetectorResponse(issue);
+        ConfigValidationIssue issue = TestHelpers.randomDetectorValidationIssueWithDetectorIntervalRec(intervalRec);
+        ValidateConfigResponse response = new ValidateConfigResponse(issue);
         BytesStreamOutput output = new BytesStreamOutput();
         response.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
-        ValidateAnomalyDetectorResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
+        ValidateConfigResponse readResponse = ValidateAnomalyDetectorAction.INSTANCE.getResponseReader().read(streamInput);
         assertEquals(issue, readResponse.getIssue());
     }
 }

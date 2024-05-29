@@ -13,12 +13,14 @@ package org.opensearch.timeseries.model;
 
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.forecast.model.Forecaster;
+import org.opensearch.forecast.transport.SearchTopForecastResultRequest;
 import org.opensearch.timeseries.Name;
 
 public enum ValidationIssueType implements Name {
     NAME(Config.NAME_FIELD),
     TIMEFIELD_FIELD(Config.TIMEFIELD_FIELD),
     SHINGLE_SIZE_FIELD(Config.SHINGLE_SIZE_FIELD),
+    SUGGESTED_SEASONALITY_FIELD(Config.SEASONALITY_FIELD),
     INDICES(Config.INDICES_FIELD),
     FEATURE_ATTRIBUTES(Config.FEATURE_ATTRIBUTES_FIELD),
     CATEGORY(Config.CATEGORY_FIELD),
@@ -32,7 +34,11 @@ public enum ValidationIssueType implements Name {
     IMPUTATION(Config.IMPUTATION_OPTION_FIELD),
     DETECTION_INTERVAL(AnomalyDetector.DETECTION_INTERVAL_FIELD),
     FORECAST_INTERVAL(Forecaster.FORECAST_INTERVAL_FIELD),
-    HORIZON_SIZE(Forecaster.HORIZON_FIELD);
+    HORIZON_SIZE(Forecaster.HORIZON_FIELD),
+    SUBAGGREGATION(SearchTopForecastResultRequest.SUBAGGREGATIONS_FIELD),
+    RECENCY_EMPHASIS(Config.RECENCY_EMPHASIS_FIELD),
+    DESCRIPTION(Config.DESCRIPTION_FIELD),
+    HISTORY(Config.HISTORY_INTERVAL_FIELD);
 
     private String name;
 

@@ -11,10 +11,8 @@
 
 package org.opensearch.ad.model;
 
-import static org.opensearch.ad.constant.ADCommonMessages.INVALID_RESULT_INDEX_PREFIX;
 import static org.opensearch.ad.constant.ADCommonName.CUSTOM_RESULT_INDEX_PREFIX;
-import static org.opensearch.ad.model.AnomalyDetector.MAX_RESULT_INDEX_NAME_SIZE;
-import static org.opensearch.timeseries.constant.CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME;
+import static org.opensearch.timeseries.model.Config.MAX_RESULT_INDEX_NAME_SIZE;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -30,6 +28,9 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
@@ -295,6 +296,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
     }
 
     public void testInvalidShingleSize() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -305,7 +307,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     randomAlphaOfLength(5),
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -316,12 +318,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
     public void testNullDetectorName() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -332,7 +339,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     randomAlphaOfLength(5),
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -343,12 +350,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
     public void testBlankDetectorName() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -359,7 +371,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     randomAlphaOfLength(5),
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -370,12 +382,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
     public void testNullTimeField() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -386,7 +403,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     null,
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -397,12 +414,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
     public void testNullIndices() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -413,7 +435,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     randomAlphaOfLength(5),
                     null,
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -424,12 +446,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
     public void testEmptyIndices() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -440,7 +467,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     randomAlphaOfLength(5),
                     ImmutableList.of(),
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     TestHelpers.randomIntervalTimeConfiguration(),
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -451,12 +478,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
     public void testNullDetectionInterval() throws Exception {
+        Feature feature = TestHelpers.randomFeature();
         TestHelpers
             .assertFailWith(
                 ValidationException.class,
@@ -467,7 +499,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomAlphaOfLength(5),
                     randomAlphaOfLength(5),
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(TestHelpers.randomFeature()),
+                    ImmutableList.of(feature),
                     TestHelpers.randomQuery(),
                     null,
                     TestHelpers.randomIntervalTimeConfiguration(),
@@ -478,12 +510,17 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     TestHelpers.randomUser(),
                     null,
-                    TestHelpers.randomImputationOption()
+                    TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                    randomIntBetween(1, 10000),
+                    randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                    randomIntBetween(1, 1000),
+                    null
                 )
             );
     }
 
-    public void testInvalidDetectionInterval() {
+    public void testInvalidRecency() {
+        Feature feature = TestHelpers.randomFeature();
         ValidationException exception = expectThrows(
             ValidationException.class,
             () -> new AnomalyDetector(
@@ -493,7 +530,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 randomAlphaOfLength(30),
                 randomAlphaOfLength(5),
                 ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
-                ImmutableList.of(TestHelpers.randomFeature()),
+                ImmutableList.of(feature),
                 TestHelpers.randomQuery(),
                 new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
                 TestHelpers.randomIntervalTimeConfiguration(),
@@ -504,13 +541,50 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                TestHelpers.randomImputationOption()
+                TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                -1,
+                randomIntBetween(1, 256),
+                randomIntBetween(1, 1000),
+                null
+            )
+        );
+        assertEquals("recency emphasis has to be a positive integer", exception.getMessage());
+    }
+
+    public void testInvalidDetectionInterval() {
+        Feature feature = TestHelpers.randomFeature();
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> new AnomalyDetector(
+                randomAlphaOfLength(10),
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
+                ImmutableList.of(feature),
+                TestHelpers.randomQuery(),
+                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+                TestHelpers.randomIntervalTimeConfiguration(),
+                randomIntBetween(1, 20),
+                null,
+                randomInt(),
+                Instant.now(),
+                null,
+                null,
+                null,
+                TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                null, // emphasis is not customized
+                randomIntBetween(1, 256),
+                randomIntBetween(1, 1000),
+                null
             )
         );
         assertEquals("Detection interval must be a positive integer", exception.getMessage());
     }
 
     public void testInvalidWindowDelay() {
+        Feature feature = TestHelpers.randomFeature();
         IllegalArgumentException exception = expectThrows(
             IllegalArgumentException.class,
             () -> new AnomalyDetector(
@@ -520,7 +594,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 randomAlphaOfLength(30),
                 randomAlphaOfLength(5),
                 ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
-                ImmutableList.of(TestHelpers.randomFeature()),
+                ImmutableList.of(feature),
                 TestHelpers.randomQuery(),
                 new IntervalTimeConfiguration(1, ChronoUnit.MINUTES),
                 new IntervalTimeConfiguration(-1, ChronoUnit.MINUTES),
@@ -531,7 +605,11 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                TestHelpers.randomImputationOption()
+                TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+                null, // emphasis is not customized
+                randomIntBetween(1, 256),
+                randomIntBetween(1, 1000),
+                null
             )
         );
         assertEquals("Interval -1 should be non-negative", exception.getMessage());
@@ -553,14 +631,15 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
     }
 
     public void testGetShingleSize() throws IOException {
-        AnomalyDetector anomalyDetector = new AnomalyDetector(
+        Feature feature = TestHelpers.randomFeature();
+        Config anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(5)),
-            ImmutableList.of(TestHelpers.randomFeature()),
+            ImmutableList.of(feature),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -571,20 +650,26 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
 
     public void testGetShingleSizeReturnsDefaultValue() throws IOException {
-        AnomalyDetector anomalyDetector = new AnomalyDetector(
+        int seasonalityIntervals = randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2);
+        Feature feature = TestHelpers.randomFeature();
+        Config anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(5)),
-            ImmutableList.of(TestHelpers.randomFeature()),
+            ImmutableList.of(feature),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -595,13 +680,45 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            randomIntBetween(1, 10000),
+            seasonalityIntervals,
+            randomIntBetween(1, 1000),
+            null
         );
-        assertEquals((int) anomalyDetector.getShingleSize(), TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
+        // seasonalityIntervals is not null and custom shingle size is null, use seasonalityIntervals to deterine shingle size
+        assertEquals(seasonalityIntervals / TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO, (int) anomalyDetector.getShingleSize());
+
+        anomalyDetector = new AnomalyDetector(
+            randomAlphaOfLength(5),
+            randomLong(),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            randomAlphaOfLength(5),
+            ImmutableList.of(randomAlphaOfLength(5)),
+            ImmutableList.of(feature),
+            TestHelpers.randomQuery(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            TestHelpers.randomIntervalTimeConfiguration(),
+            null,
+            null,
+            1,
+            Instant.now(),
+            null,
+            TestHelpers.randomUser(),
+            null,
+            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            null,
+            null,
+            randomIntBetween(1, 1000),
+            null
+        );
+        // seasonalityIntervals is null and custom shingle size is null, use default shingle size
+        assertEquals(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE, (int) anomalyDetector.getShingleSize());
     }
 
     public void testNullFeatureAttributes() throws IOException {
-        AnomalyDetector anomalyDetector = new AnomalyDetector(
+        Config anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
             randomAlphaOfLength(5),
@@ -619,21 +736,25 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(0),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
     }
 
     public void testValidateResultIndex() throws IOException {
-        AnomalyDetector anomalyDetector = new AnomalyDetector(
+        Config anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(5)),
-            ImmutableList.of(TestHelpers.randomFeature()),
+            null,
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -644,11 +765,14 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(0),
+            randomIntBetween(1, 10000),
+            randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO),
+            randomIntBetween(1, 1000),
+            null
         );
-
         String errorMessage = anomalyDetector.validateCustomResultIndex("abc");
-        assertEquals(INVALID_RESULT_INDEX_PREFIX, errorMessage);
+        assertEquals(ADCommonMessages.INVALID_RESULT_INDEX_PREFIX, errorMessage);
 
         StringBuilder resultIndexNameBuilder = new StringBuilder(CUSTOM_RESULT_INDEX_PREFIX);
         for (int i = 0; i < MAX_RESULT_INDEX_NAME_SIZE - CUSTOM_RESULT_INDEX_PREFIX.length(); i++) {
@@ -658,10 +782,10 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         resultIndexNameBuilder.append("a");
 
         errorMessage = anomalyDetector.validateCustomResultIndex(resultIndexNameBuilder.toString());
-        assertEquals(AnomalyDetector.INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
+        assertEquals(Config.INVALID_RESULT_INDEX_NAME_SIZE, errorMessage);
 
         errorMessage = anomalyDetector.validateCustomResultIndex(CUSTOM_RESULT_INDEX_PREFIX + "abc#");
-        assertEquals(INVALID_CHAR_IN_RESULT_INDEX_NAME, errorMessage);
+        assertEquals(CommonMessages.INVALID_CHAR_IN_RESULT_INDEX_NAME, errorMessage);
     }
 
     public void testParseAnomalyDetectorWithNoDescription() throws IOException {

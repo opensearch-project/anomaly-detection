@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 /**
  * This class consists of the REST handler to search anomaly detectors.
  */
-public class RestSearchAnomalyDetectorAction extends AbstractSearchAction<AnomalyDetector> {
+public class RestSearchAnomalyDetectorAction extends AbstractADSearchAction<AnomalyDetector> {
 
     private static final String LEGACY_URL_PATH = TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/_search";
     private static final String URL_PATH = TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI + "/_search";

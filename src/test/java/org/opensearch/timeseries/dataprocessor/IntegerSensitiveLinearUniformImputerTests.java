@@ -34,12 +34,18 @@ public class IntegerSensitiveLinearUniformImputerTests {
                 new Object[][] {
                     // after integer sensitive rint rounding
                     { singleComponent, 2, singleComponent },
-                    { singleComponent, 3, new double[][] { { -1.0, 0, 2.0 }, { 1.0, 1.0, 1.0 } } },
-                    { singleComponent, 4, new double[][] { { -1.0, 0.0, 1.0, 2.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 3, multiComponent },
-                    { multiComponent, 4, new double[][] { { 0.0, 1.0, 0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 5, new double[][] { { 0.0, 0.0, 1.0, 0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 6, new double[][] { { 0.0, 0.0, 1.0, 1.0, -0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 } } }, }
+                    { singleComponent, 3, new double[][] { { -1.0, 2.0 }, { 0, 2 }, { 1.0, 1.0 } } },
+                    { singleComponent, 4, new double[][] { { -1.0, 2.0 }, { 0, 2 }, { 0, 1 }, { 1.0, 1.0 } } },
+                    { multiComponent, 3, new double[][] { { 0.0, 1.0, -1.0 }, { 0, 1.0, 0 }, { 1.0, 1.0, 1.0 } } },
+                    { multiComponent, 4, new double[][] { { 0, 1.0, -1.0 }, { 0, 1.0, 0 }, { 1.0, 1.0, 0 }, { 1.0, 1.0, 1.0 } } },
+                    {
+                        multiComponent,
+                        5,
+                        new double[][] { { 0.0, 1.0, -1.0 }, { 0, 1.0, 0 }, { .0, 1.0, 0 }, { 1.0, 1.0, 0 }, { 1.0, 1.0, 1.0 } } },
+                    {
+                        multiComponent,
+                        6,
+                        new double[][] { { 0.0, 1.0, -1.0 }, { 0, 1, -1 }, { 0, 1, 0 }, { 1, 1, 0 }, { 1, 1, 1 }, { 1, 1, 1 } } }, }
             );
     }
 

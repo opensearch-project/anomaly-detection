@@ -27,8 +27,11 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.cluster.diskcleanup.BaseModelCheckpointIndexRetention;
+import org.opensearch.timeseries.cluster.diskcleanup.IndexCleanup;
 
 public class ModelCheckpointIndexRetentionTests extends AbstractTimeSeriesTest {
 
@@ -39,7 +42,7 @@ public class ModelCheckpointIndexRetentionTests extends AbstractTimeSeriesTest {
     @Mock
     IndexCleanup indexCleanup;
 
-    ModelCheckpointIndexRetention modelCheckpointIndexRetention;
+    BaseModelCheckpointIndexRetention modelCheckpointIndexRetention;
 
     @SuppressWarnings("unchecked")
     @Before
@@ -47,7 +50,12 @@ public class ModelCheckpointIndexRetentionTests extends AbstractTimeSeriesTest {
         super.setUp();
         super.setUpLog4jForJUnit(IndexCleanup.class);
         MockitoAnnotations.initMocks(this);
-        modelCheckpointIndexRetention = new ModelCheckpointIndexRetention(defaultCheckpointTtl, clock, indexCleanup);
+        modelCheckpointIndexRetention = new BaseModelCheckpointIndexRetention(
+            defaultCheckpointTtl,
+            clock,
+            indexCleanup,
+            ADIndex.CHECKPOINT.getIndexName()
+        );
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<Long> listener = (ActionListener<Long>) args[2];
