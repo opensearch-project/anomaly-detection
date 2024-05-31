@@ -323,7 +323,10 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
-            null
+            null,
+            detector.getCustomResultIndexMinSize(),
+            detector.getCustomResultIndexMinAge(),
+            detector.getCustomResultIndexTTL()
         );
     }
 

@@ -322,6 +322,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -354,6 +357,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -386,6 +392,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -418,6 +427,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -450,6 +462,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -482,6 +497,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -514,6 +532,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -545,6 +566,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 -1,
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             )
         );
@@ -577,6 +601,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null, // emphasis is not customized
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             )
         );
@@ -609,6 +636,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null, // emphasis is not customized
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             )
         );
@@ -654,6 +684,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
@@ -684,6 +717,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             seasonalityIntervals,
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         // seasonalityIntervals is not null and custom shingle size is null, use seasonalityIntervals to deterine shingle size
@@ -711,6 +747,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         // seasonalityIntervals is null and custom shingle size is null, use default shingle size
@@ -740,6 +779,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
@@ -769,6 +811,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         String errorMessage = anomalyDetector.validateCustomResultIndex("abc");

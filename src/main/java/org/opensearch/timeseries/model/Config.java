@@ -75,6 +75,9 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String SEASONALITY_FIELD = "suggested_seasonality";
     public static final String RECENCY_EMPHASIS_FIELD = "recency_emphasis";
     public static final String HISTORY_INTERVAL_FIELD = "history";
+    public static final String RESULT_INDEX_FIELD_MIN_SIZE = "result_index_min_size";
+    public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
+    public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
 
     protected String id;
     protected Long version;
@@ -111,6 +114,9 @@ public abstract class Config implements Writeable, ToXContentObject {
 
     protected Integer seasonIntervals;
     protected Integer historyIntervals;
+    protected Integer customResultIndexMinSize;
+    protected Integer customResultIndexMinAge;
+    protected Integer customResultIndexTTL;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -138,7 +144,10 @@ public abstract class Config implements Writeable, ToXContentObject {
         Integer recencyEmphasis,
         Integer seasonIntervals,
         ShingleGetter shingleGetter,
-        Integer historyIntervals
+        Integer historyIntervals,
+        Integer customResultIndexMinSize,
+        Integer customResultIndexMinAge,
+        Integer customResultIndexTTL
     ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
@@ -254,6 +263,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.recencyEmphasis = Optional.ofNullable(recencyEmphasis).orElse(TimeSeriesSettings.DEFAULT_RECENCY_EMPHASIS);
         this.seasonIntervals = seasonIntervals;
         this.historyIntervals = historyIntervals == null ? suggestHistory() : historyIntervals;
+        this.customResultIndexMinSize = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinSize;
+        this.customResultIndexMinAge = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinAge;
+        this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
     }
 
     public int suggestHistory() {
@@ -294,6 +306,21 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.recencyEmphasis = input.readInt();
         this.seasonIntervals = input.readInt();
         this.historyIntervals = input.readInt();
+        if (input.readBoolean()) {
+            this.customResultIndexMinSize = input.readInt();
+        } else {
+            customResultIndexMinSize = null;
+        }
+        if (input.readBoolean()) {
+            this.customResultIndexMinAge = input.readInt();
+        } else {
+            customResultIndexMinAge = null;
+        }
+        if (input.readBoolean()) {
+            this.customResultIndexTTL = input.readInt();
+        } else {
+            customResultIndexTTL = null;
+        }
     }
 
     /*
@@ -343,6 +370,21 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeInt(recencyEmphasis);
         output.writeInt(seasonIntervals);
         output.writeInt(historyIntervals);
+        if (customResultIndexMinSize != null) {
+            output.writeInt(customResultIndexMinSize);
+        } else {
+            output.writeBoolean(false);
+        }
+        if (customResultIndexMinSize != null) {
+            output.writeInt(customResultIndexMinAge);
+        } else {
+            output.writeBoolean(false);
+        }
+        if (customResultIndexMinSize != null) {
+            output.writeInt(customResultIndexTTL);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -396,7 +438,10 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(imputationOption, config.imputationOption)
             && Objects.equal(recencyEmphasis, config.recencyEmphasis)
             && Objects.equal(seasonIntervals, config.seasonIntervals)
-            && Objects.equal(historyIntervals, config.historyIntervals);
+            && Objects.equal(historyIntervals, config.historyIntervals)
+            && Objects.equal(customResultIndexMinSize, config.customResultIndexMinSize)
+            && Objects.equal(customResultIndexMinAge, config.customResultIndexMinAge)
+            && Objects.equal(customResultIndexTTL, config.customResultIndexTTL);
     }
 
     @Generated
@@ -420,7 +465,10 @@ public abstract class Config implements Writeable, ToXContentObject {
                 imputationOption,
                 recencyEmphasis,
                 seasonIntervals,
-                historyIntervals
+                historyIntervals,
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
     }
 
@@ -459,6 +507,15 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (seasonIntervals != null) {
             builder.field(SEASONALITY_FIELD, seasonIntervals);
+        }
+        if (customResultIndexMinSize != null) {
+            builder.field(RESULT_INDEX_FIELD_MIN_SIZE, customResultIndexMinSize);
+        }
+        if (customResultIndexMinAge != null) {
+            builder.field(RESULT_INDEX_FIELD_MIN_AGE, customResultIndexMinAge);
+        }
+        if (customResultIndexTTL != null) {
+            builder.field(RESULT_INDEX_FIELD_TTL, customResultIndexTTL);
         }
         return builder;
     }
@@ -648,6 +705,18 @@ public abstract class Config implements Writeable, ToXContentObject {
         return historyIntervals;
     }
 
+    public Integer getCustomResultIndexMinSize() {
+        return customResultIndexMinSize;
+    }
+
+    public Integer getCustomResultIndexMinAge() {
+        return customResultIndexMinAge;
+    }
+
+    public Integer getCustomResultIndexTTL() {
+        return customResultIndexTTL;
+    }
+
     /**
      * Identifies redundant feature names.
      *
@@ -699,6 +768,9 @@ public abstract class Config implements Writeable, ToXContentObject {
                 .append("recencyEmphasis", recencyEmphasis)
                 .append("seasonIntervals", seasonIntervals)
                 .append("historyIntervals", historyIntervals)
+                .append("customResultIndexMinSize", customResultIndexMinSize)
+                .append("customResultIndexMinAge", customResultIndexMinAge)
+                .append("customResultIndexTTL", customResultIndexTTL)
                 .toString();
     }
 }

@@ -341,8 +341,10 @@ public class ADTask extends TimeSeriesTask {
                 detector.getRecencyEmphasis(),
                 detector.getSeasonIntervals(),
                 detector.getHistoryIntervals(),
-                detector.getRules()
-
+                detector.getRules(),
+                detector.getCustomResultIndexMinSize(),
+                detector.getCustomResultIndexMinAge(),
+                detector.getCustomResultIndexTTL()
             );
         return new Builder()
             .taskId(parsedTaskId)
