@@ -348,21 +348,9 @@ public class AnomalyDetector extends Config {
         } else {
             output.writeBoolean(false);
         }
-        if (customResultIndexMinSize != null) {
-            output.writeOptionalInt(customResultIndexMinSize);
-        } else {
-            output.writeBoolean(false);
-        }
-        if (customResultIndexMinSize != null) {
-            output.writeOptionalInt(customResultIndexMinAge);
-        } else {
-            output.writeBoolean(false);
-        }
-        if (customResultIndexMinSize != null) {
-            output.writeOptionalInt(customResultIndexTTL);
-        } else {
-            output.writeBoolean(false);
-        }
+        output.writeOptionalInt(customResultIndexMinSize);
+        output.writeOptionalInt(customResultIndexMinAge);
+        output.writeOptionalInt(customResultIndexTTL);
     }
 
     @Override

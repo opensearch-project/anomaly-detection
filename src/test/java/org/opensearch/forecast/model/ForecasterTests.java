@@ -436,4 +436,55 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
         Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
         assertEquals("Parsing forecaster doesn't work", forecaster, parsedForecaster);
     }
+
+    public void testParseNullCustomResultIndex_nullCustomResultIndexConditions() throws IOException {
+        Forecaster forecaster = TestHelpers.ForecasterBuilder
+            .newInstance()
+            .setCustomResultIndex(null)
+            .setCustomResultIndexMinSize(null)
+            .setCustomResultIndexMinAge(null)
+            .setCustomResultIndexTTL(null)
+            .build();
+        String forecasterString = TestHelpers
+            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(forecasterString);
+        Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
+        assertEquals("Parsing forecaster doesn't work", forecaster, parsedForecaster);
+    }
+
+    public void testValidCustomResultIndex_withIndexConditions() {
+        String resultIndex = ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+
+        var forecaster = new Forecaster(
+            forecasterId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            forecastInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            categoryFields,
+            user,
+            resultIndex,
+            horizon,
+            TestHelpers.randomImputationOption(0),
+            recencyEmphasis,
+            seasonality,
+            randomIntBetween(1, 1000),
+            20000,
+            7,
+            null
+        );
+
+        assertEquals(20000, (int) forecaster.getCustomResultIndexMinSize());
+        assertEquals(7, (int) forecaster.getCustomResultIndexMinAge());
+        assertEquals(null, forecaster.getCustomResultIndexTTL());
+    }
 }

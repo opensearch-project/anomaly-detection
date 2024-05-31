@@ -309,17 +309,17 @@ public abstract class Config implements Writeable, ToXContentObject {
         if (input.readBoolean()) {
             this.customResultIndexMinSize = input.readInt();
         } else {
-            customResultIndexMinSize = null;
+            this.customResultIndexMinSize = null;
         }
         if (input.readBoolean()) {
             this.customResultIndexMinAge = input.readInt();
         } else {
-            customResultIndexMinAge = null;
+            this.customResultIndexMinAge = null;
         }
         if (input.readBoolean()) {
             this.customResultIndexTTL = input.readInt();
         } else {
-            customResultIndexTTL = null;
+            this.customResultIndexTTL = null;
         }
     }
 
@@ -370,21 +370,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeInt(recencyEmphasis);
         output.writeInt(seasonIntervals);
         output.writeInt(historyIntervals);
-        if (customResultIndexMinSize != null) {
-            output.writeInt(customResultIndexMinSize);
-        } else {
-            output.writeBoolean(false);
-        }
-        if (customResultIndexMinSize != null) {
-            output.writeInt(customResultIndexMinAge);
-        } else {
-            output.writeBoolean(false);
-        }
-        if (customResultIndexMinSize != null) {
-            output.writeInt(customResultIndexTTL);
-        } else {
-            output.writeBoolean(false);
-        }
+        output.writeOptionalInt(customResultIndexMinSize);
+        output.writeOptionalInt(customResultIndexMinAge);
+        output.writeOptionalInt(customResultIndexTTL);
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {

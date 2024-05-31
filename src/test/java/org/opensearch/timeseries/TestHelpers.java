@@ -1705,6 +1705,9 @@ public class TestHelpers {
         String resultIndex;
         Integer horizon;
         ImputationOption imputationOption;
+        Integer customResultIndexMinSize;
+        Integer customResultIndexMinAge;
+        Integer customResultIndexTTL;
 
         ForecasterBuilder() throws IOException {
             forecasterId = randomAlphaOfLength(10);
@@ -1726,6 +1729,9 @@ public class TestHelpers {
             resultIndex = null;
             horizon = randomIntBetween(1, 20);
             imputationOption = randomImputationOption((int) features.stream().filter(Feature::getEnabled).count());
+            customResultIndexMinSize = null;
+            customResultIndexMinAge = null;
+            customResultIndexTTL = null;
         }
 
         public static ForecasterBuilder newInstance() throws IOException {
@@ -1814,6 +1820,21 @@ public class TestHelpers {
 
         public ForecasterBuilder setCustomResultIndex(String resultIndex) {
             this.resultIndex = resultIndex;
+            return this;
+        }
+
+        public ForecasterBuilder setCustomResultIndexMinSize(Integer customResultIndexMinSize) {
+            this.customResultIndexMinSize = customResultIndexMinSize;
+            return this;
+        }
+
+        public ForecasterBuilder setCustomResultIndexMinAge(Integer customResultIndexMinAge) {
+            this.customResultIndexMinAge = customResultIndexMinAge;
+            return this;
+        }
+
+        public ForecasterBuilder setCustomResultIndexTTL(Integer customResultIndexTTL) {
+            this.customResultIndexTTL = customResultIndexTTL;
             return this;
         }
 
