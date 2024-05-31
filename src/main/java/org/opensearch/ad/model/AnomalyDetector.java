@@ -277,15 +277,9 @@ public class AnomalyDetector extends Config {
         if (input.readBoolean()) {
             this.rules = input.readList(Rule::new);
         }
-        if (input.readBoolean()) {
-            this.customResultIndexMinSize = input.readInt();
-        }
-        if (input.readBoolean()) {
-            this.customResultIndexMinAge = input.readInt();
-        }
-        if (input.readBoolean()) {
-            this.customResultIndexTTL = input.readInt();
-        }
+        this.customResultIndexMinSize = input.readOptionalInt();
+        this.customResultIndexMinAge = input.readOptionalInt();
+        this.customResultIndexTTL = input.readOptionalInt();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {

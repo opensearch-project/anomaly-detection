@@ -306,21 +306,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.recencyEmphasis = input.readInt();
         this.seasonIntervals = input.readInt();
         this.historyIntervals = input.readInt();
-        if (input.readBoolean()) {
-            this.customResultIndexMinSize = input.readInt();
-        } else {
-            this.customResultIndexMinSize = null;
-        }
-        if (input.readBoolean()) {
-            this.customResultIndexMinAge = input.readInt();
-        } else {
-            this.customResultIndexMinAge = null;
-        }
-        if (input.readBoolean()) {
-            this.customResultIndexTTL = input.readInt();
-        } else {
-            this.customResultIndexTTL = null;
-        }
+        this.customResultIndexMinSize = input.readOptionalInt();
+        this.customResultIndexMinAge = input.readOptionalInt();
+        this.customResultIndexTTL = input.readOptionalInt();
     }
 
     /*
