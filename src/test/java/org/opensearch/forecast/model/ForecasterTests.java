@@ -449,42 +449,21 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(forecasterString);
         Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
-        assertEquals("Parsing forecaster doesn't work", forecaster, parsedForecaster);
+        assertEquals(forecaster, parsedForecaster);
     }
 
-    public void testValidCustomResultIndex_withIndexConditions() {
-        String resultIndex = ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
-
-        var forecaster = new Forecaster(
-            forecasterId,
-            version,
-            name,
-            description,
-            timeField,
-            indices,
-            features,
-            filterQuery,
-            forecastInterval,
-            windowDelay,
-            shingleSize,
-            uiMetadata,
-            schemaVersion,
-            lastUpdateTime,
-            categoryFields,
-            user,
-            resultIndex,
-            horizon,
-            TestHelpers.randomImputationOption(0),
-            recencyEmphasis,
-            seasonality,
-            randomIntBetween(1, 1000),
-            20000,
-            7,
-            null
-        );
-
-        assertEquals(20000, (int) forecaster.getCustomResultIndexMinSize());
-        assertEquals(7, (int) forecaster.getCustomResultIndexMinAge());
-        assertEquals(null, forecaster.getCustomResultIndexTTL());
+    public void testValidCustomResultIndex_withIndexConditions() throws IOException {
+        Forecaster forecaster = TestHelpers.ForecasterBuilder
+            .newInstance()
+            .setCustomResultIndex(ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test")
+            .setCustomResultIndexMinSize(2000)
+            .setCustomResultIndexMinAge(7)
+            .setCustomResultIndexTTL(30)
+            .build();
+        String forecasterString = TestHelpers
+            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(forecasterString);
+        Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
+        assertEquals(forecaster, parsedForecaster);
     }
 }

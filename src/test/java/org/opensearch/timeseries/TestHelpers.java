@@ -1867,9 +1867,9 @@ public class TestHelpers {
                 randomIntBetween(1, 1000),
                 randomIntBetween(1, 128),
                 randomIntBetween(1, 1000),
-                null,
-                null,
-                null
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         }
     }
