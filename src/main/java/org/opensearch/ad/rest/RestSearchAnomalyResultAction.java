@@ -35,7 +35,7 @@ import com.google.common.collect.ImmutableList;
 /**
  * This class consists of the REST handler to search anomaly results.
  */
-public class RestSearchAnomalyResultAction extends AbstractSearchAction<AnomalyResult> {
+public class RestSearchAnomalyResultAction extends AbstractADSearchAction<AnomalyResult> {
     private static final String LEGACY_URL_PATH = TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI + "/results/_search";
     private static final String URL_PATH = TimeSeriesAnalyticsPlugin.AD_BASE_DETECTORS_URI + "/results/_search";
     public static final String SEARCH_ANOMALY_RESULT_ACTION = "search_anomaly_result";

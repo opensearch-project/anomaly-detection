@@ -18,13 +18,13 @@ import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
-import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.transport.TransportService;
 
 public class ADTaskProfileTransportAction extends
@@ -79,7 +79,7 @@ public class ADTaskProfileTransportAction extends
     @Override
     protected ADTaskProfileNodeResponse nodeOperation(ADTaskProfileNodeRequest request) {
         String remoteNodeId = request.getParentTask().getNodeId();
-        Version remoteAdVersion = hashRing.getAdVersion(remoteNodeId);
+        Version remoteAdVersion = hashRing.getVersion(remoteNodeId);
         ADTaskProfile adTaskProfile = adTaskManager.getLocalADTaskProfilesByDetectorId(request.getId());
         return new ADTaskProfileNodeResponse(clusterService.localNode(), adTaskProfile, remoteAdVersion);
     }

@@ -182,6 +182,16 @@ public class AnomalyResult extends IndexableResult {
     // rcf score threshold at the time of writing a result
     private final Double threshold;
     protected final Double confidence;
+    /*
+     * model id for easy aggregations of entities. The front end needs to query
+     * for entities ordered by the descending/ascending order of feature values.
+     * After supporting multi-category fields, it is hard to write such queries
+     * since the entity information is stored in a nested object array.
+     * Also, the front end has all code/queries/ helper functions in place to
+     * rely on a single key per entity combo. Adding model id to forecast result
+     * to help the transition to multi-categorical field less painful.
+     */
+    private final String modelId;
 
     // used when indexing exception or error or an empty result
     public AnomalyResult(
@@ -255,12 +265,12 @@ public class AnomalyResult extends IndexableResult {
             entity,
             user,
             schemaVersion,
-            modelId,
             taskId
         );
         this.confidence = confidence;
         this.anomalyScore = anomalyScore;
         this.anomalyGrade = anomalyGrade;
+        this.modelId = modelId;
         this.approxAnomalyStartTime = approxAnomalyStartTime;
         this.relevantAttribution = relevantAttribution;
         this.pastValues = pastValues;
@@ -422,6 +432,7 @@ public class AnomalyResult extends IndexableResult {
 
     public AnomalyResult(StreamInput input) throws IOException {
         super(input);
+        this.modelId = input.readOptionalString();
         this.confidence = input.readDouble();
         this.anomalyScore = input.readDouble();
         this.anomalyGrade = input.readDouble();
@@ -502,7 +513,7 @@ public class AnomalyResult extends IndexableResult {
             xContentBuilder.field(CommonName.ERROR_FIELD, error);
         }
         if (optionalEntity.isPresent()) {
-            xContentBuilder.field(CommonName.ENTITY_FIELD, optionalEntity.get());
+            xContentBuilder.field(CommonName.ENTITY_KEY, optionalEntity.get());
         }
         if (user != null) {
             xContentBuilder.field(CommonName.USER_FIELD, user);
@@ -598,7 +609,7 @@ public class AnomalyResult extends IndexableResult {
                 case CommonName.ERROR_FIELD:
                     error = parser.text();
                     break;
-                case CommonName.ENTITY_FIELD:
+                case CommonName.ENTITY_KEY:
                     entity = Entity.parse(parser);
                     break;
                 case CommonName.USER_FIELD:
@@ -675,7 +686,8 @@ public class AnomalyResult extends IndexableResult {
         if (getClass() != o.getClass())
             return false;
         AnomalyResult that = (AnomalyResult) o;
-        return Objects.equal(confidence, that.confidence)
+        return Objects.equal(modelId, that.modelId)
+            && Objects.equal(confidence, that.confidence)
             && Objects.equal(anomalyScore, that.anomalyScore)
             && Objects.equal(anomalyGrade, that.anomalyGrade)
             && Objects.equal(approxAnomalyStartTime, that.approxAnomalyStartTime)
@@ -692,6 +704,7 @@ public class AnomalyResult extends IndexableResult {
         int result = super.hashCode();
         result = prime * result + Objects
             .hashCode(
+                modelId,
                 confidence,
                 anomalyScore,
                 anomalyGrade,
@@ -710,6 +723,7 @@ public class AnomalyResult extends IndexableResult {
         return super.toString()
             + ", "
             + new ToStringBuilder(this)
+                .append("modelId", modelId)
                 .append("confidence", confidence)
                 .append("anomalyScore", anomalyScore)
                 .append("anomalyGrade", anomalyGrade)
@@ -757,6 +771,10 @@ public class AnomalyResult extends IndexableResult {
         return threshold;
     }
 
+    public String getModelId() {
+        return modelId;
+    }
+
     /**
      * Anomaly result index consists of overwhelmingly (99.5%) zero-grade non-error documents.
      * This function exclude the majority case.
@@ -772,6 +790,7 @@ public class AnomalyResult extends IndexableResult {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
+        out.writeOptionalString(modelId);
         out.writeDouble(confidence);
         out.writeDouble(anomalyScore);
         out.writeDouble(anomalyGrade);

@@ -12,13 +12,13 @@
 package org.opensearch.timeseries.model;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.DEFAULT_JOB_LOC_DURATION_SECONDS;
 
 import java.io.IOException;
 import java.time.Instant;
 
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.ParseField;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -31,6 +31,8 @@ import org.opensearch.jobscheduler.spi.schedule.CronSchedule;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.schedule.ScheduleParser;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
@@ -44,7 +46,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
         INTERVAL
     }
 
-    public static final String PARSE_FIELD_NAME = "AnomalyDetectorJob";
+    public static final String PARSE_FIELD_NAME = "TimeSeriesJob";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
         Job.class,
         new ParseField(PARSE_FIELD_NAME),
@@ -62,7 +64,9 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
     public static final String DISABLED_TIME_FIELD = "disabled_time";
     public static final String USER_FIELD = "user";
     private static final String RESULT_INDEX_FIELD = "result_index";
+    private static final String TYPE_FIELD = "type";
 
+    // name is config id
     private final String name;
     private final Schedule schedule;
     private final TimeConfiguration windowDelay;
@@ -73,6 +77,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
     private final Long lockDurationSeconds;
     private final User user;
     private String resultIndex;
+    private AnalysisType analysisType;
 
     public Job(
         String name,
@@ -84,7 +89,8 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
         Instant lastUpdateTime,
         Long lockDurationSeconds,
         User user,
-        String resultIndex
+        String resultIndex,
+        AnalysisType type
     ) {
         this.name = name;
         this.schedule = schedule;
@@ -96,6 +102,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
         this.lockDurationSeconds = lockDurationSeconds;
         this.user = user;
         this.resultIndex = resultIndex;
+        this.analysisType = type;
     }
 
     public Job(StreamInput input) throws IOException {
@@ -117,6 +124,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
             user = null;
         }
         resultIndex = input.readOptionalString();
+        this.analysisType = input.readEnum(AnalysisType.class);
     }
 
     @Override
@@ -129,7 +137,8 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
             .field(IS_ENABLED_FIELD, isEnabled)
             .field(ENABLED_TIME_FIELD, enabledTime.toEpochMilli())
             .field(LAST_UPDATE_TIME_FIELD, lastUpdateTime.toEpochMilli())
-            .field(LOCK_DURATION_SECONDS, lockDurationSeconds);
+            .field(LOCK_DURATION_SECONDS, lockDurationSeconds)
+            .field(TYPE_FIELD, analysisType);
         if (disabledTime != null) {
             xContentBuilder.field(DISABLED_TIME_FIELD, disabledTime.toEpochMilli());
         }
@@ -164,6 +173,7 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
             output.writeBoolean(false); // user does not exist
         }
         output.writeOptionalString(resultIndex);
+        output.writeEnum(analysisType);
     }
 
     public static Job parse(XContentParser parser) throws IOException {
@@ -175,9 +185,10 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
         Instant enabledTime = null;
         Instant disabledTime = null;
         Instant lastUpdateTime = null;
-        Long lockDurationSeconds = DEFAULT_JOB_LOC_DURATION_SECONDS;
+        Long lockDurationSeconds = TimeSeriesSettings.DEFAULT_JOB_LOC_DURATION_SECONDS;
         User user = null;
         String resultIndex = null;
+        String analysisType = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -215,6 +226,9 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
                 case RESULT_INDEX_FIELD:
                     resultIndex = parser.text();
                     break;
+                case TYPE_FIELD:
+                    analysisType = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -230,16 +244,21 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
             lastUpdateTime,
             lockDurationSeconds,
             user,
-            resultIndex
+            resultIndex,
+            (Strings.isEmpty(analysisType) || AnalysisType.AD == AnalysisType.valueOf(analysisType))
+                ? AnalysisType.AD
+                : AnalysisType.FORECAST
         );
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         Job that = (Job) o;
         return Objects.equal(getName(), that.getName())
             && Objects.equal(getSchedule(), that.getSchedule())
@@ -248,12 +267,13 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
             && Objects.equal(getDisabledTime(), that.getDisabledTime())
             && Objects.equal(getLastUpdateTime(), that.getLastUpdateTime())
             && Objects.equal(getLockDurationSeconds(), that.getLockDurationSeconds())
-            && Objects.equal(getCustomResultIndex(), that.getCustomResultIndex());
+            && Objects.equal(getCustomResultIndex(), that.getCustomResultIndex())
+            && Objects.equal(getAnalysisType(), that.getAnalysisType());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(name, schedule, isEnabled, enabledTime, lastUpdateTime);
+        return Objects.hashCode(name, schedule, isEnabled, enabledTime, lastUpdateTime, analysisType);
     }
 
     @Override
@@ -300,5 +320,9 @@ public class Job implements Writeable, ToXContentObject, ScheduledJobParameter {
 
     public String getCustomResultIndex() {
         return resultIndex;
+    }
+
+    public AnalysisType getAnalysisType() {
+        return analysisType;
     }
 }

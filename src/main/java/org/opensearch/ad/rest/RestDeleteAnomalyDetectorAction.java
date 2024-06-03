@@ -17,18 +17,15 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.rest.handler.AnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
-import org.opensearch.ad.transport.DeleteAnomalyDetectorRequest;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.transport.DeleteConfigRequest;
 
 import com.google.common.collect.ImmutableList;
 
@@ -38,9 +35,6 @@ import com.google.common.collect.ImmutableList;
 public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
 
     public static final String DELETE_ANOMALY_DETECTOR_ACTION = "delete_anomaly_detector";
-
-    private static final Logger logger = LogManager.getLogger(RestDeleteAnomalyDetectorAction.class);
-    private final AnomalyDetectorActionHandler handler = new AnomalyDetectorActionHandler();
 
     public RestDeleteAnomalyDetectorAction() {}
 
@@ -56,7 +50,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         }
 
         String detectorId = request.param(DETECTOR_ID);
-        DeleteAnomalyDetectorRequest deleteAnomalyDetectorRequest = new DeleteAnomalyDetectorRequest(detectorId);
+        DeleteConfigRequest deleteAnomalyDetectorRequest = new DeleteConfigRequest(detectorId);
         return channel -> client
             .execute(DeleteAnomalyDetectorAction.INSTANCE, deleteAnomalyDetectorRequest, new RestToXContentListener<>(channel));
     }

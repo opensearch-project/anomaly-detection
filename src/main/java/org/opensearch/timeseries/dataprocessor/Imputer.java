@@ -5,6 +5,8 @@
 
 package org.opensearch.timeseries.dataprocessor;
 
+import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
+
 /*
  * An object for imputing feature vectors.
  *
@@ -24,18 +26,20 @@ public abstract class Imputer {
      * `numFeatures`.
      *
      *
-     * @param samples          A `numFeatures x numSamples` list of feature vectors.
+     * @param samples          A `numSamples x numFeatures` list of feature vectors.
      * @param numImputed  The desired number of imputed vectors.
-     * @return                 A `numFeatures x numImputed` list of feature vectors.
+     * @return                 A `numImputed x numFeatures` list of feature vectors.
      */
     public double[][] impute(double[][] samples, int numImputed) {
-        int numFeatures = samples.length;
-        double[][] interpolants = new double[numFeatures][numImputed];
-
+        // convert to a `numFeatures x numSamples` list of feature vectors
+        double[][] transposed = transpose(samples);
+        int numFeatures = transposed.length;
+        double[][] imputants = new double[numFeatures][numImputed];
         for (int featureIndex = 0; featureIndex < numFeatures; featureIndex++) {
-            interpolants[featureIndex] = singleFeatureImpute(samples[featureIndex], numImputed);
+            imputants[featureIndex] = singleFeatureImpute(transposed[featureIndex], numImputed);
         }
-        return interpolants;
+        // transpose back to a `numSamples x numFeatures` list of feature vectors
+        return transpose(imputants);
     }
 
     /**
@@ -44,5 +48,9 @@ public abstract class Imputer {
      * @param numImputed number of elements in the return array
      * @return input array with missing values imputed
      */
-    protected abstract double[] singleFeatureImpute(double[] samples, int numImputed);
+    public abstract double[] singleFeatureImpute(double[] samples, int numImputed);
+
+    private double[][] transpose(double[][] matrix) {
+        return createRealMatrix(matrix).transpose().getData();
+    }
 }

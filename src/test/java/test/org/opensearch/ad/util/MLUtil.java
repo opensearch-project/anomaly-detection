@@ -14,17 +14,20 @@ package test.org.opensearch.ad.util;
 import static java.lang.Math.PI;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Queue;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.IntStream;
 
-import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.ModelManager.ModelType;
-import org.opensearch.ad.ml.ModelState;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
@@ -53,13 +56,13 @@ public class MLUtil {
             .toString();
     }
 
-    public static Queue<double[]> createQueueSamples(int size) {
-        Queue<double[]> res = new ArrayDeque<>();
-        IntStream.range(0, size).forEach(i -> res.offer(new double[] { random.nextDouble() }));
+    public static Deque<Sample> createQueueSamples(int size) {
+        Deque<Sample> res = new ArrayDeque<>();
+        IntStream.range(0, size).forEach(i -> res.offer(new Sample(new double[] { random.nextDouble() }, Instant.now(), Instant.now())));
         return res;
     }
 
-    public static ModelState<EntityModel> randomModelState(RandomModelStateConfig config) {
+    public static ModelState<ThresholdedRandomCutForest> randomModelState(RandomModelStateConfig config) {
         boolean fullModel = config.getFullModel() != null && config.getFullModel().booleanValue() ? true : false;
         float priority = config.getPriority() != null ? config.getPriority() : random.nextFloat();
         String detectorId = config.getId() != null ? config.getId() : randomString(15);
@@ -75,27 +78,36 @@ public class MLUtil {
         } else {
             entity = Entity.createSingleAttributeEntity("", "");
         }
-        EntityModel model = null;
+        Pair<ThresholdedRandomCutForest, Deque<Sample>> model = null;
         if (fullModel) {
             model = createNonEmptyModel(detectorId, sampleSize, entity);
         } else {
             model = createEmptyModel(entity, sampleSize);
         }
 
-        return new ModelState<>(model, detectorId, detectorId, ModelType.ENTITY.getName(), clock, priority);
+        return new ModelState<ThresholdedRandomCutForest>(
+            model.getLeft(),
+            detectorId,
+            detectorId,
+            ModelManager.ModelType.TRCF.getName(),
+            clock,
+            priority,
+            Optional.of(entity),
+            model.getRight()
+        );
     }
 
-    public static EntityModel createEmptyModel(Entity entity, int sampleSize) {
-        Queue<double[]> samples = createQueueSamples(sampleSize);
-        return new EntityModel(entity, samples, null);
+    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createEmptyModel(Entity entity, int sampleSize) {
+        Deque<Sample> samples = createQueueSamples(sampleSize);
+        return Pair.of(null, samples);
     }
 
-    public static EntityModel createEmptyModel(Entity entity) {
+    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createEmptyModel(Entity entity) {
         return createEmptyModel(entity, random.nextInt(minSampleSize));
     }
 
-    public static EntityModel createNonEmptyModel(String detectorId, int sampleSize, Entity entity) {
-        Queue<double[]> samples = createQueueSamples(sampleSize);
+    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createNonEmptyModel(String detectorId, int sampleSize, Entity entity) {
+        Deque<Sample> samples = createQueueSamples(sampleSize);
         int numDataPoints = random.nextInt(1000) + TimeSeriesSettings.NUM_MIN_SAMPLES;
         ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(
             ThresholdedRandomCutForest
@@ -103,7 +115,7 @@ public class MLUtil {
                 .dimensions(1)
                 .sampleSize(TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
                 .numberOfTrees(TimeSeriesSettings.NUM_TREES)
-                .timeDecay(TimeSeriesSettings.TIME_DECAY)
+                .timeDecay(0.0001)
                 .outputAfter(TimeSeriesSettings.NUM_MIN_SAMPLES)
                 .initialAcceptFraction(0.125d)
                 .parallelExecutionEnabled(false)
@@ -116,11 +128,10 @@ public class MLUtil {
         for (int i = 0; i < numDataPoints; i++) {
             trcf.process(new double[] { random.nextDouble() }, i);
         }
-        EntityModel entityModel = new EntityModel(entity, samples, trcf);
-        return entityModel;
+        return Pair.of(trcf, samples);
     }
 
-    public static EntityModel createNonEmptyModel(String detectorId) {
+    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createNonEmptyModel(String detectorId) {
         return createNonEmptyModel(detectorId, random.nextInt(minSampleSize), Entity.createSingleAttributeEntity("", ""));
     }
 
@@ -177,23 +188,27 @@ public class MLUtil {
      * Prepare models and return training samples
      * @param inputDimension Input dimension
      * @param rcfConfig RCF config
+     * @param intervalMillis detector interval in milliseconds
      * @return models and return training samples
      */
-    public static Tuple<Queue<double[]>, ThresholdedRandomCutForest> prepareModel(
+    public static Tuple<Deque<Sample>, ThresholdedRandomCutForest> prepareModel(
         int inputDimension,
-        ThresholdedRandomCutForest.Builder<?> rcfConfig
+        ThresholdedRandomCutForest.Builder<?> rcfConfig,
+        long intervalMillis
     ) {
-        Queue<double[]> samples = new ArrayDeque<>();
+        Deque<Sample> samples = new ArrayDeque<>();
 
         Random r = new Random();
         ThresholdedRandomCutForest rcf = new ThresholdedRandomCutForest(rcfConfig);
 
         int trainDataNum = 1000;
 
+        Instant currentTime = Instant.now();
         for (int i = 0; i < trainDataNum; i++) {
             double[] point = r.ints(inputDimension, 0, 50).asDoubleStream().toArray();
-            samples.add(point);
-            rcf.process(point, 0);
+            samples.add(new Sample(point, currentTime.minusMillis(intervalMillis), currentTime));
+            rcf.process(point, currentTime.getEpochSecond());
+            currentTime = currentTime.plusMillis(intervalMillis);
         }
 
         return Tuple.tuple(samples, rcf);

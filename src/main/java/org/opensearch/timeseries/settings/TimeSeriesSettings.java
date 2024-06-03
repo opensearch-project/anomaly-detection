@@ -19,7 +19,7 @@ public class TimeSeriesSettings {
 
     // max shingle size we have seen from external users
     // the larger shingle size, the harder to fill in a complete shingle
-    public static final int MAX_SHINGLE_SIZE = 64;
+    public static final int MAX_SHINGLE_SIZE = 128;
 
     // shingle size = seasonality / 2
     public static final int SEASONALITY_TO_SHINGLE_RATIO = 2;
@@ -67,7 +67,30 @@ public class TimeSeriesSettings {
     public static final double REAL_TIME_BOUNDING_BOX_CACHE_RATIO = 0;
 
     // max number of historical buckets for cold start. Corresponds to max buckets in OpenSearch.
-    // We send one query including one bucket per interval. So we don't want to surpass OS limit.
+    // We send one query including one bucket per interval like
+    /*
+     POST /sales/_search
+     {
+       "size": 0,
+       "aggs": {
+         "sales_over_time": {
+           "date_range": {
+             "field": "date",
+             "ranges": [
+               { "from": "now-1M/M", "to": "now/M" },
+               { "from": "now-2M/M", "to": "now-1M/M" },
+               { "from": "now-3M/M", "to": "now-2M/M" }
+               ...
+             ],
+             "format": "yyyy-MM-dd"
+           }
+         }
+       }
+     }
+    */
+    // There is no explicit maximum limit for the number of ranges in a date range aggregation in OpenSearch.
+    // Here we try to keep the number of ranges to a reasonable amount that balances the granularity of the
+    // insights a user needs and the performance implications.
     public static final int MAX_HISTORY_INTERVALS = 10000;
 
     // ======================================
@@ -271,8 +294,4 @@ public class TimeSeriesSettings {
 
     // max entities to track per detector
     public static final int MAX_TRACKING_ENTITIES = 1000000;
-
-    public static final double DOOR_KEEPER_FALSE_POSITIVE_RATE = 0.01;
-
-    public static final double TIME_DECAY = 0.0001;
 }

@@ -78,6 +78,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     protected String ipField = "ip";
     protected String valueField = "value";
     protected String nameField = "test";
+    protected String nameField2 = "test2";
     protected int DEFAULT_TEST_DATA_DOCS = 3000;
 
     @Override

@@ -1,5 +1,5 @@
 {
-  "dynamic": true,
+  "dynamic": false,
   "_meta": {
     "schema_version": 1
   },
@@ -11,6 +11,9 @@
       "type": "nested",
       "properties": {
         "feature_id": {
+          "type": "keyword"
+        },
+        "feature_name": {
           "type": "keyword"
         },
         "data": {

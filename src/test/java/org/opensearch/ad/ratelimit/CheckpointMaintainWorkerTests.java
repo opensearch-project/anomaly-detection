@@ -32,12 +32,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.caching.ADCacheProvider;
+import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.ml.CheckpointDao;
-import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.ModelState;
+import org.opensearch.ad.indices.ADIndex;
+import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -45,19 +45,25 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ratelimit.CheckPointMaintainRequestAdapter;
+import org.opensearch.timeseries.ratelimit.CheckpointMaintainRequest;
+import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
     ClusterService clusterService;
-    CheckpointMaintainWorker cpMaintainWorker;
-    CheckpointWriteWorker writeWorker;
+    ADCheckpointMaintainWorker cpMaintainWorker;
+    ADCheckpointWriteWorker writeWorker;
     CheckpointMaintainRequest request;
     CheckpointMaintainRequest request2;
     List<CheckpointMaintainRequest> requests;
-    CheckpointDao checkpointDao;
+    ADCheckpointDao checkpointDao;
 
     @Override
     public void setUp() throws Exception {
@@ -81,30 +87,34 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        writeWorker = mock(CheckpointWriteWorker.class);
+        writeWorker = mock(ADCheckpointWriteWorker.class);
 
-        CacheProvider cache = mock(CacheProvider.class);
-        checkpointDao = mock(CheckpointDao.class);
+        ADCacheProvider adCacheProvider = new ADCacheProvider();
+
+        ADPriorityCache cache = mock(ADPriorityCache.class);
+        checkpointDao = mock(ADCheckpointDao.class);
         String indexName = ADCommonName.CHECKPOINT_INDEX_NAME;
         Setting<TimeValue> checkpointInterval = AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ;
-        EntityCache entityCache = mock(EntityCache.class);
-        when(cache.get()).thenReturn(entityCache);
-        ModelState<EntityModel> state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
-        when(entityCache.getForMaintainance(anyString(), anyString())).thenReturn(Optional.of(state));
-        CheckPointMaintainRequestAdapter adapter = new CheckPointMaintainRequestAdapter(
-            cache,
-            checkpointDao,
-            indexName,
-            checkpointInterval,
-            clock,
-            clusterService,
-            settings
-        );
+
+        ModelState<ThresholdedRandomCutForest> state = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        when(cache.getForMaintainance(anyString(), anyString())).thenReturn(Optional.of(state));
+        adCacheProvider.set(cache);
+        CheckPointMaintainRequestAdapter<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, ADCheckpointDao, ADPriorityCache> adapter =
+            new CheckPointMaintainRequestAdapter<>(
+                checkpointDao,
+                indexName,
+                checkpointInterval,
+                clock,
+                clusterService,
+                settings,
+                adCacheProvider
+            );
 
         // Integer.MAX_VALUE makes a huge heap
-        cpMaintainWorker = new CheckpointMaintainWorker(
+        cpMaintainWorker = new ADCheckpointMaintainWorker(
             Integer.MAX_VALUE,
-            AnomalyDetectorSettings.ENTITY_FEATURE_REQUEST_SIZE_IN_BYTES,
+            TimeSeriesSettings.CHECKPOINT_MAINTAIN_REQUEST_SIZE_IN_BYTES,
             AnomalyDetectorSettings.AD_CHECKPOINT_MAINTAIN_QUEUE_MAX_HEAP_PERCENT,
             clusterService,
             new Random(42),
@@ -119,7 +129,7 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
             writeWorker,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             nodeStateManager,
-            adapter
+            adapter::convert
         );
 
         request = new CheckpointMaintainRequest(Integer.MAX_VALUE, detectorId, RequestPriority.LOW, entity.getModelId(detectorId).get());

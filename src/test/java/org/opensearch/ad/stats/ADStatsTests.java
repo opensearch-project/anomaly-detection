@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE;
 
 import java.time.Clock;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -24,36 +25,39 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.caching.ADCacheProvider;
+import org.opensearch.ad.caching.ADPriorityCache;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.HybridThresholdingModel;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelState;
-import org.opensearch.ad.stats.suppliers.CounterSupplier;
-import org.opensearch.ad.stats.suppliers.IndexStatusSupplier;
-import org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier;
-import org.opensearch.ad.util.IndexUtils;
+import org.opensearch.ad.stats.suppliers.ADModelsOnNodeSupplier;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.stats.TimeSeriesStat;
+import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
+import org.opensearch.timeseries.stats.suppliers.IndexStatusSupplier;
+import org.opensearch.timeseries.util.IndexUtils;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class ADStatsTests extends OpenSearchTestCase {
 
-    private Map<String, ADStat<?>> statsMap;
+    private Map<String, TimeSeriesStat<?>> statsMap;
     private ADStats adStats;
     private RandomCutForest rcf;
     private HybridThresholdingModel thresholdingModel;
@@ -64,10 +68,10 @@ public class ADStatsTests extends OpenSearchTestCase {
     private Clock clock;
 
     @Mock
-    private ModelManager modelManager;
+    private ADModelManager modelManager;
 
     @Mock
-    private CacheProvider cacheProvider;
+    private ADCacheProvider cacheProvider;
 
     @Before
     public void setup() {
@@ -80,20 +84,58 @@ public class ADStatsTests extends OpenSearchTestCase {
         List<ModelState<?>> modelsInformation = new ArrayList<>(
             Arrays
                 .asList(
-                    new ModelState<>(rcf, "rcf-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock, 0f),
-                    new ModelState<>(thresholdingModel, "thr-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock, 0f),
-                    new ModelState<>(rcf, "rcf-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock, 0f),
-                    new ModelState<>(thresholdingModel, "thr-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock, 0f)
+                    new ModelState<>(
+                        rcf,
+                        "rcf-model-1",
+                        "detector-1",
+                        ModelManager.ModelType.RCF.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    ),
+                    new ModelState<>(
+                        thresholdingModel,
+                        "thr-model-1",
+                        "detector-1",
+                        ModelManager.ModelType.RCF.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    ),
+                    new ModelState<>(
+                        rcf,
+                        "rcf-model-2",
+                        "detector-2",
+                        ModelManager.ModelType.THRESHOLD.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    ),
+                    new ModelState<>(
+                        thresholdingModel,
+                        "thr-model-2",
+                        "detector-2",
+                        ModelManager.ModelType.THRESHOLD.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    )
                 )
         );
 
         when(modelManager.getAllModels()).thenReturn(modelsInformation);
 
-        ModelState<EntityModel> entityModel1 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
-        ModelState<EntityModel> entityModel2 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        ModelState<ThresholdedRandomCutForest> entityModel1 = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        ModelState<ThresholdedRandomCutForest> entityModel2 = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
 
-        List<ModelState<?>> entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
-        EntityCache cache = mock(EntityCache.class);
+        List<ModelState<ThresholdedRandomCutForest>> entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
+        ADPriorityCache cache = mock(ADPriorityCache.class);
         when(cacheProvider.get()).thenReturn(cache);
         when(cache.getAllModels()).thenReturn(entityModelsInformation);
 
@@ -115,12 +157,15 @@ public class ADStatsTests extends OpenSearchTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        statsMap = new HashMap<String, ADStat<?>>() {
+        statsMap = new HashMap<String, TimeSeriesStat<?>>() {
             {
-                put(nodeStatName1, new ADStat<>(false, new CounterSupplier()));
-                put(nodeStatName2, new ADStat<>(false, new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService)));
-                put(clusterStatName1, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
-                put(clusterStatName2, new ADStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
+                put(nodeStatName1, new TimeSeriesStat<>(false, new CounterSupplier()));
+                put(
+                    nodeStatName2,
+                    new TimeSeriesStat<>(false, new ADModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService))
+                );
+                put(clusterStatName1, new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, "index1")));
+                put(clusterStatName2, new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, "index2")));
             }
         };
 
@@ -134,11 +179,11 @@ public class ADStatsTests extends OpenSearchTestCase {
 
     @Test
     public void testGetStats() {
-        Map<String, ADStat<?>> stats = adStats.getStats();
+        Map<String, TimeSeriesStat<?>> stats = adStats.getStats();
 
         assertEquals("getStats returns the incorrect number of stats", stats.size(), statsMap.size());
 
-        for (Map.Entry<String, ADStat<?>> stat : stats.entrySet()) {
+        for (Map.Entry<String, TimeSeriesStat<?>> stat : stats.entrySet()) {
             assertTrue(
                 "getStats returns incorrect stats",
                 adStats.getStats().containsKey(stat.getKey()) && adStats.getStats().get(stat.getKey()) == stat.getValue()
@@ -148,7 +193,7 @@ public class ADStatsTests extends OpenSearchTestCase {
 
     @Test
     public void testGetStat() {
-        ADStat<?> stat = adStats.getStat(clusterStatName1);
+        TimeSeriesStat<?> stat = adStats.getStat(clusterStatName1);
 
         assertTrue(
             "getStat returns incorrect stat",
@@ -158,10 +203,10 @@ public class ADStatsTests extends OpenSearchTestCase {
 
     @Test
     public void testGetNodeStats() {
-        Map<String, ADStat<?>> stats = adStats.getStats();
-        Set<ADStat<?>> nodeStats = new HashSet<>(adStats.getNodeStats().values());
+        Map<String, TimeSeriesStat<?>> stats = adStats.getStats();
+        Set<TimeSeriesStat<?>> nodeStats = new HashSet<>(adStats.getNodeStats().values());
 
-        for (ADStat<?> stat : stats.values()) {
+        for (TimeSeriesStat<?> stat : stats.values()) {
             assertTrue(
                 "getNodeStats returns incorrect stat",
                 (stat.isClusterLevel() && !nodeStats.contains(stat)) || (!stat.isClusterLevel() && nodeStats.contains(stat))
@@ -171,10 +216,10 @@ public class ADStatsTests extends OpenSearchTestCase {
 
     @Test
     public void testGetClusterStats() {
-        Map<String, ADStat<?>> stats = adStats.getStats();
-        Set<ADStat<?>> clusterStats = new HashSet<>(adStats.getClusterStats().values());
+        Map<String, TimeSeriesStat<?>> stats = adStats.getStats();
+        Set<TimeSeriesStat<?>> clusterStats = new HashSet<>(adStats.getClusterStats().values());
 
-        for (ADStat<?> stat : stats.values()) {
+        for (TimeSeriesStat<?> stat : stats.values()) {
             assertTrue(
                 "getClusterStats returns incorrect stat",
                 (stat.isClusterLevel() && clusterStats.contains(stat)) || (!stat.isClusterLevel() && !clusterStats.contains(stat))

@@ -12,11 +12,11 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.constant.ADCommonValue;
 
 public class AnomalyResultAction extends ActionType<AnomalyResultResponse> {
-    // External Action which used for public facing RestAPIs.
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/run";
+    // External Action which used for public facing RestAPIs or actions we need to assume cx's role.
+    public static final String NAME = ADCommonValue.EXTERNAL_ACTION_PREFIX + "detector/run";
     public static final AnomalyResultAction INSTANCE = new AnomalyResultAction();
 
     private AnomalyResultAction() {

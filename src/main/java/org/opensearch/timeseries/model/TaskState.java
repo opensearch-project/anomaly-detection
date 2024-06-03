@@ -50,13 +50,32 @@ import com.google.common.collect.ImmutableList;
  * </ul>
  */
 public enum TaskState {
-    CREATED,
-    INIT,
-    RUNNING,
-    FAILED,
-    STOPPED,
-    FINISHED;
+    // AD task state
+    CREATED("Created"),
+    INIT("Init"),
+    RUNNING("Running"),
+    FAILED("Failed"),
+    STOPPED("Stopped"),
+    FINISHED("Finished"),
+
+    // Forecast task state
+    INIT_TEST("Initializing test"),
+    TEST_COMPLETE("Test complete"),
+    INIT_TEST_FAILED("Initializing test failed"),
+    INACTIVE("Inactive");
+
+    private final String description;
+
+    // Constructor
+    TaskState(String description) {
+        this.description = description;
+    }
+
+    // Getter
+    public String getDescription() {
+        return description;
+    }
 
     public static List<String> NOT_ENDED_STATES = ImmutableList
-        .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name());
+        .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name(), INIT_TEST.name());
 }

@@ -12,8 +12,6 @@
 package org.opensearch.ad.e2e;
 
 import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.BACKOFF_MINUTES;
-import static org.opensearch.timeseries.settings.TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE;
 
 import java.io.File;
 import java.io.FileReader;
@@ -25,9 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.ODFERestTestCase;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
@@ -35,16 +36,21 @@ import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
-import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class AbstractSyntheticDataTest extends ODFERestTestCase {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractSyntheticDataTest.class);
+
+    private static int batchSize = 1000;
+
     /**
      * In real time AD, we mute a node for a detector if that node keeps returning
      * ResourceNotFoundException (5 times in a row).  This is a problem for batch mode
@@ -61,8 +67,8 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
 
         settingCommand.startObject();
         settingCommand.startObject("persistent");
-        settingCommand.field(MAX_RETRY_FOR_UNRESPONSIVE_NODE.getKey(), 100_000);
-        settingCommand.field(BACKOFF_MINUTES.getKey(), 0);
+        settingCommand.field(TimeSeriesSettings.MAX_RETRY_FOR_UNRESPONSIVE_NODE.getKey(), 100_000);
+        settingCommand.field(TimeSeriesSettings.BACKOFF_MINUTES.getKey(), 0);
         settingCommand.endObject();
         settingCommand.endObject();
         Request request = new Request("PUT", "/_cluster/settings");
@@ -80,49 +86,136 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         return list;
     }
 
-    protected Map<String, Object> getDetectionResult(String detectorId, Instant begin, Instant end, RestClient client) {
-        try {
-            Request request = new Request(
-                "POST",
-                String.format(Locale.ROOT, "/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId)
+    protected JsonArray getHits(RestClient client, Request request) throws IOException {
+        Response response = client.performRequest(request);
+        return parseHits(response);
+    }
+
+    protected JsonArray parseHits(Response response) throws IOException {
+        JsonObject json = JsonParser
+            .parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset()))
+            .getAsJsonObject();
+        JsonObject hits = json.getAsJsonObject("hits");
+        if (hits == null) {
+            return null;
+        }
+        return hits.getAsJsonArray("hits");
+    }
+
+    protected void runDetectionResult(String detectorId, Instant begin, Instant end, RestClient client, int entitySize) throws IOException,
+        InterruptedException {
+        // trigger run in current interval
+        Request request = new Request("POST", String.format(Locale.ROOT, "/_opendistro/_anomaly_detection/detectors/%s/_run", detectorId));
+        request
+            .setJsonEntity(
+                String.format(Locale.ROOT, "{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli())
             );
-            request
-                .setJsonEntity(
-                    String.format(Locale.ROOT, "{ \"period_start\": %d, \"period_end\": %d }", begin.toEpochMilli(), end.toEpochMilli())
-                );
-            return entityAsMap(client.performRequest(request));
+        int statusCode = client.performRequest(request).getStatusLine().getStatusCode();
+        assert (statusCode >= 200 && statusCode < 300);
+
+        // wait for 50 milliseconds per entity before next query
+        Thread.sleep(50 * entitySize);
+    }
+
+    protected List<JsonObject> getAnomalyResult(String detectorId, Instant end, int entitySize, RestClient client) {
+        try {
+            Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/results/_search");
+
+            String jsonTemplate = "{\n"
+                + "    \"query\": {\n"
+                + "        \"bool\": {\n"
+                + "            \"filter\": [\n"
+                + "                {\n"
+                + "                    \"term\": {\n"
+                + "                        \"detector_id\": \"%s\"\n"
+                + "                    }\n"
+                + "                },\n"
+                + "                {\n"
+                + "                    \"range\": {\n"
+                + "                        \"anomaly_grade\": {\n"
+                + "                            \"gte\": 0\n"
+                + "                        }\n"
+                + "                    }\n"
+                + "                },\n"
+                + "                {\n"
+                + "                    \"range\": {\n"
+                + "                        \"data_end_time\": {\n"
+                + "                            \"gte\": %d,\n"
+                + "                            \"lte\": %d\n"
+                + "                        }\n"
+                + "                    }\n"
+                + "                }\n"
+                + "            ]\n"
+                + "        }\n"
+                + "    }\n"
+                + "}";
+
+            long dateEndTime = end.toEpochMilli();
+            String formattedJson = String.format(Locale.ROOT, jsonTemplate, detectorId, dateEndTime, dateEndTime);
+            request.setJsonEntity(formattedJson);
+
+            // wait until results are available
+            // max wait for 60_000 milliseconds
+            int maxWaitCycles = 30;
+            do {
+                JsonArray hits = getHits(client, request);
+                if (hits != null && hits.size() == entitySize) {
+                    assertTrue("empty response", hits != null);
+                    assertTrue("returned more than " + hits.size() + " results.", hits.size() == entitySize);
+                    List<JsonObject> res = new ArrayList<>();
+                    for (int i = 0; i < entitySize; i++) {
+                        JsonObject source = hits.get(i).getAsJsonObject().get("_source").getAsJsonObject();
+                        res.add(source);
+                    }
+
+                    return res;
+                } else {
+                    LOG.info("wait for result, previous result: {}", hits);
+                    client.performRequest(new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", ".opendistro-anomaly-results*")));
+                }
+                Thread.sleep(2_000 * entitySize);
+            } while (maxWaitCycles-- >= 0);
+
+            return new ArrayList<>();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    protected void bulkIndexTrainData(
-        String datasetName,
-        List<JsonObject> data,
-        int trainTestSplit,
-        RestClient client,
-        String categoryField
-    ) throws Exception {
-        Request request = new Request("PUT", datasetName);
-        String requestBody = null;
-        if (Strings.isEmpty(categoryField)) {
-            requestBody = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
-                + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
-        } else {
-            requestBody = String
-                .format(
-                    Locale.ROOT,
-                    "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
-                        + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" },"
-                        + "\"%s\": { \"type\": \"keyword\"} } } }",
-                    categoryField
-                );
-        }
+    protected double getAnomalyGrade(JsonObject source) {
+        return source.get("anomaly_grade").getAsDouble();
+    }
 
-        request.setJsonEntity(requestBody);
+    protected String getEntity(JsonObject source) {
+        return source.get("entity").getAsJsonArray().get(0).getAsJsonObject().get("value").getAsString();
+    }
+
+    /**
+     * We can detect anomaly late. If yes, use approx_anomaly_start_time; otherwise, use defaultVal.
+     * @param source source response containing anomaly result.
+     * @param defaultVal default anomaly time. Usually data end time.
+     * @return anomaly event time.
+     */
+    protected Instant getAnomalyTime(JsonObject source, Instant defaultVal) {
+        JsonElement anomalyTime = source.get("approx_anomaly_start_time");
+        if (anomalyTime != null) {
+            long epochhMillis = anomalyTime.getAsLong();
+            return Instant.ofEpochMilli(epochhMillis);
+        }
+        return defaultVal;
+    }
+
+    protected void createIndex(String datasetName, RestClient client, String mapping) throws IOException, InterruptedException {
+        Request request = new Request("PUT", datasetName);
+        request.setJsonEntity(mapping);
         setWarningHandler(request, false);
         client.performRequest(request);
         Thread.sleep(1_000);
+    }
+
+    protected void bulkIndexTrainData(String datasetName, List<JsonObject> data, int trainTestSplit, RestClient client, String mapping)
+        throws Exception {
+        createIndex(datasetName, client, mapping);
 
         StringBuilder bulkRequestBuilder = new StringBuilder();
         for (int i = 0; i < trainTestSplit; i++) {
@@ -142,50 +235,10 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
     }
 
-    protected String createDetector(
-        String datasetName,
-        int intervalMinutes,
-        RestClient client,
-        String categoryField,
-        long windowDelayInMins
-    ) throws Exception {
+    protected String createDetector(RestClient client, String detectorJson) throws Exception {
         Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/");
-        String requestBody = null;
-        if (Strings.isEmpty(categoryField)) {
-            requestBody = String
-                .format(
-                    Locale.ROOT,
-                    "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
-                        + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
-                        + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
-                        + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
-                        + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
-                        + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
-                        + "\"schema_version\": 0 }",
-                    datasetName,
-                    intervalMinutes,
-                    windowDelayInMins
-                );
-        } else {
-            requestBody = String
-                .format(
-                    Locale.ROOT,
-                    "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
-                        + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
-                        + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
-                        + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
-                        + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
-                        + "\"category_field\": [\"%s\"], "
-                        + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
-                        + "\"schema_version\": 0  }",
-                    datasetName,
-                    intervalMinutes,
-                    categoryField,
-                    windowDelayInMins
-                );
-        }
 
-        request.setJsonEntity(requestBody);
+        request.setJsonEntity(detectorJson);
         Map<String, Object> response = entityAsMap(client.performRequest(request));
         String detectorId = (String) response.get("_id");
         Thread.sleep(1_000);
@@ -216,13 +269,8 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                         )
                 );
             // Make sure all of the test data has been ingested
-            // Expected response:
-            // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
-            Response response = client.performRequest(request);
-            JsonObject json = JsonParser
-                .parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset()))
-                .getAsJsonObject();
-            JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
+            JsonArray hits = getHits(client, request);
+            LOG.info("Latest synthetic data:" + hits);
             if (hits != null
                 && hits.size() == 1
                 && expectedSize - 1 == hits.get(0).getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
@@ -239,5 +287,150 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
         options.setWarningsHandler(strictDeprecationMode ? WarningsHandler.STRICT : WarningsHandler.PERMISSIVE);
         request.setOptions(options.build());
+    }
+
+    protected void startDetector(String detectorId, RestClient client) throws Exception {
+        Request request = new Request("POST", String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_start", detectorId));
+
+        Map<String, Object> response = entityAsMap(client.performRequest(request));
+        String responseDetectorId = (String) response.get("_id");
+        assertEquals(detectorId, responseDetectorId);
+    }
+
+    protected String profileDetectorInitProgress(String detectorId, RestClient client) throws Exception {
+        Request request = new Request(
+            "GET",
+            String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_profile/init_progress", detectorId)
+        );
+
+        Map<String, Object> response = entityAsMap(client.performRequest(request));
+        LOG.info("profile response: {}", response);
+
+        Object initProgress = response.get("init_progress");
+        if (initProgress == null) {
+            return "0%";
+        }
+
+        Object percent = ((Map<String, Object>) initProgress).get("percentage");
+
+        if (percent == null) {
+            return "0%";
+        }
+
+        return (String) percent;
+    }
+
+    /**
+     * Wait for cold start to finish.
+     * @param detectorId Detector Id
+     * @param client OpenSearch Client
+     * @throws Exception when failing to query/indexing from/to OpenSearch
+     */
+    protected void waitForInitDetector(String detectorId, RestClient client) throws Exception {
+
+        long startTime = System.currentTimeMillis();
+        long duration = 0;
+        do {
+            /*
+             * Detectors will return early, record the exception in
+             * node state, and throw exception in the next run. We did it this way since
+             * we do not know when current run is gonna finish (e.g, we may have millions
+             * of entities to process in one run). Thus,
+             * we have to either wait for next runs or use profile API. Here I chose profile
+             * API since it is faster.
+             */
+            Thread.sleep(10_000);
+            String initProgress = profileDetectorInitProgress(detectorId, client);
+            if (initProgress.equals("100%")) {
+                break;
+            }
+
+            duration = System.currentTimeMillis() - startTime;
+        } while (duration <= 60_000);
+    }
+
+    /**
+     * Wait for cold start to finish without starting detector job. As profile
+     * API depends on job to exist, we cannot use profile API we didn't actually
+     * start a job. We simulated job by triggering run APIs. Thus, we change to
+     * verify if latest point has result or not. If yes, job is started. Otherwise,
+     * no.
+     *
+     * @param detectorId Detector Id
+     * @param client OpenSearch Client
+     * @param end date end time of the most recent detection period
+     * @param entitySize the number of entities
+     * @throws Exception when failing to query/indexing from/to OpenSearch
+     */
+    protected void simulateWaitForInitDetector(String detectorId, RestClient client, Instant end, int entitySize) throws Exception {
+
+        long startTime = System.currentTimeMillis();
+        long duration = 0;
+        do {
+
+            Thread.sleep(1_000);
+
+            List<JsonObject> sourceList = getAnomalyResult(detectorId, end, entitySize, client);
+            if (sourceList.size() > 0 && getAnomalyGrade(sourceList.get(0)) >= 0) {
+                break;
+            }
+
+            duration = System.currentTimeMillis() - startTime;
+        } while (duration <= 60_000);
+
+        assertTrue("time out while waiting for initing detector", duration <= 60_000);
+    }
+
+    protected void bulkIndexData(List<JsonObject> data, String datasetName, RestClient client, String mapping) throws Exception {
+        createIndex(datasetName, client, mapping);
+        StringBuilder bulkRequestBuilder = new StringBuilder();
+        LOG.info("data size {}", data.size());
+        int count = 0;
+        for (int i = 0; i < data.size(); i++) {
+            bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
+            bulkRequestBuilder.append(data.get(i).toString()).append("\n");
+            count++;
+            if (count >= batchSize || i == data.size() - 1) {
+                count = 0;
+                TestHelpers
+                    .makeRequest(
+                        client,
+                        "POST",
+                        "_bulk?refresh=true",
+                        null,
+                        toHttpEntity(bulkRequestBuilder.toString()),
+                        ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+                    );
+                Thread.sleep(1_000);
+            }
+        }
+
+        waitAllSyncheticDataIngested(data.size(), datasetName, client);
+        LOG.info("data ingestion complete");
+    }
+
+    /**
+     * Simulate starting detector without waiting for job scheduler to run. Our build process is already very slow (takes 10 mins+)
+     * to finish integration tests. This method triggers run API to simulate job scheduler execution in a fast-paced way.
+     * @param detectorId detector id
+     * @param begin data start time
+     * @param end data end time
+     * @param client OpenSearch Client
+     * @param entitySize number of entities
+     * @throws Exception when failing to query/indexing from/to OpenSearch
+     */
+    protected void simulateStartDetector(String detectorId, Instant begin, Instant end, RestClient client, int entitySize)
+        throws Exception {
+        runDetectionResult(detectorId, begin, end, client, entitySize);
+    }
+
+    protected int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
+        for (int i = 0; i < labels.size(); i++) {
+            Entry<Instant, Instant> window = labels.get(i);
+            if (time.compareTo(window.getKey()) >= 0 && time.compareTo(window.getValue()) <= 0) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

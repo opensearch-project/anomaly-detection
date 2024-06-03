@@ -21,13 +21,19 @@ import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.ConfigProfile;
+import org.opensearch.timeseries.model.ConfigState;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.ModelProfile;
+import org.opensearch.timeseries.model.ModelProfileOnNode;
+import org.opensearch.timeseries.model.ProfileName;
 
 public class DetectorProfileTests extends OpenSearchTestCase {
 
-    private DetectorProfile createRandomDetectorProfile() {
+    private ConfigProfile createRandomDetectorProfile() {
         return new DetectorProfile.Builder()
-            .state(DetectorState.INIT)
+            .state(ConfigState.INIT)
             .error(randomAlphaOfLength(5))
             .modelProfile(
                 new ModelProfileOnNode[] {
@@ -40,37 +46,28 @@ public class DetectorProfileTests extends OpenSearchTestCase {
                         )
                     ) }
             )
-            .shingleSize(randomInt())
             .coordinatingNode(randomAlphaOfLength(10))
             .totalSizeInBytes(-1)
             .totalEntities(randomLong())
             .activeEntities(randomLong())
-            .adTaskProfile(
-                new ADTaskProfile(
-                    randomAlphaOfLength(5),
-                    randomInt(),
-                    randomLong(),
-                    randomBoolean(),
-                    randomInt(),
-                    randomLong(),
-                    randomAlphaOfLength(5)
-                )
+            .taskProfile(
+                new ADTaskProfile(randomAlphaOfLength(5), randomLong(), randomBoolean(), randomInt(), randomLong(), randomAlphaOfLength(5))
             )
             .build();
     }
 
     public void testParseDetectorProfile() throws IOException {
-        DetectorProfile detectorProfile = createRandomDetectorProfile();
+        ConfigProfile detectorProfile = createRandomDetectorProfile();
         BytesStreamOutput output = new BytesStreamOutput();
         detectorProfile.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
-        DetectorProfile parsedDetectorProfile = new DetectorProfile(input);
+        ConfigProfile parsedDetectorProfile = new DetectorProfile(input);
         assertEquals("Detector profile serialization doesn't work", detectorProfile, parsedDetectorProfile);
     }
 
     public void testMergeDetectorProfile() {
-        DetectorProfile detectorProfileOne = createRandomDetectorProfile();
-        DetectorProfile detectorProfileTwo = createRandomDetectorProfile();
+        ConfigProfile detectorProfileOne = createRandomDetectorProfile();
+        ConfigProfile detectorProfileTwo = createRandomDetectorProfile();
         String errorPreMerge = detectorProfileOne.getError();
         detectorProfileOne.merge(detectorProfileTwo);
         assertTrue(detectorProfileOne.toString().contains(detectorProfileTwo.getError()));
@@ -79,7 +76,7 @@ public class DetectorProfileTests extends OpenSearchTestCase {
     }
 
     public void testDetectorProfileToXContent() throws IOException {
-        DetectorProfile detectorProfile = createRandomDetectorProfile();
+        ConfigProfile detectorProfile = createRandomDetectorProfile();
         String detectorProfileString = TestHelpers.xContentBuilderToString(detectorProfile.toXContent(TestHelpers.builder()));
         XContentParser parser = TestHelpers.parser(detectorProfileString);
         Map<String, Object> parsedMap = parser.map();
@@ -89,24 +86,21 @@ public class DetectorProfileTests extends OpenSearchTestCase {
     }
 
     public void testDetectorProfileName() throws IllegalArgumentException {
-        assertEquals("ad_task", DetectorProfileName.getName(ADCommonName.AD_TASK).getName());
-        assertEquals("state", DetectorProfileName.getName(ADCommonName.STATE).getName());
-        assertEquals("error", DetectorProfileName.getName(ADCommonName.ERROR).getName());
-        assertEquals("coordinating_node", DetectorProfileName.getName(ADCommonName.COORDINATING_NODE).getName());
-        assertEquals("shingle_size", DetectorProfileName.getName(ADCommonName.SHINGLE_SIZE).getName());
-        assertEquals("total_size_in_bytes", DetectorProfileName.getName(ADCommonName.TOTAL_SIZE_IN_BYTES).getName());
-        assertEquals("models", DetectorProfileName.getName(ADCommonName.MODELS).getName());
-        assertEquals("init_progress", DetectorProfileName.getName(ADCommonName.INIT_PROGRESS).getName());
-        assertEquals("total_entities", DetectorProfileName.getName(ADCommonName.TOTAL_ENTITIES).getName());
-        assertEquals("active_entities", DetectorProfileName.getName(ADCommonName.ACTIVE_ENTITIES).getName());
-        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> DetectorProfileName.getName("abc"));
+        assertEquals("ad_task", ProfileName.getName(ADCommonName.AD_TASK).getName());
+        assertEquals("state", ProfileName.getName(CommonName.STATE).getName());
+        assertEquals("error", ProfileName.getName(CommonName.ERROR).getName());
+        assertEquals("coordinating_node", ProfileName.getName(CommonName.COORDINATING_NODE).getName());
+        assertEquals("total_size_in_bytes", ProfileName.getName(CommonName.TOTAL_SIZE_IN_BYTES).getName());
+        assertEquals("models", ProfileName.getName(CommonName.MODELS).getName());
+        assertEquals("init_progress", ProfileName.getName(CommonName.INIT_PROGRESS).getName());
+        assertEquals("total_entities", ProfileName.getName(CommonName.TOTAL_ENTITIES).getName());
+        assertEquals("active_entities", ProfileName.getName(CommonName.ACTIVE_ENTITIES).getName());
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> ProfileName.getName("abc"));
         assertEquals(exception.getMessage(), ADCommonMessages.UNSUPPORTED_PROFILE_TYPE);
     }
 
     public void testDetectorProfileSet() throws IllegalArgumentException {
-        DetectorProfile detectorProfileOne = createRandomDetectorProfile();
-        detectorProfileOne.setShingleSize(20);
-        assertEquals(20, detectorProfileOne.getShingleSize());
+        ConfigProfile detectorProfileOne = createRandomDetectorProfile();
         detectorProfileOne.setActiveEntities(10L);
         assertEquals(10L, (long) detectorProfileOne.getActiveEntities());
         detectorProfileOne.setModelCount(10L);
