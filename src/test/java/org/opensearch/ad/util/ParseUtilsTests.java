@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.util;
 
-import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
 import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
@@ -127,16 +126,17 @@ public class ParseUtilsTests extends OpenSearchTestCase {
 
     public void testAddUserRoleFilterWithNullUser() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        addUserBackendRolesFilter(null, searchSourceBuilder);
+        ParseUtils.addUserBackendRolesFilter(null, searchSourceBuilder);
         assertEquals("{}", searchSourceBuilder.toString());
     }
 
     public void testAddUserRoleFilterWithNullUserBackendRole() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        addUserBackendRolesFilter(
-            new User(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
-            searchSourceBuilder
-        );
+        ParseUtils
+            .addUserBackendRolesFilter(
+                new User(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
+                searchSourceBuilder
+            );
         assertEquals(
             "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"terms\":{\"user.backend_roles.keyword\":[],"
                 + "\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],"
@@ -147,15 +147,16 @@ public class ParseUtilsTests extends OpenSearchTestCase {
 
     public void testAddUserRoleFilterWithEmptyUserBackendRole() {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        addUserBackendRolesFilter(
-            new User(
-                randomAlphaOfLength(5),
-                ImmutableList.of(),
-                ImmutableList.of(randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5))
-            ),
-            searchSourceBuilder
-        );
+        ParseUtils
+            .addUserBackendRolesFilter(
+                new User(
+                    randomAlphaOfLength(5),
+                    ImmutableList.of(),
+                    ImmutableList.of(randomAlphaOfLength(5)),
+                    ImmutableList.of(randomAlphaOfLength(5))
+                ),
+                searchSourceBuilder
+            );
         assertEquals(
             "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"terms\":{\"user.backend_roles.keyword\":[],"
                 + "\"boost\":1.0}},\"path\":\"user\",\"ignore_unmapped\":false,\"score_mode\":\"none\",\"boost\":1.0}}],"
@@ -168,15 +169,16 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         String backendRole1 = randomAlphaOfLength(5);
         String backendRole2 = randomAlphaOfLength(5);
-        addUserBackendRolesFilter(
-            new User(
-                randomAlphaOfLength(5),
-                ImmutableList.of(backendRole1, backendRole2),
-                ImmutableList.of(randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5))
-            ),
-            searchSourceBuilder
-        );
+        ParseUtils
+            .addUserBackendRolesFilter(
+                new User(
+                    randomAlphaOfLength(5),
+                    ImmutableList.of(backendRole1, backendRole2),
+                    ImmutableList.of(randomAlphaOfLength(5)),
+                    ImmutableList.of(randomAlphaOfLength(5))
+                ),
+                searchSourceBuilder
+            );
         assertEquals(
             "{\"query\":{\"bool\":{\"must\":[{\"nested\":{\"query\":{\"terms\":{\"user.backend_roles.keyword\":"
                 + "[\""

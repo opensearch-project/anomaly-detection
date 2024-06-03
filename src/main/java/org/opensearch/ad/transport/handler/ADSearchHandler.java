@@ -11,74 +11,18 @@
 
 package org.opensearch.ad.transport.handler;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_SEARCH;
-import static org.opensearch.timeseries.util.ParseUtils.addUserBackendRolesFilter;
-import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
-import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
-import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
-import org.opensearch.commons.authuser.User;
-import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.transport.handler.SearchHandler;
 
 /**
  * Handle general search request, check user role and return search response.
  */
-public class ADSearchHandler {
-    private final Logger logger = LogManager.getLogger(ADSearchHandler.class);
-    private final Client client;
-    private volatile Boolean filterEnabled;
+public class ADSearchHandler extends SearchHandler {
 
     public ADSearchHandler(Settings settings, ClusterService clusterService, Client client) {
-        this.client = client;
-        filterEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
+        super(settings, clusterService, client, AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES);
     }
-
-    /**
-     * Validate user role, add backend role filter if filter enabled
-     * and execute search.
-     *
-     * @param request search request
-     * @param actionListener action listerner
-     */
-    public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
-        User user = getUserContext(client);
-        ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_SEARCH);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            validateRole(request, user, listener);
-        } catch (Exception e) {
-            logger.error(e);
-            listener.onFailure(e);
-        }
-    }
-
-    private void validateRole(SearchRequest request, User user, ActionListener<SearchResponse> listener) {
-        if (user == null || !filterEnabled || isAdmin(user)) {
-            // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
-            // Case 2: If Security is enabled and filter is disabled, proceed with search as
-            // user is already authenticated to hit this API.
-            // case 3: user is admin which means we don't have to check backend role filtering
-            client.search(request, listener);
-        } else {
-            // Security is enabled, filter is enabled and user isn't admin
-            try {
-                addUserBackendRolesFilter(user, request.source());
-                logger.debug("Filtering result by " + user.getBackendRoles());
-                client.search(request, listener);
-            } catch (Exception e) {
-                listener.onFailure(e);
-            }
-        }
-    }
-
 }

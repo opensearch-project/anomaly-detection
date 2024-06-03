@@ -28,6 +28,7 @@ import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.settings.ForecastNumericSetting;
+import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.timeseries.common.exception.ValidationException;
@@ -38,6 +39,7 @@ import org.opensearch.timeseries.dataprocessor.ImputationOption;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ShingleGetter;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
@@ -53,6 +55,47 @@ import com.google.common.base.Objects;
  * AnomalyDetector's constructor because detection interval cannot be null.
  */
 public class Forecaster extends Config {
+    static class ForecastShingleGetter implements ShingleGetter {
+        private Integer seasonIntervals;
+        private Integer horizon;
+
+        public ForecastShingleGetter(Integer seasonIntervals, Integer horizon) {
+            this.seasonIntervals = seasonIntervals;
+            this.horizon = horizon;
+        }
+
+        /**
+        * If the given shingle size is not null, return given shingle size;
+        * if seasonality or horizon is not null, return max(seasonality hint / 2, horizon / 3);
+        * otherwise, return default shingle size.
+        *
+        * @param customShingleSize Given shingle size
+        * @return Shingle size
+        */
+        @Override
+        public Integer getShingleSize(Integer customShingleSize) {
+            // Return customShingleSize if not null
+            if (customShingleSize != null) {
+                return customShingleSize;
+            }
+
+            // Initialize candidate with the default value
+            int candidate = TimeSeriesSettings.DEFAULT_SHINGLE_SIZE;
+
+            // Update candidate if seasonIntervals is not null and its half is greater
+            if (seasonIntervals != null) {
+                candidate = Math.max(candidate, seasonIntervals / 2);
+            }
+
+            // Update candidate if horizon is not null and its third is greater
+            if (horizon != null) {
+                candidate = Math.max(candidate, horizon / 3);
+            }
+
+            return candidate;
+        }
+    }
+
     public static final String FORECAST_PARSE_FIELD_NAME = "Forecaster";
     public static final NamedXContentRegistry.Entry XCONTENT_REGISTRY = new NamedXContentRegistry.Entry(
         Forecaster.class,
@@ -85,7 +128,10 @@ public class Forecaster extends Config {
         User user,
         String resultIndex,
         Integer horizon,
-        ImputationOption imputationOption
+        ImputationOption imputationOption,
+        Integer recencyEmphasis,
+        Integer seasonIntervals,
+        Integer historyIntervals
     ) {
         super(
             forecasterId,
@@ -105,36 +151,60 @@ public class Forecaster extends Config {
             user,
             resultIndex,
             forecastInterval,
-            imputationOption
+            imputationOption,
+            recencyEmphasis,
+            seasonIntervals,
+            new ForecastShingleGetter(seasonIntervals, horizon),
+            historyIntervals
         );
 
         checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
 
         if (forecastInterval == null) {
-            errorMessage = ForecastCommonMessages.NULL_FORECAST_INTERVAL;
-            issueType = ValidationIssueType.FORECAST_INTERVAL;
+            throw new ValidationException(
+                ForecastCommonMessages.NULL_FORECAST_INTERVAL,
+                ValidationIssueType.FORECAST_INTERVAL,
+                ValidationAspect.FORECASTER
+            );
         } else if (((IntervalTimeConfiguration) forecastInterval).getInterval() <= 0) {
-            errorMessage = ForecastCommonMessages.INVALID_FORECAST_INTERVAL;
-            issueType = ValidationIssueType.FORECAST_INTERVAL;
+            throw new ValidationException(
+                ForecastCommonMessages.INVALID_FORECAST_INTERVAL,
+                ValidationIssueType.FORECAST_INTERVAL,
+                ValidationAspect.FORECASTER
+            );
         }
 
         int maxCategoryFields = ForecastNumericSetting.maxCategoricalFields();
         if (categoryFields != null && categoryFields.size() > maxCategoryFields) {
-            errorMessage = CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields);
-            issueType = ValidationIssueType.CATEGORY;
+            throw new ValidationException(
+                CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields),
+                ValidationIssueType.CATEGORY,
+                ValidationAspect.FORECASTER
+            );
         }
 
         if (invalidHorizon(horizon)) {
-            errorMessage = "Horizon size must be a positive integer no larger than "
-                + TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO
-                + ". Got "
-                + horizon;
-            issueType = ValidationIssueType.SHINGLE_SIZE_FIELD;
+            throw new ValidationException(
+                "Horizon size must be a positive integer no larger than "
+                    + TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO
+                    + ". Got "
+                    + horizon,
+                ValidationIssueType.HORIZON_SIZE,
+                ValidationAspect.FORECASTER
+            );
         }
 
-        checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
+        // 4 comes from Preprocessor.isForecastReasonable
+        // we have already assigned this.shingleSize in super class
+        if (this.shingleSize < 4) {
+            throw new ValidationException(
+                "Shingle size must be no less than " + ForecastSettings.MINIMUM_SHINLE_SIZE + ". Got " + shingleSize,
+                ValidationIssueType.SHINGLE_SIZE_FIELD,
+                ValidationAspect.FORECASTER
+            );
+        }
 
-        this.horizon = horizon;
+        this.horizon = horizon == null ? suggestHorizon() : horizon;
     }
 
     public Forecaster(StreamInput input) throws IOException {
@@ -220,7 +290,10 @@ public class Forecaster extends Config {
 
         List<String> categoryField = null;
         Integer horizon = null;
-        ImputationOption interpolationOption = null;
+        ImputationOption imputationOption = null;
+        Integer recencyEmphasis = null;
+        Integer seasonality = null;
+        Integer historyIntervals = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -329,7 +402,16 @@ public class Forecaster extends Config {
                     horizon = parser.intValue();
                     break;
                 case IMPUTATION_OPTION_FIELD:
-                    interpolationOption = ImputationOption.parse(parser);
+                    imputationOption = ImputationOption.parse(parser);
+                    break;
+                case RECENCY_EMPHASIS_FIELD:
+                    recencyEmphasis = parser.intValue();
+                    break;
+                case SEASONALITY_FIELD:
+                    seasonality = parser.currentToken() == XContentParser.Token.VALUE_NULL ? null : parser.intValue();
+                    break;
+                case HISTORY_INTERVAL_FIELD:
+                    historyIntervals = parser.intValue();
                     break;
                 default:
                     parser.skipChildren();
@@ -347,7 +429,7 @@ public class Forecaster extends Config {
             filterQuery,
             forecastInterval,
             windowDelay,
-            getShingleSize(shingleSize),
+            shingleSize,
             uiMetadata,
             schemaVersion,
             lastUpdateTime,
@@ -355,7 +437,10 @@ public class Forecaster extends Config {
             user,
             resultIndex,
             horizon,
-            interpolationOption
+            imputationOption,
+            recencyEmphasis,
+            seasonality,
+            historyIntervals
         );
         return forecaster;
     }
@@ -371,10 +456,12 @@ public class Forecaster extends Config {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         Forecaster forecaster = (Forecaster) o;
         return super.equals(o) && Objects.equal(horizon, forecaster.horizon);
     }
@@ -401,5 +488,9 @@ public class Forecaster extends Config {
 
     public Integer getHorizon() {
         return horizon;
+    }
+
+    public Integer suggestHorizon() {
+        return this.shingleSize * DEFAULT_HORIZON_SHINGLE_RATIO;
     }
 }

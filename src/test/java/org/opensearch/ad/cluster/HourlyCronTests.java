@@ -27,10 +27,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.transport.CronAction;
-import org.opensearch.ad.transport.CronNodeResponse;
-import org.opensearch.ad.transport.CronResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -39,6 +36,10 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.cluster.HourlyCron;
+import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.transport.CronNodeResponse;
+import org.opensearch.timeseries.transport.CronResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
 import test.org.opensearch.ad.util.ClusterCreation;
@@ -59,7 +60,7 @@ public class HourlyCronTests extends AbstractTimeSeriesTest {
         ClusterState state = ClusterCreation.state(1);
         when(clusterService.state()).thenReturn(state);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
-        ignoredAttributes.put(ADCommonName.BOX_TYPE_KEY, ADCommonName.WARM_BOX_TYPE);
+        ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         DiscoveryNodeFilterer nodeFilter = new DiscoveryNodeFilterer(clusterService);
 
         Client client = mock(Client.class);

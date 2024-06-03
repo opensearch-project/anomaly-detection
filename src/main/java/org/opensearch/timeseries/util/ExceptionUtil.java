@@ -76,8 +76,8 @@ public class ExceptionUtil {
      * @return composite failures of all shards
      */
     public static String getShardsFailure(IndexResponse response) {
-        StringBuilder failureReasons = new StringBuilder();
-        if (response.getShardInfo() != null && response.getShardInfo().getFailed() > 0) {
+        if (response != null && response.getShardInfo() != null && response.getShardInfo().getFailed() > 0) {
+            StringBuilder failureReasons = new StringBuilder();
             for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
                 failureReasons.append(failure.reason());
             }

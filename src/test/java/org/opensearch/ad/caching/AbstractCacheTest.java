@@ -19,34 +19,39 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Random;
 
 import org.junit.Before;
-import org.opensearch.ad.ml.EntityModel;
-import org.opensearch.ad.ml.ModelManager.ModelType;
-import org.opensearch.ad.ml.ModelState;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.ratelimit.CheckpointMaintainWorker;
-import org.opensearch.ad.ratelimit.CheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.ADCheckpointMaintainWorker;
+import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.caching.PriorityTracker;
+import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
+
+import test.org.opensearch.ad.util.MLUtil;
 
 public class AbstractCacheTest extends AbstractTimeSeriesTest {
     protected String modelId1, modelId2, modelId3, modelId4;
     protected Entity entity1, entity2, entity3, entity4;
-    protected ModelState<EntityModel> modelState1, modelState2, modelState3, modelState4;
+    protected ModelState<ThresholdedRandomCutForest> modelState1, modelState2, modelState3, modelState4;
     protected String detectorId;
     protected AnomalyDetector detector;
     protected Clock clock;
     protected Duration detectorDuration;
     protected float initialPriority;
-    protected CacheBuffer cacheBuffer;
+    protected ADCacheBuffer cacheBuffer;
     protected long memoryPerEntity;
     protected MemoryTracker memoryTracker;
-    protected CheckpointWriteWorker checkpointWriteQueue;
-    protected CheckpointMaintainWorker checkpointMaintainQueue;
+    protected ADCheckpointWriteWorker checkpointWriteQueue;
+    protected ADCheckpointMaintainWorker checkpointMaintainQueue;
     protected Random random;
     protected int shingleSize;
 
@@ -85,58 +90,72 @@ public class AbstractCacheTest extends AbstractTimeSeriesTest {
         memoryPerEntity = 81920;
         memoryTracker = mock(MemoryTracker.class);
 
-        checkpointWriteQueue = mock(CheckpointWriteWorker.class);
-        checkpointMaintainQueue = mock(CheckpointMaintainWorker.class);
+        checkpointWriteQueue = mock(ADCheckpointWriteWorker.class);
+        checkpointMaintainQueue = mock(ADCheckpointMaintainWorker.class);
 
-        cacheBuffer = new CacheBuffer(
-            1,
-            1,
-            memoryPerEntity,
-            memoryTracker,
+        PriorityTracker tracker = new PriorityTracker(
             clock,
+            detectorDuration.getSeconds(),
+            clock.instant().getEpochSecond(),
+            TimeSeriesSettings.MAX_TRACKING_ENTITIES
+        );
+        cacheBuffer = new ADCacheBuffer(
+            1,
+            clock,
+            memoryTracker,
+            Duration.ofHours(12).toHoursPart(),
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            detectorId,
+            memoryPerEntity,
             checkpointWriteQueue,
             checkpointMaintainQueue,
-            Duration.ofHours(12).toHoursPart()
+            detectorId,
+            tracker
         );
 
         initialPriority = cacheBuffer.getPriorityTracker().getUpdatedPriority(0);
 
-        modelState1 = new ModelState<>(
-            new EntityModel(entity1, new ArrayDeque<>(), null),
+        modelState1 = new ModelState<ThresholdedRandomCutForest>(
+            MLUtil.createNonEmptyModel(detectorId, 0, entity1).getLeft(),
             modelId1,
             detectorId,
-            ModelType.ENTITY.getName(),
+            ModelManager.ModelType.TRCF.getName(),
             clock,
-            0
+            0,
+            Optional.of(entity1),
+            new ArrayDeque<>()
         );
 
-        modelState2 = new ModelState<>(
-            new EntityModel(entity2, new ArrayDeque<>(), null),
+        modelState2 = new ModelState<ThresholdedRandomCutForest>(
+            MLUtil.createNonEmptyModel(detectorId, 0, entity2).getLeft(),
             modelId2,
             detectorId,
-            ModelType.ENTITY.getName(),
+            ModelManager.ModelType.TRCF.getName(),
             clock,
-            0
+            0,
+            Optional.of(entity2),
+            new ArrayDeque<>()
         );
 
-        modelState3 = new ModelState<>(
-            new EntityModel(entity3, new ArrayDeque<>(), null),
+        modelState3 = new ModelState<ThresholdedRandomCutForest>(
+            MLUtil.createNonEmptyModel(detectorId, 0, entity3).getLeft(),
             modelId3,
             detectorId,
-            ModelType.ENTITY.getName(),
+            ModelManager.ModelType.TRCF.getName(),
             clock,
-            0
+            0,
+            Optional.of(entity3),
+            new ArrayDeque<>()
         );
 
-        modelState4 = new ModelState<>(
-            new EntityModel(entity4, new ArrayDeque<>(), null),
+        modelState4 = new ModelState<ThresholdedRandomCutForest>(
+            MLUtil.createNonEmptyModel(detectorId, 0, entity4).getLeft(),
             modelId4,
             detectorId,
-            ModelType.ENTITY.getName(),
+            ModelManager.ModelType.TRCF.getName(),
             clock,
-            0
+            0,
+            Optional.of(entity4),
+            new ArrayDeque<>()
         );
     }
 }

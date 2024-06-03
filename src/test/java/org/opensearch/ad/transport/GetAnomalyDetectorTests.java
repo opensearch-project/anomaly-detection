@@ -21,7 +21,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,6 +37,7 @@ import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.ADTaskProfileRunner;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -55,6 +55,8 @@ import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.transport.EntityProfileTests;
+import org.opensearch.timeseries.transport.GetConfigRequest;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.Transport;
@@ -67,7 +69,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private ActionFilters actionFilters;
     private Client client;
     private SecurityClientUtil clientUtil;
-    private GetAnomalyDetectorRequest request;
+    private GetConfigRequest request;
     private String detectorId = "yecrdnUBqurvo9uKU_d8";
     private String entityValue = "app_0";
     private String categoryField = "categoryField";
@@ -120,6 +122,8 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         adTaskManager = mock(ADTaskManager.class);
 
+        ADTaskProfileRunner adTaskProfileRunner = mock(ADTaskProfileRunner.class);
+
         action = new GetAnomalyDetectorTransportAction(
             transportService,
             nodeFilter,
@@ -129,18 +133,19 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
             clientUtil,
             Settings.EMPTY,
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            adTaskProfileRunner
         );
 
         entity = Entity.createSingleAttributeEntity(categoryField, entityValue);
     }
 
-    public void testInvalidRequest() throws IOException {
+    public void testInvalidRequest() {
         typeStr = "entity_info2,init_progress2";
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_/_profile";
 
-        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entity);
+        request = new GetConfigRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entity);
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
@@ -148,7 +153,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testValidRequest() throws IOException {
+    public void testValidRequest() {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             GetRequest request = (GetRequest) args[0];
@@ -165,7 +170,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_/_profile";
 
-        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entity);
+        request = new GetConfigRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entity);
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
@@ -181,17 +186,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
             return null;
         })
             .when(adTaskManager)
-            .getAndExecuteOnLatestADTasks(
-                anyString(),
-                eq(null),
-                eq(null),
-                anyList(),
-                any(),
-                eq(transportService),
-                eq(true),
-                anyInt(),
-                any()
-            );
+            .getAndExecuteOnLatestTasks(anyString(), eq(null), eq(null), anyList(), any(), eq(transportService), eq(true), anyInt(), any());
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
@@ -203,7 +198,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_";
 
-        request = new GetAnomalyDetectorRequest(detectorId, 0L, false, true, typeStr, rawPath, false, entity);
+        request = new GetConfigRequest(detectorId, 0L, false, true, typeStr, rawPath, false, entity);
         future = new PlainActionFuture<>();
         action.getExecute(request, future);
 

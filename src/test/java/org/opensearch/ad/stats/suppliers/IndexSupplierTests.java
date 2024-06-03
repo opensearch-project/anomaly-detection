@@ -16,8 +16,9 @@ import static org.mockito.Mockito.when;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.opensearch.ad.util.IndexUtils;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.stats.suppliers.IndexStatusSupplier;
+import org.opensearch.timeseries.util.IndexUtils;
 
 public class IndexSupplierTests extends OpenSearchTestCase {
     private IndexUtils indexUtils;

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
@@ -45,14 +46,26 @@ public abstract class IntermediateResult<IndexableResultType extends IndexableRe
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         IntermediateResult<IndexableResultType> other = (IntermediateResult<IndexableResultType>) obj;
         return totalUpdates == other.totalUpdates && Double.doubleToLongBits(rcfScore) == Double.doubleToLongBits(other.rcfScore);
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+            .append(super.toString())
+            .append("totalUpdates", totalUpdates)
+            .append("rcfScore", rcfScore)
+            .toString();
     }
 
     /**

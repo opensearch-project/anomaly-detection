@@ -30,9 +30,6 @@ import org.junit.Test;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.model.DetectorProfileName;
-import org.opensearch.ad.model.ModelProfileOnNode;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -42,6 +39,12 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.ModelProfileOnNode;
+import org.opensearch.timeseries.model.ProfileName;
+import org.opensearch.timeseries.transport.ProfileNodeRequest;
+import org.opensearch.timeseries.transport.ProfileNodeResponse;
+import org.opensearch.timeseries.transport.ProfileRequest;
+import org.opensearch.timeseries.transport.ProfileResponse;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -112,11 +115,11 @@ public class ProfileTests extends OpenSearchTestCase {
     @Test
     public void testProfileNodeRequest() throws IOException {
 
-        Set<DetectorProfileName> profilesToRetrieve = new HashSet<DetectorProfileName>();
-        profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
-        ProfileRequest ProfileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
+        Set<ProfileName> profilesToRetrieve = new HashSet<ProfileName>();
+        profilesToRetrieve.add(ProfileName.COORDINATING_NODE);
+        ProfileRequest ProfileRequest = new ProfileRequest(detectorId, profilesToRetrieve);
         ProfileNodeRequest ProfileNodeRequest = new ProfileNodeRequest(ProfileRequest);
-        assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getId(), detectorId);
+        assertEquals("ProfileNodeRequest has the wrong detector id", ProfileNodeRequest.getConfigId(), detectorId);
         assertEquals("ProfileNodeRequest has the wrong ProfileRequest", ProfileNodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
 
         // Test serialization
@@ -124,7 +127,7 @@ public class ProfileTests extends OpenSearchTestCase {
         ProfileNodeRequest.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
         ProfileNodeRequest nodeRequest = new ProfileNodeRequest(streamInput);
-        assertEquals("serialization has the wrong detector id", nodeRequest.getId(), detectorId);
+        assertEquals("serialization has the wrong detector id", nodeRequest.getConfigId(), detectorId);
         assertEquals("serialization has the wrong ProfileRequest", nodeRequest.getProfilesToBeRetrieved(), profilesToRetrieve);
 
     }
@@ -136,18 +139,17 @@ public class ProfileTests extends OpenSearchTestCase {
         ProfileNodeResponse profileNodeResponse = new ProfileNodeResponse(
             discoveryNode1,
             modelSizeMap1,
-            shingleSize,
             0,
             0,
             new ArrayList<>(),
-            modelSizeMap1.size()
+            modelSizeMap1.size(),
+            false
         );
         BytesStreamOutput output = new BytesStreamOutput();
         profileNodeResponse.writeTo(output);
         StreamInput streamInput = output.bytes().streamInput();
         ProfileNodeResponse readResponse = ProfileNodeResponse.readProfiles(streamInput);
         assertEquals("serialization has the wrong model size", readResponse.getModelSize(), profileNodeResponse.getModelSize());
-        assertEquals("serialization has the wrong shingle size", readResponse.getShingleSize(), profileNodeResponse.getShingleSize());
 
         // Test toXContent
         XContentBuilder builder = jsonBuilder();
@@ -162,15 +164,14 @@ public class ProfileTests extends OpenSearchTestCase {
             );
         }
 
-        assertEquals("toXContent has the wrong shingle size", JsonDeserializer.getIntValue(json, ADCommonName.SHINGLE_SIZE), shingleSize);
     }
 
     @Test
     public void testProfileRequest() throws IOException {
         String detectorId = "123";
-        Set<DetectorProfileName> profilesToRetrieve = new HashSet<DetectorProfileName>();
-        profilesToRetrieve.add(DetectorProfileName.COORDINATING_NODE);
-        ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve, false);
+        Set<ProfileName> profilesToRetrieve = new HashSet<ProfileName>();
+        profilesToRetrieve.add(ProfileName.COORDINATING_NODE);
+        ProfileRequest profileRequest = new ProfileRequest(detectorId, profilesToRetrieve);
 
         // Test Serialization
         BytesStreamOutput output = new BytesStreamOutput();
@@ -182,7 +183,7 @@ public class ProfileTests extends OpenSearchTestCase {
             readRequest.getProfilesToBeRetrieved(),
             profileRequest.getProfilesToBeRetrieved()
         );
-        assertEquals("Serialization has the wrong detector id", readRequest.getId(), profileRequest.getId());
+        assertEquals("Serialization has the wrong detector id", readRequest.getConfigId(), profileRequest.getConfigId());
     }
 
     @Test
@@ -191,27 +192,26 @@ public class ProfileTests extends OpenSearchTestCase {
         ProfileNodeResponse profileNodeResponse1 = new ProfileNodeResponse(
             discoveryNode1,
             modelSizeMap1,
-            shingleSize,
             0,
             0,
             new ArrayList<>(),
-            modelSizeMap1.size()
+            modelSizeMap1.size(),
+            true
         );
         ProfileNodeResponse profileNodeResponse2 = new ProfileNodeResponse(
             discoveryNode2,
             modelSizeMap2,
-            -1,
             0,
             0,
             new ArrayList<>(),
-            modelSizeMap2.size()
+            modelSizeMap2.size(),
+            false
         );
         List<ProfileNodeResponse> profileNodeResponses = Arrays.asList(profileNodeResponse1, profileNodeResponse2);
         List<FailedNodeException> failures = Collections.emptyList();
         ProfileResponse profileResponse = new ProfileResponse(new ClusterName(clusterName), profileNodeResponses, failures);
 
         assertEquals(node1, profileResponse.getCoordinatingNode());
-        assertEquals(shingleSize, profileResponse.getShingleSize());
         assertEquals(modelSize * 2, profileResponse.getTotalSizeInBytes());
         assertEquals(2, profileResponse.getModelProfile().length);
         for (ModelProfileOnNode profile : profileResponse.getModelProfile()) {
@@ -237,11 +237,7 @@ public class ProfileTests extends OpenSearchTestCase {
             node1,
             JsonDeserializer.getTextValue(json, ProfileResponse.COORDINATING_NODE)
         );
-        assertEquals(
-            "toXContent has the wrong shingle size",
-            shingleSize,
-            JsonDeserializer.getLongValue(json, ProfileResponse.SHINGLE_SIZE)
-        );
+
         assertEquals("toXContent has the wrong total size", modelSize * 2, JsonDeserializer.getLongValue(json, ProfileResponse.TOTAL_SIZE));
 
         JsonArray modelsJson = JsonDeserializer.getArrayValue(json, ProfileResponse.MODELS);

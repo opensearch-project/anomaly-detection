@@ -36,12 +36,38 @@ public class MultiFeatureLinearUniformImputerTests {
                 new Object[][] {
                     // no integer sensitive rint rounding at the end of singleFeatureImpute.
                     { singleComponent, 2, singleComponent },
-                    { singleComponent, 3, new double[][] { { -1.0, 0.5, 2.0 }, { 1.0, 1.0, 1.0 } } },
-                    { singleComponent, 4, new double[][] { { -1.0, 0.0, 1.0, 2.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 3, multiComponent },
-                    { multiComponent, 4, new double[][] { { 0.0, 2 * oneThird, oneThird, -1.0 }, { 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 5, new double[][] { { 0.0, 0.5, 1.0, 0.0, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0 } } },
-                    { multiComponent, 6, new double[][] { { 0.0, 0.4, 0.8, 0.6, -0.2, -1.0 }, { 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 } } }, }
+                    { singleComponent, 3, new double[][] { { -1.0, 2 }, { 0, 1.5 }, { 1.0, 1.0 } } },
+                    {
+                        singleComponent,
+                        4,
+                        new double[][] {
+                            { -1.0, 2 },
+                            { 1 - 4 * oneThird, 2 - oneThird },
+                            { 1 - 2 * oneThird, 2 - 2 * oneThird },
+                            { 1.0, 1.0 } } },
+                    { multiComponent, 3, new double[][] { { 0.0, 1.0, -1.0 }, { 0.5, 1.0, 0 }, { 1.0, 1.0, 1.0 } } },
+                    {
+                        multiComponent,
+                        4,
+                        new double[][] {
+                            { 0.0, 1.0, -1.0 },
+                            { oneThird, 1.0, -1.0 + 2 * oneThird },
+                            { 2 * oneThird, 1.0, -1.0 + 4 * oneThird },
+                            { 1.0, 1.0, 1.0 } } },
+                    {
+                        multiComponent,
+                        5,
+                        new double[][] { { 0, 1.0, -1.0 }, { 0.25, 1.0, -0.5 }, { 0.5, 1.0, 0 }, { 0.75, 1.0, 0.5 }, { 1.0, 1.0, 1.0 } } },
+                    {
+                        multiComponent,
+                        6,
+                        new double[][] {
+                            { 0, 1.0, -1.0 },
+                            { 0.2, 1.0, -0.6 },
+                            { 0.4, 1.0, -0.2 },
+                            { 0.6, 1.0, 0.2 },
+                            { 0.8, 1.0, 0.6 },
+                            { 1.0, 1.0, 1.0 } } }, }
             );
     }
 
@@ -65,9 +91,9 @@ public class MultiFeatureLinearUniformImputerTests {
     public void testImputation() {
         double[][] actual = imputer.impute(input, numInterpolants);
         double delta = 1e-8;
-        int numFeatures = expected.length;
+        int numSamples = expected.length;
 
-        for (int i = 0; i < numFeatures; i++) {
+        for (int i = 0; i < numSamples; i++) {
             assertArrayEquals(expected[i], actual[i], delta);
         }
     }

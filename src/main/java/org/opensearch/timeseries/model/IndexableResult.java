@@ -39,17 +39,6 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
     protected final Optional<Entity> optionalEntity;
     protected User user;
     protected final Integer schemaVersion;
-    /*
-     * model id for easy aggregations of entities. The front end needs to query
-     * for entities ordered by the descending/ascending order of feature values.
-     * After supporting multi-category fields, it is hard to write such queries
-     * since the entity information is stored in a nested object array.
-     * Also, the front end has all code/queries/ helper functions in place to
-     * rely on a single key per entity combo. Adding model id to forecast result
-     * to help the transition to multi-categorical field less painful.
-     */
-    protected final String modelId;
-    protected final String entityId;
     protected final String taskId;
 
     public IndexableResult(
@@ -63,7 +52,6 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
         Optional<Entity> entity,
         User user,
         Integer schemaVersion,
-        String modelId,
         String taskId
     ) {
         this.configId = configId;
@@ -76,9 +64,7 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
         this.optionalEntity = entity;
         this.user = user;
         this.schemaVersion = schemaVersion;
-        this.modelId = modelId;
         this.taskId = taskId;
-        this.entityId = getEntityId(entity, configId);
     }
 
     public IndexableResult(StreamInput input) throws IOException {
@@ -104,9 +90,7 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
             user = null;
         }
         this.schemaVersion = input.readInt();
-        this.modelId = input.readOptionalString();
         this.taskId = input.readOptionalString();
-        this.entityId = input.readOptionalString();
     }
 
     @Override
@@ -134,9 +118,7 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
             out.writeBoolean(false); // user does not exist
         }
         out.writeInt(schemaVersion);
-        out.writeOptionalString(modelId);
         out.writeOptionalString(taskId);
-        out.writeOptionalString(entityId);
     }
 
     public String getConfigId() {
@@ -171,16 +153,8 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
         return optionalEntity;
     }
 
-    public String getModelId() {
-        return modelId;
-    }
-
     public String getTaskId() {
         return taskId;
-    }
-
-    public String getEntityId() {
-        return entityId;
     }
 
     /**
@@ -209,9 +183,7 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
             && Objects.equal(executionStartTime, that.executionStartTime)
             && Objects.equal(executionEndTime, that.executionEndTime)
             && Objects.equal(error, that.error)
-            && Objects.equal(optionalEntity, that.optionalEntity)
-            && Objects.equal(modelId, that.modelId)
-            && Objects.equal(entityId, that.entityId);
+            && Objects.equal(optionalEntity, that.optionalEntity);
     }
 
     @Generated
@@ -227,9 +199,7 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
                 executionStartTime,
                 executionEndTime,
                 error,
-                optionalEntity,
-                modelId,
-                entityId
+                optionalEntity
             );
     }
 
@@ -245,8 +215,6 @@ public abstract class IndexableResult implements Writeable, ToXContentObject {
             .append("executionEndTime", executionEndTime)
             .append("error", error)
             .append("entity", optionalEntity)
-            .append("modelId", modelId)
-            .append("entityId", entityId)
             .toString();
     }
 

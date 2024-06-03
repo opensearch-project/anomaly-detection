@@ -19,7 +19,6 @@ import java.io.UncheckedIOException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
@@ -30,6 +29,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.model.EntityProfile;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 

@@ -16,6 +16,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import java.io.IOException;
 import java.time.Instant;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -100,10 +101,12 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         AnomalyDetectorExecutionInput that = (AnomalyDetectorExecutionInput) o;
         return Objects.equal(getPeriodStart(), that.getPeriodStart())
             && Objects.equal(getPeriodEnd(), that.getPeriodEnd())
@@ -135,5 +138,18 @@ public class AnomalyDetectorExecutionInput implements ToXContentObject {
 
     public void setDetectorId(String detectorId) {
         this.detectorId = detectorId;
+    }
+
+    @Generated
+    @Override
+    public String toString() {
+        return super.toString()
+            + ", "
+            + new ToStringBuilder(this)
+                .append("periodStart", periodStart)
+                .append("periodEnd", periodEnd)
+                .append("detectorId", detectorId)
+                .append("detector", detector)
+                .toString();
     }
 }

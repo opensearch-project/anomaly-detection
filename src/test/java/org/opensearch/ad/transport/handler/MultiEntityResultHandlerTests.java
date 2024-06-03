@@ -23,36 +23,29 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
-import org.opensearch.ad.ratelimit.RequestPriority;
-import org.opensearch.ad.ratelimit.ResultWriteRequest;
+import org.opensearch.ad.ratelimit.ADResultWriteRequest;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
-import org.opensearch.ad.transport.ADResultBulkResponse;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.ratelimit.RequestPriority;
+import org.opensearch.timeseries.transport.ResultBulkResponse;
 
 public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
-    private MultiEntityResultHandler handler;
+    private ADIndexMemoryPressureAwareResultHandler handler;
     private ADResultBulkRequest request;
-    private ADResultBulkResponse response;
+    private ResultBulkResponse response;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
 
-        handler = new MultiEntityResultHandler(
-            client,
-            settings,
-            threadPool,
-            anomalyDetectionIndices,
-            clientUtil,
-            indexUtil,
-            clusterService
-        );
+        handler = new ADIndexMemoryPressureAwareResultHandler(client, anomalyDetectionIndices, clusterService);
 
         request = new ADResultBulkRequest();
-        ResultWriteRequest resultWriteRequest = new ResultWriteRequest(
+        ADResultWriteRequest resultWriteRequest = new ADResultWriteRequest(
             Instant.now().plus(10, ChronoUnit.MINUTES).toEpochMilli(),
             detectorId,
             RequestPriority.MEDIUM,
@@ -61,15 +54,15 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
         );
         request.add(resultWriteRequest);
 
-        response = new ADResultBulkResponse();
+        response = new ResultBulkResponse();
 
-        super.setUpLog4jForJUnit(MultiEntityResultHandler.class);
+        super.setUpLog4jForJUnit(ADIndexMemoryPressureAwareResultHandler.class);
 
         doAnswer(invocation -> {
-            ActionListener<ADResultBulkResponse> listener = invocation.getArgument(2);
+            ActionListener<ResultBulkResponse> listener = invocation.getArgument(2);
             listener.onResponse(response);
             return null;
-        }).when(client).execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ADResultBulkResponse>>any());
+        }).when(client).execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ResultBulkResponse>>any());
     }
 
     @Override
@@ -80,7 +73,7 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
 
     @Test
     public void testIndexWriteBlock() throws InterruptedException {
-        setWriteBlockAdResultIndex(true);
+        setGlobalWriteBlocked();
 
         CountDownLatch verified = new CountDownLatch(1);
 
@@ -89,14 +82,11 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             verified.countDown();
         }, exception -> {
             assertTrue(exception instanceof TimeSeriesException);
-            assertTrue(
-                "actual: " + exception.getMessage(),
-                exception.getMessage().contains(MultiEntityResultHandler.CANNOT_SAVE_RESULT_ERR_MSG)
-            );
+            assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(CommonMessages.CANNOT_SAVE_RESULT_ERR_MSG));
             verified.countDown();
         }));
 
-        assertTrue(verified.await(100, TimeUnit.SECONDS));
+        assertTrue(verified.await(60, TimeUnit.SECONDS));
     }
 
     @Test
@@ -109,17 +99,17 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             verified.countDown();
         }));
         assertTrue(verified.await(100, TimeUnit.SECONDS));
-        assertEquals(1, testAppender.countMessage(MultiEntityResultHandler.SUCCESS_SAVING_RESULT_MSG, false));
+        assertEquals(1, testAppender.countMessage(CommonMessages.SUCCESS_SAVING_RESULT_MSG, false));
     }
 
     @Test
     public void testSavingFailure() throws IOException, InterruptedException {
         setUpSavingAnomalyResultIndex(false);
         doAnswer(invocation -> {
-            ActionListener<ADResultBulkResponse> listener = invocation.getArgument(2);
+            ActionListener<ResultBulkResponse> listener = invocation.getArgument(2);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(client).execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ADResultBulkResponse>>any());
+        }).when(client).execute(eq(ADResultBulkAction.INSTANCE), any(), ArgumentMatchers.<ActionListener<ResultBulkResponse>>any());
 
         CountDownLatch verified = new CountDownLatch(1);
         handler.flush(request, ActionListener.wrap(response -> {
@@ -142,7 +132,7 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             verified.countDown();
         }));
         assertTrue(verified.await(100, TimeUnit.SECONDS));
-        assertEquals(1, testAppender.countMessage(MultiEntityResultHandler.SUCCESS_SAVING_RESULT_MSG, false));
+        assertEquals(1, testAppender.countMessage(CommonMessages.SUCCESS_SAVING_RESULT_MSG, false));
     }
 
     @Test
@@ -200,6 +190,6 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             verified.countDown();
         }));
         assertTrue(verified.await(100, TimeUnit.SECONDS));
-        assertEquals(1, testAppender.countMessage(MultiEntityResultHandler.SUCCESS_SAVING_RESULT_MSG, false));
+        assertEquals(1, testAppender.countMessage(CommonMessages.SUCCESS_SAVING_RESULT_MSG, false));
     }
 }

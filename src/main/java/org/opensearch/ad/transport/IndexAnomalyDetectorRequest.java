@@ -34,6 +34,9 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     private Integer maxSingleEntityAnomalyDetectors;
     private Integer maxMultiEntityAnomalyDetectors;
     private Integer maxAnomalyFeatures;
+    // added during refactoring for forecasting. It is fine we add a new field
+    // since the request is handled by the same node.
+    private Integer maxCategoricalFields;
 
     public IndexAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -47,6 +50,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         maxSingleEntityAnomalyDetectors = in.readInt();
         maxMultiEntityAnomalyDetectors = in.readInt();
         maxAnomalyFeatures = in.readInt();
+        maxCategoricalFields = in.readInt();
     }
 
     public IndexAnomalyDetectorRequest(
@@ -59,7 +63,8 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         TimeValue requestTimeout,
         Integer maxSingleEntityAnomalyDetectors,
         Integer maxMultiEntityAnomalyDetectors,
-        Integer maxAnomalyFeatures
+        Integer maxAnomalyFeatures,
+        Integer maxCategoricalFields
     ) {
         super();
         this.detectorID = detectorID;
@@ -72,6 +77,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         this.maxSingleEntityAnomalyDetectors = maxSingleEntityAnomalyDetectors;
         this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
+        this.maxCategoricalFields = maxCategoricalFields;
     }
 
     public String getDetectorID() {
@@ -114,6 +120,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         return maxAnomalyFeatures;
     }
 
+    public Integer getMaxCategoricalFields() {
+        return maxCategoricalFields;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
@@ -127,6 +137,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         out.writeInt(maxSingleEntityAnomalyDetectors);
         out.writeInt(maxMultiEntityAnomalyDetectors);
         out.writeInt(maxAnomalyFeatures);
+        out.writeInt(maxCategoricalFields);
     }
 
     @Override

@@ -8,10 +8,10 @@ package org.opensearch.ad.client;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.transport.GetAnomalyDetectorRequest;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.transport.GetConfigRequest;
 
 /**
  * A client to provide interfaces for anomaly detection functionality. This will be used by other plugins.
@@ -58,7 +58,7 @@ public interface AnomalyDetectionClient {
      * @param profileRequest request to fetch the detector profile
      * @return ActionFuture of GetAnomalyDetectorResponse
      */
-    default ActionFuture<GetAnomalyDetectorResponse> getDetectorProfile(GetAnomalyDetectorRequest profileRequest) {
+    default ActionFuture<GetAnomalyDetectorResponse> getDetectorProfile(GetConfigRequest profileRequest) {
         PlainActionFuture<GetAnomalyDetectorResponse> actionFuture = PlainActionFuture.newFuture();
         getDetectorProfile(profileRequest, actionFuture);
         return actionFuture;
@@ -69,6 +69,6 @@ public interface AnomalyDetectionClient {
      * @param profileRequest request to fetch the detector profile
      * @param listener a listener to be notified of the result
      */
-    void getDetectorProfile(GetAnomalyDetectorRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener);
+    void getDetectorProfile(GetConfigRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener);
 
 }

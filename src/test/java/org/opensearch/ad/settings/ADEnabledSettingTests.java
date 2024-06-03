@@ -19,6 +19,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.settings.TimeSeriesEnabledSetting;
 
 public class ADEnabledSettingTests extends OpenSearchTestCase {
 
@@ -30,9 +31,17 @@ public class ADEnabledSettingTests extends OpenSearchTestCase {
     }
 
     public void testIsADBreakerEnabled() {
-        assertTrue(ADEnabledSetting.isADBreakerEnabled());
-        ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.AD_BREAKER_ENABLED, false);
-        assertTrue(!ADEnabledSetting.isADBreakerEnabled());
+        try {
+            assertTrue(TimeSeriesEnabledSetting.isBreakerEnabled());
+            ADEnabledSetting.getInstance().setSettingValue(ADEnabledSetting.AD_BREAKER_ENABLED, false);
+            assertTrue(!ADEnabledSetting.isADBreakerEnabled());
+            TimeSeriesEnabledSetting.getInstance().setSettingValue(TimeSeriesEnabledSetting.BREAKER_ENABLED, false);
+            assertTrue(!TimeSeriesEnabledSetting.isBreakerEnabled());
+        } finally {
+            // change it back so related tests like TimeSeriesEnabledSettingTests.testIsForecastBreakerEnabled that
+            // assumes default value of breaker enabled can pass.
+            TimeSeriesEnabledSetting.getInstance().setSettingValue(TimeSeriesEnabledSetting.BREAKER_ENABLED, true);
+        }
     }
 
     public void testIsInterpolationInColdStartEnabled() {

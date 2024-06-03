@@ -22,11 +22,11 @@ import java.util.Map;
 public interface MaintenanceState {
     default <K, V extends ExpiringState> void maintenance(Map<K, V> stateToClean, Duration stateTtl) {
         stateToClean.entrySet().stream().forEach(entry -> {
-            K detectorId = entry.getKey();
+            K configId = entry.getKey();
 
             V state = entry.getValue();
             if (state.expired(stateTtl)) {
-                stateToClean.remove(detectorId);
+                stateToClean.remove(configId);
             }
 
         });

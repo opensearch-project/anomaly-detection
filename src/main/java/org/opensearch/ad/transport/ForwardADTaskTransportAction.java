@@ -11,10 +11,6 @@
 
 package org.opensearch.ad.transport;
 
-import static org.opensearch.ad.model.ADTask.ERROR_FIELD;
-import static org.opensearch.ad.model.ADTask.STATE_FIELD;
-import static org.opensearch.ad.model.ADTask.TASK_PROGRESS_FIELD;
-
 import java.util.Arrays;
 import java.util.List;
 
@@ -23,10 +19,10 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.feature.FeatureManager;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskAction;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
@@ -35,8 +31,10 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.transport.TransportService;
 
@@ -47,6 +45,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
     private final TransportService transportService;
     private final ADTaskManager adTaskManager;
     private final ADTaskCacheManager adTaskCacheManager;
+    private final ADIndexJobActionHandler indexJobHander;
 
     // =========================================================
     // Fields below contains cache for realtime AD on coordinating
@@ -65,7 +64,8 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         ADTaskManager adTaskManager,
         ADTaskCacheManager adTaskCacheManager,
         FeatureManager featureManager,
-        NodeStateManager stateManager
+        NodeStateManager stateManager,
+        ADIndexJobActionHandler indexJobHander
     ) {
         super(ForwardADTaskAction.NAME, transportService, actionFilters, ForwardADTaskRequest::new);
         this.adTaskManager = adTaskManager;
@@ -73,6 +73,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
         this.adTaskCacheManager = adTaskCacheManager;
         this.featureManager = featureManager;
         this.stateManager = stateManager;
+        this.indexJobHander = indexJobHander;
     }
 
     @Override
@@ -108,7 +109,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             case START:
                 // Start historical analysis for detector
                 logger.debug("Received START action for detector {}", detectorId);
-                adTaskManager.startDetector(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
+                indexJobHander.startConfig(detector, detectionDateRange, user, transportService, ActionListener.wrap(r -> {
                     adTaskCacheManager.setDetectorTaskSlots(detector.getId(), availableTaskSlots);
                     listener.onResponse(r);
                 }, e -> listener.onFailure(e)));
@@ -122,7 +123,9 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                         adTaskCacheManager.setDetectorTaskSlots(detectorId, 0);
                         logger.info("Historical HC detector done, will remove from cache, detector id:{}", detectorId);
                         listener.onResponse(new JobResponse(detectorId));
-                        TaskState state = !adTask.isEntityTask() && adTask.getError() != null ? TaskState.FAILED : TaskState.FINISHED;
+                        TaskState state = !adTask.isHistoricalEntityTask() && adTask.getError() != null
+                            ? TaskState.FAILED
+                            : TaskState.FINISHED;
                         adTaskManager.setHCDetectorTaskDone(adTask, state, listener);
                     } else {
                         logger.debug("Run next entity for detector " + detectorId);
@@ -133,11 +136,11 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                                 adTask.getParentTaskId(),
                                 ImmutableMap
                                     .of(
-                                        STATE_FIELD,
+                                        TimeSeriesTask.STATE_FIELD,
                                         TaskState.RUNNING.name(),
-                                        TASK_PROGRESS_FIELD,
+                                        TimeSeriesTask.TASK_PROGRESS_FIELD,
                                         adTaskManager.hcDetectorProgress(detectorId),
-                                        ERROR_FIELD,
+                                        TimeSeriesTask.ERROR_FIELD,
                                         adTask.getError() != null ? adTask.getError() : ""
                                     )
                             );
@@ -155,7 +158,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
             case PUSH_BACK_ENTITY:
                 logger.debug("Received PUSH_BACK_ENTITY action for detector {}, task {}", detectorId, adTask.getTaskId());
                 // Push back entity to pending entities queue and run next entity.
-                if (adTask.isEntityTask()) { // AD task must be entity level task.
+                if (adTask.isHistoricalEntityTask()) { // AD task must be entity level task.
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
                     if (adTaskManager.isRetryableError(adTask.getError())
                         && !adTaskCacheManager.exceedRetryLimit(adTask.getConfigId(), adTask.getTaskId())) {
@@ -204,7 +207,7 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                 if (detector.isHighCardinality()) {
                     adTaskCacheManager.clearPendingEntities(detectorId);
                     adTaskCacheManager.removeRunningEntity(detectorId, entityValue);
-                    if (!adTaskCacheManager.hasEntity(detectorId) || !adTask.isEntityTask()) {
+                    if (!adTaskCacheManager.hasEntity(detectorId) || !adTask.isHistoricalEntityTask()) {
                         adTaskManager.setHCDetectorTaskDone(adTask, TaskState.STOPPED, listener);
                     }
                     listener.onResponse(new JobResponse(adTask.getTaskId()));
@@ -248,7 +251,6 @@ public class ForwardADTaskTransportAction extends HandledTransportAction<Forward
                     // If hash ring changed like new node added when scale out, the realtime job coordinating node may
                     // change, then we should clean up cache on old coordinating node.
                     stateManager.clear(detectorId);
-                    featureManager.clear(detectorId);
                 }
                 listener.onResponse(new JobResponse(detector.getId()));
                 break;

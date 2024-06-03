@@ -150,6 +150,23 @@
     },
     "detector_type": {
       "type": "keyword"
+    },
+    "forecast_interval": {
+      "properties": {
+        "period": {
+          "properties": {
+            "interval": {
+              "type": "integer"
+            },
+            "unit": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "horizon": {
+      "type": "integer"
     }
   }
 }

@@ -1,3 +1,5 @@
+# indirect dependency of opensearch_py. Lower than 2.30 can cause CVE-2024-35195.
+requests>=2.32.0
 numpy==1.23.0
 opensearch_py==2.0.0
 retry==0.9.2

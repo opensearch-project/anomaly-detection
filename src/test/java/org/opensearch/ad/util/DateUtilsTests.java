@@ -15,6 +15,7 @@ import java.time.Duration;
 
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.util.DateUtils;
 
 public class DateUtilsTests extends OpenSearchTestCase {
     public void testDuration() {

@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -117,10 +118,12 @@ public class ImputationOption implements Writeable, ToXContent {
 
     @Override
     public boolean equals(Object o) {
-        if (o == this)
+        if (o == this) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
 
         ImputationOption other = (ImputationOption) o;
         return method == other.method
@@ -131,6 +134,15 @@ public class ImputationOption implements Writeable, ToXContent {
     @Override
     public int hashCode() {
         return Objects.hash(method, (defaultFill.isEmpty() ? 0 : Arrays.hashCode(defaultFill.get())), integerSentive);
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+            .append("method", method)
+            .append("defaultFill", (defaultFill.isEmpty() ? null : Arrays.toString(defaultFill.get())))
+            .append("integerSentive", integerSentive)
+            .toString();
     }
 
     public ImputationMethod getMethod() {

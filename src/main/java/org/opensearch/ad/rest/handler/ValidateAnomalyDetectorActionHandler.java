@@ -14,24 +14,23 @@ package org.opensearch.ad.rest.handler;
 import java.time.Clock;
 
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 
 /**
  * Anomaly detector REST action handler to process POST request.
  * POST request is for validating anomaly detector against detector and/or model configs.
  */
-public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> {
+public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetectorActionHandler<ValidateConfigResponse> {
 
     /**
      * Constructor function.
@@ -39,13 +38,13 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      * @param clusterService                  ClusterService
      * @param client                          ES node client that executes actions on the local node
      * @param clientUtil                      AD client utility
-     * @param listener                        ES channel used to construct bytes / builder based outputs, and send responses
      * @param anomalyDetectionIndices         anomaly detector index manager
      * @param anomalyDetector                 anomaly detector instance
      * @param requestTimeout                  request time out configuration
      * @param maxSingleEntityAnomalyDetectors max single-entity anomaly detectors allowed
      * @param maxMultiEntityAnomalyDetectors  max multi-entity detectors allowed
      * @param maxAnomalyFeatures              max features allowed per detector
+     * @param maxCategoricalFields            max number of categorical fields
      * @param method                          Rest Method type
      * @param xContentRegistry                Registry which is used for XContentParser
      * @param user                            User context
@@ -58,13 +57,13 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         ClusterService clusterService,
         Client client,
         SecurityClientUtil clientUtil,
-        ActionListener<ValidateAnomalyDetectorResponse> listener,
         ADIndexManagement anomalyDetectionIndices,
-        AnomalyDetector anomalyDetector,
+        Config anomalyDetector,
         TimeValue requestTimeout,
         Integer maxSingleEntityAnomalyDetectors,
         Integer maxMultiEntityAnomalyDetectors,
         Integer maxAnomalyFeatures,
+        Integer maxCategoricalFields,
         RestRequest.Method method,
         NamedXContentRegistry xContentRegistry,
         User user,
@@ -78,9 +77,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             client,
             clientUtil,
             null,
-            listener,
             anomalyDetectionIndices,
-            AnomalyDetector.NO_ID,
+            Config.NO_ID,
             null,
             null,
             null,
@@ -89,6 +87,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry,
             user,
@@ -99,17 +98,5 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             clock,
             settings
         );
-    }
-
-    // If validation type is detector then all validation in AbstractAnomalyDetectorActionHandler that is called
-    // by super.start() involves validation checks against the detector configurations,
-    // any issues raised here would block user from creating the anomaly detector.
-    // If validation Aspect is of type model then further non-blocker validation will be executed
-    // after the blocker validation is executed. Any issues that are raised for model validation
-    // are simply warnings for the user in terms of how configuration could be changed to lead to
-    // a higher likelihood of model training completing successfully
-    @Override
-    public void start() {
-        super.start();
     }
 }

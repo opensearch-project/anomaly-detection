@@ -17,6 +17,7 @@ import org.opensearch.timeseries.model.TaskType;
 
 import com.google.common.collect.ImmutableList;
 
+// enum names need to start with REALTIME or HISTORICAL we use prefix in TaskManager to check if a task is of certain type (e.g., historical)
 public enum ADTaskType implements TaskType {
     @Deprecated
     HISTORICAL,
@@ -31,7 +32,7 @@ public enum ADTaskType implements TaskType {
     public static List<ADTaskType> HISTORICAL_DETECTOR_TASK_TYPES = ImmutableList
         .of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL);
     public static List<ADTaskType> ALL_HISTORICAL_TASK_TYPES = ImmutableList
-        .of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL_HC_ENTITY, ADTaskType.HISTORICAL);
+        .of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.HISTORICAL_HC_ENTITY, ADTaskType.HISTORICAL);
     public static List<ADTaskType> REALTIME_TASK_TYPES = ImmutableList
         .of(ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.REALTIME_HC_DETECTOR);
     public static List<ADTaskType> ALL_DETECTOR_TASK_TYPES = ImmutableList

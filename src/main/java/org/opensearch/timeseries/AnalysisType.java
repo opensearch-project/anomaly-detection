@@ -7,5 +7,13 @@ package org.opensearch.timeseries;
 
 public enum AnalysisType {
     AD,
-    FORECAST
+    FORECAST;
+
+    public boolean isForecast() {
+        return this == FORECAST;
+    }
+
+    public boolean isAD() {
+        return this == AD;
+    }
 }
