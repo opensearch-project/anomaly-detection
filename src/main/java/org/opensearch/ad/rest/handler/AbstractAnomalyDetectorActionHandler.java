@@ -236,7 +236,10 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             config.getRecencyEmphasis(),
             config.getSeasonIntervals(),
             config.getHistoryIntervals(),
-            detector.getRules()
+            detector.getRules(),
+            config.getCustomResultIndexMinSize(),
+            config.getCustomResultIndexMinAge(),
+            config.getCustomResultIndexTTL()
         );
     }
 

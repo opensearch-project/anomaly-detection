@@ -310,7 +310,10 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getRecencyEmphasis(),
                 detector.getSeasonIntervals(),
                 detector.getHistoryIntervals(),
-                null
+                null,
+                detector.getCustomResultIndexMinSize(),
+                detector.getCustomResultIndexMinAge(),
+                detector.getCustomResultIndexTTL()
             ),
             detectorJob,
             historicalAdTask,
@@ -647,7 +650,10 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             anomalyDetector.getRecencyEmphasis(),
             anomalyDetector.getSeasonIntervals(),
             anomalyDetector.getHistoryIntervals(),
-            null
+            null,
+            anomalyDetector.getCustomResultIndexMinSize(),
+            anomalyDetector.getCustomResultIndexMinAge(),
+            anomalyDetector.getCustomResultIndexTTL()
         );
         return detector;
     }

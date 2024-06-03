@@ -339,7 +339,10 @@ public class ForecastTask extends TimeSeriesTask {
                 forecaster.getImputationOption(),
                 forecaster.getRecencyEmphasis(),
                 forecaster.getSeasonIntervals(),
-                forecaster.getHistoryIntervals()
+                forecaster.getHistoryIntervals(),
+                forecaster.getCustomResultIndexMinSize(),
+                forecaster.getCustomResultIndexMinAge(),
+                forecaster.getCustomResultIndexTTL()
             );
         return new Builder()
             .taskId(parsedTaskId)

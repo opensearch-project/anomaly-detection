@@ -333,7 +333,10 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
             randomIntBetween(1, 1000),
-            new ArrayList<Rule>()
+            new ArrayList<Rule>(),
+            null,
+            null,
+            null
         );
     }
 
@@ -382,6 +385,9 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
     }
@@ -441,6 +447,9 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
     }
@@ -476,6 +485,9 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
     }
@@ -503,6 +515,9 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
     }
@@ -536,6 +551,9 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
     }
@@ -698,6 +716,9 @@ public class TestHelpers {
                 randomIntBetween(1, 10000),
                 randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             );
         }
@@ -728,6 +749,9 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
     }
@@ -1681,6 +1705,9 @@ public class TestHelpers {
         String resultIndex;
         Integer horizon;
         ImputationOption imputationOption;
+        Integer customResultIndexMinSize;
+        Integer customResultIndexMinAge;
+        Integer customResultIndexTTL;
 
         ForecasterBuilder() throws IOException {
             forecasterId = randomAlphaOfLength(10);
@@ -1702,6 +1729,9 @@ public class TestHelpers {
             resultIndex = null;
             horizon = randomIntBetween(1, 20);
             imputationOption = randomImputationOption((int) features.stream().filter(Feature::getEnabled).count());
+            customResultIndexMinSize = null;
+            customResultIndexMinAge = null;
+            customResultIndexTTL = null;
         }
 
         public static ForecasterBuilder newInstance() throws IOException {
@@ -1793,6 +1823,21 @@ public class TestHelpers {
             return this;
         }
 
+        public ForecasterBuilder setCustomResultIndexMinSize(Integer customResultIndexMinSize) {
+            this.customResultIndexMinSize = customResultIndexMinSize;
+            return this;
+        }
+
+        public ForecasterBuilder setCustomResultIndexMinAge(Integer customResultIndexMinAge) {
+            this.customResultIndexMinAge = customResultIndexMinAge;
+            return this;
+        }
+
+        public ForecasterBuilder setCustomResultIndexTTL(Integer customResultIndexTTL) {
+            this.customResultIndexTTL = customResultIndexTTL;
+            return this;
+        }
+
         public ForecasterBuilder setNullImputationOption() {
             this.imputationOption = null;
             return this;
@@ -1821,7 +1866,10 @@ public class TestHelpers {
                 imputationOption,
                 randomIntBetween(1, 1000),
                 randomIntBetween(1, 128),
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         }
     }
@@ -1850,7 +1898,10 @@ public class TestHelpers {
             randomImputationOption(feature.getEnabled() ? 1 : 0),
             randomIntBetween(1, 1000),
             randomIntBetween(1, 128),
-            randomIntBetween(1, 1000)
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null
         );
     }
 

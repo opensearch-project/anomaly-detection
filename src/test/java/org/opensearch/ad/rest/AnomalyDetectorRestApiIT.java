@@ -149,6 +149,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
 
@@ -228,6 +231,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         Exception ex = expectThrows(
@@ -291,6 +297,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
 
@@ -359,6 +368,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
 
@@ -404,6 +416,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
 
@@ -455,6 +470,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
 
@@ -823,6 +841,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
 

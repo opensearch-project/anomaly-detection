@@ -131,7 +131,10 @@ public class Forecaster extends Config {
         ImputationOption imputationOption,
         Integer recencyEmphasis,
         Integer seasonIntervals,
-        Integer historyIntervals
+        Integer historyIntervals,
+        Integer customResultIndexMinSize,
+        Integer customResultIndexMinAge,
+        Integer customResultIndexTTL
     ) {
         super(
             forecasterId,
@@ -155,7 +158,10 @@ public class Forecaster extends Config {
             recencyEmphasis,
             seasonIntervals,
             new ForecastShingleGetter(seasonIntervals, horizon),
-            historyIntervals
+            historyIntervals,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL
         );
 
         checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
@@ -294,6 +300,9 @@ public class Forecaster extends Config {
         Integer recencyEmphasis = null;
         Integer seasonality = null;
         Integer historyIntervals = null;
+        Integer customResultIndexMinSize = null;
+        Integer customResultIndexMinAge = null;
+        Integer customResultIndexTTL = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -413,6 +422,15 @@ public class Forecaster extends Config {
                 case HISTORY_INTERVAL_FIELD:
                     historyIntervals = parser.intValue();
                     break;
+                case RESULT_INDEX_FIELD_MIN_SIZE:
+                    customResultIndexMinSize = parser.intValue();
+                    break;
+                case RESULT_INDEX_FIELD_MIN_AGE:
+                    customResultIndexMinAge = parser.intValue();
+                    break;
+                case RESULT_INDEX_FIELD_TTL:
+                    customResultIndexTTL = parser.intValue();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -440,7 +458,10 @@ public class Forecaster extends Config {
             imputationOption,
             recencyEmphasis,
             seasonality,
-            historyIntervals
+            historyIntervals,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL
         );
         return forecaster;
     }

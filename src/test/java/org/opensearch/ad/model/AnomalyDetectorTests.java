@@ -322,6 +322,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -354,6 +357,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -386,6 +392,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -418,6 +427,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -450,6 +462,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -482,6 +497,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -514,6 +532,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
+                    null,
+                    null,
+                    null,
                     null
                 )
             );
@@ -545,6 +566,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 -1,
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             )
         );
@@ -577,6 +601,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null, // emphasis is not customized
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             )
         );
@@ -609,6 +636,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null, // emphasis is not customized
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
                 null
             )
         );
@@ -654,6 +684,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
@@ -684,6 +717,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             seasonalityIntervals,
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         // seasonalityIntervals is not null and custom shingle size is null, use seasonalityIntervals to deterine shingle size
@@ -711,6 +747,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         // seasonalityIntervals is null and custom shingle size is null, use default shingle size
@@ -740,6 +779,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
@@ -769,6 +811,9 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO),
             randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
             null
         );
         String errorMessage = anomalyDetector.validateCustomResultIndex("abc");
@@ -798,5 +843,62 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertEquals(parsedDetector.getDescription(), "");
+    }
+
+    public void testParseAnomalyDetector_withCustomIndex_withCustomResultIndexMinSize() throws IOException {
+        String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
+            + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+            + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
+            + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
+            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
+            + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + ":[],\"integerSensitive\":false},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_min_size\":1500}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
+        assertEquals(1500, (int) parsedDetector.getCustomResultIndexMinSize());
+    }
+
+    public void testParseAnomalyDetector_withCustomIndex_withNullCustomResultIndexMinSize() throws IOException {
+        String detectorString = "{\"name\":\"todagtCMkwpcaedpyYUM\",\"time_field\":\"dJRwh\",\"indices\":[\"eIrgWMqAED\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"lxYRN\",\"feature_name\":\"eqSeU\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"aa\":{\"value_count\":{\"field\":\"ok\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":425,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":973,"
+            + "\"unit\":\"Minutes\"}},\"shingle_size\":4,\"schema_version\":-1203962153,\"ui_metadata\":{\"JbAaV\":{\"feature_id\":"
+            + "\"rIFjS\",\"feature_name\":\"QXCmS\",\"feature_enabled\":false,\"aggregation_query\":{\"aa\":"
+            + "{\"value_count\":{\"field\":\"ok\"}}}}},\"last_update_time\":1568396089028}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
+        assertEquals(null, parsedDetector.getCustomResultIndexMinSize());
+    }
+
+    public void testParseAnomalyDetector_withCustomIndex_withCustomResultIndexMinAge() throws IOException {
+        String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
+            + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+            + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
+            + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
+            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
+            + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + ":[],\"integerSensitive\":false},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_min_age\":7}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
+        assertEquals(7, (int) parsedDetector.getCustomResultIndexMinAge());
+    }
+
+    public void testParseAnomalyDetector_withCustomIndex_withCustomResultIndexTTL() throws IOException {
+        String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
+            + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+            + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
+            + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
+            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":false,"
+            + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
+            + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + ":[],\"integerSensitive\":false},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_ttl\":30}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
+        assertEquals(30, (int) parsedDetector.getCustomResultIndexTTL());
     }
 }
