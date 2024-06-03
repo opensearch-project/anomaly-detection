@@ -147,6 +147,9 @@ public class AnomalyDetector extends Config {
      * @param seasonIntervals seasonality in terms of intervals
      * @param historyIntervals history intervals we look back during cold start
      * @param rules custom rules to filter out AD results
+     * @param customResultIndexMinSize custom result index lifecycle management min size condition
+     * @param customResultIndexMinAge custom result index lifecycle management min age condition
+     * @param customResultIndexTTL custom result index lifecycle management ttl
      */
     public AnomalyDetector(
         String detectorId,
@@ -170,7 +173,10 @@ public class AnomalyDetector extends Config {
         Integer recencyEmphasis,
         Integer seasonIntervals,
         Integer historyIntervals,
-        List<Rule> rules
+        List<Rule> rules,
+        Integer customResultIndexMinSize,
+        Integer customResultIndexMinAge,
+        Integer customResultIndexTTL
     ) {
         super(
             detectorId,
@@ -194,7 +200,10 @@ public class AnomalyDetector extends Config {
             recencyEmphasis,
             seasonIntervals,
             new ADShingleGetter(seasonIntervals),
-            historyIntervals
+            historyIntervals,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL
         );
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
@@ -268,6 +277,9 @@ public class AnomalyDetector extends Config {
         if (input.readBoolean()) {
             this.rules = input.readList(Rule::new);
         }
+        this.customResultIndexMinSize = input.readOptionalInt();
+        this.customResultIndexMinAge = input.readOptionalInt();
+        this.customResultIndexTTL = input.readOptionalInt();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -275,7 +287,7 @@ public class AnomalyDetector extends Config {
     }
 
     /*
-     * For backward compatiblity reason, we cannot use super class
+     * For backward compatibility reason, we cannot use super class
      * Config's writeTo as we have detectionDateRange and
      * detectorType that Config does not have.
      */
@@ -330,6 +342,9 @@ public class AnomalyDetector extends Config {
         } else {
             output.writeBoolean(false);
         }
+        output.writeOptionalInt(customResultIndexMinSize);
+        output.writeOptionalInt(customResultIndexMinAge);
+        output.writeOptionalInt(customResultIndexTTL);
     }
 
     @Override
@@ -422,8 +437,10 @@ public class AnomalyDetector extends Config {
         Integer recencyEmphasis = null;
         Integer seasonality = null;
         Integer historyIntervals = null;
-
         List<Rule> rules = new ArrayList<>();
+        Integer customResultIndexMinSize = null;
+        Integer customResultIndexMinAge = null;
+        Integer customResultIndexTTL = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -549,6 +566,15 @@ public class AnomalyDetector extends Config {
                         rules.add(Rule.parse(parser));
                     }
                     break;
+                case RESULT_INDEX_FIELD_MIN_SIZE:
+                    customResultIndexMinSize = parser.intValue();
+                    break;
+                case RESULT_INDEX_FIELD_MIN_AGE:
+                    customResultIndexMinAge = parser.intValue();
+                    break;
+                case RESULT_INDEX_FIELD_TTL:
+                    customResultIndexTTL = parser.intValue();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -576,7 +602,10 @@ public class AnomalyDetector extends Config {
             recencyEmphasis,
             seasonality,
             historyIntervals,
-            rules
+            rules,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;

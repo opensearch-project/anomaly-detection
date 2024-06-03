@@ -254,7 +254,10 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
             config.getImputationOption(),
             config.getRecencyEmphasis(),
             config.getSeasonIntervals(),
-            config.getHistoryIntervals()
+            config.getHistoryIntervals(),
+            config.getCustomResultIndexMinSize(),
+            config.getCustomResultIndexMinAge(),
+            config.getCustomResultIndexTTL()
         );
     }
 

@@ -56,6 +56,9 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
     Integer horizon = 1;
     int recencyEmphasis = 20;
     int seasonality = 20;
+    Integer customResultIndexMinSize = null;
+    Integer customResultIndexMinAge = null;
+    Integer customResultIndexTTL = null;
 
     public void testForecasterConstructor() {
         ImputationOption imputationOption = TestHelpers.randomImputationOption(0);
@@ -82,7 +85,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             imputationOption,
             recencyEmphasis,
             seasonality,
-            randomIntBetween(1, 1000)
+            randomIntBetween(1, 1000),
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL
         );
 
         assertEquals(forecasterId, forecaster.getId());
@@ -132,7 +138,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomImputationOption(0),
                 recencyEmphasis,
                 seasonality,
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         });
 
@@ -167,7 +176,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomImputationOption(0),
                 recencyEmphasis,
                 seasonality,
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         });
 
@@ -202,7 +214,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomImputationOption(0),
                 recencyEmphasis,
                 seasonality,
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         });
 
@@ -237,7 +252,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomImputationOption(0),
                 recencyEmphasis,
                 seasonality,
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         });
 
@@ -272,7 +290,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomImputationOption(0),
                 recencyEmphasis,
                 seasonality,
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         });
 
@@ -306,7 +327,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             TestHelpers.randomImputationOption(0),
             recencyEmphasis,
             seasonality,
-            randomIntBetween(1, 1000)
+            randomIntBetween(1, 1000),
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL
         );
 
         assertEquals(resultIndex, forecaster.getCustomResultIndex());
@@ -338,7 +362,10 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomImputationOption(0),
                 recencyEmphasis,
                 seasonality,
-                randomIntBetween(1, 1000)
+                randomIntBetween(1, 1000),
+                customResultIndexMinSize,
+                customResultIndexMinAge,
+                customResultIndexTTL
             );
         });
 
@@ -408,5 +435,35 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
         LOG.info(forecasterString);
         Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
         assertEquals("Parsing forecaster doesn't work", forecaster, parsedForecaster);
+    }
+
+    public void testParseNullCustomResultIndex_nullCustomResultIndexConditions() throws IOException {
+        Forecaster forecaster = TestHelpers.ForecasterBuilder
+            .newInstance()
+            .setCustomResultIndex(null)
+            .setCustomResultIndexMinSize(null)
+            .setCustomResultIndexMinAge(null)
+            .setCustomResultIndexTTL(null)
+            .build();
+        String forecasterString = TestHelpers
+            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(forecasterString);
+        Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
+        assertEquals(forecaster, parsedForecaster);
+    }
+
+    public void testValidCustomResultIndex_withIndexConditions() throws IOException {
+        Forecaster forecaster = TestHelpers.ForecasterBuilder
+            .newInstance()
+            .setCustomResultIndex(ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test")
+            .setCustomResultIndexMinSize(2000)
+            .setCustomResultIndexMinAge(7)
+            .setCustomResultIndexTTL(30)
+            .build();
+        String forecasterString = TestHelpers
+            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        LOG.info(forecasterString);
+        Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
+        assertEquals(forecaster, parsedForecaster);
     }
 }
