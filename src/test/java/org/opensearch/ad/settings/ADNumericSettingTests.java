@@ -28,6 +28,12 @@ public class ADNumericSettingTests extends OpenSearchTestCase {
         assertEquals("Expected value is 3", 3, value);
     }
 
+    public void testGetThresholdValue_shouldReturnThresholdValue() {
+        adSetting.setSettingValue(ADNumericSetting.JVM_HEAP_USAGE_THRESHOLD, 96);
+        int value = ADNumericSetting.getJVMHeapUsageThreshold();
+        assertEquals(96, value);
+    }
+
     public void testGetSettingValue() {
         Map<String, Setting<?>> settingsMap = new HashMap<>();
         Setting<Integer> testSetting = Setting.intSetting("test.setting", 1, Setting.Property.NodeScope);
