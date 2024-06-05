@@ -271,9 +271,9 @@ public class AnomalyDetector extends Config {
         } else {
             this.imputationOption = null;
         }
-        this.recencyEmphasis = input.readInt();
-        this.seasonIntervals = input.readInt();
-        this.historyIntervals = input.readInt();
+        this.recencyEmphasis = input.readOptionalInt();
+        this.seasonIntervals = input.readOptionalInt();
+        this.historyIntervals = input.readOptionalInt();
         if (input.readBoolean()) {
             this.rules = input.readList(Rule::new);
         }
@@ -333,9 +333,9 @@ public class AnomalyDetector extends Config {
         } else {
             output.writeBoolean(false);
         }
-        output.writeInt(recencyEmphasis);
-        output.writeInt(seasonIntervals);
-        output.writeInt(historyIntervals);
+        output.writeOptionalInt(recencyEmphasis);
+        output.writeOptionalInt(seasonIntervals);
+        output.writeOptionalInt(historyIntervals);
         if (rules != null) {
             output.writeBoolean(true);
             output.writeList(rules);
