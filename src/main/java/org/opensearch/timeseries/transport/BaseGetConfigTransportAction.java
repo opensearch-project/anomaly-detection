@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.get.MultiGetItemResponse;
 import org.opensearch.action.get.MultiGetRequest;
@@ -74,7 +75,7 @@ import org.opensearch.transport.TransportService;
 import com.google.common.collect.Sets;
 
 public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends ActionResponse, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ConfigType extends Config, EntityProfileActionType extends ActionType<EntityProfileResponse>, EntityProfileRunnerType extends EntityProfileRunner<EntityProfileActionType>, TaskProfileType extends TaskProfile<TaskClass>, ConfigProfileType extends ConfigProfile<TaskClass, TaskProfileType>, ProfileActionType extends ActionType<ProfileResponse>, TaskProfileRunnerType extends TaskProfileRunner<TaskClass, TaskProfileType>, ProfileRunnerType extends ProfileRunner<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType, TaskProfileType, TaskManagerType, ConfigProfileType, ProfileActionType, TaskProfileRunnerType>>
-    extends HandledTransportAction<GetConfigRequest, GetConfigResponseType> {
+    extends HandledTransportAction<ActionRequest, GetConfigResponseType> {
 
     private static final Logger LOG = LogManager.getLogger(BaseGetConfigTransportAction.class);
 
@@ -156,8 +157,9 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     }
 
     @Override
-    public void doExecute(Task task, GetConfigRequest request, ActionListener<GetConfigResponseType> actionListener) {
-        String configID = request.getConfigID();
+    public void doExecute(Task task, ActionRequest request, ActionListener<GetConfigResponseType> actionListener) {
+        GetConfigRequest getConfigRequest = GetConfigRequest.fromActionRequest(request);
+        String configID = getConfigRequest.getConfigID();
         User user = ParseUtils.getUserContext(client);
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_FORECASTER);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
@@ -166,7 +168,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                 configID,
                 filterByEnabled,
                 listener,
-                (config) -> getExecute(request, listener),
+                (config) -> getExecute(getConfigRequest, listener),
                 client,
                 clusterService,
                 xContentRegistry,
