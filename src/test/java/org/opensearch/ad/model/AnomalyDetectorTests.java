@@ -17,14 +17,28 @@ import static org.opensearch.timeseries.model.Config.MAX_RESULT_INDEX_NAME_SIZE;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.Assert;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
@@ -900,5 +914,40 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_ttl\":30}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertEquals(30, (int) parsedDetector.getCustomResultIndexTTL());
+    }
+
+    public void testSerializeAndDeserializeAnomalyDetector() throws IOException {
+        // register writer and reader for type Feature
+        Writeable.WriteableRegistry.registerWriter(Feature.class, (o, v) -> {
+            o.writeByte((byte) 23);
+            ((Feature) v).writeTo(o);
+        });
+        Writeable.WriteableRegistry.registerReader((byte) 23, Feature::new);
+
+        // write to streamOutput
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), Instant.now());
+        BytesStreamOutput bytesStreamOutput = new BytesStreamOutput();
+        detector.writeTo(bytesStreamOutput);
+
+        // register namedWriteables
+        List<NamedWriteableRegistry.Entry> namedWriteables = new ArrayList<>();
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, BoolQueryBuilder.NAME, BoolQueryBuilder::new));
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, TermQueryBuilder.NAME, TermQueryBuilder::new));
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, RangeQueryBuilder.NAME, RangeQueryBuilder::new));
+        namedWriteables
+            .add(
+                new NamedWriteableRegistry.Entry(
+                    AggregationBuilder.class,
+                    ValueCountAggregationBuilder.NAME,
+                    ValueCountAggregationBuilder::new
+                )
+            );
+
+        StreamInput streamInput = bytesStreamOutput.bytes().streamInput();
+        StreamInput input = new NamedWriteableAwareStreamInput(streamInput, new NamedWriteableRegistry(namedWriteables));
+
+        AnomalyDetector deserializedDetector = new AnomalyDetector(input);
+        Assert.assertEquals(deserializedDetector, detector);
+        Assert.assertEquals(deserializedDetector.getSeasonIntervals(), detector.getSeasonIntervals());
     }
 }
