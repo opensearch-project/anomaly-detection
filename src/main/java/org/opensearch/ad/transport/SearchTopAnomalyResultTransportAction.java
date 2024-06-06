@@ -301,10 +301,10 @@ public class SearchTopAnomalyResultTransportAction extends
             SearchRequest searchRequest = generateSearchRequest(request);
 
             // Adding search over any custom result indices
-            String rawCustomResultIndex = getAdResponse.getDetector().getCustomResultIndex();
-            String customResultIndex = rawCustomResultIndex == null ? null : rawCustomResultIndex.trim();
-            if (!Strings.isNullOrEmpty(customResultIndex)) {
-                searchRequest.indices(defaultIndex, customResultIndex);
+            String rawCustomResultIndexPattern = getAdResponse.getDetector().getCustomResultIndexPattern();
+            String customResultIndexPattern = rawCustomResultIndexPattern == null ? null : rawCustomResultIndexPattern.trim();
+            if (!Strings.isNullOrEmpty(customResultIndexPattern)) {
+                searchRequest.indices(defaultIndex, customResultIndexPattern);
             }
 
             // Utilizing the existing search() from SearchHandler to handle security permissions. Both user role
@@ -321,7 +321,7 @@ public class SearchTopAnomalyResultTransportAction extends
                         clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
                         request.getSize(),
                         orderType,
-                        customResultIndex
+                        customResultIndexPattern
                     )
                 );
 

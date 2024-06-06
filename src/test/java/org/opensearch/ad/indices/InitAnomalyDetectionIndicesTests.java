@@ -40,6 +40,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
@@ -103,7 +104,8 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
             threadPool,
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
     }
 

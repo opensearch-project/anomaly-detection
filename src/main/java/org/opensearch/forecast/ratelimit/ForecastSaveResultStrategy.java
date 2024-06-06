@@ -83,7 +83,7 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
                     config.getId(),
                     RequestPriority.MEDIUM,
                     result,
-                    config.getCustomResultIndex()
+                    config.getCustomResultIndexOrAlias()
                 )
             );
     }

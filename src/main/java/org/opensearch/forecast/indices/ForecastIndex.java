@@ -37,7 +37,8 @@ public enum ForecastIndex implements TimeSeriesIndex {
         ForecastCommonName.FORECAST_STATE_INDEX,
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(ForecastIndexManagement::getStateMappings)
-    );
+    ),
+    CUSTOM_RESULT(CUSTOM_RESULT_INDEX, true, ThrowingSupplierWrapper.throwingSupplierWrapper(ForecastIndexManagement::getResultMappings));
 
     private final String indexName;
     // whether we use an alias for the index
@@ -63,10 +64,5 @@ public enum ForecastIndex implements TimeSeriesIndex {
     @Override
     public String getMapping() {
         return mapping;
-    }
-
-    @Override
-    public boolean isJobIndex() {
-        return CommonName.JOB_INDEX.equals(indexName);
     }
 }

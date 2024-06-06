@@ -28,6 +28,7 @@ import org.opensearch.action.admin.indices.get.GetIndexResponse;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchIntegTestCase;
@@ -78,7 +79,8 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
             client().threadPool(),
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
     }
 
@@ -221,7 +223,8 @@ public class ForecastIndexManagementTests extends IndexManagementIntegTestCase<F
             client().threadPool(),
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
         indices.rolloverAndDeleteHistoryIndex();
 

@@ -715,7 +715,11 @@ public class TestHelpers {
                 imputationOption,
                 randomIntBetween(1, 10000),
                 randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
-                randomIntBetween(1, 1000),
+                // make history intervals at least TimeSeriesSettings.NUM_MIN_SAMPLES.
+                // Otherwise, tests like EntityColdStarterTests.testTwoSegments may fail
+                // as ModelColdStart.selectNumberOfSamples will select the smaller of
+                // 32 and historical intervals.
+                randomIntBetween(TimeSeriesSettings.NUM_MIN_SAMPLES, 1000),
                 null,
                 null,
                 null,

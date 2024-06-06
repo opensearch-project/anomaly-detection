@@ -86,7 +86,7 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
         long totalBytes = indexingPressure.getCurrentCombinedCoordinatingAndPrimaryBytes() + indexingPressure.getCurrentReplicaBytes();
         float indexingPressurePercent = (float) totalBytes / primaryAndCoordinatingLimits;
         @SuppressWarnings("rawtypes")
-        List<? extends ResultWriteRequest> results = request.getAnomalyResults();
+        List<? extends ResultWriteRequest> results = request.getResults();
 
         if (results == null || results.size() < 1) {
             listener.onResponse(new ResultBulkResponse());

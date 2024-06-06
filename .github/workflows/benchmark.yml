@@ -52,7 +52,7 @@ jobs:
                 -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
                 -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
                 -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dmodel-benchmark=true \
-                -Dtests.timeoutSuite=3600000!  -Dtests.logs=true"
+                -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
               ;;
             hc)
               su `id -un 1000` -c "./gradlew ':test' --tests 'org.opensearch.ad.ml.HCADModelPerfTests' \

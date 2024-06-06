@@ -41,7 +41,13 @@ import org.opensearch.timeseries.transport.ResultBulkResponse;
 import org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
-public abstract class ResultWriteWorker<ResultType extends IndexableResult, ResultWriteRequestType extends ResultWriteRequest<ResultType>, BatchRequestType extends ResultBulkRequest<ResultType, ResultWriteRequestType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, ResultHandlerType extends IndexMemoryPressureAwareResultHandler<BatchRequestType, ResultBulkResponse, IndexType, IndexManagementType>>
+public abstract class ResultWriteWorker<
+    ResultType extends IndexableResult,
+    ResultWriteRequestType extends ResultWriteRequest<ResultType>,
+    BatchRequestType extends ResultBulkRequest<ResultType, ResultWriteRequestType>,
+    IndexType extends Enum<IndexType> & TimeSeriesIndex,
+    IndexManagementType extends IndexManagement<IndexType>,
+    ResultHandlerType extends IndexMemoryPressureAwareResultHandler<ResultType, ResultWriteRequestType, BatchRequestType, ResultBulkResponse, IndexType, IndexManagementType>>
     extends BatchWorker<ResultWriteRequestType, BatchRequestType, ResultBulkResponse> {
     private static final Logger LOG = LogManager.getLogger(ResultWriteWorker.class);
     protected final ResultHandlerType resultHandler;
@@ -199,7 +205,7 @@ public abstract class ResultWriteWorker<ResultType extends IndexableResult, Resu
                     id,
                     resultToRetry.isHighPriority() ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                     resultToRetry,
-                    config.getCustomResultIndex()
+                    config.getCustomResultIndexOrAlias()
                 )
             );
 

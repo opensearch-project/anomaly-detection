@@ -85,7 +85,7 @@ public class ForecastJobProcessor extends
             Exception exception = new EndRunException(configId, e.getMessage(), false);
             handleException(jobParameter, lockService, lock, executionStartTime, executionEndTime, exception, recorder, detector);
         });
-        String resultIndex = jobParameter.getCustomResultIndex();
+        String resultIndex = jobParameter.getCustomResultIndexOrAlias();
         if (resultIndex == null) {
             indexManagement.validateDefaultResultIndexForBackendJob(configId, user, roles, () -> {
                 listener.onResponse(true);

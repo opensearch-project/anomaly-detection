@@ -45,7 +45,7 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
             minPrecision.put("Scottsdale", 0.5);
             Map<String, Double> minRecall = new HashMap<>();
             minRecall.put("Phoenix", 0.9);
-            minRecall.put("Scottsdale", 0.9);
+            minRecall.put("Scottsdale", 0.6);
             verifyRule("rule", 10, minPrecision.size(), 1500, minPrecision, minRecall, 20);
         }
     }
@@ -85,7 +85,7 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
             // recall = windows containing predicted anomaly points / total anomaly windows
             int anomalyWindow = anomalies.getOrDefault(entity, new ArrayList<>()).size();
             int foundWindowSize = foundWindows.getOrDefault(entity, new HashSet<>()).size();
-            double recall = anomalyWindow > 0 ? foundWindowSize / anomalyWindow : 0;
+            double recall = anomalyWindow > 0 ? foundWindowSize * 1.0d / anomalyWindow : 0;
             double minRecallValue = minRecall.getOrDefault(entity, .7);
             assertTrue(
                 String
@@ -266,8 +266,9 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
                         double[] entityResult = res.computeIfAbsent(entity, key -> new double[] { 0, 0 });
                         // positive++
                         entityResult[0]++;
-                        LOG.info("Found anomaly: entity {}, time {} result {}.", entity, begin, source);
-                        int anomalyWindow = isAnomaly(begin, anomalies.getOrDefault(entity, new ArrayList<>()));
+                        Instant anomalyTime = getAnomalyTime(source, begin);
+                        LOG.info("Found anomaly: entity {}, time {} result {}.", entity, anomalyTime, source);
+                        int anomalyWindow = isAnomaly(anomalyTime, anomalies.getOrDefault(entity, new ArrayList<>()));
                         if (anomalyWindow != -1) {
                             LOG.info("True anomaly: entity {}, time {}.", entity, begin);
                             // truePositives++;

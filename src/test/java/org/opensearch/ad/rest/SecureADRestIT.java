@@ -415,7 +415,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
         TestHelpers.createIndexWithTimeField(client(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
         AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
-        assertEquals(resultIndex, detectorOfCat.getCustomResultIndex());
+        assertEquals(resultIndex, detectorOfCat.getCustomResultIndexOrAlias());
     }
 
     public void testPreviewAnomalyDetectorWithWriteAccess() throws IOException {
