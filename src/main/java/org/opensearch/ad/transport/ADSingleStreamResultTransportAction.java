@@ -80,7 +80,7 @@ public class ADSingleStreamResultTransportAction extends
             config.getId(),
             RequestPriority.MEDIUM,
             result,
-            config.getCustomResultIndex()
+            config.getCustomResultIndexOrAlias()
         );
     }
 

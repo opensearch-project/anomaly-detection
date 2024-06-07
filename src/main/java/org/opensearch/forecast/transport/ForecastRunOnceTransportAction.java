@@ -275,8 +275,8 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
 
         SearchRequest request = new SearchRequest(ForecastIndexManagement.ALL_FORECAST_RESULTS_INDEX_PATTERN);
         request.source(source);
-        if (config.getCustomResultIndex() != null) {
-            request.indices(config.getCustomResultIndex());
+        if (config.getCustomResultIndexOrAlias() != null) {
+            request.indices(config.getCustomResultIndexPattern());
         }
 
         client.search(request, ActionListener.wrap(searchResponse -> {

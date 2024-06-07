@@ -32,7 +32,6 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
-import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.IndexableResult;
@@ -79,32 +78,49 @@ public class ResultBulkIndexingHandler<ResultType extends IndexableResult, Index
     /**
      * Bulk index results. Create result index first if it doesn't exist.
      *
-     * @param resultIndex result index
+     * @param resultIndexOrAlias result index
      * @param results results to save
      * @param configId Config Id
      * @param listener action listener
      */
-    public void bulk(String resultIndex, List<ResultType> results, String configId, ActionListener<BulkResponse> listener) {
+    public void bulk(String resultIndexOrAlias, List<ResultType> results, String configId, ActionListener<BulkResponse> listener) {
         if (results == null || results.size() == 0) {
             listener.onResponse(null);
             return;
         }
 
         try {
-            if (resultIndex != null) {
-                // Only create custom result index when creating detector, won’t recreate custom AD result index in realtime
-                // job and historical analysis later if it’s deleted. If user delete the custom AD result index, and AD plugin
-                // recreate it, that may bring confusion.
-                if (!timeSeriesIndices.doesIndexExist(resultIndex)) {
-                    throw new EndRunException(configId, CommonMessages.CAN_NOT_FIND_RESULT_INDEX + resultIndex, true);
+            if (resultIndexOrAlias != null) {
+                // We create custom result index when creating a detector. Custom result index can be rolled over and thus we may need to
+                // create a new one.
+                if (!timeSeriesIndices.doesIndexExist(resultIndexOrAlias) && !timeSeriesIndices.doesAliasExist(resultIndexOrAlias)) {
+                    timeSeriesIndices.initCustomResultIndexDirectly(resultIndexOrAlias, ActionListener.wrap(response -> {
+                        if (response.isAcknowledged()) {
+                            bulk(resultIndexOrAlias, results, listener);
+                        } else {
+                            String error = "Creating custom result index with mappings call not acknowledged";
+                            LOG.error(error);
+                            listener.onFailure(new TimeSeriesException(error));
+                        }
+                    }, exception -> {
+                        if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                            // It is possible the index has been created while we sending the create request
+                            bulk(resultIndexOrAlias, results, listener);
+                        } else {
+                            listener.onFailure(exception);
+                        }
+                    }));
+                } else {
+                    timeSeriesIndices.validateResultIndexMapping(resultIndexOrAlias, ActionListener.wrap(valid -> {
+                        if (!valid) {
+                            throw new EndRunException(configId, "wrong index mapping of custom result index", true);
+                        } else {
+                            bulk(resultIndexOrAlias, results, listener);
+                        }
+                    }, listener::onFailure));
                 }
-                if (!timeSeriesIndices.isValidResultIndexMapping(resultIndex)) {
-                    throw new EndRunException(configId, "wrong index mapping of custom result index", true);
-                }
-                bulk(resultIndex, results, listener);
                 return;
-            }
-            if (!timeSeriesIndices.doesDefaultResultIndexExist()) {
+            } else if (!timeSeriesIndices.doesDefaultResultIndexExist()) {
                 timeSeriesIndices.initDefaultResultIndexDirectly(ActionListener.wrap(response -> {
                     if (response.isAcknowledged()) {
                         bulk(results, listener);

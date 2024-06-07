@@ -303,7 +303,7 @@ public class EntityProfileRunner<EntityProfileActionType extends ActionType<Enti
                             detectorId,
                             enabledTimeMs,
                             entityValue,
-                            config.getCustomResultIndex()
+                            config.getCustomResultIndexPattern()
                         );
 
                         EntityProfile.Builder builder = new EntityProfile.Builder();

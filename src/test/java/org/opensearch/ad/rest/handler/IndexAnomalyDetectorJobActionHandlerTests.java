@@ -356,7 +356,7 @@ public class IndexAnomalyDetectorJobActionHandlerTests extends OpenSearchTestCas
             );
         when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
         handler.startJob(detector, transportService, listener);
-        verify(anomalyResultHandler, times(1)).index(any(), any(), eq(null));
+        verify(anomalyResultHandler, times(1)).index(any(), any(), eq(ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "index"));
         verify(threadPool, times(1)).schedule(any(), any(), any());
     }
 }

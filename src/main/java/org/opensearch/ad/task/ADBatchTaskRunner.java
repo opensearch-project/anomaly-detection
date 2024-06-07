@@ -1158,7 +1158,7 @@ public class ADBatchTaskRunner {
             user = adTask.getUser().getName();
             roles = adTask.getUser().getRoles();
         }
-        String resultIndex = adTask.getDetector().getCustomResultIndex();
+        String resultIndex = adTask.getDetector().getCustomResultIndexOrAlias();
 
         if (resultIndex == null) {
             // if result index is null, store anomaly result directly

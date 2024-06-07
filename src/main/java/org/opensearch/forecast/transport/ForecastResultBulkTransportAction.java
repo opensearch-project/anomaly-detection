@@ -60,7 +60,7 @@ public class ForecastResultBulkTransportAction extends
     @Override
     protected BulkRequest prepareBulkRequest(float indexingPressurePercent, ForecastResultBulkRequest request) {
         BulkRequest bulkRequest = new BulkRequest();
-        List<ForecastResultWriteRequest> results = request.getAnomalyResults();
+        List<ForecastResultWriteRequest> results = request.getResults();
 
         if (indexingPressurePercent <= softLimit) {
             for (ForecastResultWriteRequest resultWriteRequest : results) {

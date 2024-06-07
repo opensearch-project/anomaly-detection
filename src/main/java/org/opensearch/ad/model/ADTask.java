@@ -336,7 +336,7 @@ public class ADTask extends TimeSeriesTask {
                 detector.getLastUpdateTime(),
                 detector.getCategoryFields(),
                 detector.getUser(),
-                detector.getCustomResultIndex(),
+                detector.getCustomResultIndexOrAlias(),
                 detector.getImputationOption(),
                 detector.getRecencyEmphasis(),
                 detector.getSeasonIntervals(),

@@ -39,6 +39,7 @@ import org.opensearch.action.admin.indices.alias.get.GetAliasesResponse;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsAction;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.AdminClient;
@@ -54,6 +55,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -129,19 +131,28 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
             threadPool,
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
+
+        // simulate search config index for custom result index
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocation.getArgument(1);
+
+            listener.onResponse(null);
+            return null;
+        }).when(client).search(any(), any());
     }
 
     public void testNoIndexToUpdate() {
         adIndices.update();
         verify(indicesAdminClient, never()).putMapping(any(), any());
         // for an index, we may check doesAliasExists/doesIndexExists for both mapping and setting
-        // 5 indices * mapping/setting checks = 10
-        verify(clusterService, times(10)).state();
+        // 5 indices * mapping/setting checks + 1 doesIndexExist in updateCustomResultIndexMapping = 11
+        verify(clusterService, times(11)).state();
         adIndices.update();
         // we will not trigger new check since we have checked all indices before
-        verify(clusterService, times(10)).state();
+        verify(clusterService, times(11)).state();
     }
 
     @SuppressWarnings({ "serial", "unchecked" })
@@ -279,10 +290,10 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
     }
 
     @SuppressWarnings("unchecked")
-    public void testFailtoUpdateJobSetting() {
+    public void testFailtoUpdateJobSetting() throws InterruptedException {
         setUpSuccessfulGetJobSetting();
         doAnswer(invocation -> {
-            ActionListener<AcknowledgedResponse> listener = (ActionListener<AcknowledgedResponse>) invocation.getArgument(2);
+            ActionListener<AcknowledgedResponse> listener = (ActionListener<AcknowledgedResponse>) invocation.getArgument(1);
 
             listener.onFailure(new RuntimeException(ADIndex.JOB.getIndexName()));
             return null;
@@ -308,7 +319,7 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
             return null;
         }).when(indicesAdminClient).updateSettings(any(), any());
 
-        adIndices = new ADIndexManagement(client, clusterService, threadPool, settings, nodeFilter, 1);
+        adIndices = new ADIndexManagement(client, clusterService, threadPool, settings, nodeFilter, 1, NamedXContentRegistry.EMPTY);
 
         adIndices.update();
         adIndices.update();

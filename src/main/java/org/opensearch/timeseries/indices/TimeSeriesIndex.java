@@ -11,12 +11,26 @@
 
 package org.opensearch.timeseries.indices;
 
+import org.opensearch.timeseries.constant.CommonName;
+
 public interface TimeSeriesIndex {
+    String CUSTOM_RESULT_INDEX = "custom_result_index";
+
     public String getIndexName();
 
     public boolean isAlias();
 
     public String getMapping();
 
-    public boolean isJobIndex();
+    public default boolean isJobIndex() {
+        return CommonName.JOB_INDEX.equals(getIndexName());
+    }
+
+    public default boolean isCustomResultIndex() {
+        return getIndexName() == CUSTOM_RESULT_INDEX;
+    }
+
+    public default boolean isConfigIndex() {
+        return CommonName.CONFIG_INDEX.equals(getIndexName());
+    }
 }
