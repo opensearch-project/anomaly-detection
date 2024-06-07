@@ -130,7 +130,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                     response.getError()
                 );
 
-            String resultIndex = config.getCustomResultIndex();
+            String resultIndex = config.getCustomResultIndexOrAlias();
             resultHandler
                 .bulk(
                     resultIndex,
@@ -262,13 +262,8 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
             User user = config.getUser();
 
             IndexableResultType resultToSave = createErrorResult(configId, dataStartTime, dataEndTime, executeEndTime, errorMessage, user);
-            String resultIndex = config.getCustomResultIndex();
-            if (resultIndex != null && !indexManagement.doesIndexExist(resultIndex)) {
-                // Set result index as null, will write exception to default result index.
-                resultHandler.index(resultToSave, configId, null);
-            } else {
-                resultHandler.index(resultToSave, configId, resultIndex);
-            }
+            String resultIndexOrAlias = config.getCustomResultIndexOrAlias();
+            resultHandler.index(resultToSave, configId, resultIndexOrAlias);
 
             if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !config.isHighCardinality()) {
                 // single stream detector raises ResourceNotFoundException containing ADCommonMessages.NO_CHECKPOINT_ERR_MSG

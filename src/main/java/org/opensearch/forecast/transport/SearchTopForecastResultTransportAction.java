@@ -184,8 +184,8 @@ public class SearchTopForecastResultTransportAction extends
             SearchRequest searchRequest = generateQuery(request, forecaster);
 
             // Adding search over any custom result indices
-            if (!Strings.isNullOrEmpty(forecaster.getCustomResultIndex())) {
-                searchRequest.indices(forecaster.getCustomResultIndex());
+            if (!Strings.isNullOrEmpty(forecaster.getCustomResultIndexPattern())) {
+                searchRequest.indices(forecaster.getCustomResultIndexPattern());
             }
             // Utilizing the existing search() from SearchHandler to handle security
             // permissions. Both user role
@@ -335,7 +335,9 @@ public class SearchTopForecastResultTransportAction extends
 
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(internalFilterQuery).size(1);
 
-        String resultIndex = Strings.isNullOrEmpty(forecaster.getCustomResultIndex()) ? defaultIndex : forecaster.getCustomResultIndex();
+        String resultIndex = Strings.isNullOrEmpty(forecaster.getCustomResultIndexOrAlias())
+            ? defaultIndex
+            : forecaster.getCustomResultIndexPattern();
         SearchRequest searchRequest = new SearchRequest()
             .indices(resultIndex)
             .source(searchSourceBuilder)

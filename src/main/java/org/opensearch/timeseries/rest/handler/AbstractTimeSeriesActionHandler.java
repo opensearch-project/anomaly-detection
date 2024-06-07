@@ -235,18 +235,18 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
      */
     @Override
     public void start(ActionListener<T> listener) {
-        String resultIndex = config.getCustomResultIndex();
+        String resultIndexOrAlias = config.getCustomResultIndexOrAlias();
         // use default detector result index which is system index
-        if (resultIndex == null) {
+        if (resultIndexOrAlias == null) {
             createOrUpdateConfig(listener);
             return;
         }
 
         if (this.isDryRun) {
-            if (timeSeriesIndices.doesIndexExist(resultIndex)) {
+            if (timeSeriesIndices.doesIndexExist(resultIndexOrAlias) || timeSeriesIndices.doesAliasExist(resultIndexOrAlias)) {
                 timeSeriesIndices
                     .validateResultIndexAndExecute(
-                        resultIndex,
+                        resultIndexOrAlias,
                         () -> createOrUpdateConfig(listener),
                         false,
                         ActionListener.wrap(r -> createOrUpdateConfig(listener), ex -> {
@@ -262,7 +262,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             }
         }
         // use custom result index if not validating and resultIndex not null
-        timeSeriesIndices.initCustomResultIndexAndExecute(resultIndex, () -> createOrUpdateConfig(listener), listener);
+        timeSeriesIndices.initCustomResultIndexAndExecute(resultIndexOrAlias, () -> createOrUpdateConfig(listener), listener);
     }
 
     // if isDryRun is true then this method is being executed through Validation API meaning actual
@@ -418,7 +418,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     listener.onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_CATEGORY_FIELD, RestStatus.BAD_REQUEST));
                     return;
                 }
-                if (!Objects.equals(existingConfig.getCustomResultIndex(), config.getCustomResultIndex())) {
+                if (!Objects.equals(existingConfig.getCustomResultIndexOrAlias(), config.getCustomResultIndexOrAlias())) {
                     listener
                         .onFailure(
                             new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_CUSTOM_RESULT_INDEX, RestStatus.BAD_REQUEST)

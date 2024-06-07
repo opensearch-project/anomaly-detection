@@ -13,7 +13,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.core.xcontent.ToXContentObject;
-import org.opensearch.timeseries.AbstractSearchAction;
+import org.opensearch.timeseries.rest.AbstractSearchAction;
 
 public abstract class AbstractADSearchAction<T extends ToXContentObject> extends AbstractSearchAction<T> {
 

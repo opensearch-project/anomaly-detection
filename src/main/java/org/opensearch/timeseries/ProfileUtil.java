@@ -94,9 +94,13 @@ public class ProfileUtil {
     ) {
         SearchRequest searchLatestResult = null;
         if (analysisType.isAD()) {
-            searchLatestResult = createADRealtimeInittedEverRequest(config.getId(), enabledTime, config.getCustomResultIndex());
+            searchLatestResult = createADRealtimeInittedEverRequest(config.getId(), enabledTime, config.getCustomResultIndexPattern());
         } else if (analysisType.isForecast()) {
-            searchLatestResult = createForecastRealtimeInittedEverRequest(config.getId(), enabledTime, config.getCustomResultIndex());
+            searchLatestResult = createForecastRealtimeInittedEverRequest(
+                config.getId(),
+                enabledTime,
+                config.getCustomResultIndexPattern()
+            );
         } else {
             throw new IllegalArgumentException("Analysis type is not supported, type: : " + analysisType);
         }

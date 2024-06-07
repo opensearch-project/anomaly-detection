@@ -107,7 +107,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
         assertEquals(lastUpdateTime, forecaster.getLastUpdateTime());
         assertEquals(categoryFields, forecaster.getCategoryFields());
         assertEquals(user, forecaster.getUser());
-        assertEquals(resultIndex, forecaster.getCustomResultIndex());
+        assertEquals(resultIndex, forecaster.getCustomResultIndexOrAlias());
         assertEquals(horizon, forecaster.getHorizon());
         assertEquals(imputationOption, forecaster.getImputationOption());
     }
@@ -333,7 +333,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             customResultIndexTTL
         );
 
-        assertEquals(resultIndex, forecaster.getCustomResultIndex());
+        assertEquals(resultIndex, forecaster.getCustomResultIndexOrAlias());
     }
 
     public void testInvalidHorizon() {

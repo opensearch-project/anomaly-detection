@@ -318,7 +318,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             detector.getLastUpdateTime(),
             detector.getCategoryFields(),
             detector.getUser(),
-            detector.getCustomResultIndex(),
+            detector.getCustomResultIndexOrAlias(),
             detector.getImputationOption(),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),

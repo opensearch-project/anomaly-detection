@@ -265,7 +265,7 @@ public class AnomalyDetector extends Config {
         } else {
             this.uiMetadata = null;
         }
-        customResultIndex = input.readOptionalString();
+        customResultIndexOrAlias = input.readOptionalString();
         if (input.readBoolean()) {
             this.imputationOption = new ImputationOption(input);
         } else {
@@ -326,7 +326,7 @@ public class AnomalyDetector extends Config {
         } else {
             output.writeBoolean(false);
         }
-        output.writeOptionalString(customResultIndex);
+        output.writeOptionalString(customResultIndexOrAlias);
         if (imputationOption != null) {
             output.writeBoolean(true);
             imputationOption.writeTo(output);

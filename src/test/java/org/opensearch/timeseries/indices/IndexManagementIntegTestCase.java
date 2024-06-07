@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
@@ -26,7 +27,6 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.common.exception.EndRunException;
-import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.function.ExecutorFunction;
 
 public abstract class IndexManagementIntegTestCase<IndexType extends Enum<IndexType> & TimeSeriesIndex, ISMType extends IndexManagement<IndexType>>
@@ -87,18 +87,22 @@ public abstract class IndexManagementIntegTestCase<IndexType extends Enum<IndexT
         assertEquals("Result index mapping is not correct", exceptionCaptor.getValue().getMessage());
     }
 
-    public void validateCustomIndexForBackendJobNoIndex(ISMType indices) {
-        String resultIndex = "testIndex";
+    public void validateCustomIndexForBackendJobNoIndex(ISMType indices) throws InterruptedException {
+        String resultIndex = "testindex";
         String securityLogId = "logId";
         String user = "testUser";
         List<String> roles = Arrays.asList("role1", "role2");
+        CountDownLatch countDown = new CountDownLatch(1);
         ExecutorFunction function = mock(ExecutorFunction.class);
         ActionListener<Void> listener = mock(ActionListener.class);
 
         indices.validateCustomIndexForBackendJob(resultIndex, securityLogId, user, roles, function, listener);
-
-        ArgumentCaptor<EndRunException> exceptionCaptor = ArgumentCaptor.forClass(EndRunException.class);
-        verify(listener).onFailure(exceptionCaptor.capture());
-        assertEquals(CommonMessages.CAN_NOT_FIND_RESULT_INDEX + resultIndex, exceptionCaptor.getValue().getMessage());
+        // function.execute should be executed after indices are created
+        doAnswer(invocation -> {
+            countDown.countDown();
+            return null;
+        }).when(function).execute();
+        assertTrue(countDown.await(60, TimeUnit.SECONDS));
+        verify(function, times(1)).execute();
     }
 }
