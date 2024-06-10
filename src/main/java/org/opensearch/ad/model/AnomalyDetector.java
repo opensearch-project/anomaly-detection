@@ -567,13 +567,13 @@ public class AnomalyDetector extends Config {
                     }
                     break;
                 case RESULT_INDEX_FIELD_MIN_SIZE:
-                    customResultIndexMinSize = parser.intValue();
+                    customResultIndexMinSize = onlyParseNumberValue(parser);
                     break;
                 case RESULT_INDEX_FIELD_MIN_AGE:
-                    customResultIndexMinAge = parser.intValue();
+                    customResultIndexMinAge = onlyParseNumberValue(parser);
                     break;
                 case RESULT_INDEX_FIELD_TTL:
-                    customResultIndexTTL = parser.intValue();
+                    customResultIndexTTL = onlyParseNumberValue(parser);
                     break;
                 default:
                     parser.skipChildren();
@@ -684,5 +684,12 @@ public class AnomalyDetector extends Config {
             }
         }
         return rules;
+    }
+
+    private static Integer onlyParseNumberValue(XContentParser parser) throws IOException {
+        if (parser.currentToken() == XContentParser.Token.VALUE_NUMBER) {
+            return parser.intValue();
+        }
+        return null;
     }
 }

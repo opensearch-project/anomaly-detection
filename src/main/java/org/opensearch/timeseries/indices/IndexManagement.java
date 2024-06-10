@@ -12,7 +12,6 @@
 package org.opensearch.timeseries.indices;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.forecast.constant.ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
@@ -52,7 +51,6 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.LocalNodeClusterManagerListener;
@@ -137,7 +135,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     private String resultMapping;
     private NamedXContentRegistry xContentRegistry;
     protected BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser;
-    protected String customResultIndexRegex;
+    protected String customResultIndexPrefix;
 
     protected class IndexState {
         // keep track of whether the mapping version is up-to-date
@@ -169,7 +167,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         String resultMapping,
         NamedXContentRegistry xContentRegistry,
         BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser,
-        String customResultIndexRegex
+        String customResultIndexPrefix
     )
         throws IOException {
         this.client = client;
@@ -193,7 +191,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         this.resultMapping = resultMapping;
         this.xContentRegistry = xContentRegistry;
         this.configParser = configParser;
-        this.customResultIndexRegex = customResultIndexRegex;
+        this.customResultIndexPrefix = customResultIndexPrefix;
     }
 
     /**
@@ -794,7 +792,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         BoolQueryBuilder shouldQueries = new BoolQueryBuilder();
-        shouldQueries.should(QueryBuilders.wildcardQuery(Config.RESULT_INDEX_FIELD, customResultIndexRegex));
+        shouldQueries.should(QueryBuilders.wildcardQuery(Config.RESULT_INDEX_FIELD, customResultIndexPrefix + "*"));
         if (shouldQueries.should().isEmpty() == false) {
             boolQuery.filter(shouldQueries);
         }
@@ -1308,6 +1306,9 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         IndexType resultIndex,
         Integer customResultIndexTtl
     ) {
+        if (rollOverRequest.getConditions().size() == 0) {
+            return;
+        }
         adminClient.indices().rolloverIndex(rollOverRequest, ActionListener.wrap(response -> {
             if (!response.isRolledOver()) {
                 logger.warn("{} not rolled over. Conditions were: {}", resultIndexAlias, response.getConditionStatus());
@@ -1315,12 +1316,10 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                 IndexState indexState = indexStates.computeIfAbsent(resultIndex, k -> new IndexState(k.getMapping()));
                 indexState.mappingUpToDate = true;
                 logger.info("{} rolled over. Conditions were: {}", resultIndexAlias, response.getConditionStatus());
-                if (resultIndexAlias.startsWith(ADCommonName.CUSTOM_RESULT_INDEX_PREFIX)
-                    || resultIndexAlias.startsWith(CUSTOM_RESULT_INDEX_PREFIX)) {
+                if (resultIndexAlias.startsWith(customResultIndexPrefix)) {
                     // handle custom result index deletion
                     if (customResultIndexTtl != null) {
                         deleteOldHistoryIndices(allResultIndicesPattern, TimeValue.timeValueHours(customResultIndexTtl * 24));
-
                     }
                 } else {
                     // handle default result index deletion
