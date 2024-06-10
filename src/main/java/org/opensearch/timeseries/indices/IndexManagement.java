@@ -1082,7 +1082,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
             // schedule the next rollover for approx MAX_AGE later
             scheduledRollover = threadPool
-                .scheduleWithFixedDelay(() -> rolloverAndDeleteHistoryIndex(), TimeValue.timeValueMinutes(1), executorName());
+                .scheduleWithFixedDelay(() -> rolloverAndDeleteHistoryIndex(), historyRolloverPeriod, executorName());
         } catch (Exception e) {
             // This should be run on cluster startup
             logger.error("Error rollover result indices. " + "Can't rollover result until clusterManager node is restarted.", e);
@@ -1240,36 +1240,28 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         String rolloverIndexPattern,
         IndexType resultIndex
     ) {
-        // build rollover request for default result index
-        RolloverRequest defaultResultIndexRolloverRequest = buildRolloverRequest(resultIndexAlias, rolloverIndexPattern);
-        defaultResultIndexRolloverRequest.addMaxIndexDocsCondition(historyMaxDocs * getNumberOfPrimaryShards());
-
-        // get config files that have custom result index alias to perform rollover on
-        getConfigsWithCustomResultIndexAlias(ActionListener.wrap(candidateResultAliases -> {
-            if (candidateResultAliases == null || candidateResultAliases.isEmpty()) {
-                // no custom result index alias found
-                if (!doesDefaultResultIndexExist()) {
-                    // no default result index found either
-                    return;
-                }
-                // perform rollover and delete on default result index
-                proceedWithDefaultRolloverAndDelete(
+        // rollover and delete default result index
+        if (doesDefaultResultIndexExist()) {
+            RolloverRequest defaultResultIndexRolloverRequest = buildRolloverRequest(resultIndexAlias, rolloverIndexPattern);
+            defaultResultIndexRolloverRequest.addMaxIndexDocsCondition(historyMaxDocs * getNumberOfPrimaryShards());
+            proceedWithDefaultRolloverAndDelete(
                     resultIndexAlias,
                     defaultResultIndexRolloverRequest,
                     allResultIndicesPattern,
                     resultIndex
-                );
+            );
+        }
+
+        // rollover and delete custom result index
+        getConfigsWithCustomResultIndexAlias(ActionListener.wrap(candidateResultAliases -> {
+            if (candidateResultAliases == null || candidateResultAliases.isEmpty()) {
                 logger.info("Candidate custom result indices are empty.");
                 return;
             }
 
-            // perform rollover and delete on found custom result index alias
             candidateResultAliases.forEach(config -> handleCustomResultIndex(config, resultIndex));
-
         }, e -> {
             logger.error("Failed to get configs with custom result index alias.", e);
-            // perform rollover and delete on default result index if getting error on getting custom result index alias
-            proceedWithDefaultRolloverAndDelete(resultIndexAlias, defaultResultIndexRolloverRequest, allResultIndicesPattern, resultIndex);
         }));
     }
 

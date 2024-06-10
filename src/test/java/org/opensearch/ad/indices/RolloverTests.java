@@ -273,8 +273,8 @@ public class RolloverTests extends AbstractTimeSeriesTest {
     }
 
     public void testNoCustomResultIndexFound_RolloverDefaultResultIndex_shouldSucceed() {
-        setUpGetConfigs_withNoCustomResultIndexAlias();
         setUpRolloverSuccess();
+        setUpGetConfigs_withNoCustomResultIndexAlias();
 
         adIndices.rolloverAndDeleteHistoryIndex();
         verify(indicesClient, times(1)).rolloverIndex(any(), any());
