@@ -89,7 +89,10 @@ import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -112,6 +115,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
+import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
@@ -298,6 +302,12 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             emptySet(),
             Version.CURRENT
         );
+        ClusterState initialClusterState = ClusterState
+            .builder(new ClusterName(ClusterServiceUtils.class.getSimpleName()))
+            .nodes(DiscoveryNodes.builder().add(node1).localNodeId(node1.getId()).masterNodeId(node1.getId()))
+            .blocks(ClusterBlocks.EMPTY_CLUSTER_BLOCK)
+            .build();
+        clusterService.getClusterApplierService().setInitialState(initialClusterState);
         maxRunningEntities = MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.get(settings).intValue();
     }
 

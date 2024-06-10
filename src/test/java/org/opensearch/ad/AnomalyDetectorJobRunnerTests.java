@@ -461,7 +461,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
                                 Instant.now(),
                                 60L,
                                 TestHelpers.randomUser(),
-                                jobParameter.getCustomResultIndex(),
+                                jobParameter.getCustomResultIndexOrAlias(),
                                 AnalysisType.AD
                             ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
                         ),

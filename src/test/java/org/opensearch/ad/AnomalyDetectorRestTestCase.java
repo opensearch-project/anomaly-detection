@@ -15,14 +15,26 @@ import static org.opensearch.common.xcontent.json.JsonXContent.jsonXContent;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
+
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
+import org.junit.AfterClass;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
@@ -51,6 +63,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonArray;
 
 public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
+    private static final Logger LOG = (Logger) LogManager.getLogger(AnomalyDetectorRestTestCase.class);
 
     public static final int MAX_RETRY_TIMES = 10;
 
@@ -305,7 +318,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getCustomResultIndex(),
+                detector.getCustomResultIndexOrAlias(),
                 detector.getImputationOption(),
                 detector.getRecencyEmphasis(),
                 detector.getSeasonIntervals(),
@@ -670,4 +683,46 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
+    /**
+     * We need to be able to dump the jacoco coverage before cluster is shut down.
+     * The new internal testing framework removed some of the gradle tasks we were listening to
+     * to choose a good time to do it. This will dump the executionData to file after each test.
+     * TODO: This is also currently just overwriting integTest.exec with the updated execData without
+     * resetting after writing each time. This can be improved to either write an exec file per test
+     * or by letting jacoco append to the file
+     */
+    public interface IProxy {
+        byte[] getExecutionData(boolean reset);
+
+        void dump(boolean reset);
+
+        void reset();
+    }
+
+    @AfterClass
+    public static void dumpCoverage() throws IOException, MalformedObjectNameException {
+        // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
+        // want to collect coverage so we can return early
+        String jacocoBuildPath = System.getProperty("jacoco.dir");
+        if (org.opensearch.core.common.Strings.isNullOrEmpty(jacocoBuildPath)) {
+            return;
+        }
+
+        String serverUrl = System.getProperty("jmx.serviceUrl");
+        if (serverUrl == null) {
+            LOG.error("Failed to dump coverage because JMX Service URL is null");
+            throw new IllegalArgumentException("JMX Service URL is null");
+        }
+
+        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))) {
+            IProxy proxy = MBeanServerInvocationHandler
+                .newProxyInstance(connector.getMBeanServerConnection(), new ObjectName("org.jacoco:type=Runtime"), IProxy.class, false);
+
+            Path path = Path.of(Path.of(jacocoBuildPath, "integTest.exec").toFile().getCanonicalPath());
+            Files.write(path, proxy.getExecutionData(false));
+        } catch (Exception ex) {
+            LOG.error("Failed to dump coverage: ", ex);
+            throw new RuntimeException("Failed to dump coverage: " + ex);
+        }
+    }
 }

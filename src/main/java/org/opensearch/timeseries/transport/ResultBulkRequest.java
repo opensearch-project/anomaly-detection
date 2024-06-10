@@ -60,13 +60,14 @@ public class ResultBulkRequest<ResultType extends IndexableResult, ResultWriteRe
         for (ResultWriteRequestType result : results) {
             result.writeTo(out);
         }
+
     }
 
     /**
      *
      * @return all of the results to send
      */
-    public List<ResultWriteRequestType> getAnomalyResults() {
+    public List<ResultWriteRequestType> getResults() {
         return results;
     }
 

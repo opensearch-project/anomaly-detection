@@ -574,7 +574,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                     threadPool,
                     settings,
                     nodeFilter,
-                    TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+                    TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+                    xContentRegistry
                 )
             )
             .get();
@@ -973,7 +974,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                     threadPool,
                     settings,
                     nodeFilter,
-                    ForecastSettings.FORECAST_MAX_UPDATE_RETRY_TIMES
+                    ForecastSettings.FORECAST_MAX_UPDATE_RETRY_TIMES,
+                    xContentRegistry
                 )
             )
             .get();

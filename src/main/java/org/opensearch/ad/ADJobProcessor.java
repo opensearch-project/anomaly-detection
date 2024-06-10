@@ -81,7 +81,7 @@ public class ADJobProcessor extends
         ExecuteADResultResponseRecorder recorder,
         Config detector
     ) {
-        String resultIndex = jobParameter.getCustomResultIndex();
+        String resultIndex = jobParameter.getCustomResultIndexOrAlias();
         if (resultIndex == null) {
             runJob(jobParameter, lockService, lock, executionStartTime, executionEndTime, configId, user, roles, recorder, detector);
             return;
