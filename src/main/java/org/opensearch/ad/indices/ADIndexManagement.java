@@ -89,7 +89,6 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
             AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings),
             ADIndex.RESULT.getMapping()
         );
-        this.clusterService.addLocalNodeClusterManagerListener(this);
 
         this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
 
