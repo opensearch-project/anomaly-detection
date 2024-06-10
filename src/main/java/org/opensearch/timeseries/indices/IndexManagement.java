@@ -1240,29 +1240,22 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         String rolloverIndexPattern,
         IndexType resultIndex
     ) {
-        // rollover and delete default result index
+        // perform rollover and delete on default result index
         if (doesDefaultResultIndexExist()) {
             RolloverRequest defaultResultIndexRolloverRequest = buildRolloverRequest(resultIndexAlias, rolloverIndexPattern);
             defaultResultIndexRolloverRequest.addMaxIndexDocsCondition(historyMaxDocs * getNumberOfPrimaryShards());
-            proceedWithDefaultRolloverAndDelete(
-                    resultIndexAlias,
-                    defaultResultIndexRolloverRequest,
-                    allResultIndicesPattern,
-                    resultIndex
-            );
+            proceedWithDefaultRolloverAndDelete(resultIndexAlias, defaultResultIndexRolloverRequest, allResultIndicesPattern, resultIndex);
         }
-
-        // rollover and delete custom result index
+        // get config files that have custom result index alias to perform rollover on
         getConfigsWithCustomResultIndexAlias(ActionListener.wrap(candidateResultAliases -> {
             if (candidateResultAliases == null || candidateResultAliases.isEmpty()) {
                 logger.info("Candidate custom result indices are empty.");
                 return;
             }
 
+            // perform rollover and delete on found custom result index alias
             candidateResultAliases.forEach(config -> handleCustomResultIndex(config, resultIndex));
-        }, e -> {
-            logger.error("Failed to get configs with custom result index alias.", e);
-        }));
+        }, e -> { logger.error("Failed to get configs with custom result index alias.", e); }));
     }
 
     private void handleCustomResultIndex(Config config, IndexType resultIndex) {

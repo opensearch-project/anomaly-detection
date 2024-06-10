@@ -283,7 +283,6 @@ public class RolloverTests extends AbstractTimeSeriesTest {
 
     public void testCustomResultIndexFound_RolloverCustomResultIndex_withConditions_shouldSucceed() throws IOException {
         setUpGetConfigs_withCustomResultIndexAlias();
-        setUpRolloverSuccessForCustomIndex();
 
         adIndices.rolloverAndDeleteHistoryIndex();
 
@@ -361,7 +360,6 @@ public class RolloverTests extends AbstractTimeSeriesTest {
         IndexMetadata defaultResultIndex = IndexMetadata
             .builder(".opendistro-anomaly-detectors")
             .settings(settings(Version.CURRENT))
-            .putAlias(AliasMetadata.builder(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS).writeIndex(true).build())
             .numberOfShards(1)
             .numberOfReplicas(0)
             .build();
@@ -396,8 +394,10 @@ public class RolloverTests extends AbstractTimeSeriesTest {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            setUpRolloverSuccessForCustomIndex();
             listener.onResponse(createSearchResponse(parsedDetector));
             return null;
         }).when(client).search(any(), any());
+
     }
 }
