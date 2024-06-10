@@ -96,7 +96,6 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
             AnomalyDetector::parse,
             ADCommonName.CUSTOM_RESULT_INDEX_PREFIX
         );
-        this.clusterService.addLocalNodeClusterManagerListener(this);
 
         this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
 
