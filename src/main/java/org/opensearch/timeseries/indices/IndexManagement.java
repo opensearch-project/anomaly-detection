@@ -77,7 +77,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
-import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -747,7 +746,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
     private void updateCustomResultIndexMapping(IndexType customIndex, GroupedActionListener<Void> delegateListeneer) {
         getConfigsWithCustomResultIndexAlias(ActionListener.wrap(candidateResultAliases -> {
-            if (candidateResultAliases.size() == 0) {
+            if (candidateResultAliases == null || candidateResultAliases.size() == 0) {
                 logger.info("candidate custom result indices are empty.");
                 markMappingUpdated(customIndex);
                 delegateListeneer.onResponse(null);
@@ -784,7 +783,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             }
         }
         if (configIndex == null || configIndex.getIndexName() == null) {
-            listener.onFailure(new ResourceNotFoundException("fail to find config index"));
+            listener.onResponse(new ArrayList<Config>());
             return;
         }
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
@@ -800,7 +799,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         client.search(searchRequest, ActionListener.wrap(r -> {
             if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
                 logger.info("no config available.");
-                listener.onResponse(null);
+                listener.onResponse(new ArrayList<Config>());
                 return;
             }
             Iterator<SearchHit> iterator = r.getHits().iterator();
