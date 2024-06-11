@@ -68,7 +68,7 @@ public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
         NULL_POINTER_EXCEPTION
     }
 
-    protected AnomalyDetectorProfileRunner runner;
+    protected OldAnomalyDetectorProfileRunner oldRunner;
     protected Client client;
     protected SecurityClientUtil clientUtil;
     protected DiscoveryNodeFilterer nodeFilter;
