@@ -97,7 +97,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
             ForecastIndex.RESULT.getMapping(),
             xContentRegistry,
             Forecaster::parse,
-            ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX + "*"
+            ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX
         );
         this.indexStates = new EnumMap<ForecastIndex, IndexState>(ForecastIndex.class);
 
