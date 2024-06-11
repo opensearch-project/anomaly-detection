@@ -447,6 +447,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
                 });
                 trcf = trcfMapper.toModel(state);
             } catch (RuntimeException e) {
+                logger.info("checkpoint to restore: " + checkpoint);
                 logger.error("Failed to deserialize TRCF model", e);
             }
         }
