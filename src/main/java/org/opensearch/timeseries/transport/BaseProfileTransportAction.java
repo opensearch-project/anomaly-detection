@@ -122,7 +122,7 @@ public class BaseProfileTransportAction<RCFModelType extends ThresholdedRandomCu
 
         // state profile requires totalUpdates as well
         if (profiles.contains(ProfileName.INIT_PROGRESS) || profiles.contains(ProfileName.STATE)) {
-            totalUpdates = cacheProvider.get().getTotalUpdates(configId);// get toal updates
+            totalUpdates = cacheProvider.get().getTotalUpdates(configId);// get total updates
         }
         if (profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)) {
             modelSize = cacheProvider.get().getModelSize(configId);
