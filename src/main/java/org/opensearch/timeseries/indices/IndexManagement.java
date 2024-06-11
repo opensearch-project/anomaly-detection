@@ -1293,8 +1293,11 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
         createRequest.index(rolloverIndexPattern).mapping(resultMapping, XContentType.JSON);
-        choosePrimaryShards(createRequest, true);
-
+        if (resultIndexAlias.startsWith(customResultIndexPrefix)) {
+            choosePrimaryShards(createRequest, false);
+        } else {
+            choosePrimaryShards(createRequest, true);
+        }
         return rollOverRequest;
     }
 
