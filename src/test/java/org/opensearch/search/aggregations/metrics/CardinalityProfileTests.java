@@ -30,7 +30,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.ADTaskProfileRunner;
 import org.opensearch.ad.AbstractProfileRunnerTests;
-import org.opensearch.ad.AnomalyDetectorProfileRunner;
+import org.opensearch.ad.OldAnomalyDetectorProfileRunner;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.ADProfileAction;
@@ -79,7 +79,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
             return null;
         }).when(nodeStateManager).getConfig(anyString(), eq(AnalysisType.AD), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
-        runner = new AnomalyDetectorProfileRunner(
+        oldRunner = new OldAnomalyDetectorProfileRunner(
             client,
             clientUtil,
             xContentRegistry(),
@@ -216,7 +216,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getId(), ActionListener.wrap(response -> {
+        oldRunner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
         }, exception -> {
@@ -238,7 +238,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
 
         final AtomicInteger called = new AtomicInteger(0);
 
-        runner.profile(detector.getId(), ActionListener.wrap(response -> {
+        oldRunner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertTrue(response.getInitProgress() != null);
             called.getAndIncrement();
         }, exception -> {
@@ -261,7 +261,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        runner.profile(detector.getId(), ActionListener.wrap(response -> {
+        oldRunner.profile(detector.getId(), ActionListener.wrap(response -> {
             assertTrue("Should not reach here ", false);
             inProgressLatch.countDown();
         }, exception -> {
