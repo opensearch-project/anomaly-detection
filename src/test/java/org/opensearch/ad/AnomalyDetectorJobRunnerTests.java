@@ -221,7 +221,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             if (request.index().equals(CommonName.JOB_INDEX)) {
-                Job job = TestHelpers.randomAnomalyDetectorJob(true);
+                Job job = TestHelpers.randomJob(true);
                 listener.onResponse(TestHelpers.createGetResponse(job, randomAlphaOfLength(5), CommonName.JOB_INDEX));
             }
             return null;
@@ -788,7 +788,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         doAnswer(invocation -> {
             ActionListener<Optional<Job>> listener = invocation.getArgument(1);
-            listener.onResponse(Optional.of(TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null)));
+            listener.onResponse(Optional.of(TestHelpers.randomJob(true, Instant.ofEpochMilli(1602401500000L), null)));
             return null;
         }).when(nodeStateManager).getJob(any(String.class), any(ActionListener.class));
 

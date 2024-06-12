@@ -108,7 +108,7 @@ public class CardinalityProfileTests extends AbstractProfileRunnerTests {
                 Job job = null;
                 switch (jobStatus) {
                     case ENABLED:
-                        job = TestHelpers.randomAnomalyDetectorJob(true);
+                        job = TestHelpers.randomJob(true);
                         listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
                         break;
                     default:
