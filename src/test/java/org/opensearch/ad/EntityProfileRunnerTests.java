@@ -126,7 +126,7 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         categoryField = "a";
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(categoryField));
-        job = TestHelpers.randomAnomalyDetectorJob(true);
+        job = TestHelpers.randomJob(true);
 
         requiredSamples = 128;
         client = mock(Client.class);
