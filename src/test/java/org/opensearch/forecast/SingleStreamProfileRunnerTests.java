@@ -1,15 +1,9 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.forecast;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
@@ -18,7 +12,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
-import java.time.Instant;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,22 +35,20 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.model.ADTask;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ADProfileAction;
-import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.ad.util.*;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.transport.TransportAddress;
+import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.indices.ForecastIndex;
+import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.ForecastTask;
+import org.opensearch.forecast.model.Forecaster;
+import org.opensearch.forecast.model.ForecasterProfile;
+import org.opensearch.forecast.task.ForecastTaskManager;
+import org.opensearch.forecast.transport.ForecastProfileAction;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
@@ -71,16 +63,15 @@ import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
-public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
-    private AnomalyDetectorProfileRunner runner;
+public class SingleStreamProfileRunnerTests extends AbstractTimeSeriesTest {
+    private ForecastProfileRunner runner;
     private Client client;
     private SecurityClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private int requiredSamples;
-    private AnomalyDetector detector;
-    private String detectorId;
+    private Forecaster forecaster;
+    private String forecasterId;
     private Set<ProfileName> stateNError;
-    private DetectorInternalState.Builder result;
     private String node1;
     private String nodeName1;
     private DiscoveryNode discoveryNode1;
@@ -93,11 +84,11 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private String model1Id;
     private String model0Id;
 
-    private int shingleSize;
     private Job job;
     private TransportService transportService;
-    private ADTaskManager adTaskManager;
-    private ADTaskProfileRunner taskProfileRunner;
+    private ForecastTaskManager forecastTaskManager;
+    private ForecastTaskProfileRunner taskProfileRunner;
+    private ForecastTask task;
 
     enum InittedEverResultStatus {
         INITTED,
@@ -106,7 +97,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
     @BeforeClass
     public static void setUpBeforeClass() {
-        setUpThreadPool(AnomalyResultTests.class.getSimpleName());
+        setUpThreadPool(SingleStreamProfileRunnerTests.class.getSimpleName());
     }
 
     @AfterClass
@@ -120,33 +111,33 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     public void setUp() throws Exception {
         super.setUp();
         client = mock(Client.class);
-        taskProfileRunner = mock(ADTaskProfileRunner.class);
+        taskProfileRunner = mock(ForecastTaskProfileRunner.class);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         requiredSamples = 128;
 
-        detectorId = "A69pa3UBHuCbh-emo9oR";
-        detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
-        result = new DetectorInternalState.Builder().lastUpdateTime(Instant.now());
+        forecasterId = "A69pa3UBHuCbh-emo9oR";
+        forecaster = TestHelpers.ForecasterBuilder.newInstance().setConfigId(forecasterId).setCategoryFields(null).build();
         job = TestHelpers.randomJob(true);
-        adTaskManager = mock(ADTaskManager.class);
+        forecastTaskManager = mock(ForecastTaskManager.class);
         transportService = mock(TransportService.class);
+        task = TestHelpers.ForecastTaskBuilder.newInstance().build();
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            Consumer<Optional<ADTask>> function = (Consumer<Optional<ADTask>>) args[2];
+            Consumer<Optional<ForecastTask>> function = (Consumer<Optional<ForecastTask>>) args[2];
 
-            function.accept(Optional.of(TestHelpers.randomAdTask()));
+            function.accept(Optional.of(task));
             return null;
-        }).when(adTaskManager).getAndExecuteOnLatestConfigLevelTask(any(), any(), any(), any(), anyBoolean(), any());
-        runner = new AnomalyDetectorProfileRunner(
+        }).when(forecastTaskManager).getAndExecuteOnLatestConfigLevelTask(any(), any(), any(), any(), anyBoolean(), any());
+        runner = new ForecastProfileRunner(
             client,
             clientUtil,
             xContentRegistry(),
             nodeFilter,
             requiredSamples,
             transportService,
-            adTaskManager,
+            forecastTaskManager,
             taskProfileRunner
         );
 
@@ -157,11 +148,11 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
             String indexName = request.index();
             if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
-            } else if (indexName.equals(ADCommonName.DETECTION_STATE_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(result.build(), detector.getId(), ADCommonName.DETECTION_STATE_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(forecaster, forecaster.getId(), CommonName.CONFIG_INDEX));
+            } else if (indexName.equals(ForecastIndex.STATE.getIndexName())) {
+                listener.onResponse(TestHelpers.createGetResponse(task, forecaster.getId(), ForecastIndex.STATE.getIndexName()));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(job, forecaster.getId(), CommonName.JOB_INDEX));
             }
 
             return null;
@@ -203,8 +194,6 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             modelSize = 712480L;
             model1Id = "A69pa3UBHuCbh-emo9oR_entity_host1";
             model0Id = "A69pa3UBHuCbh-emo9oR_entity_host0";
-
-            shingleSize = -1;
 
             String clusterName = "test-cluster-name";
 
@@ -250,7 +239,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             listener.onResponse(profileResponse);
 
             return null;
-        }).when(client).execute(any(ADProfileAction.class), any(), any());
+        }).when(client).execute(any(ForecastProfileAction.class), any(), any());
 
     }
 
@@ -261,11 +250,11 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             SearchRequest request = (SearchRequest) args[0];
             ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
 
-            AnomalyResult result = null;
-            if (request.source().query().toString().contains(AnomalyResult.ANOMALY_SCORE_FIELD)) {
+            ForecastResult result = null;
+            if (request.source().query().toString().contains(ForecastResult.VALUE_FIELD)) {
                 switch (inittedEverResultStatus) {
                     case INITTED:
-                        result = TestHelpers.randomAnomalyDetectResult(0.87);
+                        result = TestHelpers.ForecastResultBuilder.newInstance().build();
                         listener.onResponse(TestHelpers.createSearchResponse(result));
                         break;
                     case NOT_INITTED:
@@ -287,8 +276,8 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        ConfigProfile expectedProfile = new DetectorProfile.Builder().state(ConfigState.INIT).build();
-        runner.profile(detectorId, ActionListener.wrap(response -> {
+        ConfigProfile expectedProfile = new ForecasterProfile.Builder().state(ConfigState.INIT).build();
+        runner.profile(forecasterId, ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -304,8 +293,8 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        ConfigProfile expectedProfile = new DetectorProfile.Builder().state(ConfigState.RUNNING).build();
-        runner.profile(detectorId, ActionListener.wrap(response -> {
+        ConfigProfile expectedProfile = new ForecasterProfile.Builder().state(ConfigState.RUNNING).build();
+        runner.profile(forecasterId, ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {
@@ -316,7 +305,7 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     }
 
     /**
-     * Although profile action results indicate initted, we trust what result index tells us
+     * Although profile action results indicate not initted, we trust what result index tells us
      * @throws InterruptedException if CountDownLatch is interrupted while waiting
      */
     public void testResultIndexFinalTruth() throws InterruptedException {
@@ -325,8 +314,53 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        ConfigProfile expectedProfile = new DetectorProfile.Builder().state(ConfigState.RUNNING).build();
-        runner.profile(detectorId, ActionListener.wrap(response -> {
+        ConfigProfile expectedProfile = new ForecasterProfile.Builder().state(ConfigState.RUNNING).build();
+        runner.profile(forecasterId, ActionListener.wrap(response -> {
+            assertEquals(expectedProfile, response);
+            inProgressLatch.countDown();
+        }, exception -> {
+            assertTrue("Should not reach here", false);
+            inProgressLatch.countDown();
+        }), stateNError);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Although profile action results indicate not initted, we trust what result index tells us
+     * @throws InterruptedException if CountDownLatch is interrupted while waiting
+     * @throws IOException
+     */
+    public void testCustomResultIndexFinalTruth() throws InterruptedException, IOException {
+        setUpClientExecuteProfileAction(InittedEverResultStatus.NOT_INITTED);
+        setUpClientSearch(InittedEverResultStatus.INITTED);
+
+        forecaster = TestHelpers.ForecasterBuilder
+            .newInstance()
+            .setConfigId(forecasterId)
+            .setCategoryFields(null)
+            .setCustomResultIndex(ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test-index")
+            .build();
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            GetRequest request = (GetRequest) args[0];
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
+
+            String indexName = request.index();
+            if (indexName.equals(CommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(forecaster, forecaster.getId(), CommonName.CONFIG_INDEX));
+            } else if (indexName.equals(ForecastIndex.STATE.getIndexName())) {
+                listener.onResponse(TestHelpers.createGetResponse(task, forecaster.getId(), ForecastIndex.STATE.getIndexName()));
+            } else if (indexName.equals(CommonName.JOB_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(job, forecaster.getId(), CommonName.JOB_INDEX));
+            }
+
+            return null;
+        }).when(client).get(any(), any());
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        ConfigProfile expectedProfile = new ForecasterProfile.Builder().state(ConfigState.RUNNING).build();
+        runner.profile(forecasterId, ActionListener.wrap(response -> {
             assertEquals(expectedProfile, response);
             inProgressLatch.countDown();
         }, exception -> {

@@ -171,7 +171,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
     public void testGetAnomalyDetectorResponse() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        Job adJob = TestHelpers.randomAnomalyDetectorJob();
+        Job adJob = TestHelpers.randomJob();
         GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
             4321,
             "1234",
@@ -205,7 +205,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
     public void testGetAnomalyDetectorProfileResponse() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        Job adJob = TestHelpers.randomAnomalyDetectorJob();
+        Job adJob = TestHelpers.randomJob();
         InitProgressProfile initProgress = new InitProgressProfile("99%", 2L, 2);
         EntityProfile entityProfile = new EntityProfile.Builder().initProgress(initProgress).build();
         GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
