@@ -141,7 +141,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
         );
 
         checkpointResponse = mock(GetResponse.class);
-        jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
+        jobToCheck = TestHelpers.randomJob(true, Instant.ofEpochMilli(1602401500000L), null);
     }
 
     @Override

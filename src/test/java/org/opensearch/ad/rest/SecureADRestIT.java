@@ -409,7 +409,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = cloneDetector(anomalyDetector, resultIndex);
         // User goat has no permission to create index
         Exception exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:admin/create]"));
+        Assert
+            .assertTrue(
+                "got " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [indices:admin/aliases, indices:admin/create]")
+            );
 
         // User cat has permission to create index
         resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
