@@ -101,7 +101,7 @@ public class GetAnomalyDetectorResponseTests extends OpenSearchSingleNodeTestCas
             randomLong(),
             randomLong(),
             TestHelpers.randomAnomalyDetector(ImmutableList.of(), ImmutableMap.of(), Instant.now().truncatedTo(ChronoUnit.SECONDS)),
-            TestHelpers.randomAnomalyDetectorJob(),
+            TestHelpers.randomJob(),
             returnJob,
             TestHelpers.randomAdTask(),
             TestHelpers.randomAdTask(),

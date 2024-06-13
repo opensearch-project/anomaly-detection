@@ -147,11 +147,11 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
                         listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));
                         break;
                     case DISABLED:
-                        job = TestHelpers.randomAnomalyDetectorJob(false, jobEnabledTime, null);
+                        job = TestHelpers.randomJob(false, jobEnabledTime, null);
                         listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
                         break;
                     case ENABLED:
-                        job = TestHelpers.randomAnomalyDetectorJob(true, jobEnabledTime, null);
+                        job = TestHelpers.randomJob(true, jobEnabledTime, null);
                         listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
                         break;
                     default:
