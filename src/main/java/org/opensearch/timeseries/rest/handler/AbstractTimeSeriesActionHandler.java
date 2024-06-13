@@ -326,7 +326,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                                     foundField = true;
                                     Map<String, Object> metadataMap = (Map<String, Object>) type;
                                     String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                    if (!typeName.equals(CommonName.DATE_TYPE)) {
+                                    if (!typeName.equals(CommonName.DATE_TYPE) && !typeName.equals(CommonName.DATE_NANOS_TYPE)) {
                                         listener
                                             .onFailure(
                                                 new ValidationException(

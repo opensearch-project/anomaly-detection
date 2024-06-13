@@ -50,6 +50,21 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
         }
     }
 
+    public void testRuleWithDateNanos() throws Exception {
+        // TODO: this test case will run for a much longer time and timeout with security enabled
+        if (!isHttps()) {
+            disableResourceNotFoundFaultTolerence();
+            // there are 8 entities in the data set. Each one needs 1500 rows as training data.
+            Map<String, Double> minPrecision = new HashMap<>();
+            minPrecision.put("Phoenix", 0.5);
+            minPrecision.put("Scottsdale", 0.5);
+            Map<String, Double> minRecall = new HashMap<>();
+            minRecall.put("Phoenix", 0.9);
+            minRecall.put("Scottsdale", 0.6);
+            verifyRule("rule", 10, minPrecision.size(), 1500, minPrecision, minRecall, 20, true);
+        }
+    }
+
     private void verifyTestResults(
         Triple<Map<String, double[]>, Integer, Map<String, Set<Integer>>> testResults,
         Map<String, List<Entry<Instant, Instant>>> anomalies,
@@ -116,6 +131,19 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
         Map<String, Double> minRecall,
         int maxError
     ) throws Exception {
+        verifyRule(datasetName, intervalMinutes, numberOfEntities, trainTestSplit, minPrecision, minRecall, maxError, false);
+    }
+
+    public void verifyRule(
+        String datasetName,
+        int intervalMinutes,
+        int numberOfEntities,
+        int trainTestSplit,
+        Map<String, Double> minPrecision,
+        Map<String, Double> minRecall,
+        int maxError,
+        boolean useDateNanos
+    ) throws Exception {
         String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
         String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
 
@@ -127,7 +155,9 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
         String mapping = String
             .format(
                 Locale.ROOT,
-                "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+                "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\":"
+                    + (useDateNanos ? "\"date_nanos\"" : "\"date\"")
+                    + "},"
                     + " \"transform._doc_count\": { \"type\": \"integer\" },"
                     + "\"%s\": { \"type\": \"keyword\"} } } }",
                 categoricalField

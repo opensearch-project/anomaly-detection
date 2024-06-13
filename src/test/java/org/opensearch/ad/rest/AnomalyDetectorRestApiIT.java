@@ -117,7 +117,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features) throws IOException {
-        TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD);
+        return createIndexAndGetAnomalyDetector(indexName, features, false);
+    }
+
+    private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features, boolean useDateNanos)
+        throws IOException {
+        TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD, useDateNanos);
         String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
         TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
@@ -173,6 +178,35 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testCreateAnomalyDetector() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
+
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(detector),
+                    null
+                )
+        );
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
+
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        int version = (int) responseMap.get("_version");
+        assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
+        assertTrue("incorrect version", version > 0);
+    }
+
+    public void testCreateAnomalyDetectorWithDateNanos() throws Exception {
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(TestHelpers.randomFeature(true)), true);
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
 
         Exception ex = expectThrows(

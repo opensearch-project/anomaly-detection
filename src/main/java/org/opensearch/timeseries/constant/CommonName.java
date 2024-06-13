@@ -28,6 +28,7 @@ public class CommonName {
     public static final String KEYWORD_TYPE = "keyword";
     public static final String IP_TYPE = "ip";
     public static final String DATE_TYPE = "date";
+    public static final String DATE_NANOS_TYPE = "date_nanos";
 
     // ======================================
     // Index name
