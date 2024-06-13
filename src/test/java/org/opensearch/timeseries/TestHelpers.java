@@ -23,6 +23,7 @@ import static org.opensearch.test.OpenSearchTestCase.randomAlphaOfLength;
 import static org.opensearch.test.OpenSearchTestCase.randomBoolean;
 import static org.opensearch.test.OpenSearchTestCase.randomDouble;
 import static org.opensearch.test.OpenSearchTestCase.randomDoubleBetween;
+import static org.opensearch.test.OpenSearchTestCase.randomFloat;
 import static org.opensearch.test.OpenSearchTestCase.randomInt;
 import static org.opensearch.test.OpenSearchTestCase.randomIntBetween;
 import static org.opensearch.test.OpenSearchTestCase.randomLong;
@@ -115,6 +116,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.ForecastTask;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.get.GetResult;
@@ -713,7 +715,8 @@ public class TestHelpers {
                 user,
                 resultIndex,
                 imputationOption,
-                randomIntBetween(1, 10000),
+                // transform decay has to be [0, 1). So we cannot use 1.
+                randomIntBetween(2, 10000),
                 randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
                 // make history intervals at least TimeSeriesSettings.NUM_MIN_SAMPLES.
                 // Otherwise, tests like EntityColdStarterTests.testTwoSegments may fail
@@ -912,7 +915,7 @@ public class TestHelpers {
     }
 
     public static AnomalyResult randomAnomalyDetectResult(double score) {
-        return randomAnomalyDetectResult(randomDouble(), null, null);
+        return randomAnomalyDetectResult(score, null, null);
     }
 
     public static AnomalyResult randomAnomalyDetectResult(String error) {
@@ -1044,11 +1047,11 @@ public class TestHelpers {
         );
     }
 
-    public static Job randomAnomalyDetectorJob() {
-        return randomAnomalyDetectorJob(true);
+    public static Job randomJob() {
+        return randomJob(true);
     }
 
-    public static Job randomAnomalyDetectorJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
+    public static Job randomJob(boolean enabled, Instant enabledTime, Instant disabledTime) {
         return new Job(
             randomAlphaOfLength(10),
             randomIntervalSchedule(),
@@ -1064,12 +1067,8 @@ public class TestHelpers {
         );
     }
 
-    public static Job randomAnomalyDetectorJob(boolean enabled) {
-        return randomAnomalyDetectorJob(
-            enabled,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
-        );
+    public static Job randomJob(boolean enabled) {
+        return randomJob(enabled, Instant.now().truncatedTo(ChronoUnit.SECONDS), Instant.now().truncatedTo(ChronoUnit.SECONDS));
     }
 
     public static AnomalyDetectorExecutionInput randomAnomalyDetectorExecutionInput() throws IOException {
@@ -1935,9 +1934,7 @@ public class TestHelpers {
 
         private DateRange dateRange = new DateRange(Instant.ofEpochMilli(123), Instant.ofEpochMilli(456));
 
-        public ForecastTaskBuilder() throws IOException {
-            forecaster = TestHelpers.randomForecaster();
-        }
+        public ForecastTaskBuilder() throws IOException {}
 
         public static ForecastTaskBuilder newInstance() throws IOException {
             return new ForecastTaskBuilder();
@@ -1989,6 +1986,60 @@ public class TestHelpers {
                 .forecaster(forecaster)
                 .dateRange(dateRange)
                 .build();
+        }
+    }
+
+    public static class ForecastResultBuilder {
+        private String forecasterId = randomAlphaOfLength(5);
+        private String taskId = randomAlphaOfLength(5);
+        private Double dataQuality = randomDouble();
+        private List<FeatureData> featureData = ImmutableList.of(randomFeatureData(), randomFeatureData());
+        private Instant dataStartTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant dataEndTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant executionStartTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant executionEndTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private String error = "";
+        private Optional<Entity> entity = Optional.empty();
+        private User user = randomUser();
+        private Integer schemaVersion = randomIntBetween(1, 10);
+        private String featureId = randomAlphaOfLength(5);
+        private Float forecastValue = randomFloat();
+        private Float lowerBound = randomFloat();
+        private Float upperBound = randomFloat();
+        private Instant forecastDataStartTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant forecastDataEndTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Integer horizonIndex = randomIntBetween(1, 10);
+
+        public ForecastResultBuilder() {
+
+        }
+
+        public static ForecastResultBuilder newInstance() {
+            return new ForecastResultBuilder();
+        }
+
+        public ForecastResult build() {
+            return new ForecastResult(
+                forecasterId,
+                taskId,
+                dataQuality,
+                featureData,
+                dataStartTime,
+                dataEndTime,
+                executionStartTime,
+                executionEndTime,
+                error,
+                entity,
+                user,
+                schemaVersion,
+                featureId,
+                forecastValue,
+                lowerBound,
+                upperBound,
+                forecastDataStartTime,
+                forecastDataEndTime,
+                horizonIndex
+            );
         }
     }
 }

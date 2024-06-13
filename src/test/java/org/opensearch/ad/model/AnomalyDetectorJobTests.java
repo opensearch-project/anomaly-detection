@@ -39,7 +39,7 @@ public class AnomalyDetectorJobTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testParseAnomalyDetectorJob() throws IOException {
-        Job anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();
+        Job anomalyDetectorJob = TestHelpers.randomJob();
         String anomalyDetectorJobString = TestHelpers
             .xContentBuilderToString(anomalyDetectorJob.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         anomalyDetectorJobString = anomalyDetectorJobString
@@ -50,7 +50,7 @@ public class AnomalyDetectorJobTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testSerialization() throws IOException {
-        Job anomalyDetectorJob = TestHelpers.randomAnomalyDetectorJob();
+        Job anomalyDetectorJob = TestHelpers.randomJob();
         BytesStreamOutput output = new BytesStreamOutput();
         anomalyDetectorJob.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
