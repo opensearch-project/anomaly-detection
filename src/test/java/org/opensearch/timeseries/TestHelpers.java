@@ -1166,9 +1166,18 @@ public class TestHelpers {
     }
 
     public static void createIndexWithTimeField(RestClient client, String indexName, String timeField) throws IOException {
+        createIndexWithTimeField(client, indexName, timeField, false);
+    }
+
+    public static void createIndexWithTimeField(RestClient client, String indexName, String timeField, boolean useDateNanos)
+        throws IOException {
         StringBuilder indexMappings = new StringBuilder();
         indexMappings.append("{\"properties\":{");
-        indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        if (useDateNanos) {
+            indexMappings.append("\"" + timeField + "\":{\"type\":\"date_nanos\"}");
+        } else {
+            indexMappings.append("\"" + timeField + "\":{\"type\":\"date\"}");
+        }
         indexMappings.append("}}");
         createIndex(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
         createIndexMapping(client, indexName.toLowerCase(Locale.ROOT), TestHelpers.toHttpEntity(indexMappings.toString()));
