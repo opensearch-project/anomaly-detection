@@ -124,6 +124,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.SearchModule;
@@ -1855,6 +1856,11 @@ public class TestHelpers {
             return this;
         }
 
+        public ForecasterBuilder setHorizon(Integer horizon) {
+            this.horizon = horizon;
+            return this;
+        }
+
         public Forecaster build() {
             return new Forecaster(
                 forecasterId,
@@ -2051,4 +2057,98 @@ public class TestHelpers {
             );
         }
     }
+
+    public static class JobBuilder {
+        private String name = randomAlphaOfLength(10);
+        private Schedule schedule = randomIntervalSchedule();
+        private TimeConfiguration windowDelay = randomIntervalTimeConfiguration();
+        private Boolean isEnabled = true;
+        private Instant enabledTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant disabledTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Instant lastUpdateTime = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        private Long lockDurationSeconds = 60L;
+        private User user = randomUser();
+        private String resultIndex = null;
+        private AnalysisType analysisType = AnalysisType.AD;
+
+        public JobBuilder() {
+
+        }
+
+        public static JobBuilder newInstance() {
+            return new JobBuilder();
+        }
+
+        public JobBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public JobBuilder schedule(Schedule schedule) {
+            this.schedule = schedule;
+            return this;
+        }
+
+        public JobBuilder windowDelay(TimeConfiguration windowDelay) {
+            this.windowDelay = windowDelay;
+            return this;
+        }
+
+        public JobBuilder isEnabled(Boolean isEnabled) {
+            this.isEnabled = isEnabled;
+            return this;
+        }
+
+        public JobBuilder enabledTime(Instant enabledTime) {
+            this.enabledTime = enabledTime;
+            return this;
+        }
+
+        public JobBuilder disabledTime(Instant disabledTime) {
+            this.disabledTime = disabledTime;
+            return this;
+        }
+
+        public JobBuilder lastUpdateTime(Instant lastUpdateTime) {
+            this.lastUpdateTime = lastUpdateTime;
+            return this;
+        }
+
+        public JobBuilder lockDurationSeconds(Long lockDurationSeconds) {
+            this.lockDurationSeconds = lockDurationSeconds;
+            return this;
+        }
+
+        public JobBuilder user(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public JobBuilder resultIndex(String resultIndex) {
+            this.resultIndex = resultIndex;
+            return this;
+        }
+
+        public JobBuilder analysisType(AnalysisType analysisType) {
+            this.analysisType = analysisType;
+            return this;
+        }
+
+        public Job build() {
+            return new Job(
+                name,
+                schedule,
+                windowDelay,
+                isEnabled,
+                enabledTime,
+                disabledTime,
+                lastUpdateTime,
+                lockDurationSeconds,
+                user,
+                resultIndex,
+                analysisType
+            );
+        }
+    }
+
 }

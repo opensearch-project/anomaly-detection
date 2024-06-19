@@ -27,7 +27,8 @@ public class ForecastEnabledSetting extends DynamicNumericSetting {
      */
     public static final String FORECAST_ENABLED = "plugins.forecast.enabled";
 
-    public static final boolean enabled = false;
+    // TODO: remove the field when releasing forecasting
+    public static boolean enabled = false;
 
     public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
@@ -55,8 +56,10 @@ public class ForecastEnabledSetting extends DynamicNumericSetting {
      * @return whether forecasting is enabled.
      */
     public static boolean isForecastEnabled() {
-        // return ForecastEnabledSetting.getInstance().getSettingValue(ForecastEnabledSetting.FORECAST_ENABLED);
+        // keep the dynamic setting in main branch to enable writing tests.
+        // will make it hardcoded false in the 2.x branch.
+        return ForecastEnabledSetting.getInstance().getSettingValue(ForecastEnabledSetting.FORECAST_ENABLED);
         // TODO: enable forecasting before released
-        return enabled;
+        // return enabled;
     }
 }

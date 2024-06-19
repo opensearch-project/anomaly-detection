@@ -31,6 +31,7 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.opensearch.ad.AbstractADSyntheticDataTest;
 import org.opensearch.client.RestClient;
 import org.opensearch.timeseries.TestHelpers;
 
@@ -39,7 +40,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
+public class SingleStreamModelPerfIT extends AbstractADSyntheticDataTest {
     protected static final Logger LOG = (Logger) LogManager.getLogger(SingleStreamModelPerfIT.class);
 
     public void testDataset() throws Exception {
