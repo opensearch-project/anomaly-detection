@@ -13,11 +13,16 @@ package org.opensearch.timeseries;
 
 import static java.util.Collections.unmodifiableList;
 import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.ad.constant.ADCommonName.CHECKPOINT_INDEX_NAME;
+import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
+import static org.opensearch.timeseries.constant.CommonName.ALL_AD_DETECTOR_INDEX_PATTERN;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -249,6 +254,7 @@ import org.opensearch.forecast.transport.ValidateForecasterAction;
 import org.opensearch.forecast.transport.ValidateForecasterTransportAction;
 import org.opensearch.forecast.transport.handler.ForecastIndexMemoryPressureAwareResultHandler;
 import org.opensearch.forecast.transport.handler.ForecastSearchHandler;
+import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
@@ -257,6 +263,7 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
+import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
@@ -313,7 +320,7 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -1670,6 +1677,17 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 new ActionHandler<>(ValidateForecasterAction.INSTANCE, ValidateForecasterTransportAction.class),
                 new ActionHandler<>(SuggestForecasterParamAction.INSTANCE, SuggestForecasterParamTransportAction.class)
             );
+    }
+
+    @Override
+    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
+        List<SystemIndexDescriptor> systemIndexDescriptors = new ArrayList<>();
+        systemIndexDescriptors.add(new SystemIndexDescriptor(ALL_AD_RESULTS_INDEX_PATTERN, "Time Series Analytics Results index pattern"));
+        systemIndexDescriptors
+            .add(new SystemIndexDescriptor(ALL_AD_DETECTOR_INDEX_PATTERN, "Time Series Analytics Detector index pattern"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(CHECKPOINT_INDEX_NAME, "Time Series Analytics Checkpoints index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(DETECTION_STATE_INDEX, "Time Series Analytics Detection State index"));
+        return systemIndexDescriptors;
     }
 
     @Override

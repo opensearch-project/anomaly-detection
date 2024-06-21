@@ -33,6 +33,9 @@ public class CommonName {
     // ======================================
     // Index name
     // ======================================
+
+    public static final String ALL_AD_DETECTOR_INDEX_PATTERN = ".opendistro-anomaly-detectors*";
+
     // config index. We are reusing ad detector index.
     public static final String CONFIG_INDEX = ".opendistro-anomaly-detectors";
 
