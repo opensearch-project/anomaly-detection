@@ -17,7 +17,10 @@ import static org.opensearch.ad.constant.ADCommonName.CHECKPOINT_INDEX_NAME;
 import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
-import static org.opensearch.timeseries.constant.CommonName.ALL_AD_DETECTOR_INDEX_PATTERN;
+import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME;
+import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_STATE_INDEX;
+import static org.opensearch.timeseries.constant.CommonName.CONFIG_INDEX;
+import static org.opensearch.timeseries.constant.CommonName.JOB_INDEX;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -814,10 +817,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(
-                StatNames.JOB_INDEX_STATUS.getName(),
-                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
-            )
+            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
             .put(
                 StatNames.MODEL_COUNT.getName(),
                 new TimeSeriesStat<>(false, new ADModelsOnNodeCountSupplier(adModelManager, adCacheProvider))
@@ -1199,10 +1199,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(
-                StatNames.JOB_INDEX_STATUS.getName(),
-                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
-            )
+            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
             .put(StatNames.MODEL_COUNT.getName(), new TimeSeriesStat<>(false, new ForecastModelsOnNodeCountSupplier(forecastCacheProvider)))
             .build();
 
@@ -1682,11 +1679,13 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         List<SystemIndexDescriptor> systemIndexDescriptors = new ArrayList<>();
-        systemIndexDescriptors.add(new SystemIndexDescriptor(ALL_AD_RESULTS_INDEX_PATTERN, "Time Series Analytics Results index pattern"));
-        systemIndexDescriptors
-            .add(new SystemIndexDescriptor(ALL_AD_DETECTOR_INDEX_PATTERN, "Time Series Analytics Detector index pattern"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(CHECKPOINT_INDEX_NAME, "Time Series Analytics Checkpoints index"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(DETECTION_STATE_INDEX, "Time Series Analytics Detection State index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(CONFIG_INDEX, "Time Series Analytics config index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(ALL_AD_RESULTS_INDEX_PATTERN, "AD result index pattern"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(CHECKPOINT_INDEX_NAME, "AD Checkpoints index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(DETECTION_STATE_INDEX, "AD State index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(FORECAST_CHECKPOINT_INDEX_NAME, "Forecast Checkpoints index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(FORECAST_STATE_INDEX, "Forecast state index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(JOB_INDEX, "Time Series Analytics job index"));
         return systemIndexDescriptors;
     }
 
@@ -1697,7 +1696,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
 
     @Override
     public String getJobIndex() {
-        return CommonName.JOB_INDEX;
+        return JOB_INDEX;
     }
 
     @Override
