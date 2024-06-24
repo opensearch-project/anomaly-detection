@@ -33,7 +33,6 @@ public class CommonName {
     // ======================================
     // Index name
     // ======================================
-
     // config index. We are reusing ad detector index.
     public static final String CONFIG_INDEX = ".opendistro-anomaly-detectors";
 
