@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.opensearch.ad.AbstractADSyntheticDataTest;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -39,7 +40,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
+public class DetectionResultEvalutationIT extends AbstractADSyntheticDataTest {
     protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
 
     public void testValidationIntervalRecommendation() throws Exception {

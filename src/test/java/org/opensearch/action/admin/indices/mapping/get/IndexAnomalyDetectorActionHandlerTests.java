@@ -122,8 +122,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         transportService = mock(TransportService.class);
 
-        // channel = mock(ActionListener.class);
-
         anomalyDetectionIndices = mock(ADIndexManagement.class);
         when(anomalyDetectionIndices.doesConfigIndexExist()).thenReturn(true);
 

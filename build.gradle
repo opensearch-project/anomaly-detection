@@ -35,7 +35,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.15.0"
+        bwcVersionShort = "2.16.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'
@@ -662,6 +662,13 @@ task release(type: Copy, group: 'build') {
     eachFile { it.path = it.path - "opensearch/" }
 }
 
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+// Only apply jacoco test coverage if we are running a local single node cluster
+if (!usingRemoteCluster && !usingMultiNode) {
+    apply from: 'build-tools/coverage.gradle'
+}
+
 List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
         'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin',
@@ -701,6 +708,8 @@ List<String> jacocoExclusions = [
 
 
 jacocoTestCoverageVerification {
+    dependsOn(jacocoTestReport)
+    executionData.from = [integTest.jacoco.destinationFile, test.jacoco.destinationFile]
     violationRules {
         rule {
             element = 'CLASS'
@@ -719,13 +728,6 @@ jacocoTestCoverageVerification {
                 minimum = 0.75
             }
         }
-    }
-}
-
-jacocoTestReport {
-    reports {
-        xml.required = true // for coverlay
-        html.required = true // human readable
     }
 }
 

@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad;
+package org.opensearch.timeseries;
 
 import static org.opensearch.client.RestClientBuilder.DEFAULT_MAX_CONN_PER_ROUTE;
 import static org.opensearch.client.RestClientBuilder.DEFAULT_MAX_CONN_TOTAL;
@@ -20,19 +20,23 @@ import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTT
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
 import javax.net.ssl.SSLEngine;
 
 import org.apache.hc.client5.http.auth.AuthScope;
@@ -50,7 +54,10 @@ import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.util.Timeout;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -59,22 +66,21 @@ import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
  */
 public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
+    private static final Logger LOG = (Logger) LogManager.getLogger(ODFERestTestCase.class);
 
     protected boolean isHttps() {
         boolean isHttps = Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
@@ -240,6 +246,33 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         }
     }
 
+    @AfterClass
+    public static void dumpCoverage() throws IOException, MalformedObjectNameException {
+        // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
+        // want to collect coverage so we can return early
+        String jacocoBuildPath = System.getProperty("jacoco.dir");
+        if (org.opensearch.core.common.Strings.isNullOrEmpty(jacocoBuildPath)) {
+            return;
+        }
+
+        String serverUrl = System.getProperty("jmx.serviceUrl");
+        if (serverUrl == null) {
+            LOG.error("Failed to dump coverage because JMX Service URL is null");
+            throw new IllegalArgumentException("JMX Service URL is null");
+        }
+
+        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))) {
+            IProxy proxy = MBeanServerInvocationHandler
+                .newProxyInstance(connector.getMBeanServerConnection(), new ObjectName("org.jacoco:type=Runtime"), IProxy.class, false);
+
+            Path path = Path.of(Path.of(jacocoBuildPath, "integTest.exec").toFile().getCanonicalPath());
+            Files.write(path, proxy.getExecutionData(false));
+        } catch (Exception ex) {
+            LOG.error("Failed to dump coverage: ", ex);
+            throw new RuntimeException("Failed to dump coverage: " + ex);
+        }
+    }
+
     /**
      * wipeAllIndices won't work since it cannot delete security index. Use wipeAllODFEIndices instead.
      */
@@ -248,45 +281,34 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return true;
     }
 
-    protected void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
-        int maxWaitCycles = 3;
-        do {
-            Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
-            request
-                .setJsonEntity(
-                    String
-                        .format(
-                            Locale.ROOT,
-                            "{\"query\": {"
-                                + "        \"match_all\": {}"
-                                + "    },"
-                                + "    \"size\": 1,"
-                                + "    \"sort\": ["
-                                + "       {"
-                                + "         \"timestamp\": {"
-                                + "           \"order\": \"desc\""
-                                + "         }"
-                                + "       }"
-                                + "   ]}"
-                        )
-                );
-            // Make sure all of the test data has been ingested
-            // Expected response:
-            // "_index":"synthetic","_type":"_doc","_id":"10080","_score":null,"_source":{"timestamp":"2019-11-08T00:00:00Z","Feature1":156.30028000000001,"Feature2":100.211205,"host":"host1"},"sort":[1573171200000]}
-            Response response = client.performRequest(request);
-            JsonObject json = JsonParser
-                .parseReader(new InputStreamReader(response.getEntity().getContent(), Charset.defaultCharset()))
-                .getAsJsonObject();
-            JsonArray hits = json.getAsJsonObject("hits").getAsJsonArray("hits");
-            if (hits != null
-                && hits.size() == 1
-                && expectedSize - 1 == hits.get(0).getAsJsonObject().getAsJsonPrimitive("_id").getAsLong()) {
-                break;
-            } else {
-                request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
-                client.performRequest(request);
-            }
-            Thread.sleep(1_000);
-        } while (maxWaitCycles-- >= 0);
+    public void updateClusterSettings(String settingKey, Object value) throws Exception {
+        XContentBuilder builder = XContentFactory
+            .jsonBuilder()
+            .startObject()
+            .startObject("persistent")
+            .field(settingKey, value)
+            .endObject()
+            .endObject();
+        Request request = new Request("PUT", "_cluster/settings");
+        request.setJsonEntity(builder.toString());
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        Thread.sleep(2000); // sleep some time to resolve flaky test
+    }
+
+    /**
+     * We need to be able to dump the jacoco coverage before cluster is shut down.
+     * The new internal testing framework removed some of the gradle tasks we were listening to
+     * to choose a good time to do it. This will dump the executionData to file after each test.
+     * TODO: This is also currently just overwriting integTest.exec with the updated execData without
+     * resetting after writing each time. This can be improved to either write an exec file per test
+     * or by letting jacoco append to the file
+     */
+    public interface IProxy {
+        byte[] getExecutionData(boolean reset);
+
+        void dump(boolean reset);
+
+        void reset();
     }
 }

@@ -14,8 +14,8 @@ public class ForecastEnabledSettingTests extends OpenSearchTestCase {
         try {
             ForecastEnabledSetting.getInstance().setSettingValue(ForecastEnabledSetting.FORECAST_ENABLED, true);
             // TODO: currently, we disable forecasting
-            // assertTrue(ForecastEnabledSetting.isForecastEnabled());
-            assertTrue(!ForecastEnabledSetting.isForecastEnabled());
+            assertTrue(ForecastEnabledSetting.isForecastEnabled());
+            // assertTrue(!ForecastEnabledSetting.isForecastEnabled());
             ForecastEnabledSetting.getInstance().setSettingValue(ForecastEnabledSetting.FORECAST_ENABLED, false);
             assertTrue(!ForecastEnabledSetting.isForecastEnabled());
         } finally {
