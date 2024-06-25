@@ -19,6 +19,7 @@ import static org.opensearch.timeseries.util.ParseUtils.batchFeatureQuery;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.ZonedDateTime;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -65,6 +67,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 
@@ -92,7 +95,6 @@ public class SearchFeatureDao extends AbstractRetriever {
         Client client,
         NamedXContentRegistry xContent,
         SecurityClientUtil clientUtil,
-        Settings settings,
         ClusterService clusterService,
         int minimumDocCount,
         Clock clock,
@@ -122,7 +124,6 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param client ES client for queries
      * @param xContent ES XContentRegistry
      * @param clientUtil utility for ES client
-     * @param settings ES settings
      * @param clusterService ES ClusterService
      * @param minimumDocCount minimum doc count required for an entity; used to
      *   make sure an entity has enough samples for preview
@@ -139,7 +140,6 @@ public class SearchFeatureDao extends AbstractRetriever {
             client,
             xContent,
             clientUtil,
-            settings,
             clusterService,
             minimumDocCount,
             Clock.systemUTC(),
@@ -690,37 +690,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         SearchRequest request = createColdStartFeatureSearchRequest(config, ranges, entity);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
-            Aggregations aggs = response.getAggregations();
-            if (aggs == null) {
-                listener.onResponse(Collections.emptyList());
-                return;
-            }
-
-            long docCountThreshold = includesEmptyBucket ? -1 : 0;
-
-            // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
-            // Example responses from date range bucket aggregation:
-            // "aggregations":{"date_range":{"buckets":[{"key":"1598865166000-1598865226000","from":1.598865166E12,"
-            // from_as_string":"1598865166000","to":1.598865226E12,"to_as_string":"1598865226000","doc_count":3,
-            // "deny_max":{"value":154.0}},{"key":"1598869006000-1598869066000","from":1.598869006E12,
-            // "from_as_string":"1598869006000","to":1.598869066E12,"to_as_string":"1598869066000","doc_count":3,
-            // "deny_max":{"value":141.0}},
-            // We don't want to use default 0 for sum/count aggregation as it might cause false positives during scoring.
-            // Terms aggregation only returns non-zero count values. If we use a lot of 0s during cold start,
-            // we will see alarming very easily.
-            listener
-                .onResponse(
-                    aggs
-                        .asList()
-                        .stream()
-                        .filter(InternalDateRange.class::isInstance)
-                        .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
-                        .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
-                        .filter(bucket -> bucket.getDocCount() > docCountThreshold)
-                        .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
-                        .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()))
-                        .collect(Collectors.toList())
-                );
+            listener.onResponse(parseColdStartSampleResp(response, includesEmptyBucket, config));
         }, listener::onFailure);
 
         // inject user role while searching.
@@ -735,9 +705,136 @@ public class SearchFeatureDao extends AbstractRetriever {
             );
     }
 
-    private SearchRequest createColdStartFeatureSearchRequest(Config detector, List<Entry<Long, Long>> ranges, Optional<Entity> entity) {
+    /**
+     * Parses the response from a search query for cold start samples, extracting and processing
+     * the relevant buckets to obtain their parsed values.
+     *
+     * This method processes the aggregations from the provided search response to extract and sort the
+     * buckets. Only buckets that meet certain criteria are included:
+     * - The `from` field must be a non-null instance of `ZonedDateTime`.
+     * - The bucket's document count must be greater than the specified threshold, which is determined
+     *   by the `includesEmptyBucket` parameter.
+     *
+     * The method returns a list of Optional double array containing the parsed values of the buckets.
+     * Buckets for which the parseBucket method returns Optional.empty() are excluded from the final list.
+     *
+     * @param response the search response containing the aggregations
+     * @param includesEmptyBucket a boolean flag indicating whether to include buckets with a document
+     *        count of zero (if true, the threshold is set to -1; otherwise, it is set to 0)
+     * @param config the configuration object containing necessary settings and feature IDs
+     * @return a list of Optional double array containing the parsed values of the valid buckets, or an empty
+     *         list if the aggregations are null or no valid buckets are found
+     */
+    public List<Optional<double[]>> parseColdStartSampleResp(SearchResponse response, boolean includesEmptyBucket, Config config) {
+        Aggregations aggs = response.getAggregations();
+        if (aggs == null) {
+            logger.warn("Unexpected empty response");
+            return Collections.emptyList();
+        }
+
+        long docCountThreshold = includesEmptyBucket ? -1 : 0;
+
+        // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
+        // Example responses from date range bucket aggregation:
+        // "aggregations":{"date_range":{"buckets":[{"key":"1598865166000-1598865226000","from":1.598865166E12,"
+        // from_as_string":"1598865166000","to":1.598865226E12,"to_as_string":"1598865226000","doc_count":3,
+        // "deny_max":{"value":154.0}},{"key":"1598869006000-1598869066000","from":1.598869006E12,
+        // "from_as_string":"1598869006000","to":1.598869066E12,"to_as_string":"1598869066000","doc_count":3,
+        // "deny_max":{"value":141.0}},
+        // We don't want to use default 0 for sum/count aggregation as it might cause false positives during scoring.
+        // Terms aggregation only returns non-zero count values. If we use a lot of 0s during cold start,
+        // we will see alarming very easily.
+        return aggs
+            .asList()
+            .stream()
+            .filter(InternalDateRange.class::isInstance)
+            .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+            .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
+            .filter(bucket -> bucket.getDocCount() > docCountThreshold)
+            .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
+            .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Parses the timestamps of the buckets from a search response for cold start samples.
+     *
+     * This method processes the aggregations from the provided search response to extract and sort the
+     * timestamps of the buckets. Only buckets that meet certain criteria are included:
+     * - The `from` field must be a non-null instance of `ZonedDateTime`.
+     * - The bucket's document count must be greater than the specified threshold, which is determined
+     *   by the `includesEmptyBucket` parameter.
+     * - The bucket must have a non-empty result from the `parseBucket` method.
+     *
+     * The method returns a list of epoch millisecond timestamps of the `from` fields of the valid buckets.
+     *
+     * @param response the search response containing the aggregations
+     * @param includesEmptyBucket a boolean flag indicating whether to include buckets with a document
+     *        count of zero (if true, the threshold is set to -1; otherwise, it is set to 0)
+     * @param config the configuration object containing feature enabled information
+     * @return a list of epoch millisecond timestamps of the valid bucket `from` fields, or an empty list
+     *         if the aggregations are null or no valid buckets are found
+     */
+    public List<Long> parseColdStartSampleTimestamp(SearchResponse response, boolean includesEmptyBucket, Config config) {
+        Aggregations aggs = response.getAggregations();
+        if (aggs == null) {
+            logger.warn("Unexpected empty response");
+            return Collections.emptyList();
+        }
+
+        long docCountThreshold = includesEmptyBucket ? -1 : 0;
+
+        // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
+        // Example responses from date range bucket aggregation:
+        // "aggregations":{"date_range":{"buckets":[{"key":"1598865166000-1598865226000","from":1.598865166E12,"
+        // from_as_string":"1598865166000","to":1.598865226E12,"to_as_string":"1598865226000","doc_count":3,
+        // "deny_max":{"value":154.0}},{"key":"1598869006000-1598869066000","from":1.598869006E12,
+        // "from_as_string":"1598869006000","to":1.598869066E12,"to_as_string":"1598869066000","doc_count":3,
+        // "deny_max":{"value":141.0}},
+        // We don't want to use default 0 for sum/count aggregation as it might cause false positives during scoring.
+        // Terms aggregation only returns non-zero count values. If we use a lot of 0s during cold start,
+        // we will see alarming very easily.
+        return aggs
+            .asList()
+            .stream()
+            .filter(InternalDateRange.class::isInstance)
+            .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+            .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
+            .filter(bucket -> bucket.getDocCount() > docCountThreshold)
+            .filter(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()).isPresent())
+            .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
+            .map(bucket -> ((ZonedDateTime) bucket.getFrom()).toInstant().toEpochMilli())
+            .collect(Collectors.toList());
+    }
+
+    public SearchRequest createColdStartFeatureSearchRequest(Config detector, List<Entry<Long, Long>> ranges, Optional<Entity> entity) {
         try {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generateColdStartQuery(detector, ranges, entity, xContent);
+            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
+        } catch (IOException e) {
+            logger
+                .warn(
+                    "Failed to create cold start feature search request for "
+                        + detector.getId()
+                        + " from "
+                        + ranges.get(0).getKey()
+                        + " to "
+                        + ranges.get(ranges.size() - 1).getKey(),
+                    e
+                );
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public SearchRequest createColdStartFeatureSearchRequestForSingleFeature(
+        Config detector,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        int featureIndex
+    ) {
+        try {
+            SearchSourceBuilder searchSourceBuilder = ParseUtils
+                .generateColdStartQueryForSingleFeature(detector, ranges, entity, xContent, featureIndex);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger
@@ -757,5 +854,36 @@ public class SearchFeatureDao extends AbstractRetriever {
     @Override
     public Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
+    }
+
+    /**
+     * Get train samples within a time range.
+     *
+     * @param interval interval to compute ranges
+     * @param startMilli range start
+     * @param endMilli range end
+     * @param numberOfSamples maximum training samples to fetch
+     * @return list of sample time ranges in ascending order
+     */
+    public List<Entry<Long, Long>> getTrainSampleRanges(
+        IntervalTimeConfiguration interval,
+        long startMilli,
+        long endMilli,
+        int numberOfSamples
+    ) {
+        long bucketSize = interval.toDuration().toMillis();
+        int numBuckets = (int) Math.floor((endMilli - startMilli) / (double) bucketSize);
+        // adjust if numStrides is more than the max samples
+        int numIntervals = Math.min(numBuckets, numberOfSamples);
+        List<Entry<Long, Long>> sampleRanges = Stream
+            .iterate(endMilli, i -> i - bucketSize)
+            .limit(numIntervals)
+            .map(time -> new SimpleImmutableEntry<>(time - bucketSize, time))
+            .collect(Collectors.toList());
+
+        // Reverse the list to get time ranges in ascending order
+        Collections.reverse(sampleRanges);
+
+        return sampleRanges;
     }
 }

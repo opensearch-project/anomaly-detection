@@ -25,7 +25,6 @@ public class ADCommonMessages {
     public static String DETECTOR_IS_RUNNING = "Detector is already running";
     public static String DETECTOR_MISSING = "Detector is missing";
     public static String AD_TASK_ACTION_MISSING = "AD task action is missing";
-    public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String UNSUPPORTED_PROFILE_TYPE = "Unsupported profile types";
 
     public static final String REQUEST_THROTTLED_MSG = "Request throttled. Please try again later.";

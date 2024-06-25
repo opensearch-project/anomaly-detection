@@ -14,9 +14,7 @@ package org.opensearch.timeseries.ml;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
@@ -24,8 +22,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -422,13 +418,13 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
 
         // Create ranges in ascending where the last sample's end time is the given endTimeMs.
         // Sample ranges are also in ascending order in Opensearch's response.
-        List<Entry<Long, Long>> sampleRanges = getTrainSampleRanges(config, startTimeMs, endTimeMs, numberOfSamples);
+        List<Entry<Long, Long>> sampleRanges = searchFeatureDao
+            .getTrainSampleRanges((IntervalTimeConfiguration) config.getInterval(), startTimeMs, endTimeMs, numberOfSamples);
 
         if (sampleRanges.isEmpty()) {
             listener.onResponse(lastRounddataSample);
             return;
         }
-
         ActionListener<List<Optional<double[]>>> getFeaturelistener = ActionListener.wrap(featureSamples -> {
 
             int totalNumSamples = featureSamples.size();
@@ -516,32 +512,6 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         } catch (Exception e) {
             listener.onFailure(e);
         }
-    }
-
-    /**
-     * Get train samples within a time range.
-     *
-     * @param config accessor to config
-     * @param startMilli range start
-     * @param endMilli range end
-     * @param numberOfSamples maximum training samples to fetch
-     * @return list of sample time ranges in ascending order
-     */
-    private List<Entry<Long, Long>> getTrainSampleRanges(Config config, long startMilli, long endMilli, int numberOfSamples) {
-        long bucketSize = ((IntervalTimeConfiguration) config.getInterval()).toDuration().toMillis();
-        int numBuckets = (int) Math.floor((endMilli - startMilli) / (double) bucketSize);
-        // adjust if numStrides is more than the max samples
-        int numIntervals = Math.min(numBuckets, numberOfSamples);
-        List<Entry<Long, Long>> sampleRanges = Stream
-            .iterate(endMilli, i -> i - bucketSize)
-            .limit(numIntervals)
-            .map(time -> new SimpleImmutableEntry<>(time - bucketSize, time))
-            .collect(Collectors.toList());
-
-        // Reverse the list to get time ranges in ascending order
-        Collections.reverse(sampleRanges);
-
-        return sampleRanges;
     }
 
     // Method to apply imputation method based on the imputation option

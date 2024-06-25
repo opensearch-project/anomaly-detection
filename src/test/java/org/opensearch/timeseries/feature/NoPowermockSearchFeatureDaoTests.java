@@ -184,7 +184,6 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             client,
             xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
             clientUtil,
-            settings,
             clusterService,
             TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
             clock,
@@ -370,7 +369,6 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             client,
             xContentRegistry(),
             clientUtil,
-            settings,
             clusterService,
             TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
             clock,
@@ -415,7 +413,6 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             client,
             xContentRegistry(),
             clientUtil,
-            settings,
             clusterService,
             TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
             clock,

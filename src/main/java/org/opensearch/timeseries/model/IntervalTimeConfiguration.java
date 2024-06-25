@@ -89,10 +89,12 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         IntervalTimeConfiguration that = (IntervalTimeConfiguration) o;
         return getInterval() == that.getInterval() && getUnit() == that.getUnit();
     }

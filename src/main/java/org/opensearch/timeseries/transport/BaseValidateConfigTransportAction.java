@@ -18,7 +18,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -33,6 +32,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagement;
@@ -60,6 +60,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected volatile Boolean filterByEnabled;
     protected Clock clock;
     protected Settings settings;
+    protected ValidationAspect validationAspect;
 
     public BaseValidateConfigTransportAction(
         String actionName,
@@ -72,7 +73,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         ActionFilters actionFilters,
         TransportService transportService,
         SearchFeatureDao searchFeatureDao,
-        Setting<Boolean> filterByBackendRoleSetting
+        Setting<Boolean> filterByBackendRoleSetting,
+        ValidationAspect validationAspect
     ) {
         super(actionName, transportService, actionFilters, ValidateConfigRequest::new);
         this.client = client;
@@ -85,6 +87,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.searchFeatureDao = searchFeatureDao;
         this.clock = Clock.systemUTC();
         this.settings = settings;
+        this.validationAspect = validationAspect;
     }
 
     @Override
@@ -101,7 +104,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     public void resolveUserAndExecute(User requestedUser, ActionListener<ValidateConfigResponse> listener, ExecutorFunction function) {
         try {
             // Check if user has backend roles
-            // When filter by is enabled, block users validating detectors who do not have backend roles.
+            // When filter by is enabled, block users validating configs who do not have backend roles.
             if (filterByEnabled) {
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {
@@ -127,10 +130,10 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         client.search(searchRequest, ActionListener.wrap(r -> function.execute(), e -> {
             if (e instanceof IndexNotFoundException) {
                 // IndexNotFoundException is converted to a ADValidationException that gets
-                // parsed to a DetectorValidationIssue that is returned to
+                // parsed to a ValidationIssue that is returned to
                 // the user as a response indicating index doesn't exist
                 ConfigValidationIssue issue = parseValidationException(
-                    new ValidationException(ADCommonMessages.INDEX_NOT_FOUND, ValidationIssueType.INDICES, ValidationAspect.DETECTOR)
+                    new ValidationException(CommonMessages.INDEX_NOT_FOUND, ValidationIssueType.INDICES, validationAspect)
                 );
                 listener.onResponse(new ValidateConfigResponse(issue));
                 return;
@@ -144,7 +147,10 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         Map<String, String> result = new HashMap<>();
         String[] subIssueMessagesSuffix = errorMessage.split(", ");
         for (int i = 0; i < subIssueMessagesSuffix.length; i++) {
-            result.put(subIssueMessagesSuffix[i].split(": ")[1], subIssueMessagesSuffix[i].split(": ")[0]);
+            String[] subIssueMsgs = subIssueMessagesSuffix[i].split(": ");
+            // e.g., key: value: Feature max1 has issue: Data is most likely too sparse when given feature queries are applied. Consider
+            // revising feature queries.
+            result.put(subIssueMsgs[1], subIssueMsgs[0]);
         }
         return result;
     }
@@ -224,5 +230,5 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         }, listener);
     }
 
-    protected abstract Processor<ValidateConfigResponse> createProcessor(Config detector, ValidateConfigRequest request, User user);
+    protected abstract Processor<ValidateConfigResponse> createProcessor(Config config, ValidateConfigRequest request, User user);
 }
