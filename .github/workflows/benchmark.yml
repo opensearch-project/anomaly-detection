@@ -41,7 +41,7 @@ jobs:
           java-version: 21
 
       - name: Checkout AD
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build and Run Tests
         run: |
