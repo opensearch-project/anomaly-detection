@@ -13,11 +13,19 @@ package org.opensearch.timeseries;
 
 import static java.util.Collections.unmodifiableList;
 import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
+import static org.opensearch.ad.constant.ADCommonName.CHECKPOINT_INDEX_NAME;
+import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
+import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
+import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME;
+import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_STATE_INDEX;
+import static org.opensearch.timeseries.constant.CommonName.CONFIG_INDEX;
+import static org.opensearch.timeseries.constant.CommonName.JOB_INDEX;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -249,6 +257,7 @@ import org.opensearch.forecast.transport.ValidateForecasterAction;
 import org.opensearch.forecast.transport.ValidateForecasterTransportAction;
 import org.opensearch.forecast.transport.handler.ForecastIndexMemoryPressureAwareResultHandler;
 import org.opensearch.forecast.transport.handler.ForecastSearchHandler;
+import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
@@ -257,6 +266,7 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
+import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
@@ -313,7 +323,7 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -807,10 +817,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(
-                StatNames.JOB_INDEX_STATUS.getName(),
-                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
-            )
+            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
             .put(
                 StatNames.MODEL_COUNT.getName(),
                 new TimeSeriesStat<>(false, new ADModelsOnNodeCountSupplier(adModelManager, adCacheProvider))
@@ -1192,10 +1199,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(
-                StatNames.JOB_INDEX_STATUS.getName(),
-                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
-            )
+            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
             .put(StatNames.MODEL_COUNT.getName(), new TimeSeriesStat<>(false, new ForecastModelsOnNodeCountSupplier(forecastCacheProvider)))
             .build();
 
@@ -1673,13 +1677,26 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
     }
 
     @Override
+    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
+        List<SystemIndexDescriptor> systemIndexDescriptors = new ArrayList<>();
+        systemIndexDescriptors.add(new SystemIndexDescriptor(CONFIG_INDEX, "Time Series Analytics config index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(ALL_AD_RESULTS_INDEX_PATTERN, "AD result index pattern"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(CHECKPOINT_INDEX_NAME, "AD Checkpoints index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(DETECTION_STATE_INDEX, "AD State index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(FORECAST_CHECKPOINT_INDEX_NAME, "Forecast Checkpoints index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(FORECAST_STATE_INDEX, "Forecast state index"));
+        systemIndexDescriptors.add(new SystemIndexDescriptor(JOB_INDEX, "Time Series Analytics job index"));
+        return systemIndexDescriptors;
+    }
+
+    @Override
     public String getJobType() {
         return TIME_SERIES_JOB_TYPE;
     }
 
     @Override
     public String getJobIndex() {
-        return CommonName.JOB_INDEX;
+        return JOB_INDEX;
     }
 
     @Override
