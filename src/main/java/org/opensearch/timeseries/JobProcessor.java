@@ -579,5 +579,9 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
             );
     }
 
+    public Integer getEndRunExceptionCount(String configId) {
+        return endRunExceptionCount.getOrDefault(configId, 0);
+    }
+
     protected abstract ResultRequest createResultRequest(String configID, long start, long end);
 }

@@ -662,6 +662,13 @@ task release(type: Copy, group: 'build') {
     eachFile { it.path = it.path - "opensearch/" }
 }
 
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+// Only apply jacoco test coverage if we are running a local single node cluster
+if (!usingRemoteCluster && !usingMultiNode) {
+    apply from: 'build-tools/coverage.gradle'
+}
+
 List<String> jacocoExclusions = [
         // code for configuration, settings, etc is excluded from coverage
         'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin',
@@ -701,6 +708,8 @@ List<String> jacocoExclusions = [
 
 
 jacocoTestCoverageVerification {
+    dependsOn(jacocoTestReport)
+    executionData.from = [integTest.jacoco.destinationFile, test.jacoco.destinationFile]
     violationRules {
         rule {
             element = 'CLASS'
@@ -719,13 +728,6 @@ jacocoTestCoverageVerification {
                 minimum = 0.75
             }
         }
-    }
-}
-
-jacocoTestReport {
-    reports {
-        xml.required = true // for coverlay
-        html.required = true // human readable
     }
 }
 

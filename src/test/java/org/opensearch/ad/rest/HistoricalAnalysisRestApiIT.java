@@ -11,6 +11,7 @@
 
 package org.opensearch.ad.rest;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.http.util.EntityUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.opensearch.ad.HistoricalAnalysisRestTestCase;
@@ -58,6 +60,16 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         updateClusterSettings(MAX_RUNNING_ENTITIES_PER_DETECTOR_FOR_HISTORICAL_ANALYSIS.getKey(), 2);
         updateClusterSettings(BATCH_TASK_PIECE_INTERVAL_SECONDS.getKey(), 5);
         updateClusterSettings(MAX_BATCH_TASK_PER_NODE.getKey(), 10);
+        // increase the AD memory percentage. Since enabling jacoco coverage instrumentation,
+        // the memory is not enough to finish HistoricalAnalysisRestApiIT.
+        updateClusterSettings(AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(), 0.5);
+    }
+
+    @After
+    @Override
+    public void tearDown() throws Exception {
+        updateClusterSettings(AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(), 0.1);
+        super.tearDown();
     }
 
     public void testHistoricalAnalysisForSingleEntityDetector() throws Exception {
@@ -103,7 +115,6 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         }
     }
 
-    @SuppressWarnings("unchecked")
     private List<String> startHistoricalAnalysis(int categoryFieldSize) throws Exception {
         return startHistoricalAnalysis(categoryFieldSize, null);
     }
@@ -122,6 +133,9 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             if (!TaskState.RUNNING.name().equals(adTaskProfile.getTask().getState())) {
                 adTaskProfile = (ADTaskProfile) waitUntilTaskReachState(detectorId, ImmutableSet.of(TaskState.RUNNING.name())).get(0);
             }
+            // if (adTaskProfile.getTotalEntitiesCount() == null) {
+            // adTaskProfile = (ADTaskProfile) waitUntilEntityCountAvailable(detectorId).get(0);
+            // }
             assertEquals((int) Math.pow(categoryFieldDocCount, categoryFieldSize), adTaskProfile.getTotalEntitiesCount().intValue());
             assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
             assertTrue(adTaskProfile.getRunningEntitiesCount() > 0);
@@ -169,8 +183,13 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         waitUntilGetTaskProfile(detectorId);
 
         // stop historical detector
-        Response stopDetectorResponse = stopAnomalyDetector(detectorId, client(), false);
-        assertEquals(RestStatus.OK, TestHelpers.restStatus(stopDetectorResponse));
+        try {
+            Response stopDetectorResponse = stopAnomalyDetector(detectorId, client(), false);
+            assertEquals(RestStatus.OK, TestHelpers.restStatus(stopDetectorResponse));
+        } catch (Exception e) {
+            // it is possible the tasks has already stopped
+            assertTrue("expected No running task found but actual is " + e.getMessage(), e.getMessage().contains("No running task found"));
+        }
 
         // get task profile
         checkIfTaskCanFinishCorrectly(detectorId, taskId, ImmutableSet.of(TaskState.STOPPED.name()));

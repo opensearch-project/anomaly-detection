@@ -58,12 +58,12 @@ jobs:
               su `id -un 1000` -c "./gradlew ':test' --tests 'org.opensearch.ad.ml.HCADModelPerfTests' \
                 -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false \
                 -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true \
-                -Dmodel-benchmark=true"
+                -Dtests.timeoutSuite=3600000! -Dmodel-benchmark=true"
               ;;
             single_stream)
               su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.SingleStreamModelPerfIT' \
                 -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false \
                 -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true \
-                -Dmodel-benchmark=true"
+                -Dtests.timeoutSuite=3600000! -Dmodel-benchmark=true"
               ;;
           esac

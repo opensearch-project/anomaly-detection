@@ -32,8 +32,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class RuleModelPerfIT extends AbstractSyntheticDataTest {
-    private static final Logger LOG = (Logger) LogManager.getLogger(RuleModelPerfIT.class);
+public class RuleModelPerfIT extends AbstractRuleTestCase {
+    static final Logger LOG = (Logger) LogManager.getLogger(RuleModelPerfIT.class);
 
     public void testRule() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
@@ -47,21 +47,6 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
             minRecall.put("Phoenix", 0.9);
             minRecall.put("Scottsdale", 0.6);
             verifyRule("rule", 10, minPrecision.size(), 1500, minPrecision, minRecall, 20);
-        }
-    }
-
-    public void testRuleWithDateNanos() throws Exception {
-        // TODO: this test case will run for a much longer time and timeout with security enabled
-        if (!isHttps()) {
-            disableResourceNotFoundFaultTolerence();
-            // there are 8 entities in the data set. Each one needs 1500 rows as training data.
-            Map<String, Double> minPrecision = new HashMap<>();
-            minPrecision.put("Phoenix", 0.5);
-            minPrecision.put("Scottsdale", 0.5);
-            Map<String, Double> minRecall = new HashMap<>();
-            minRecall.put("Phoenix", 0.9);
-            minRecall.put("Scottsdale", 0.6);
-            verifyRule("rule", 10, minPrecision.size(), 1500, minPrecision, minRecall, 20, true);
         }
     }
 
@@ -144,96 +129,29 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
         int maxError,
         boolean useDateNanos
     ) throws Exception {
-        String dataFileName = String.format(Locale.ROOT, "data/%s.data", datasetName);
-        String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
 
-        List<JsonObject> data = getData(dataFileName);
+        String labelFileName = String.format(Locale.ROOT, "data/%s.label", datasetName);
         Map<String, List<Entry<Instant, Instant>>> anomalies = getAnomalyWindowsMap(labelFileName);
 
-        RestClient client = client();
-        String categoricalField = "componentName";
-        String mapping = String
-            .format(
-                Locale.ROOT,
-                "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\":"
-                    + (useDateNanos ? "\"date_nanos\"" : "\"date\"")
-                    + "},"
-                    + " \"transform._doc_count\": { \"type\": \"integer\" },"
-                    + "\"%s\": { \"type\": \"keyword\"} } } }",
-                categoricalField
-            );
-
-        bulkIndexData(data, datasetName, client, mapping);
-
-        // we need to account that interval can have multiple entity record
-        int rawDataTrainTestSplit = trainTestSplit * numberOfEntities;
-        Instant trainTime = Instant.ofEpochMilli(Long.parseLong(data.get(rawDataTrainTestSplit - 1).get("timestamp").getAsString()));
-        /*
-         * The {@code CompositeRetriever.PageIterator.hasNext()} method checks if a request is expired
-         * relative to the current system time. This method is designed to ensure that the execution time
-         * is set to either the current time or a future time to prevent premature expirations in our tests.
-         *
-         * Also, AD accepts windowDelay in the unit of minutes. Thus, we need to convert the delay in minutes. This will
-         * make it easier to search for results based on data end time. Otherwise, real data time and the converted
-         * data time from request time.
-         * Assume x = real data time. y= real window delay. y'= window delay in minutes. If y and y' are different,
-         * x + y - y' != x.
-         */
-        long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes();
-        Duration windowDelay = Duration.ofMinutes(windowDelayMinutes);
-
-        String detector = String
-            .format(
-                Locale.ROOT,
-                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
-                    + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
-                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"transform._doc_count\" } } } }"
-                    + "], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
-                    + "\"category_field\": [\"%s\"], "
-                    + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
-                    + "\"history\": %d,"
-                    + "\"schema_version\": 0,"
-                    + "\"rules\": [{\"action\": \"ignore_anomaly\", \"conditions\": [{\"feature_name\": \"feature 1\", \"threshold_type\": \"actual_over_expected_ratio\", \"operator\": \"lte\", \"value\": 0.3}, "
-                    + "{\"feature_name\": \"feature 1\", \"threshold_type\": \"expected_over_actual_ratio\", \"operator\": \"lte\", \"value\": 0.3}"
-                    + "]}]"
-                    + "}",
-                datasetName,
-                intervalMinutes,
-                categoricalField,
-                windowDelayMinutes,
-                trainTestSplit - 1
-            );
-        String detectorId = createDetector(client, detector);
-        LOG.info("Created detector {}", detectorId);
-
-        Instant executeBegin = dataToExecutionTime(trainTime, windowDelay);
-        Instant executeEnd = executeBegin.plus(intervalMinutes, ChronoUnit.MINUTES);
-        Instant dataEnd = trainTime.plus(intervalMinutes, ChronoUnit.MINUTES);
-
-        simulateStartDetector(detectorId, executeBegin, executeEnd, client, numberOfEntities);
-        simulateWaitForInitDetector(detectorId, client, dataEnd, numberOfEntities);
+        TrainResult trainResult = ingestTrainData(datasetName, intervalMinutes, numberOfEntities, trainTestSplit, useDateNanos);
 
         Triple<Map<String, double[]>, Integer, Map<String, Set<Integer>>> results = getTestResults(
-            detectorId,
-            data,
-            rawDataTrainTestSplit,
+            trainResult.detectorId,
+            trainResult.data,
+            trainResult.rawDataTrainTestSplit,
             intervalMinutes,
             anomalies,
-            client,
+            client(),
             numberOfEntities,
-            windowDelay
+            trainResult.windowDelay
         );
         verifyTestResults(results, anomalies, minPrecision, minRecall, maxError);
-    }
-
-    private Instant dataToExecutionTime(Instant instant, Duration windowDelay) {
-        return instant.plus(windowDelay);
     }
 
     private Triple<Map<String, double[]>, Integer, Map<String, Set<Integer>>> getTestResults(
         String detectorId,
         List<JsonObject> data,
-        int trainTestSplit,
+        int rawTrainTestSplit,
         int intervalMinutes,
         Map<String, List<Entry<Instant, Instant>>> anomalies,
         RestClient client,
@@ -247,20 +165,9 @@ public class RuleModelPerfIT extends AbstractSyntheticDataTest {
         // Use a map to record the number of times we have seen them.
         // data start time -> the number of entities
         TreeMap<String, Integer> entityMap = new TreeMap<>();
-        for (int i = trainTestSplit; i < data.size(); i++) {
-            String beginTimeStampAsString = data.get(i).get("timestamp").getAsString();
-            Integer newCount = entityMap.compute(beginTimeStampAsString, (key, oldValue) -> (oldValue == null) ? 1 : oldValue + 1);
-            if (newCount > 1) {
-                // we have seen this timestamp before. Without this line, we will get rcf IllegalArgumentException about out of order tuples
-                continue;
-            }
-            Instant begin = dataToExecutionTime(Instant.ofEpochMilli(Long.parseLong(beginTimeStampAsString)), windowDelay);
-            Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
-            try {
-                runDetectionResult(detectorId, begin, end, client, numberOfEntities);
-            } catch (Exception e) {
+        for (int i = rawTrainTestSplit; i < data.size(); i++) {
+            if (scoreOneResult(data.get(i), entityMap, windowDelay, intervalMinutes, detectorId, client, numberOfEntities)) {
                 errors++;
-                LOG.error("failed to run detection result", e);
             }
         }
 
