@@ -27,7 +27,6 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.junit.Before;
 import org.opensearch.ad.mock.model.MockSimpleLog;
-import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskProfile;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Response;
@@ -36,7 +35,6 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.timeseries.TaskProfile;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
@@ -250,9 +248,30 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
     protected List<Object> waitUntilTaskReachState(String detectorId, Set<String> targetStates) throws InterruptedException {
         List<Object> results = new ArrayList<>();
         int i = 0;
-        TaskProfile<ADTask> adTaskProfile = null;
+        ADTaskProfile adTaskProfile = null;
         // Increase retryTimes if some task can't reach done state
         while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getTask().getState())) && i < MAX_RETRY_TIMES) {
+            try {
+                adTaskProfile = getADTaskProfile(detectorId);
+            } catch (Exception e) {
+                logger.error("failed to get ADTaskProfile", e);
+            } finally {
+                Thread.sleep(1000);
+            }
+            i++;
+        }
+        assertNotNull(adTaskProfile);
+        results.add(adTaskProfile);
+        results.add(i);
+        return results;
+    }
+
+    protected List<Object> waitUntilEntityCountAvailable(String detectorId) throws InterruptedException {
+        List<Object> results = new ArrayList<>();
+        int i = 0;
+        ADTaskProfile adTaskProfile = null;
+        // Increase retryTimes if some task can't reach done state
+        while ((adTaskProfile == null || adTaskProfile.getTotalEntitiesCount() == null) && i < MAX_RETRY_TIMES) {
             try {
                 adTaskProfile = getADTaskProfile(detectorId);
             } catch (Exception e) {

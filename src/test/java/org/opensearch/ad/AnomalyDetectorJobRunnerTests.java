@@ -48,7 +48,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionRequest;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
@@ -65,7 +67,12 @@ import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultResponse;
+import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
+import org.opensearch.client.IndicesAdminClient;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -97,6 +104,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
@@ -163,6 +171,8 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
     private ADIndexManagement anomalyDetectionIndices;
 
+    private Settings settings;
+
     @BeforeClass
     public static void setUpBeforeClass() {
         setUpThreadPool(AnomalyDetectorJobRunnerTests.class.getSimpleName());
@@ -198,7 +208,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         adJobProcessor.setTaskManager(adTaskManager);
 
-        Settings settings = Settings
+        settings = Settings
             .builder()
             .put("plugins.anomaly_detection.max_retry_for_backoff", 2)
             .put("plugins.anomaly_detection.backoff_initial_delay", TimeValue.timeValueMillis(1))
@@ -860,5 +870,157 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
             .updateLatestRealtimeTaskOnCoordinatingNode(any(), any(), totalUpdates.capture(), any(), any(), any());
         assertEquals(TimeSeriesSettings.NUM_MIN_SAMPLES, totalUpdates.getValue().longValue());
         assertEquals(true, adTaskCacheManager.hasQueriedResultIndex(detector.getId()));
+    }
+
+    public void testValidateCustomResult() throws IOException {
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "index";
+        when(jobParameter.getCustomResultIndexOrAlias()).thenReturn(resultIndex);
+        doAnswer(invocation -> {
+            ExecutorFunction function = invocation.getArgument(4);
+            function.execute();
+            return null;
+        }).when(anomalyDetectionIndices).validateCustomIndexForBackendJob(any(), any(), any(), any(), any(ExecutorFunction.class), any());
+        LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Instant executionStartTime = confirmInitializedSetup();
+
+        adJobProcessor.runJob(jobParameter, lockService, lock, Instant.now().minusSeconds(60), executionStartTime, recorder, detector);
+        verify(client, times(1)).execute(eq(AnomalyResultAction.INSTANCE), any(), any());
+    }
+
+    enum CreateIndexMode {
+        NOT_ACKED,
+        RESOUCE_EXISTS,
+        RUNTIME_EXCEPTION
+    }
+
+    private void setUpValidateCustomResultIndex(CreateIndexMode mode) throws IOException {
+        String resultIndexAlias = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "index";
+        when(jobParameter.getCustomResultIndexOrAlias()).thenReturn(resultIndexAlias);
+
+        ClusterName clusterName = new ClusterName("test");
+        ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays
+                            .asList(
+                                AnomalyDetectorSettings.AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD,
+                                AnomalyDetectorSettings.AD_RESULT_HISTORY_ROLLOVER_PERIOD,
+                                AnomalyDetectorSettings.AD_RESULT_HISTORY_RETENTION_PERIOD,
+                                AnomalyDetectorSettings.AD_MAX_PRIMARY_SHARDS
+                            )
+                    )
+                )
+        );
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        AdminClient adminClient = mock(AdminClient.class);
+        IndicesAdminClient indicesAdminClient = mock(IndicesAdminClient.class);
+        doAnswer(invocation -> {
+            ActionListener<CreateIndexResponse> listener = invocation.getArgument(1);
+            if (CreateIndexMode.NOT_ACKED == mode) {
+                // not acked
+                listener.onResponse(new CreateIndexResponse(false, false, resultIndexAlias));
+            } else if (CreateIndexMode.RESOUCE_EXISTS == mode) {
+                listener.onFailure(new ResourceAlreadyExistsException("index created"));
+            } else {
+                listener.onFailure(new RuntimeException());
+            }
+
+            return null;
+        }).when(indicesAdminClient).create(any(), any(ActionListener.class));
+
+        when(client.admin()).thenReturn(adminClient);
+        when(adminClient.indices()).thenReturn(indicesAdminClient);
+
+        anomalyDetectionIndices = new ADIndexManagement(
+            client,
+            clusterService,
+            threadPool,
+            settings,
+            nodeFilter,
+            1,
+            NamedXContentRegistry.EMPTY
+        );
+        adJobProcessor.setIndexManagement(anomalyDetectionIndices);
+    }
+
+    public void testNotAckedValidCustomResultCreation() throws IOException {
+        setUpValidateCustomResultIndex(CreateIndexMode.NOT_ACKED);
+        LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Instant executionStartTime = confirmInitializedSetup();
+
+        assertEquals(
+            "Expect 0 EndRunException of "
+                + jobParameter.getName()
+                + ". Got "
+                + adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue(),
+            0,
+            adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue()
+        );
+        adJobProcessor.runJob(jobParameter, lockService, lock, Instant.now().minusSeconds(60), executionStartTime, recorder, detector);
+        assertEquals(
+            "Expect 1 EndRunException of "
+                + jobParameter.getName()
+                + ". Got "
+                + adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue(),
+            1,
+            adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue()
+        );
+    }
+
+    public void testCustomResultExistsWhileCreation() throws IOException {
+        setUpValidateCustomResultIndex(CreateIndexMode.RESOUCE_EXISTS);
+        LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Instant executionStartTime = confirmInitializedSetup();
+
+        assertEquals(
+            "Expect 0 EndRunException of "
+                + jobParameter.getName()
+                + ". Got "
+                + adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue(),
+            0,
+            adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue()
+        );
+        adJobProcessor.runJob(jobParameter, lockService, lock, Instant.now().minusSeconds(60), executionStartTime, recorder, detector);
+        assertEquals(
+            "Expect 0 EndRunException of "
+                + jobParameter.getName()
+                + ". Got "
+                + adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue(),
+            0,
+            adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue()
+        );
+        verify(client, times(1)).index(any(), any());
+        verify(client, times(1)).delete(any(), any());
+    }
+
+    public void testUnexpectedWhileCreation() throws IOException {
+        setUpValidateCustomResultIndex(CreateIndexMode.RUNTIME_EXCEPTION);
+        LockModel lock = new LockModel(CommonName.JOB_INDEX, jobParameter.getName(), Instant.now(), 10, false);
+        Instant executionStartTime = confirmInitializedSetup();
+
+        assertEquals(
+            "Expect 0 EndRunException of "
+                + jobParameter.getName()
+                + ". Got "
+                + adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue(),
+            0,
+            adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue()
+        );
+        adJobProcessor.runJob(jobParameter, lockService, lock, Instant.now().minusSeconds(60), executionStartTime, recorder, detector);
+        assertEquals(
+            "Expect 1 EndRunException of "
+                + jobParameter.getName()
+                + ". Got "
+                + adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue(),
+            1,
+            adJobProcessor.getEndRunExceptionCount(jobParameter.getName()).intValue()
+        );
+        verify(client, times(0)).index(any(), any());
+        verify(client, times(0)).delete(any(), any());
     }
 }

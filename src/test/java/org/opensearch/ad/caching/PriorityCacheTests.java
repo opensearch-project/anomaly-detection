@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -749,5 +751,41 @@ public class PriorityCacheTests extends AbstractCacheTest {
 
         verify(checkpoint, times(1)).deleteModelCheckpoint(eq(entity2.getModelId(detectorId).get()), any());
         verify(checkpointWriteQueue, never()).write(any(), anyBoolean(), any());
+    }
+
+    public void testGetTotalUpdates_orElseGetBranch() {
+        // Mock the ModelState and its methods
+        ModelState<ThresholdedRandomCutForest> mockModelState = Mockito.mock(ModelState.class);
+
+        // Mock the getModel method to return an empty Optional
+        when(mockModelState.getModel()).thenReturn(Optional.empty());
+
+        // Mock the getSamples method to return a list with a specific size
+        Deque<Sample> mockSamples = Mockito.mock(Deque.class);
+        when(mockSamples.size()).thenReturn(5);
+        when(mockModelState.getSamples()).thenReturn(mockSamples);
+
+        // Call the method under test
+        long result = entityCache.getTotalUpdates(mockModelState);
+
+        // Assert that the result is the size of the samples
+        assertEquals(5L, result);
+    }
+
+    public void testGetTotalUpdates_orElseGetBranchWithNullSamples() {
+        // Mock the ModelState and its methods
+        ModelState<ThresholdedRandomCutForest> mockModelState = Mockito.mock(ModelState.class);
+
+        // Mock the getModel method to return an empty Optional
+        when(mockModelState.getModel()).thenReturn(Optional.empty());
+
+        // Mock the getSamples method to return null
+        when(mockModelState.getSamples()).thenReturn(null);
+
+        // Call the method under test
+        long result = entityCache.getTotalUpdates(mockModelState);
+
+        // Assert that the result is 0L
+        assertEquals(0L, result);
     }
 }
