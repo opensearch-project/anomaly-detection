@@ -14,11 +14,14 @@ package org.opensearch.ad.ml;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -37,6 +40,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
@@ -54,6 +58,7 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
@@ -89,6 +94,8 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
     Set<Setting<?>> nodestateSetting;
     int detectorInterval = 1;
     int shingleSize;
+    Client client;
+    SecurityClientUtil securityCientUtil;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -104,9 +111,9 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
         threadPool = mock(ThreadPool.class);
         setUpADThreadPool(threadPool);
 
-        settings = Settings.EMPTY;
+        settings = Settings.builder().put(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ.getKey(), TimeValue.timeValueHours(12)).build();
 
-        Client client = mock(Client.class);
+        client = mock(Client.class);
         clientUtil = mock(ClientUtil.class);
 
         detector = TestHelpers.AnomalyDetectorBuilder
@@ -137,7 +144,37 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
 
         imputer = new LinearUniformImputer(true);
 
-        searchFeatureDao = mock(SearchFeatureDao.class);
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays
+                            .asList(
+                                AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW,
+                                AnomalyDetectorSettings.AD_PAGE_SIZE,
+                                AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ
+                            )
+                    )
+                )
+        );
+        clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        securityCientUtil = new SecurityClientUtil(stateManager, settings);
+        searchFeatureDao = spy(
+            new SearchFeatureDao(
+                client,
+                xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
+                securityCientUtil,
+                clusterService,
+                TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+                clock,
+                1,
+                1,
+                60_000L
+            )
+        );
 
         featureManager = new FeatureManager(
             searchFeatureDao,

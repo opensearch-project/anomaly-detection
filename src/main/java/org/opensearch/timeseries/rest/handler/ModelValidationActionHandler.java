@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -35,7 +35,6 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.AnalysisType;
@@ -46,12 +45,12 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.MergeableList;
+import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
-import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 
 /**
@@ -62,7 +61,6 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
  * different varying intervals in order to find the best interval for the data. If no interval is found with all
  * configuration applied then each configuration is tested sequentially for sparsity</p>
  */
-// TODO: Add more UT and IT
 public class ModelValidationActionHandler {
 
     protected final Config config;
@@ -78,11 +76,12 @@ public class ModelValidationActionHandler {
     protected final Settings settings;
     protected final User user;
     protected final AnalysisType context;
-    private final HistogramAggregationHelper histogramAggHelper;
-    private final IntervalCalculation intervalCalculation;
+    private final SearchFeatureDao searchFeatureDao;
     // time range bounds to verify configured interval makes sense or not
     private LongBounds timeRangeToSearchForConfiguredInterval;
     private final LatestTimeRetriever latestTimeRetriever;
+    private final ValidationIssueType intervalIssueType;
+    private AggregationPrep aggregationPrep;
 
     /**
      * Constructor function.
@@ -100,6 +99,7 @@ public class ModelValidationActionHandler {
      * @param settings                        Node settings
      * @param user                            User info
      * @param context                         Analysis type
+     * @param intervalIssueType               Interval validation issue type
      */
     public ModelValidationActionHandler(
         ClusterService clusterService,
@@ -114,7 +114,8 @@ public class ModelValidationActionHandler {
         Clock clock,
         Settings settings,
         User user,
-        AnalysisType context
+        AnalysisType context,
+        ValidationIssueType intervalIssueType
     ) {
         this.clusterService = clusterService;
         this.client = client;
@@ -123,16 +124,17 @@ public class ModelValidationActionHandler {
         this.config = config;
         this.requestTimeout = requestTimeout;
         this.xContentRegistry = xContentRegistry;
+        this.searchFeatureDao = searchFeatureDao;
         this.validationType = validationType;
         this.clock = clock;
         this.settings = settings;
         this.user = user;
         this.context = context;
-        this.histogramAggHelper = new HistogramAggregationHelper(config, requestTimeout);
-        this.intervalCalculation = new IntervalCalculation(config, requestTimeout, client, clientUtil, user, context, clock);
         // calculate the bounds in a lazy manner
         this.timeRangeToSearchForConfiguredInterval = null;
         this.latestTimeRetriever = new LatestTimeRetriever(config, requestTimeout, clientUtil, client, user, context, searchFeatureDao);
+        this.intervalIssueType = intervalIssueType;
+        this.aggregationPrep = new AggregationPrep(searchFeatureDao, requestTimeout, config);
     }
 
     public void start() {
@@ -170,15 +172,14 @@ public class ModelValidationActionHandler {
             return;
         }
         long timeRangeEnd = Math.min(Instant.now().toEpochMilli(), latestTime.get());
-        intervalCalculation
+        new IntervalCalculation(config, requestTimeout, client, clientUtil, user, context, clock, searchFeatureDao, timeRangeEnd, topEntity)
             .findInterval(
-                timeRangeEnd,
-                topEntity,
-                ActionListener.wrap(interval -> processIntervalRecommendation(interval, latestTime.get()), listener::onFailure)
+                ActionListener.wrap(interval -> processIntervalRecommendation(interval, latestTime.get(), topEntity), listener::onFailure)
             );
     }
 
-    private void processIntervalRecommendation(IntervalTimeConfiguration interval, long latestTime) {
+    private void processIntervalRecommendation(IntervalTimeConfiguration interval, long latestTime, Map<String, Object> topEntity)
+        throws IOException {
         // if interval suggestion is null that means no interval could be found with all the configurations
         // applied, our next step then is to check density just with the raw data and then add each configuration
         // one at a time to try and find root cause of low density
@@ -186,9 +187,9 @@ public class ModelValidationActionHandler {
             checkRawDataSparsity(latestTime);
         } else {
             if (((IntervalTimeConfiguration) config.getInterval()).gte(interval)) {
-                logger.info("Using the current interval there is enough dense data ");
+                logger.info("Using the current interval as there is enough dense data ");
                 // Check if there is a window delay recommendation if everything else is successful and send exception
-                if (Instant.now().toEpochMilli() - latestTime > histogramAggHelper.timeConfigToMilliSec(config.getWindowDelay())) {
+                if (Instant.now().toEpochMilli() - latestTime > timeConfigToMilliSec(config.getWindowDelay())) {
                     sendWindowDelayRec(latestTime);
                     return;
                 }
@@ -201,7 +202,7 @@ public class ModelValidationActionHandler {
                 .onFailure(
                     new ValidationException(
                         CommonMessages.INTERVAL_REC + interval.getInterval(),
-                        ValidationIssueType.DETECTION_INTERVAL,
+                        intervalIssueType,
                         ValidationAspect.MODEL,
                         interval
                     )
@@ -209,14 +210,14 @@ public class ModelValidationActionHandler {
         }
     }
 
-    public AggregationBuilder getBucketAggregation(long latestTime) {
+    private AggregationBuilder getBucketAggregation(long latestTime) {
         IntervalTimeConfiguration interval = (IntervalTimeConfiguration) config.getInterval();
         long intervalInMinutes = IntervalTimeConfiguration.getIntervalInMinute(interval);
         if (timeRangeToSearchForConfiguredInterval == null) {
-            timeRangeToSearchForConfiguredInterval = histogramAggHelper.getTimeRangeBounds(latestTime, intervalInMinutes * 60000);
+            timeRangeToSearchForConfiguredInterval = aggregationPrep.getTimeRangeBounds(interval, latestTime);
         }
 
-        return histogramAggHelper.getBucketAggregation((int) intervalInMinutes, timeRangeToSearchForConfiguredInterval);
+        return aggregationPrep.getHistogramAggregation((int) intervalInMinutes, timeRangeToSearchForConfiguredInterval);
     }
 
     private void checkRawDataSparsity(long latestTime) {
@@ -238,24 +239,8 @@ public class ModelValidationActionHandler {
             );
     }
 
-    public double processBucketAggregationResults(Histogram buckets, long latestTime) {
-        long intervalInMillis = config.getIntervalInMilliseconds();
-        return histogramAggHelper.processBucketAggregationResults(buckets, intervalInMillis, config);
-    }
-
     private void processRawDataResults(SearchResponse response, long latestTime) {
-        Histogram aggregate = null;
-        try {
-            aggregate = histogramAggHelper.checkBucketResultErrors(response);
-        } catch (ValidationException e) {
-            listener.onFailure(e);
-        }
-
-        if (aggregate == null) {
-            return;
-        }
-        double fullBucketRate = processBucketAggregationResults(aggregate, latestTime);
-        if (fullBucketRate < TimeSeriesSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
+        if (aggregationPrep.getHistorgramBucketHitRate(response) < TimeSeriesSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
             listener
                 .onFailure(
                     new ValidationException(CommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL)
@@ -268,7 +253,7 @@ public class ModelValidationActionHandler {
     private void checkDataFilterSparsity(long latestTime) {
         AggregationBuilder aggregation = getBucketAggregation(latestTime);
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(config.getFilterQuery());
-        SearchSourceBuilder searchSourceBuilder = histogramAggHelper.getSearchSourceBuilder(query, aggregation);
+        SearchSourceBuilder searchSourceBuilder = aggregationPrep.getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> processDataFilterResults(response, latestTime), listener::onFailure);
@@ -286,18 +271,7 @@ public class ModelValidationActionHandler {
     }
 
     private void processDataFilterResults(SearchResponse response, long latestTime) {
-        Histogram aggregate = null;
-        try {
-            aggregate = histogramAggHelper.checkBucketResultErrors(response);
-        } catch (ValidationException e) {
-            listener.onFailure(e);
-        }
-
-        if (aggregate == null) {
-            return;
-        }
-        double fullBucketRate = processBucketAggregationResults(aggregate, latestTime);
-        if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+        if (aggregationPrep.getHistorgramBucketHitRate(response) < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
             listener
                 .onFailure(
                     new ValidationException(
@@ -313,7 +287,7 @@ public class ModelValidationActionHandler {
             getTopEntityForCategoryField(latestTime);
         } else {
             try {
-                checkFeatureQueryDelegate(latestTime);
+                checkFeatureQueryDelegate(latestTime, new HashMap<>());
             } catch (Exception ex) {
                 logger.error(ex);
                 listener.onFailure(ex);
@@ -322,13 +296,13 @@ public class ModelValidationActionHandler {
     }
 
     private void getTopEntityForCategoryField(long latestTime) {
-        ActionListener<Map<String, Object>> getTopEntityListener = ActionListener
-            .wrap(topEntity -> checkCategoryFieldSparsity(topEntity, latestTime), exception -> {
+        ActionListener<Pair<Optional<Long>, Map<String, Object>>> getTopEntityListener = ActionListener
+            .wrap(topEntity -> checkCategoryFieldSparsity(topEntity.getRight(), latestTime), exception -> {
                 listener.onFailure(exception);
                 logger.error("Failed to get top entity for categorical field", exception);
                 return;
             });
-        latestTimeRetriever.getTopEntity(getTopEntityListener);
+        latestTimeRetriever.getTopEntity(getTopEntityListener, latestTime);
     }
 
     private void checkCategoryFieldSparsity(Map<String, Object> topEntity, long latestTime) {
@@ -337,10 +311,10 @@ public class ModelValidationActionHandler {
             query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
         }
         AggregationBuilder aggregation = getBucketAggregation(latestTime);
-        SearchSourceBuilder searchSourceBuilder = histogramAggHelper.getSearchSourceBuilder(query, aggregation);
+        SearchSourceBuilder searchSourceBuilder = aggregationPrep.getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
-            .wrap(response -> processTopEntityResults(response, latestTime), listener::onFailure);
+            .wrap(response -> processTopEntityResults(response, latestTime, topEntity), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
         // checkpoint
         clientUtil
@@ -354,26 +328,15 @@ public class ModelValidationActionHandler {
             );
     }
 
-    private void processTopEntityResults(SearchResponse response, long latestTime) {
-        Histogram aggregate = null;
-        try {
-            aggregate = histogramAggHelper.checkBucketResultErrors(response);
-        } catch (ValidationException e) {
-            listener.onFailure(e);
-        }
-
-        if (aggregate == null) {
-            return;
-        }
-        double fullBucketRate = processBucketAggregationResults(aggregate, latestTime);
-        if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+    private void processTopEntityResults(SearchResponse response, long latestTime, Map<String, Object> topEntity) {
+        if (aggregationPrep.getHistorgramBucketHitRate(response) < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
             listener
                 .onFailure(
                     new ValidationException(CommonMessages.CATEGORY_FIELD_TOO_SPARSE, ValidationIssueType.CATEGORY, ValidationAspect.MODEL)
                 );
         } else {
             try {
-                checkFeatureQueryDelegate(latestTime);
+                checkFeatureQueryDelegate(latestTime, topEntity);
             } catch (Exception ex) {
                 logger.error(ex);
                 listener.onFailure(ex);
@@ -381,7 +344,20 @@ public class ModelValidationActionHandler {
         }
     }
 
-    private void checkFeatureQueryDelegate(long latestTime) throws IOException {
+    private void checkFeatureQueryDelegate(long latestTime, Map<String, Object> topEntity) throws IOException {
+        if (config.isHighCardinality()) {
+            if (topEntity.isEmpty()) {
+                listener
+                    .onFailure(
+                        new ValidationException(
+                            CommonMessages.CATEGORY_FIELD_TOO_SPARSE,
+                            ValidationIssueType.CATEGORY,
+                            ValidationAspect.MODEL
+                        )
+                    );
+                return;
+            }
+        }
         ActionListener<MergeableList<double[]>> validateFeatureQueriesListener = ActionListener.wrap(response -> {
             windowDelayRecommendation(latestTime);
         }, exception -> {
@@ -395,28 +371,24 @@ public class ModelValidationActionHandler {
                 CommonMessages.FEATURE_QUERY_TOO_SPARSE,
                 false
             );
-
-        for (Feature feature : config.getFeatureAttributes()) {
-            AggregationBuilder aggregation = getBucketAggregation(latestTime);
-            BoolQueryBuilder query = QueryBuilders.boolQuery().filter(config.getFilterQuery());
-            List<String> featureFields = ParseUtils.getFieldNamesForFeature(feature, xContentRegistry);
-            for (String featureField : featureFields) {
-                query.filter(QueryBuilders.existsQuery(featureField));
-            }
-            SearchSourceBuilder searchSourceBuilder = histogramAggHelper.getSearchSourceBuilder(query, aggregation);
-            SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        for (int i = 0; i < config.getFeatureAttributes().size(); i++) {
+            final Feature feature = config.getFeatureAttributes().get(i);
+            IntervalTimeConfiguration interval = (IntervalTimeConfiguration) config.getInterval();
+            SearchRequest searchRequest = aggregationPrep
+                .createSearchRequestForFeature(interval, aggregationPrep.getTimeRangeBounds(interval, latestTime), topEntity, i);
             final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
                 try {
-                    Histogram aggregate = histogramAggHelper.checkBucketResultErrors(response);
-                    if (aggregate == null) {
-                        return;
-                    }
-                    double fullBucketRate = processBucketAggregationResults(aggregate, latestTime);
+                    double fullBucketRate = aggregationPrep.getBucketHitRate(response, interval, latestTime);
                     if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
                         multiFeatureQueriesResponseListener
                             .onFailure(
                                 new ValidationException(
-                                    CommonMessages.FEATURE_QUERY_TOO_SPARSE,
+                                    // BaseValidateConfigTransportAction.getFeatureSubIssuesFromErrorMessage assumes feature issue has a
+                                    // colon and would reverse the message and erroneous feature name.
+                                    // Need to follow the same convention. This convention has been followed by other cases in
+                                    // AbstractTimeSeriesActionHandler.validateConfigFeatures
+                                    // like "Feature has an invalid query returning empty aggregated data: max1"
+                                    String.format(Locale.ROOT, "%s: %s", CommonMessages.FEATURE_QUERY_TOO_SPARSE, feature.getName()),
                                     ValidationIssueType.FEATURE_ATTRIBUTES,
                                     ValidationAspect.MODEL
                                 )
@@ -464,7 +436,7 @@ public class ModelValidationActionHandler {
     private void windowDelayRecommendation(long latestTime) {
         // Check if there is a better window-delay to recommend and if one was recommended
         // then send exception and return, otherwise continue to let user know data is too sparse as explained below
-        if (Instant.now().toEpochMilli() - latestTime > histogramAggHelper.timeConfigToMilliSec(config.getWindowDelay())) {
+        if (Instant.now().toEpochMilli() - latestTime > timeConfigToMilliSec(config.getWindowDelay())) {
             sendWindowDelayRec(latestTime);
             return;
         }
@@ -479,4 +451,7 @@ public class ModelValidationActionHandler {
             .onFailure(new ValidationException(CommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL));
     }
 
+    private Long timeConfigToMilliSec(TimeConfiguration timeConfig) {
+        return Optional.ofNullable((IntervalTimeConfiguration) timeConfig).map(t -> t.toDuration().toMillis()).orElse(0L);
+    }
 }
