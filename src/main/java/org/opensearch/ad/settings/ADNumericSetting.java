@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.ad.settings;
@@ -31,6 +25,8 @@ public class ADNumericSetting extends DynamicNumericSetting {
      */
     public static final String CATEGORY_FIELD_LIMIT = "plugins.anomaly_detection.category_field_limit";
 
+    public static final String JVM_HEAP_USAGE_THRESHOLD = "plugins.anomaly_detection.jvm_heap_usage_threshold";
+
     private static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             // how many categorical fields we support
@@ -42,6 +38,11 @@ public class ADNumericSetting extends DynamicNumericSetting {
             put(
                 CATEGORY_FIELD_LIMIT,
                 Setting.intSetting(CATEGORY_FIELD_LIMIT, 2, 0, 5, Setting.Property.NodeScope, Setting.Property.Dynamic)
+            );
+            // JVM heap usage threshold setting
+            put(
+                JVM_HEAP_USAGE_THRESHOLD,
+                Setting.intSetting(JVM_HEAP_USAGE_THRESHOLD, 95, 0, 98, Setting.Property.NodeScope, Setting.Property.Dynamic)
             );
         }
     });
@@ -62,5 +63,13 @@ public class ADNumericSetting extends DynamicNumericSetting {
      */
     public static int maxCategoricalFields() {
         return ADNumericSetting.getInstance().getSettingValue(ADNumericSetting.CATEGORY_FIELD_LIMIT);
+    }
+
+    /**
+     * Get the jvm_heap_usage threshold setting value
+     * @return jvm_heap_usage threshold setting value
+     */
+    public static int getJVMHeapUsageThreshold() {
+        return ADNumericSetting.getInstance().getSettingValue(ADNumericSetting.JVM_HEAP_USAGE_THRESHOLD);
     }
 }

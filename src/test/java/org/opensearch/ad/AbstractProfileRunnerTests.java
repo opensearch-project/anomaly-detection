@@ -19,7 +19,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
@@ -33,7 +32,6 @@ import org.opensearch.Version;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorProfileName;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.client.Client;
@@ -44,6 +42,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.ProfileName;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
@@ -69,7 +68,7 @@ public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
         NULL_POINTER_EXCEPTION
     }
 
-    protected AnomalyDetectorProfileRunner runner;
+    protected OldAnomalyDetectorProfileRunner oldRunner;
     protected Client client;
     protected SecurityClientUtil clientUtil;
     protected DiscoveryNodeFilterer nodeFilter;
@@ -78,12 +77,12 @@ public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
     protected TransportService transportService;
     protected ADTaskManager adTaskManager;
 
-    protected static Set<DetectorProfileName> stateOnly;
-    protected static Set<DetectorProfileName> stateNError;
-    protected static Set<DetectorProfileName> modelProfile;
-    protected static Set<DetectorProfileName> stateInitProgress;
-    protected static Set<DetectorProfileName> totalInitProgress;
-    protected static Set<DetectorProfileName> initProgressErrorProfile;
+    protected static Set<ProfileName> stateOnly;
+    protected static Set<ProfileName> stateNError;
+    protected static Set<ProfileName> modelProfile;
+    protected static Set<ProfileName> stateInitProgress;
+    protected static Set<ProfileName> totalInitProgress;
+    protected static Set<ProfileName> initProgressErrorProfile;
 
     protected static String noFullShingleError = "No full shingle in current detection window";
     protected static String stoppedError =
@@ -108,37 +107,26 @@ public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
     protected String model1Id;
     protected String model0Id;
 
-    protected int shingleSize;
-
     protected int detectorIntervalMin;
     protected GetResponse detectorGetReponse;
     protected String messaingExceptionError = "blah";
+    protected ADTaskProfileRunner taskProfileRunner;
 
     @BeforeClass
     public static void setUpOnce() {
-        stateOnly = new HashSet<DetectorProfileName>();
-        stateOnly.add(DetectorProfileName.STATE);
-        stateNError = new HashSet<DetectorProfileName>();
-        stateNError.add(DetectorProfileName.ERROR);
-        stateNError.add(DetectorProfileName.STATE);
-        stateInitProgress = new HashSet<DetectorProfileName>();
-        stateInitProgress.add(DetectorProfileName.INIT_PROGRESS);
-        stateInitProgress.add(DetectorProfileName.STATE);
-        modelProfile = new HashSet<DetectorProfileName>(
-            Arrays
-                .asList(
-                    DetectorProfileName.SHINGLE_SIZE,
-                    DetectorProfileName.MODELS,
-                    DetectorProfileName.COORDINATING_NODE,
-                    DetectorProfileName.TOTAL_SIZE_IN_BYTES
-                )
+        stateOnly = new HashSet<ProfileName>();
+        stateOnly.add(ProfileName.STATE);
+        stateNError = new HashSet<ProfileName>();
+        stateNError.add(ProfileName.ERROR);
+        stateNError.add(ProfileName.STATE);
+        stateInitProgress = new HashSet<ProfileName>();
+        stateInitProgress.add(ProfileName.INIT_PROGRESS);
+        stateInitProgress.add(ProfileName.STATE);
+        modelProfile = new HashSet<ProfileName>(
+            Arrays.asList(ProfileName.MODELS, ProfileName.COORDINATING_NODE, ProfileName.TOTAL_SIZE_IN_BYTES)
         );
-        totalInitProgress = new HashSet<DetectorProfileName>(
-            Arrays.asList(DetectorProfileName.TOTAL_ENTITIES, DetectorProfileName.INIT_PROGRESS)
-        );
-        initProgressErrorProfile = new HashSet<DetectorProfileName>(
-            Arrays.asList(DetectorProfileName.INIT_PROGRESS, DetectorProfileName.ERROR)
-        );
+        totalInitProgress = new HashSet<ProfileName>(Arrays.asList(ProfileName.TOTAL_ENTITIES, ProfileName.INIT_PROGRESS));
+        initProgressErrorProfile = new HashSet<ProfileName>(Arrays.asList(ProfileName.INIT_PROGRESS, ProfileName.ERROR));
         clusterName = "test-cluster-name";
         discoveryNode1 = new DiscoveryNode(
             "nodeName1",
@@ -163,7 +151,7 @@ public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
         super.setUp();
         client = mock(Client.class);
         when(client.threadPool()).thenReturn(threadPool);
-        Clock clock = mock(Clock.class);
+        taskProfileRunner = mock(ADTaskProfileRunner.class);
 
         nodeFilter = mock(DiscoveryNodeFilterer.class);
         clusterService = mock(ClusterService.class);
@@ -178,7 +166,7 @@ public class AbstractProfileRunnerTests extends AbstractTimeSeriesTest {
             Consumer<Optional<ADTask>> function = (Consumer<Optional<ADTask>>) args[2];
             function.accept(Optional.of(TestHelpers.randomAdTask()));
             return null;
-        }).when(adTaskManager).getAndExecuteOnLatestDetectorLevelTask(any(), any(), any(), any(), anyBoolean(), any());
+        }).when(adTaskManager).getAndExecuteOnLatestConfigLevelTask(any(), any(), any(), any(), anyBoolean(), any());
 
         detectorIntervalMin = 3;
         detectorGetReponse = mock(GetResponse.class);

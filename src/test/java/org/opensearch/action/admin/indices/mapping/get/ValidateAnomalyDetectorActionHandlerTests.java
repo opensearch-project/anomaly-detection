@@ -23,21 +23,24 @@ import java.io.IOException;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
+import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.transport.ValidateAnomalyDetectorResponse;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
@@ -53,6 +56,8 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.ValidationAspect;
+import org.opensearch.timeseries.task.TaskManager;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
@@ -60,9 +65,9 @@ import com.google.common.collect.ImmutableList;
 
 public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTest {
 
-    protected AbstractAnomalyDetectorActionHandler<ValidateAnomalyDetectorResponse> handler;
+    protected ValidateAnomalyDetectorActionHandler handler;
     protected ClusterService clusterService;
-    protected ActionListener<ValidateAnomalyDetectorResponse> channel;
+    protected ActionListener<ValidateConfigResponse> channel;
     protected TransportService transportService;
     protected ADIndexManagement anomalyDetectionIndices;
     protected String detectorId;
@@ -74,9 +79,10 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
     protected Integer maxSingleEntityAnomalyDetectors;
     protected Integer maxMultiEntityAnomalyDetectors;
     protected Integer maxAnomalyFeatures;
+    protected Integer maxCategoricalFields;
     protected Settings settings;
     protected RestRequest.Method method;
-    protected ADTaskManager adTaskManager;
+    protected TaskManager<ADTaskCacheManager, ADTaskType, ADTask, ADIndex, ADIndexManagement> adTaskManager;
     protected SearchFeatureDao searchFeatureDao;
     protected Clock clock;
 
@@ -116,6 +122,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         maxSingleEntityAnomalyDetectors = 1000;
         maxMultiEntityAnomalyDetectors = 10;
         maxAnomalyFeatures = 5;
+        maxCategoricalFields = 10;
         method = RestRequest.Method.POST;
         adTaskManager = mock(ADTaskManager.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
@@ -125,8 +132,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         Mockito.doReturn(threadContext).when(threadPool).getThreadContext();
     }
 
-    @SuppressWarnings("unchecked")
-    public void testValidateMoreThanThousandSingleEntityDetectorLimit() throws IOException {
+    public void testValidateMoreThanThousandSingleEntityDetectorLimit() throws IOException, InterruptedException {
         SearchResponse mockResponse = mock(SearchResponse.class);
         int totalHits = maxSingleEntityAnomalyDetectors + 1;
         when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -150,13 +156,13 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             clusterService,
             clientSpy,
             clientUtil,
-            channel,
             anomalyDetectionIndices,
             singleEntityDetector,
             requestTimeout,
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -165,23 +171,26 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             clock,
             settings
         );
-        handler.start();
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should not reach here", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof ValidationException);
+            String errorMsg = String
+                .format(
+                    Locale.ROOT,
+                    IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_STREAM_DETECTORS_PREFIX_MSG,
+                    maxSingleEntityAnomalyDetectors
+                );
+            assertTrue(e.getMessage().contains(errorMsg));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
         verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof ValidationException);
-        String errorMsg = String
-            .format(
-                Locale.ROOT,
-                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_SINGLE_ENTITY_DETECTORS_PREFIX_MSG,
-                maxSingleEntityAnomalyDetectors
-            );
-        assertTrue(value.getMessage().contains(errorMsg));
     }
 
-    @SuppressWarnings("unchecked")
-    public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException {
+    public void testValidateMoreThanTenMultiEntityDetectorsLimit() throws IOException, InterruptedException {
         String field = "a";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
 
@@ -204,13 +213,13 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             clusterService,
             clientSpy,
             clientUtil,
-            channel,
             anomalyDetectionIndices,
             detector,
             requestTimeout,
             maxSingleEntityAnomalyDetectors,
             maxMultiEntityAnomalyDetectors,
             maxAnomalyFeatures,
+            maxCategoricalFields,
             method,
             xContentRegistry(),
             null,
@@ -219,18 +228,22 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             clock,
             Settings.EMPTY
         );
-        handler.start();
-        ArgumentCaptor<Exception> response = ArgumentCaptor.forClass(Exception.class);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should not reach here", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof ValidationException);
+            String errorMsg = String
+                .format(
+                    Locale.ROOT,
+                    IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_HC_DETECTORS_PREFIX_MSG,
+                    maxMultiEntityAnomalyDetectors
+                );
+            assertTrue(e.getMessage().contains(errorMsg));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
         verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
-        verify(channel).onFailure(response.capture());
-        Exception value = response.getValue();
-        assertTrue(value instanceof ValidationException);
-        String errorMsg = String
-            .format(
-                Locale.ROOT,
-                IndexAnomalyDetectorActionHandler.EXCEEDED_MAX_MULTI_ENTITY_DETECTORS_PREFIX_MSG,
-                maxMultiEntityAnomalyDetectors
-            );
-        assertTrue(value.getMessage().contains(errorMsg));
     }
 }

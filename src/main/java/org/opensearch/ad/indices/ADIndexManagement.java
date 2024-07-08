@@ -30,12 +30,14 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -64,6 +66,7 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
      * @param settings       OS cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host AD indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
+     * @param xContentRegistry registry for json parser
      * @throws IOException
      */
     public ADIndexManagement(
@@ -72,7 +75,8 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
-        int maxUpdateRunningTimes
+        int maxUpdateRunningTimes,
+        NamedXContentRegistry xContentRegistry
     )
         throws IOException {
         super(
@@ -87,9 +91,11 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
             AD_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings),
             AD_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings),
             AD_RESULT_HISTORY_RETENTION_PERIOD.get(settings),
-            ADIndex.RESULT.getMapping()
+            ADIndex.RESULT.getMapping(),
+            xContentRegistry,
+            AnomalyDetector::parse,
+            ADCommonName.CUSTOM_RESULT_INDEX_PREFIX
         );
-        this.clusterService.addLocalNodeClusterManagerListener(this);
 
         this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);
 
@@ -181,7 +187,7 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
             AD_RESULT_HISTORY_INDEX_PATTERN,
             ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             true,
-            AD_RESULT_HISTORY_INDEX_PATTERN,
+            true,
             ADIndex.RESULT,
             actionListener
         );
@@ -270,6 +276,6 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
 
     @Override
     public void initCustomResultIndexDirectly(String resultIndex, ActionListener<CreateIndexResponse> actionListener) {
-        initResultIndexDirectly(resultIndex, null, false, AD_RESULT_HISTORY_INDEX_PATTERN, ADIndex.RESULT, actionListener);
+        initResultIndexDirectly(getCustomResultIndexPattern(resultIndex), resultIndex, false, false, ADIndex.RESULT, actionListener);
     }
 }

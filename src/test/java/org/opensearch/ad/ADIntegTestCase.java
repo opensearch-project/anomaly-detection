@@ -78,6 +78,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     protected String ipField = "ip";
     protected String valueField = "value";
     protected String nameField = "test";
+    protected String nameField2 = "test2";
     protected int DEFAULT_TEST_DATA_DOCS = 3000;
 
     @Override
@@ -145,17 +146,27 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         createIndex(ADCommonName.DETECTION_STATE_INDEX, ADIndexManagement.getStateMappings());
     }
 
-    public void createTestDataIndex(String indexName) {
-        String mappings = "{\"properties\":{\""
-            + timeField
-            + "\":{\"type\":\"date\",\"format\":\"strict_date_time||epoch_millis\"},"
-            + "\"value\":{\"type\":\"double\"}, \""
-            + categoryField
-            + "\":{\"type\":\"keyword\"},\""
-            + ipField
-            + "\":{\"type\":\"ip\"},"
-            + "\"is_error\":{\"type\":\"boolean\"}, \"message\":{\"type\":\"text\"}}}";
+    public void createTestDataIndex(String indexName, boolean useDateNanos) {
+        StringBuilder mappingsBuilder = new StringBuilder("{\"properties\":{\"").append(timeField);
+        if (useDateNanos) {
+            mappingsBuilder.append("\":{\"type\":\"date_nanos\",\"format\":\"strict_date_time||epoch_millis\"},");
+        } else {
+            mappingsBuilder.append("\":{\"type\":\"date\",\"format\":\"strict_date_time||epoch_millis\"},");
+        }
+        mappingsBuilder
+            .append("\"value\":{\"type\":\"double\"}, \"")
+            .append(categoryField)
+            .append("\":{\"type\":\"keyword\"},\"")
+            .append(ipField)
+            .append("\":{\"type\":\"ip\"},")
+            .append("\"is_error\":{\"type\":\"boolean\"}, \"message\":{\"type\":\"text\"}}}");
+
+        String mappings = mappingsBuilder.toString();
         createIndex(indexName, mappings);
+    }
+
+    public void createTestDataIndex(String indexName) {
+        createTestDataIndex(indexName, false);
     }
 
     public void createIndex(String indexName, String mappings) {
@@ -282,8 +293,25 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         ingestTestDataValidate(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_TEST_DATA_DOCS);
     }
 
-    public void ingestTestDataValidate(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, int totalDocs) {
-        createTestDataIndex(testIndex);
+    public void ingestTestDataValidate(
+        String testIndex,
+        Instant startTime,
+        int detectionIntervalInMinutes,
+        String type,
+        boolean useDateNanos
+    ) {
+        ingestTestDataValidate(testIndex, startTime, detectionIntervalInMinutes, type, DEFAULT_TEST_DATA_DOCS, useDateNanos);
+    }
+
+    public void ingestTestDataValidate(
+        String testIndex,
+        Instant startTime,
+        int detectionIntervalInMinutes,
+        String type,
+        int totalDocs,
+        boolean useDateNanos
+    ) {
+        createTestDataIndex(testIndex, useDateNanos);
         List<Map<String, ?>> docs = new ArrayList<>();
         Instant currentInterval = Instant.from(startTime);
 
@@ -312,6 +340,10 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         assertFalse(bulkResponse.hasFailures());
         long count = countDocs(testIndex);
         assertEquals(totalDocs, count);
+    }
+
+    public void ingestTestDataValidate(String testIndex, Instant startTime, int detectionIntervalInMinutes, String type, int totalDocs) {
+        ingestTestDataValidate(testIndex, startTime, detectionIntervalInMinutes, type, totalDocs, false);
     }
 
     public Feature maxValueFeature() throws IOException {

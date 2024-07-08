@@ -141,7 +141,7 @@ public class ADTask extends TimeSeriesTask {
     }
 
     @Override
-    public boolean isEntityTask() {
+    public boolean isHistoricalEntityTask() {
         return ADTaskType.HISTORICAL_HC_ENTITY.name().equals(taskType);
     }
 
@@ -336,8 +336,15 @@ public class ADTask extends TimeSeriesTask {
                 detector.getLastUpdateTime(),
                 detector.getCategoryFields(),
                 detector.getUser(),
-                detector.getCustomResultIndex(),
-                detector.getImputationOption()
+                detector.getCustomResultIndexOrAlias(),
+                detector.getImputationOption(),
+                detector.getRecencyEmphasis(),
+                detector.getSeasonIntervals(),
+                detector.getHistoryIntervals(),
+                detector.getRules(),
+                detector.getCustomResultIndexMinSize(),
+                detector.getCustomResultIndexMinAge(),
+                detector.getCustomResultIndexTTL()
             );
         return new Builder()
             .taskId(parsedTaskId)
@@ -369,10 +376,12 @@ public class ADTask extends TimeSeriesTask {
     @Generated
     @Override
     public boolean equals(Object other) {
-        if (this == other)
+        if (this == other) {
             return true;
-        if (other == null || getClass() != other.getClass())
+        }
+        if (other == null || getClass() != other.getClass()) {
             return false;
+        }
         ADTask that = (ADTask) other;
         return super.equals(that)
             && Objects.equal(getDetector(), that.getDetector())

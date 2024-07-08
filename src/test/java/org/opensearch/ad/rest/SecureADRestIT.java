@@ -12,12 +12,12 @@
 package org.opensearch.ad.rest;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Random;
 
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
@@ -38,6 +38,7 @@ import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 
@@ -66,17 +67,35 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
      * @return a random password.
      */
     public static String generatePassword(String username) {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+        String upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowerCase = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "_";
+        String characters = upperCase + lowerCase + digits + special;
 
-        Random rng = new Random();
+        SecureRandom rng = new SecureRandom();
 
+        // Ensure password includes at least one character from each set
         char[] password = new char[15];
-        for (int i = 0; i < 15; i++) {
-            char nextChar = characters.charAt(rng.nextInt(characters.length()));
-            while (username.indexOf(nextChar) > -1) {
+        password[0] = upperCase.charAt(rng.nextInt(upperCase.length()));
+        password[1] = lowerCase.charAt(rng.nextInt(lowerCase.length()));
+        password[2] = digits.charAt(rng.nextInt(digits.length()));
+        password[3] = special.charAt(rng.nextInt(special.length()));
+
+        for (int i = 4; i < 15; i++) {
+            char nextChar;
+            do {
                 nextChar = characters.charAt(rng.nextInt(characters.length()));
-            }
+            } while (username.indexOf(nextChar) > -1);
             password[i] = nextChar;
+        }
+
+        // Shuffle the array to ensure the first 4 characters are not always in the same position
+        for (int i = password.length - 1; i > 0; i--) {
+            int index = rng.nextInt(i + 1);
+            char temp = password[index];
+            password[index] = password[i];
+            password[i] = temp;
         }
 
         return new String(password);
@@ -84,8 +103,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
     @Before
     public void setupSecureTests() throws IOException {
-        if (!isHttps())
+        if (!isHttps()) {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
+        }
         createIndexRole(indexAllAccessRole, "*");
         createSearchRole(indexSearchAccessRole, "*");
         String alicePassword = generatePassword(aliceUser);
@@ -266,7 +286,14 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 ImmutableList.of(randomAlphaOfLength(5))
             ),
             null,
-            aliceDetector.getImputationOption()
+            aliceDetector.getImputationOption(),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
         // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
         // But the detector's backend role should not be replaced as client's backend roles (all_access).
@@ -313,7 +340,14 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 ImmutableList.of(randomAlphaOfLength(5))
             ),
             null,
-            aliceDetector.getImputationOption()
+            aliceDetector.getImputationOption(),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
         enableFilterBy();
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
@@ -393,13 +427,17 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = cloneDetector(anomalyDetector, resultIndex);
         // User goat has no permission to create index
         Exception exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:admin/create]"));
+        Assert
+            .assertTrue(
+                "got " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [indices:admin/aliases, indices:admin/create]")
+            );
 
         // User cat has permission to create index
         resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
         TestHelpers.createIndexWithTimeField(client(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
         AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
-        assertEquals(resultIndex, detectorOfCat.getCustomResultIndex());
+        assertEquals(resultIndex, detectorOfCat.getCustomResultIndexOrAlias());
     }
 
     public void testPreviewAnomalyDetectorWithWriteAccess() throws IOException {

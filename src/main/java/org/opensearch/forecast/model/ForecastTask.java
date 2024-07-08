@@ -1,6 +1,17 @@
 /*
+<<<<<<< HEAD
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+=======
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+>>>>>>> f22eaa95 (test)
  */
 
 package org.opensearch.forecast.model;
@@ -128,8 +139,9 @@ public class ForecastTask extends TimeSeriesTask {
     }
 
     @Override
-    public boolean isEntityTask() {
-        return ForecastTaskType.FORECAST_HISTORICAL_HC_ENTITY.name().equals(taskType);
+    public boolean isHistoricalEntityTask() {
+        // we have no backtesting
+        return false;
     }
 
     public static class Builder extends TimeSeriesTask.Builder<Builder> {
@@ -322,9 +334,15 @@ public class ForecastTask extends TimeSeriesTask {
                 forecaster.getLastUpdateTime(),
                 forecaster.getCategoryFields(),
                 forecaster.getUser(),
-                forecaster.getCustomResultIndex(),
+                forecaster.getCustomResultIndexOrAlias(),
                 forecaster.getHorizon(),
-                forecaster.getImputationOption()
+                forecaster.getImputationOption(),
+                forecaster.getRecencyEmphasis(),
+                forecaster.getSeasonIntervals(),
+                forecaster.getHistoryIntervals(),
+                forecaster.getCustomResultIndexMinSize(),
+                forecaster.getCustomResultIndexMinAge(),
+                forecaster.getCustomResultIndexTTL()
             );
         return new Builder()
             .taskId(parsedTaskId)

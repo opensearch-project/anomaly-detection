@@ -183,9 +183,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
         searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
-            imputer,
             clientUtil,
-            settings,
             clusterService,
             TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
             clock,
@@ -370,9 +368,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
         searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry(),
-            imputer,
             clientUtil,
-            settings,
             clusterService,
             TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
             clock,
@@ -416,9 +412,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
         searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry(),
-            imputer,
             clientUtil,
-            settings,
             clusterService,
             TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
             clock,
@@ -457,7 +451,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
     public void getColdStartSamplesForPeriodsTemplate(DocValueFormat format) throws IOException, InterruptedException {
         detector = TestHelpers.AnomalyDetectorBuilder
-            .newInstance()
+            .newInstance(1)
             .setCategoryFields(ImmutableList.of(randomAlphaOfLength(5)))
             .setFeatureAttributes(
                 Collections.singletonList(new Feature("deny_sum", "deny sum", true, new SumAggregationBuilder("deny_sum").field("deny")))

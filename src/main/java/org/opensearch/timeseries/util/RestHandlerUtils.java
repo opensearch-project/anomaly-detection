@@ -17,6 +17,7 @@ import static org.opensearch.core.rest.RestStatus.INTERNAL_SERVER_ERROR;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.commons.lang.ArrayUtils;
@@ -45,7 +46,9 @@ import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 
 import com.google.common.base.Throwables;
@@ -63,11 +66,8 @@ public final class RestHandlerUtils {
     public static final String _PRIMARY_TERM = "_primary_term";
     public static final String IF_PRIMARY_TERM = "if_primary_term";
     public static final String REFRESH = "refresh";
-    public static final String DETECTOR_ID = "detectorID";
     public static final String RESULT_INDEX = "resultIndex";
-    public static final String ANOMALY_DETECTOR = "anomaly_detector";
-    public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
-    public static final String REALTIME_TASK = "realtime_detection_task";
+    public static final String REALTIME_TASK = "realtime_task";
     public static final String HISTORICAL_ANALYSIS_TASK = "historical_analysis_task";
     public static final String RUN = "_run";
     public static final String PREVIEW = "_preview";
@@ -79,16 +79,31 @@ public final class RestHandlerUtils {
     public static final String COUNT = "count";
     public static final String MATCH = "match";
     public static final String RESULTS = "results";
-    public static final String TOP_ANOMALIES = "_topAnomalies";
     public static final String VALIDATE = "_validate";
+    public static final String SEARCH = "_search";
     public static final ToXContent.MapParams XCONTENT_WITH_TYPE = new ToXContent.MapParams(ImmutableMap.of("with_type", "true"));
+    public static final String REST_STATUS = "rest_status";
+    public static final String RUN_ONCE = "_run_once";
+    public static final String SUGGEST = "_suggest";
+    public static final String RUN_ONCE_TASK = "run_once_task";
 
     public static final String OPENSEARCH_DASHBOARDS_USER_AGENT = "OpenSearch Dashboards";
     public static final String[] UI_METADATA_EXCLUDE = new String[] { Config.UI_METADATA_FIELD };
+    public static final String NODE_ID = "nodeId";
+    public static final String STATS = "stats";
+    public static final String STAT = "stat";
 
+    // AD constants
+    public static final String DETECTOR_ID = "detectorID";
+    public static final String ANOMALY_DETECTOR = "anomaly_detector";
+    public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
+    public static final String TOP_ANOMALIES = "_topAnomalies";
+
+    // forecast constants
     public static final String FORECASTER_ID = "forecasterID";
     public static final String FORECASTER = "forecaster";
-    public static final String REST_STATUS = "rest_status";
+    public static final String FORECASTER_JOB = "forecaster_job";
+    public static final String TOP_FORECASTS = "_topForecasts";
 
     private RestHandlerUtils() {}
 
@@ -143,7 +158,7 @@ public final class RestHandlerUtils {
         List<Feature> features = config.getFeatureAttributes();
         if (features != null) {
             if (features.size() > maxFeatures) {
-                return "Can't create more than " + maxFeatures + " features";
+                return "Can't create more than " + maxFeatures + " feature(s)";
             }
             return validateFeaturesConfig(config.getFeatureAttributes());
         }
@@ -210,7 +225,7 @@ public final class RestHandlerUtils {
      * @return wrapped action listener
      */
     public static <T> ActionListener wrapRestActionListener(ActionListener<T> actionListener, String generalErrorMessage) {
-        return ActionListener.<T>wrap(r -> { actionListener.onResponse(r); }, e -> {
+        return ActionListener.<T>wrap(r -> actionListener.onResponse(r), e -> {
             logger.error("Wrap exception before sending back to user", e);
             Throwable cause = Throwables.getRootCause(e);
             if (isProperExceptionToReturn(e)) {
@@ -246,5 +261,33 @@ public final class RestHandlerUtils {
 
     private static String coalesceToEmpty(@Nullable String s) {
         return s == null ? "" : s;
+    }
+
+    public static Entity buildEntity(RestRequest request, String detectorId) throws IOException {
+        if (org.opensearch.core.common.Strings.isEmpty(detectorId)) {
+            throw new IllegalStateException(CommonMessages.CONFIG_ID_MISSING_MSG);
+        }
+
+        String entityName = request.param(CommonName.CATEGORICAL_FIELD);
+        String entityValue = request.param(CommonName.ENTITY_KEY);
+
+        if (entityName != null && entityValue != null) {
+            // single-stream profile request:
+            // GET
+            // _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress?category_field=<field-name>&entity=<value>
+            return Entity.createSingleAttributeEntity(entityName, entityValue);
+        } else if (request.hasContent()) {
+            /*
+             * HCAD profile request: GET
+             * _plugins/_anomaly_detection/detectors/<detectorId>/_profile/init_progress {
+             * "entity": [{ "name": "clientip", "value": "13.24.0.0" }] }
+             */
+            Optional<Entity> entity = Entity.fromJsonObject(request.contentParser());
+            if (entity.isPresent()) {
+                return entity.get();
+            }
+        }
+        // not a valid profile request with correct entity information
+        return null;
     }
 }

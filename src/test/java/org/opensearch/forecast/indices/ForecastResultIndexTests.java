@@ -40,6 +40,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.Index;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.threadpool.ThreadPool;
@@ -103,7 +104,8 @@ public class ForecastResultIndexTests extends AbstractTimeSeriesTest {
             threadPool,
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
 
         clusterAdminClient = mock(ClusterAdminClient.class);

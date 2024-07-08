@@ -37,15 +37,12 @@ import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.ad.cluster.HashRing;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
-import org.opensearch.ad.stats.ADStat;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.ad.stats.suppliers.CounterSupplier;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
@@ -57,8 +54,11 @@ import org.opensearch.tasks.Task;
 import org.opensearch.telemetry.tracing.noop.NoopTracer;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
+import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.stats.TimeSeriesStat;
+import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 
@@ -88,10 +88,10 @@ public class RCFResultTests extends OpenSearchTestCase {
         hashRing = mock(HashRing.class);
         node = mock(DiscoveryNode.class);
         doReturn(Optional.of(node)).when(hashRing).getNodeByAddress(any());
-        Map<String, ADStat<?>> statsMap = new HashMap<String, ADStat<?>>() {
+        Map<String, TimeSeriesStat<?>> statsMap = new HashMap<String, TimeSeriesStat<?>>() {
             {
-                put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
-                put(StatNames.MODEL_CORRUTPION_COUNT.getName(), new ADStat<>(false, new CounterSupplier()));
+                put(StatNames.AD_HC_EXECUTE_FAIL_COUNT.getName(), new TimeSeriesStat<>(false, new CounterSupplier()));
+                put(StatNames.AD_MODEL_CORRUTPION_COUNT.getName(), new TimeSeriesStat<>(false, new CounterSupplier()));
             }
         };
 
@@ -111,7 +111,7 @@ public class RCFResultTests extends OpenSearchTestCase {
             NoopTracer.INSTANCE
         );
 
-        ModelManager manager = mock(ModelManager.class);
+        ADModelManager manager = mock(ADModelManager.class);
         CircuitBreakerService adCircuitBreakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
@@ -170,7 +170,7 @@ public class RCFResultTests extends OpenSearchTestCase {
             NoopTracer.INSTANCE
         );
 
-        ModelManager manager = mock(ModelManager.class);
+        ADModelManager manager = mock(ADModelManager.class);
         CircuitBreakerService adCircuitBreakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
@@ -287,7 +287,7 @@ public class RCFResultTests extends OpenSearchTestCase {
             NoopTracer.INSTANCE
         );
 
-        ModelManager manager = mock(ModelManager.class);
+        ADModelManager manager = mock(ADModelManager.class);
         CircuitBreakerService breakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
@@ -339,7 +339,7 @@ public class RCFResultTests extends OpenSearchTestCase {
             NoopTracer.INSTANCE
         );
 
-        ModelManager manager = mock(ModelManager.class);
+        ADModelManager manager = mock(ADModelManager.class);
         CircuitBreakerService adCircuitBreakerService = mock(CircuitBreakerService.class);
         RCFResultTransportAction action = new RCFResultTransportAction(
             mock(ActionFilters.class),
@@ -363,7 +363,7 @@ public class RCFResultTests extends OpenSearchTestCase {
         action.doExecute(mock(Task.class), request, future);
 
         expectThrows(IllegalArgumentException.class, () -> future.actionGet());
-        Object val = adStats.getStat(StatNames.MODEL_CORRUTPION_COUNT.getName()).getValue();
+        Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();
         assertEquals(1L, ((Long) val).longValue());
         verify(manager, times(1)).clear(eq(detectorId), any());
     }

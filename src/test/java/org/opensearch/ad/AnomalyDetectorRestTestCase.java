@@ -23,24 +23,24 @@ import java.util.Map;
 
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
-import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContent;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParserUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+import org.opensearch.timeseries.ODFERestTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Job;
@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonArray;
 
 public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
+    public static final Logger LOG = (Logger) LogManager.getLogger(AnomalyDetectorRestTestCase.class);
 
     public static final int MAX_RETRY_TIMES = 10;
 
@@ -305,8 +306,15 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getLastUpdateTime(),
                 null,
                 detector.getUser(),
-                detector.getCustomResultIndex(),
-                detector.getImputationOption()
+                detector.getCustomResultIndexOrAlias(),
+                detector.getImputationOption(),
+                detector.getRecencyEmphasis(),
+                detector.getSeasonIntervals(),
+                detector.getHistoryIntervals(),
+                null,
+                detector.getCustomResultIndexMinSize(),
+                detector.getCustomResultIndexMinAge(),
+                detector.getCustomResultIndexTTL()
             ),
             detectorJob,
             historicalAdTask,
@@ -315,21 +323,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
 
     protected final XContentParser createAdParser(XContent xContent, InputStream data) throws IOException {
         return xContent.createParser(TestHelpers.xContentRegistry(), LoggingDeprecationHandler.INSTANCE, data);
-    }
-
-    public void updateClusterSettings(String settingKey, Object value) throws Exception {
-        XContentBuilder builder = XContentFactory
-            .jsonBuilder()
-            .startObject()
-            .startObject("persistent")
-            .field(settingKey, value)
-            .endObject()
-            .endObject();
-        Request request = new Request("PUT", "_cluster/settings");
-        request.setJsonEntity(builder.toString());
-        Response response = client().performRequest(request);
-        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-        Thread.sleep(2000); // sleep some time to resolve flaky test
     }
 
     public Response getDetectorProfile(String detectorId, boolean all, String customizedProfile, RestClient client) throws IOException {
@@ -465,7 +458,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                             + "\"masked_fields\": [],\n"
                             + "\"allowed_actions\": [\n"
                             + "\"crud\",\n"
-                            + "\"indices:admin/create\"\n"
+                            + "\"indices:admin/create\",\n"
+                            + "\"indices:admin/aliases\"\n"
                             + "]\n"
                             + "}\n"
                             + "],\n"
@@ -639,7 +633,14 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             anomalyDetector.getCategoryFields(),
             null,
             resultIndex,
-            anomalyDetector.getImputationOption()
+            anomalyDetector.getImputationOption(),
+            anomalyDetector.getRecencyEmphasis(),
+            anomalyDetector.getSeasonIntervals(),
+            anomalyDetector.getHistoryIntervals(),
+            null,
+            anomalyDetector.getCustomResultIndexMinSize(),
+            anomalyDetector.getCustomResultIndexMinAge(),
+            anomalyDetector.getCustomResultIndexTTL()
         );
         return detector;
     }
@@ -655,5 +656,4 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 null
             );
     }
-
 }

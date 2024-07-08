@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 5
+    "schema_version": 6
   },
   "properties": {
     "detector_id": {
@@ -23,6 +23,9 @@
       "type": "nested",
       "properties": {
         "feature_id": {
+          "type": "keyword"
+        },
+        "feature_name": {
           "type": "keyword"
         },
         "data": {

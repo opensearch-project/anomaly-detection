@@ -45,4 +45,9 @@ public class ForecastCommonName {
     // Used in stats API
     // ======================================
     public static final String FORECASTER_ID_KEY = "forecaster_id";
+
+    // ======================================
+    // Historical forecasters
+    // ======================================
+    public static final String FORECAST_TASK = "forecast_task";
 }

@@ -22,9 +22,12 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_STATE_I
 
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteRequest;
@@ -33,13 +36,18 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.commons.InjectSecurity;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
@@ -61,6 +69,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
      * @param settings       OS cluster setting
      * @param nodeFilter     Used to filter eligible nodes to host forecast indices
      * @param maxUpdateRunningTimes max number of retries to update index mapping and setting
+     * @param xContentRegistry registry for json parser
      * @throws IOException
      */
     public ForecastIndexManagement(
@@ -69,7 +78,8 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
         ThreadPool threadPool,
         Settings settings,
         DiscoveryNodeFilterer nodeFilter,
-        int maxUpdateRunningTimes
+        int maxUpdateRunningTimes,
+        NamedXContentRegistry xContentRegistry
     )
         throws IOException {
         super(
@@ -84,7 +94,10 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
             FORECAST_RESULT_HISTORY_ROLLOVER_PERIOD.get(settings),
             FORECAST_RESULT_HISTORY_MAX_DOCS_PER_SHARD.get(settings),
             FORECAST_RESULT_HISTORY_RETENTION_PERIOD.get(settings),
-            ForecastIndex.RESULT.getMapping()
+            ForecastIndex.RESULT.getMapping(),
+            xContentRegistry,
+            Forecaster::parse,
+            ForecastCommonName.CUSTOM_RESULT_INDEX_PREFIX
         );
         this.indexStates = new EnumMap<ForecastIndex, IndexState>(ForecastIndex.class);
 
@@ -257,7 +270,7 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
             FORECAST_RESULT_HISTORY_INDEX_PATTERN,
             ForecastIndex.RESULT.getIndexName(),
             false,
-            FORECAST_RESULT_HISTORY_INDEX_PATTERN,
+            true,
             ForecastIndex.RESULT,
             actionListener
         );
@@ -265,7 +278,73 @@ public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
 
     @Override
     public void initCustomResultIndexDirectly(String resultIndex, ActionListener<CreateIndexResponse> actionListener) {
-        // throws IOException {
-        initResultIndexDirectly(resultIndex, null, false, FORECAST_RESULT_HISTORY_INDEX_PATTERN, ForecastIndex.RESULT, actionListener);
+        initResultIndexDirectly(getCustomResultIndexPattern(resultIndex), resultIndex, false, false, ForecastIndex.RESULT, actionListener);
+    }
+
+    public <T> void validateDefaultResultIndexForBackendJob(
+        String configId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener
+    ) {
+        if (doesAliasExist(ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS)) {
+            validateResultIndexAndExecute(
+                ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS,
+                () -> executeWithSecurityContext(configId, user, roles, function, listener, ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS),
+                false,
+                listener
+            );
+        } else {
+            initDefaultResultIndex(configId, user, roles, function, listener);
+        }
+    }
+
+    private <T> void initDefaultResultIndex(
+        String configId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener
+    ) {
+        initDefaultResultIndexDirectly(ActionListener.wrap(response -> {
+            if (response.isAcknowledged()) {
+                executeWithSecurityContext(configId, user, roles, function, listener, ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS);
+            } else {
+                String error = "Creating result index with mappings call not acknowledged";
+                logger.error(error);
+                listener.onFailure(new TimeSeriesException(error));
+            }
+        }, exception -> {
+            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                executeWithSecurityContext(configId, user, roles, function, listener, ForecastCommonName.FORECAST_RESULT_INDEX_ALIAS);
+            } else {
+                listener.onFailure(exception);
+            }
+        }));
+    }
+
+    private <T> void executeWithSecurityContext(
+        String securityLogId,
+        String user,
+        List<String> roles,
+        ExecutorFunction function,
+        ActionListener<T> listener,
+        String indexOrAlias
+    ) {
+        try (InjectSecurity injectSecurity = new InjectSecurity(securityLogId, settings, client.threadPool().getThreadContext())) {
+            injectSecurity.inject(user, roles);
+            ActionListener<T> wrappedListener = ActionListener.wrap(listener::onResponse, e -> {
+                injectSecurity.close();
+                listener.onFailure(e);
+            });
+            validateResultIndexAndExecute(indexOrAlias, () -> {
+                injectSecurity.close();
+                function.execute();
+            }, true, wrappedListener);
+        } catch (Exception e) {
+            logger.error("Failed to validate custom index for backend job " + securityLogId, e);
+            listener.onFailure(e);
+        }
     }
 }

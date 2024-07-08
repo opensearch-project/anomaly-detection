@@ -37,7 +37,8 @@ public enum ADIndex implements TimeSeriesIndex {
         false,
         ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getCheckpointMappings)
     ),
-    STATE(ADCommonName.DETECTION_STATE_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getStateMappings));
+    STATE(ADCommonName.DETECTION_STATE_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getStateMappings)),
+    CUSTOM_RESULT(CUSTOM_RESULT_INDEX, true, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getResultMappings)),;
 
     private final String indexName;
     // whether we use an alias for the index
@@ -64,10 +65,4 @@ public enum ADIndex implements TimeSeriesIndex {
     public String getMapping() {
         return mapping;
     }
-
-    @Override
-    public boolean isJobIndex() {
-        return CommonName.JOB_INDEX.equals(indexName);
-    }
-
 }

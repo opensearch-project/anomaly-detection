@@ -39,7 +39,7 @@ The dataset created will have two categorical fields to test a multi-entity AD (
 ### Ingestion Parameters
 
 | Parameter Name | Description | Default |  Required
-| ----------- | ----------- | ----------- | ----------- |
+| ----------- | ----------- | ---------- | ----------- |
 | --endpoint | Endpoint OpenSearch cluster is running on | No default | Yes
 | --index-name | Name of index that will be created and ingested too | No default | Yes
 | --threads | Number of threads to be used for data ingestion | No deafult | Yes
@@ -51,7 +51,7 @@ The dataset created will have two categorical fields to test a multi-entity AD (
 | --number-of-process | number of 'process' entities (process is one of the categorical field that an entity is defined by)| 1000 | No
 | --number-of-historical-days | number of day of historical data to ingest | 2 | No
 | --username | username for authentication if security is true | admin | No
-| --password | password for authentication if security is true | admin | No
+| --password | password for authentication if security is true | <admin-password> | No
 
 
 ### Ingestion Commands

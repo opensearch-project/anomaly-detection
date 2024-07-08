@@ -11,63 +11,69 @@
 
 package org.opensearch.ad.ml;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayDeque;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ml.Sample;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class EntityModelTests extends OpenSearchTestCase {
 
     private ThresholdedRandomCutForest trcf;
+    private Clock clock;
 
     @Before
     public void setup() {
         this.trcf = new ThresholdedRandomCutForest(ThresholdedRandomCutForest.builder().dimensions(2).internalShinglingEnabled(true));
+        this.clock = Clock.systemUTC();
     }
 
     public void testNullInternalSampleQueue() {
-        EntityModel model = new EntityModel(null, null, null);
-        model.addSample(new double[] { 0.8 });
+        ModelState<ThresholdedRandomCutForest> model = new ModelState<>(null, null, null, null, clock, 0, null, null);
+        model.addSample(new Sample(new double[] { 0.8 }, Instant.now(), Instant.now()));
         assertEquals(1, model.getSamples().size());
     }
 
     public void testNullInputSample() {
-        EntityModel model = new EntityModel(null, null, null);
+        ModelState<ThresholdedRandomCutForest> model = new ModelState<>(null, null, null, null, clock, 0, null, null);
         model.addSample(null);
         assertEquals(0, model.getSamples().size());
     }
 
     public void testEmptyInputSample() {
-        EntityModel model = new EntityModel(null, null, null);
-        model.addSample(new double[] {});
+        ModelState<ThresholdedRandomCutForest> model = new ModelState<>(null, null, null, null, clock, 0, null, null);
+        model.addSample(new Sample(new double[] {}, Instant.now(), Instant.now()));
         assertEquals(0, model.getSamples().size());
     }
 
     @Test
     public void trcf_constructor() {
-        EntityModel em = new EntityModel(null, new ArrayDeque<>(), trcf);
-        assertEquals(trcf, em.getTrcf().get());
+        ModelState<ThresholdedRandomCutForest> em = new ModelState<>(trcf, null, null, null, clock, 0, null, new ArrayDeque<>());
+        assertEquals(trcf, em.getModel().get());
     }
 
     @Test
     public void clear() {
-        EntityModel em = new EntityModel(null, new ArrayDeque<>(), trcf);
+        ModelState<ThresholdedRandomCutForest> em = new ModelState<>(trcf, null, null, null, clock, 0, null, new ArrayDeque<>());
 
         em.clear();
 
         assertTrue(em.getSamples().isEmpty());
-        assertFalse(em.getTrcf().isPresent());
+        assertFalse(em.getModel().isPresent());
     }
 
     @Test
     public void setTrcf() {
-        EntityModel em = new EntityModel(null, null, null);
-        assertFalse(em.getTrcf().isPresent());
+        ModelState<ThresholdedRandomCutForest> em = new ModelState<>(null, null, null, null, clock, 0, null, null);
+        assertFalse(em.getModel().isPresent());
 
-        em.setTrcf(this.trcf);
-        assertTrue(em.getTrcf().isPresent());
+        em.setModel(this.trcf);
+        assertTrue(em.getModel().isPresent());
     }
 }

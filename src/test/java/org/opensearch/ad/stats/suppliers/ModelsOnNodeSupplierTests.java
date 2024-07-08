@@ -14,15 +14,17 @@ package org.opensearch.ad.stats.suppliers;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE;
-import static org.opensearch.ad.stats.suppliers.ModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
+import static org.opensearch.ad.stats.suppliers.ADModelsOnNodeSupplier.MODEL_STATE_STAT_KEYS;
 
 import java.time.Clock;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,18 +32,19 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
-import org.opensearch.ad.ml.EntityModel;
+import org.opensearch.ad.caching.ADCacheProvider;
+import org.opensearch.ad.caching.ADPriorityCache;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.HybridThresholdingModel;
-import org.opensearch.ad.ml.ModelManager;
-import org.opensearch.ad.ml.ModelState;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.ml.ModelState;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -51,13 +54,13 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
     private HybridThresholdingModel thresholdingModel;
     private List<ModelState<?>> expectedResults;
     private Clock clock;
-    private List<ModelState<?>> entityModelsInformation;
+    private List<ModelState<ThresholdedRandomCutForest>> entityModelsInformation;
 
     @Mock
-    private ModelManager modelManager;
+    private ADModelManager modelManager;
 
     @Mock
-    private CacheProvider cacheProvider;
+    private ADCacheProvider cacheProvider;
 
     @Before
     public void setup() {
@@ -70,20 +73,58 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
         expectedResults = new ArrayList<>(
             Arrays
                 .asList(
-                    new ModelState<>(rcf, "rcf-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock, 0f),
-                    new ModelState<>(thresholdingModel, "thr-model-1", "detector-1", ModelManager.ModelType.RCF.getName(), clock, 0f),
-                    new ModelState<>(rcf, "rcf-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock, 0f),
-                    new ModelState<>(thresholdingModel, "thr-model-2", "detector-2", ModelManager.ModelType.THRESHOLD.getName(), clock, 0f)
+                    new ModelState<>(
+                        rcf,
+                        "rcf-model-1",
+                        "detector-1",
+                        ModelManager.ModelType.RCF.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    ),
+                    new ModelState<>(
+                        thresholdingModel,
+                        "thr-model-1",
+                        "detector-1",
+                        ModelManager.ModelType.RCF.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    ),
+                    new ModelState<>(
+                        rcf,
+                        "rcf-model-2",
+                        "detector-2",
+                        ModelManager.ModelType.THRESHOLD.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    ),
+                    new ModelState<>(
+                        thresholdingModel,
+                        "thr-model-2",
+                        "detector-2",
+                        ModelManager.ModelType.THRESHOLD.getName(),
+                        clock,
+                        0f,
+                        Optional.empty(),
+                        new ArrayDeque<>()
+                    )
                 )
         );
 
         when(modelManager.getAllModels()).thenReturn(expectedResults);
 
-        ModelState<EntityModel> entityModel1 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
-        ModelState<EntityModel> entityModel2 = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        ModelState<ThresholdedRandomCutForest> entityModel1 = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+        ModelState<ThresholdedRandomCutForest> entityModel2 = MLUtil
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
 
         entityModelsInformation = new ArrayList<>(Arrays.asList(entityModel1, entityModel2));
-        EntityCache cache = mock(EntityCache.class);
+        ADPriorityCache cache = mock(ADPriorityCache.class);
         when(cacheProvider.get()).thenReturn(cache);
         when(cache.getAllModels()).thenReturn(entityModelsInformation);
     }
@@ -98,7 +139,7 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
 
-        ModelsOnNodeSupplier modelsOnNodeSupplier = new ModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService);
+        ADModelsOnNodeSupplier modelsOnNodeSupplier = new ADModelsOnNodeSupplier(modelManager, cacheProvider, settings, clusterService);
         List<Map<String, Object>> results = modelsOnNodeSupplier.get();
         assertEquals(
             "get fails to return correct result",
@@ -119,7 +160,7 @@ public class ModelsOnNodeSupplierTests extends OpenSearchTestCase {
 
     @Test
     public void testGetModelCount() {
-        ModelsOnNodeCountSupplier modelsOnNodeSupplier = new ModelsOnNodeCountSupplier(modelManager, cacheProvider);
+        ADModelsOnNodeCountSupplier modelsOnNodeSupplier = new ADModelsOnNodeCountSupplier(modelManager, cacheProvider);
         assertEquals(6L, modelsOnNodeSupplier.get().longValue());
     }
 }

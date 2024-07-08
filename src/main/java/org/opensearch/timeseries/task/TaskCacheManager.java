@@ -15,9 +15,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.transport.TransportService;
 
 public class TaskCacheManager {
     private final Logger logger = LogManager.getLogger(TaskCacheManager.class);
@@ -39,7 +43,7 @@ public class TaskCacheManager {
     protected volatile Integer maxCachedDeletedTask;
     /**
      * This field is to cache deleted detector IDs. Hourly cron will poll this queue
-     * and clean AD results. Check ADTaskManager#cleanResultOfDeletedConfig()
+     * and clean AD results. Check {@link ADTaskManager#cleanResultOfDeletedConfig}
      * <p>Node: any data node servers delete detector request</p>
      */
     protected Queue<String> deletedConfigs;
@@ -146,16 +150,16 @@ public class TaskCacheManager {
      *
      * If realtime task cache doesn't exist, will do nothing. Next realtime job run will re-init
      * realtime task cache when it finds task cache not inited yet.
-     * Check ADTaskManager#initCacheWithCleanupIfRequired(String, AnomalyDetector, TransportService, ActionListener),
-     * ADTaskManager#updateLatestRealtimeTaskOnCoordinatingNode(String, String, Long, Long, String, ActionListener)
      *
-     * @param detectorId detector id
+     * Check {@link TaskManager#initRealtimeTaskCacheAndCleanupStaleCache(String, Config, TransportService, ActionListener)}
+     *
+     * @param configId detector id
      * @param newState new task state
      * @param newInitProgress new init progress
      * @param newError new error
      */
-    public void updateRealtimeTaskCache(String detectorId, String newState, Float newInitProgress, String newError) {
-        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
+    public void updateRealtimeTaskCache(String configId, String newState, Float newInitProgress, String newError) {
+        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
         if (realtimeTaskCache != null) {
             if (newState != null) {
                 realtimeTaskCache.setState(newState);
@@ -168,47 +172,47 @@ public class TaskCacheManager {
             }
             if (newState != null && !TaskState.NOT_ENDED_STATES.contains(newState)) {
                 // If task is done, will remove its realtime task cache.
-                logger.info("Realtime task done with state {}, remove RT task cache for detector ", newState, detectorId);
-                removeRealtimeTaskCache(detectorId);
+                logger.info("Realtime task done with state {}, remove RT task cache for config ", newState, configId);
+                removeRealtimeTaskCache(configId);
             }
         } else {
-            logger.debug("Realtime task cache is not inited yet for detector {}", detectorId);
+            logger.debug("Realtime task cache is not inited yet for config {}", configId);
         }
     }
 
-    public void refreshRealtimeJobRunTime(String detectorId) {
-        RealtimeTaskCache taskCache = realtimeTaskCaches.get(detectorId);
+    public void refreshRealtimeJobRunTime(String configId) {
+        RealtimeTaskCache taskCache = realtimeTaskCaches.get(configId);
         if (taskCache != null) {
             taskCache.setLastJobRunTime(Instant.now().toEpochMilli());
         }
     }
 
     /**
-     * Get detector IDs from realtime task cache.
-     * @return array of detector id
+     * Get config IDs from realtime task cache.
+     * @return array of config id
      */
-    public String[] getDetectorIdsInRealtimeTaskCache() {
+    public String[] getConfigIdsInRealtimeTaskCache() {
         return realtimeTaskCaches.keySet().toArray(new String[0]);
     }
 
     /**
      * Remove detector's realtime task from cache.
-     * @param detectorId detector id
+     * @param configId config id
      */
-    public void removeRealtimeTaskCache(String detectorId) {
-        if (realtimeTaskCaches.containsKey(detectorId)) {
-            logger.info("Delete realtime cache for detector {}", detectorId);
-            realtimeTaskCaches.remove(detectorId);
+    public void removeRealtimeTaskCache(String configId) {
+        if (realtimeTaskCaches.containsKey(configId)) {
+            logger.info("Delete realtime cache for config {}", configId);
+            realtimeTaskCaches.remove(configId);
         }
     }
 
     /**
-     * We query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
+     * We query result index to check if there are any result generated for config to tell whether it passed initialization of not.
      * To avoid repeated query when there is no data, record whether we have done that or not.
-     * @param id detector id
+     * @param configId config id
      */
-    public void markResultIndexQueried(String id) {
-        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(id);
+    public void markResultIndexQueried(String configId) {
+        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
         // we initialize a real time cache at the beginning of AnomalyResultTransportAction if it
         // cannot be found. If the cache is empty, we will return early and wait it for it to be
         // initialized.
@@ -218,13 +222,13 @@ public class TaskCacheManager {
     }
 
     /**
-     * We query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
+     * We query result index to check if there are any result generated for config to tell whether it passed initialization of not.
      *
-     * @param id detector id
+     * @param configId config id
      * @return whether we have queried result index or not.
      */
-    public boolean hasQueriedResultIndex(String id) {
-        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(id);
+    public boolean hasQueriedResultIndex(String configId) {
+        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
         if (realtimeTaskCache != null) {
             return realtimeTaskCache.hasQueriedResultIndex();
         }

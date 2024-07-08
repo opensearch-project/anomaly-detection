@@ -11,18 +11,25 @@
 
 package org.opensearch.ad.transport;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfile;
-import org.opensearch.ad.model.EntityProfile;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.timeseries.model.EntityProfile;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
@@ -211,5 +218,25 @@ public class GetAnomalyDetectorResponse extends ActionResponse implements ToXCon
 
     public AnomalyDetector getDetector() {
         return detector;
+    }
+
+    public static GetAnomalyDetectorResponse fromActionResponse(
+        ActionResponse actionResponse,
+        NamedWriteableRegistry namedWriteableRegistry
+    ) {
+        if (actionResponse instanceof GetAnomalyDetectorResponse) {
+            return (GetAnomalyDetectorResponse) actionResponse;
+        }
+
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos);
+            actionResponse.writeTo(osso);
+            InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()));
+            NamedWriteableAwareStreamInput namedWriteableAwareInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry);
+            return new GetAnomalyDetectorResponse(namedWriteableAwareInput);
+        } catch (IOException e) {
+            throw new UncheckedIOException("failed to parse ActionResponse into GetAnomalyDetectorResponse", e);
+        }
     }
 }

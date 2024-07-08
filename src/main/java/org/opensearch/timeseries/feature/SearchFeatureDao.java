@@ -11,7 +11,6 @@
 
 package org.opensearch.timeseries.feature;
 
-import static org.apache.commons.math3.linear.MatrixUtils.createRealMatrix;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_PAGE_SIZE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ENTITIES_FOR_PREVIEW;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.PREVIEW_TIMEOUT_IN_MILLIS;
@@ -20,25 +19,23 @@ import static org.opensearch.timeseries.util.ParseUtils.batchFeatureQuery;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.ZonedDateTime;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayDeque;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.feature.AbstractRetriever;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -68,7 +65,6 @@ import org.opensearch.search.sort.SortOrder;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
-import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -79,16 +75,14 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
  * DAO for features from search.
  */
 public class SearchFeatureDao extends AbstractRetriever {
-
-    protected static final String AGG_NAME_MIN = "min_timefield";
-    protected static final String AGG_NAME_TOP = "top_agg";
-
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
+
+    protected static final String AGG_NAME_TOP = "top_agg";
+    protected static final String AGG_NAME_MIN = "min_timefield";
 
     // Dependencies
     private final Client client;
     private final NamedXContentRegistry xContent;
-    private final Imputer imputer;
     private final SecurityClientUtil clientUtil;
     private volatile int maxEntitiesForPreview;
     private volatile int pageSize;
@@ -100,9 +94,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     public SearchFeatureDao(
         Client client,
         NamedXContentRegistry xContent,
-        Imputer imputer,
         SecurityClientUtil clientUtil,
-        Settings settings,
         ClusterService clusterService,
         int minimumDocCount,
         Clock clock,
@@ -112,7 +104,6 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         this.client = client;
         this.xContent = xContent;
-        this.imputer = imputer;
         this.clientUtil = clientUtil;
         this.maxEntitiesForPreview = maxEntitiesForPreview;
 
@@ -132,9 +123,7 @@ public class SearchFeatureDao extends AbstractRetriever {
      *
      * @param client ES client for queries
      * @param xContent ES XContentRegistry
-     * @param imputer imputer for missing values
      * @param clientUtil utility for ES client
-     * @param settings ES settings
      * @param clusterService ES ClusterService
      * @param minimumDocCount minimum doc count required for an entity; used to
      *   make sure an entity has enough samples for preview
@@ -142,7 +131,6 @@ public class SearchFeatureDao extends AbstractRetriever {
     public SearchFeatureDao(
         Client client,
         NamedXContentRegistry xContent,
-        Imputer imputer,
         SecurityClientUtil clientUtil,
         Settings settings,
         ClusterService clusterService,
@@ -151,9 +139,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         this(
             client,
             xContent,
-            imputer,
             clientUtil,
-            settings,
             clusterService,
             minimumDocCount,
             Clock.systemUTC(),
@@ -166,14 +152,23 @@ public class SearchFeatureDao extends AbstractRetriever {
     /**
      * Returns to listener the epoch time of the latset data under the detector.
      *
-     * @param detector info about the data
+     * @param config info about the data
      * @param listener onResponse is called with the epoch time of the latset data under the detector
      */
-    public void getLatestDataTime(AnomalyDetector detector, ActionListener<Optional<Long>> listener) {
+    public void getLatestDataTime(Config config, Optional<Entity> entity, AnalysisType context, ActionListener<Optional<Long>> listener) {
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
+
+        if (entity.isPresent()) {
+            for (TermQueryBuilder term : entity.get().getTermQueryForCustomerIndex()) {
+                internalFilterQuery.filter(term);
+            }
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(detector.getTimeField()))
+            .query(internalFilterQuery)
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(config.getTimeField()))
             .size(0);
-        SearchRequest searchRequest = new SearchRequest().indices(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        SearchRequest searchRequest = new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -182,9 +177,9 @@ public class SearchFeatureDao extends AbstractRetriever {
             .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                 searchRequest,
                 client::search,
-                detector.getId(),
+                config.getId(),
                 client,
-                AnalysisType.AD,
+                context,
                 searchResponseListener
             );
     }
@@ -484,7 +479,7 @@ public class SearchFeatureDao extends AbstractRetriever {
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
 
         if (entity.isPresent()) {
-            for (TermQueryBuilder term : entity.get().getTermQueryBuilders()) {
+            for (TermQueryBuilder term : entity.get().getTermQueryForCustomerIndex()) {
                 internalFilterQuery.filter(term);
             }
         }
@@ -634,214 +629,6 @@ public class SearchFeatureDao extends AbstractRetriever {
             );
     }
 
-    /**
-     * Returns to listener features for sampled periods.
-     *
-     * Sampling starts with the latest period and goes backwards in time until there are up to {@code maxSamples} samples.
-     * If the initial stride {@code maxStride} results into a low count of samples, the implementation
-     * may attempt with (exponentially) reduced strides and interpolate missing points.
-     *
-     * @param detector info about indices, documents, feature query
-     * @param maxSamples the maximum number of samples to return
-     * @param maxStride the maximum number of periods between samples
-     * @param endTime the end time of the latest period
-     * @param listener onResponse is called with sampled features and stride between points, or empty for no data
-     */
-    public void getFeaturesForSampledPeriods(
-        AnomalyDetector detector,
-        int maxSamples,
-        int maxStride,
-        long endTime,
-        ActionListener<Optional<Entry<double[][], Integer>>> listener
-    ) {
-        Map<Long, double[]> cache = new HashMap<>();
-        logger.info(String.format(Locale.ROOT, "Getting features for detector %s ending at %d", detector.getId(), endTime));
-        getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, maxStride, listener);
-    }
-
-    private void getFeatureSamplesWithCache(
-        AnomalyDetector detector,
-        int maxSamples,
-        int maxStride,
-        long endTime,
-        Map<Long, double[]> cache,
-        int currentStride,
-        ActionListener<Optional<Entry<double[][], Integer>>> listener
-    ) {
-        getFeatureSamplesForStride(
-            detector,
-            maxSamples,
-            maxStride,
-            currentStride,
-            endTime,
-            cache,
-            ActionListener
-                .wrap(
-                    features -> processFeatureSamplesForStride(
-                        features,
-                        detector,
-                        maxSamples,
-                        maxStride,
-                        currentStride,
-                        endTime,
-                        cache,
-                        listener
-                    ),
-                    listener::onFailure
-                )
-        );
-    }
-
-    private void processFeatureSamplesForStride(
-        Optional<double[][]> features,
-        AnomalyDetector detector,
-        int maxSamples,
-        int maxStride,
-        int currentStride,
-        long endTime,
-        Map<Long, double[]> cache,
-        ActionListener<Optional<Entry<double[][], Integer>>> listener
-    ) {
-        if (!features.isPresent()) {
-            logger
-                .info(
-                    String
-                        .format(
-                            Locale.ROOT,
-                            "Get features for detector %s finishes without any features present, current stride %d",
-                            detector.getId(),
-                            currentStride
-                        )
-                );
-            listener.onResponse(Optional.empty());
-        } else if (features.get().length > maxSamples / 2 || currentStride == 1) {
-            logger
-                .info(
-                    String
-                        .format(
-                            Locale.ROOT,
-                            "Get features for detector %s finishes with %d samples, current stride %d",
-                            detector.getId(),
-                            features.get().length,
-                            currentStride
-                        )
-                );
-            listener.onResponse(Optional.of(new SimpleEntry<>(features.get(), currentStride)));
-        } else {
-            getFeatureSamplesWithCache(detector, maxSamples, maxStride, endTime, cache, currentStride / 2, listener);
-        }
-    }
-
-    private void getFeatureSamplesForStride(
-        AnomalyDetector detector,
-        int maxSamples,
-        int maxStride,
-        int currentStride,
-        long endTime,
-        Map<Long, double[]> cache,
-        ActionListener<Optional<double[][]>> listener
-    ) {
-        ArrayDeque<double[]> sampledFeatures = new ArrayDeque<>(maxSamples);
-        boolean isInterpolatable = currentStride < maxStride;
-        long span = ((IntervalTimeConfiguration) detector.getInterval()).toDuration().toMillis();
-        sampleForIteration(detector, cache, maxSamples, endTime, span, currentStride, sampledFeatures, isInterpolatable, 0, listener);
-    }
-
-    private void sampleForIteration(
-        AnomalyDetector detector,
-        Map<Long, double[]> cache,
-        int maxSamples,
-        long endTime,
-        long span,
-        int stride,
-        ArrayDeque<double[]> sampledFeatures,
-        boolean isInterpolatable,
-        int iteration,
-        ActionListener<Optional<double[][]>> listener
-    ) {
-        if (iteration < maxSamples) {
-            long end = endTime - span * stride * iteration;
-            if (cache.containsKey(end)) {
-                sampledFeatures.addFirst(cache.get(end));
-                sampleForIteration(
-                    detector,
-                    cache,
-                    maxSamples,
-                    endTime,
-                    span,
-                    stride,
-                    sampledFeatures,
-                    isInterpolatable,
-                    iteration + 1,
-                    listener
-                );
-            } else {
-                getFeaturesForPeriod(detector, end - span, end, ActionListener.wrap(features -> {
-                    if (features.isPresent()) {
-                        cache.put(end, features.get());
-                        sampledFeatures.addFirst(features.get());
-                        sampleForIteration(
-                            detector,
-                            cache,
-                            maxSamples,
-                            endTime,
-                            span,
-                            stride,
-                            sampledFeatures,
-                            isInterpolatable,
-                            iteration + 1,
-                            listener
-                        );
-                    } else if (isInterpolatable) {
-                        Optional<double[]> previous = Optional.ofNullable(cache.get(end - span * stride));
-                        Optional<double[]> next = Optional.ofNullable(cache.get(end + span * stride));
-                        if (previous.isPresent() && next.isPresent()) {
-                            double[] interpolants = getInterpolants(previous.get(), next.get());
-                            cache.put(end, interpolants);
-                            sampledFeatures.addFirst(interpolants);
-                            sampleForIteration(
-                                detector,
-                                cache,
-                                maxSamples,
-                                endTime,
-                                span,
-                                stride,
-                                sampledFeatures,
-                                isInterpolatable,
-                                iteration + 1,
-                                listener
-                            );
-                        } else {
-                            listener.onResponse(toMatrix(sampledFeatures));
-                        }
-                    } else {
-                        listener.onResponse(toMatrix(sampledFeatures));
-                    }
-                }, listener::onFailure));
-            }
-        } else {
-            listener.onResponse(toMatrix(sampledFeatures));
-        }
-    }
-
-    private Optional<double[][]> toMatrix(ArrayDeque<double[]> sampledFeatures) {
-        Optional<double[][]> samples;
-        if (sampledFeatures.isEmpty()) {
-            samples = Optional.empty();
-        } else {
-            samples = Optional.of(sampledFeatures.toArray(new double[0][0]));
-        }
-        return samples;
-    }
-
-    private double[] getInterpolants(double[] previous, double[] next) {
-        return transpose(imputer.impute(transpose(new double[][] { previous, next }), 3))[1];
-    }
-
-    private double[][] transpose(double[][] matrix) {
-        return createRealMatrix(matrix).transpose().getData();
-    }
-
     private SearchRequest createFeatureSearchRequest(AnomalyDetector detector, long startTime, long endTime, Optional<String> preference) {
         // TODO: FeatureQuery field is planned to be removed and search request creation will migrate to new api.
         try {
@@ -863,6 +650,36 @@ public class SearchFeatureDao extends AbstractRetriever {
         }
     }
 
+    /**
+     * Retrieves cold start samples for specified time periods from Elasticsearch. This method is designed
+     * to support anomaly detection by fetching historical data that can be used to initialize models
+     * for new entities or periods without sufficient data.
+     *
+     * @param config The configuration object that contains settings and parameters used for the search.
+     * @param ranges A list of time ranges (start and end timestamps) for which to fetch the samples.
+     * @param entity An {@link Optional} containing the {@link Entity} for which to fetch samples.
+     *        If the entity is not present, samples are fetched without filtering by entity.
+     * @param includesEmptyBucket A boolean flag indicating whether to include time periods with no data.
+     *        If true, periods without data will be included in the response with a default value.
+     * @param context The {@link AnalysisType} indicating the context of the analysis, which may affect
+     *        how samples are processed and returned.
+     * @param listener An {@link ActionListener} that handles the response containing a list of
+     *        {@link Optional} arrays of doubles, representing the sample data for each requested period.
+     *        The listener also handles failure scenarios. If there is no data in a bucket, the optional
+     *        is empty.
+     *
+     * <p>The method constructs a search request based on the provided parameters, executes the search,
+     * and processes the response to extract and format the relevant sample data. The resulting list
+     * of samples, ordered by time, is passed to the {@code listener} on successful retrieval.
+     *
+     * <p>In cases where the OpenSearch aggregations return null (e.g., no data matches the query),
+     * the method responds with an empty list. This method also applies a document count threshold
+     * to filter out buckets with insignificant data, based on the {@code includesEmptyBucket} parameter.
+     *
+     * <p>It's important to note that this method assumes ascending order for the date range bucket
+     * aggregation results by default and treats the {@code config.getEnabledFeatureIds()} to parse
+     * and format each bucket's data into the expected double array format.
+     */
     public void getColdStartSamplesForPeriods(
         Config config,
         List<Entry<Long, Long>> ranges,
@@ -873,37 +690,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         SearchRequest request = createColdStartFeatureSearchRequest(config, ranges, entity);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
-            Aggregations aggs = response.getAggregations();
-            if (aggs == null) {
-                listener.onResponse(Collections.emptyList());
-                return;
-            }
-
-            long docCountThreshold = includesEmptyBucket ? -1 : 0;
-
-            // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
-            // Example responses from date range bucket aggregation:
-            // "aggregations":{"date_range":{"buckets":[{"key":"1598865166000-1598865226000","from":1.598865166E12,"
-            // from_as_string":"1598865166000","to":1.598865226E12,"to_as_string":"1598865226000","doc_count":3,
-            // "deny_max":{"value":154.0}},{"key":"1598869006000-1598869066000","from":1.598869006E12,
-            // "from_as_string":"1598869006000","to":1.598869066E12,"to_as_string":"1598869066000","doc_count":3,
-            // "deny_max":{"value":141.0}},
-            // We don't want to use default 0 for sum/count aggregation as it might cause false positives during scoring.
-            // Terms aggregation only returns non-zero count values. If we use a lot of 0s during cold start,
-            // we will see alarming very easily.
-            listener
-                .onResponse(
-                    aggs
-                        .asList()
-                        .stream()
-                        .filter(InternalDateRange.class::isInstance)
-                        .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
-                        .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
-                        .filter(bucket -> bucket.getDocCount() > docCountThreshold)
-                        .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
-                        .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()))
-                        .collect(Collectors.toList())
-                );
+            listener.onResponse(parseColdStartSampleResp(response, includesEmptyBucket, config));
         }, listener::onFailure);
 
         // inject user role while searching.
@@ -918,9 +705,136 @@ public class SearchFeatureDao extends AbstractRetriever {
             );
     }
 
-    private SearchRequest createColdStartFeatureSearchRequest(Config detector, List<Entry<Long, Long>> ranges, Optional<Entity> entity) {
+    /**
+     * Parses the response from a search query for cold start samples, extracting and processing
+     * the relevant buckets to obtain their parsed values.
+     *
+     * This method processes the aggregations from the provided search response to extract and sort the
+     * buckets. Only buckets that meet certain criteria are included:
+     * - The `from` field must be a non-null instance of `ZonedDateTime`.
+     * - The bucket's document count must be greater than the specified threshold, which is determined
+     *   by the `includesEmptyBucket` parameter.
+     *
+     * The method returns a list of Optional double array containing the parsed values of the buckets.
+     * Buckets for which the parseBucket method returns Optional.empty() are excluded from the final list.
+     *
+     * @param response the search response containing the aggregations
+     * @param includesEmptyBucket a boolean flag indicating whether to include buckets with a document
+     *        count of zero (if true, the threshold is set to -1; otherwise, it is set to 0)
+     * @param config the configuration object containing necessary settings and feature IDs
+     * @return a list of Optional double array containing the parsed values of the valid buckets, or an empty
+     *         list if the aggregations are null or no valid buckets are found
+     */
+    public List<Optional<double[]>> parseColdStartSampleResp(SearchResponse response, boolean includesEmptyBucket, Config config) {
+        Aggregations aggs = response.getAggregations();
+        if (aggs == null) {
+            logger.warn("Unexpected empty response");
+            return Collections.emptyList();
+        }
+
+        long docCountThreshold = includesEmptyBucket ? -1 : 0;
+
+        // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
+        // Example responses from date range bucket aggregation:
+        // "aggregations":{"date_range":{"buckets":[{"key":"1598865166000-1598865226000","from":1.598865166E12,"
+        // from_as_string":"1598865166000","to":1.598865226E12,"to_as_string":"1598865226000","doc_count":3,
+        // "deny_max":{"value":154.0}},{"key":"1598869006000-1598869066000","from":1.598869006E12,
+        // "from_as_string":"1598869006000","to":1.598869066E12,"to_as_string":"1598869066000","doc_count":3,
+        // "deny_max":{"value":141.0}},
+        // We don't want to use default 0 for sum/count aggregation as it might cause false positives during scoring.
+        // Terms aggregation only returns non-zero count values. If we use a lot of 0s during cold start,
+        // we will see alarming very easily.
+        return aggs
+            .asList()
+            .stream()
+            .filter(InternalDateRange.class::isInstance)
+            .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+            .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
+            .filter(bucket -> bucket.getDocCount() > docCountThreshold)
+            .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
+            .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Parses the timestamps of the buckets from a search response for cold start samples.
+     *
+     * This method processes the aggregations from the provided search response to extract and sort the
+     * timestamps of the buckets. Only buckets that meet certain criteria are included:
+     * - The `from` field must be a non-null instance of `ZonedDateTime`.
+     * - The bucket's document count must be greater than the specified threshold, which is determined
+     *   by the `includesEmptyBucket` parameter.
+     * - The bucket must have a non-empty result from the `parseBucket` method.
+     *
+     * The method returns a list of epoch millisecond timestamps of the `from` fields of the valid buckets.
+     *
+     * @param response the search response containing the aggregations
+     * @param includesEmptyBucket a boolean flag indicating whether to include buckets with a document
+     *        count of zero (if true, the threshold is set to -1; otherwise, it is set to 0)
+     * @param config the configuration object containing feature enabled information
+     * @return a list of epoch millisecond timestamps of the valid bucket `from` fields, or an empty list
+     *         if the aggregations are null or no valid buckets are found
+     */
+    public List<Long> parseColdStartSampleTimestamp(SearchResponse response, boolean includesEmptyBucket, Config config) {
+        Aggregations aggs = response.getAggregations();
+        if (aggs == null) {
+            logger.warn("Unexpected empty response");
+            return Collections.emptyList();
+        }
+
+        long docCountThreshold = includesEmptyBucket ? -1 : 0;
+
+        // Extract buckets and order by from_as_string. Currently by default it is ascending. Better not to assume it.
+        // Example responses from date range bucket aggregation:
+        // "aggregations":{"date_range":{"buckets":[{"key":"1598865166000-1598865226000","from":1.598865166E12,"
+        // from_as_string":"1598865166000","to":1.598865226E12,"to_as_string":"1598865226000","doc_count":3,
+        // "deny_max":{"value":154.0}},{"key":"1598869006000-1598869066000","from":1.598869006E12,
+        // "from_as_string":"1598869006000","to":1.598869066E12,"to_as_string":"1598869066000","doc_count":3,
+        // "deny_max":{"value":141.0}},
+        // We don't want to use default 0 for sum/count aggregation as it might cause false positives during scoring.
+        // Terms aggregation only returns non-zero count values. If we use a lot of 0s during cold start,
+        // we will see alarming very easily.
+        return aggs
+            .asList()
+            .stream()
+            .filter(InternalDateRange.class::isInstance)
+            .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+            .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
+            .filter(bucket -> bucket.getDocCount() > docCountThreshold)
+            .filter(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()).isPresent())
+            .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
+            .map(bucket -> ((ZonedDateTime) bucket.getFrom()).toInstant().toEpochMilli())
+            .collect(Collectors.toList());
+    }
+
+    public SearchRequest createColdStartFeatureSearchRequest(Config detector, List<Entry<Long, Long>> ranges, Optional<Entity> entity) {
         try {
             SearchSourceBuilder searchSourceBuilder = ParseUtils.generateColdStartQuery(detector, ranges, entity, xContent);
+            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
+        } catch (IOException e) {
+            logger
+                .warn(
+                    "Failed to create cold start feature search request for "
+                        + detector.getId()
+                        + " from "
+                        + ranges.get(0).getKey()
+                        + " to "
+                        + ranges.get(ranges.size() - 1).getKey(),
+                    e
+                );
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public SearchRequest createColdStartFeatureSearchRequestForSingleFeature(
+        Config detector,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        int featureIndex
+    ) {
+        try {
+            SearchSourceBuilder searchSourceBuilder = ParseUtils
+                .generateColdStartQueryForSingleFeature(detector, ranges, entity, xContent, featureIndex);
             return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger
@@ -940,5 +854,36 @@ public class SearchFeatureDao extends AbstractRetriever {
     @Override
     public Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
+    }
+
+    /**
+     * Get train samples within a time range.
+     *
+     * @param interval interval to compute ranges
+     * @param startMilli range start
+     * @param endMilli range end
+     * @param numberOfSamples maximum training samples to fetch
+     * @return list of sample time ranges in ascending order
+     */
+    public List<Entry<Long, Long>> getTrainSampleRanges(
+        IntervalTimeConfiguration interval,
+        long startMilli,
+        long endMilli,
+        int numberOfSamples
+    ) {
+        long bucketSize = interval.toDuration().toMillis();
+        int numBuckets = (int) Math.floor((endMilli - startMilli) / (double) bucketSize);
+        // adjust if numStrides is more than the max samples
+        int numIntervals = Math.min(numBuckets, numberOfSamples);
+        List<Entry<Long, Long>> sampleRanges = Stream
+            .iterate(endMilli, i -> i - bucketSize)
+            .limit(numIntervals)
+            .map(time -> new SimpleImmutableEntry<>(time - bucketSize, time))
+            .collect(Collectors.toList());
+
+        // Reverse the list to get time ranges in ascending order
+        Collections.reverse(sampleRanges);
+
+        return sampleRanges;
     }
 }

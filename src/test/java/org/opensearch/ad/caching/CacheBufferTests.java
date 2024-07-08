@@ -22,8 +22,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import org.mockito.ArgumentCaptor;
-import org.opensearch.ad.ratelimit.CheckpointMaintainRequest;
 import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.ratelimit.CheckpointMaintainRequest;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -69,7 +69,7 @@ public class CacheBufferTests extends AbstractCacheTest {
         cacheBuffer.put(modelId2, modelState2);
         cacheBuffer.put(modelId2, modelState2);
         cacheBuffer.put(modelId4, modelState4);
-        assertTrue(cacheBuffer.getModel(modelId2).isPresent());
+        assertTrue(cacheBuffer.getModelState(modelId2) != null);
 
         ArgumentCaptor<Long> memoryReleased = ArgumentCaptor.forClass(Long.class);
         ArgumentCaptor<Boolean> reserved = ArgumentCaptor.forClass(Boolean.class);
@@ -93,10 +93,10 @@ public class CacheBufferTests extends AbstractCacheTest {
         String modelId2 = "2";
         String modelId3 = "3";
         assertTrue(cacheBuffer.dedicatedCacheAvailable());
-        assertTrue(!cacheBuffer.canReplaceWithinDetector(100));
+        assertTrue(!cacheBuffer.canReplaceWithinConfig(100));
 
         cacheBuffer.put(modelId1, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
-        assertTrue(cacheBuffer.canReplaceWithinDetector(100));
+        assertTrue(cacheBuffer.canReplaceWithinConfig(100));
         assertTrue(!cacheBuffer.dedicatedCacheAvailable());
         assertTrue(!cacheBuffer.canRemove());
         cacheBuffer.put(modelId2, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
@@ -117,7 +117,7 @@ public class CacheBufferTests extends AbstractCacheTest {
         cacheBuffer.put(modelId3, MLUtil.randomModelState(new RandomModelStateConfig.Builder().priority(initialPriority).build()));
         cacheBuffer.maintenance();
         assertEquals(3, cacheBuffer.getActiveEntities());
-        assertEquals(3, cacheBuffer.getAllModels().size());
+        assertEquals(3, cacheBuffer.getAllModelStates().size());
         // the year of 2122, 100 years later to simulate we are gonna remove all cached entries
         when(clock.instant()).thenReturn(Instant.ofEpochSecond(4814540761L));
         cacheBuffer.maintenance();
@@ -167,7 +167,7 @@ public class CacheBufferTests extends AbstractCacheTest {
         verify(checkpointMaintainQueue, times(1)).putAll(savedStates.capture());
         List<CheckpointMaintainRequest> toSave = savedStates.getValue();
         assertEquals(1, toSave.size());
-        assertEquals(modelId1, toSave.get(0).getEntityModelId());
+        assertEquals(modelId1, toSave.get(0).getModelId());
     }
 
     /**

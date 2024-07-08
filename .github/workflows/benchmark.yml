@@ -13,15 +13,19 @@ jobs:
     with:
       product: opensearch
 
-  Build-ad:
+  Run-Tests:
     needs: Get-CI-Image-Tag
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [17]
+        # each test scenario (rule, hc, single_stream) is treated as a separate job.
+        test: [rule, hc, single_stream]
       fail-fast: false
-
+    concurrency:
+      # The concurrency setting is used to limit the concurrency of each test scenario group to ensure they do not run concurrently on the same machine. 
+      group: ${{ github.workflow }}-${{ matrix.test }}
     name: Run Anomaly detection model performance benchmark
-    runs-on: ubuntu-latest
+
     container:
       # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
       # this image tag is subject to change as more dependencies and updates will arrive over time
@@ -30,18 +34,36 @@ jobs:
       options: --user root
 
     steps:
-      - name: Setup Java ${{ matrix.java }}
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: ${{ matrix.java }}
+          java-version: 21
 
-      # anomaly-detection
       - name: Checkout AD
         uses: actions/checkout@v3
 
       - name: Build and Run Tests
         run: |
           chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "./gradlew ':test' --tests 'org.opensearch.ad.ml.HCADModelPerfTests' -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true -Dmodel-benchmark=true"
-          su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.SingleStreamModelPerfIT' -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true -Dmodel-benchmark=true"
+          case ${{ matrix.test }} in
+            rule)
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.RuleModelPerfIT' \
+                -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
+                -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
+                -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dmodel-benchmark=true \
+                -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
+              ;;
+            hc)
+              su `id -un 1000` -c "./gradlew ':test' --tests 'org.opensearch.ad.ml.HCADModelPerfTests' \
+                -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false \
+                -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true \
+                -Dtests.timeoutSuite=3600000! -Dmodel-benchmark=true"
+              ;;
+            single_stream)
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.SingleStreamModelPerfIT' \
+                -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false \
+                -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true \
+                -Dtests.timeoutSuite=3600000! -Dmodel-benchmark=true"
+              ;;
+          esac

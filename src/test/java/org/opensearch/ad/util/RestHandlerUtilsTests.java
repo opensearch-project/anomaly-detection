@@ -88,17 +88,22 @@ public class RestHandlerUtilsTests extends OpenSearchTestCase {
     public void testValidateAnomalyDetectorWithTooManyFeatures() throws IOException {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(), randomFeature()));
         String error = RestHandlerUtils.checkFeaturesSyntax(detector, 1);
-        assertEquals("Can't create more than 1 features", error);
+        assertEquals("Can't create more than 1 feature(s)", error);
     }
 
     public void testValidateAnomalyDetectorWithDuplicateFeatureNames() throws IOException {
         String featureName = randomAlphaOfLength(5);
-        AnomalyDetector detector = TestHelpers
-            .randomAnomalyDetector(
-                ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
-            );
-        String error = RestHandlerUtils.checkFeaturesSyntax(detector, 2);
-        assertEquals("There are duplicate feature names: " + featureName, error);
+        org.opensearch.timeseries.common.exception.ValidationException e = assertThrows(
+            org.opensearch.timeseries.common.exception.ValidationException.class,
+            () -> TestHelpers
+                .randomAnomalyDetector(
+                    ImmutableList.of(randomFeature(featureName, randomAlphaOfLength(5)), randomFeature(featureName, randomAlphaOfLength(5)))
+                )
+        );
+        assertTrue(
+            "Expected: " + e.getMessage(),
+            e.getMessage().contains("[" + featureName + "] appears more than once. Feature name has to be unique")
+        );
     }
 
     public void testValidateAnomalyDetectorWithDuplicateAggregationNames() throws IOException {

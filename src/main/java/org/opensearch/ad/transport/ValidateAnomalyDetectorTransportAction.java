@@ -12,61 +12,32 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
-import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
-
-import java.time.Clock;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.DetectorValidationIssue;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.index.IndexNotFoundException;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.tasks.Task;
-import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
-import org.opensearch.timeseries.function.ExecutorFunction;
-import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.ValidationAspect;
-import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.rest.handler.Processor;
+import org.opensearch.timeseries.transport.BaseValidateConfigTransportAction;
+import org.opensearch.timeseries.transport.ValidateConfigRequest;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 
-public class ValidateAnomalyDetectorTransportAction extends
-    HandledTransportAction<ValidateAnomalyDetectorRequest, ValidateAnomalyDetectorResponse> {
-    private static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
-
-    private final Client client;
-    private final SecurityClientUtil clientUtil;
-    private final ClusterService clusterService;
-    private final NamedXContentRegistry xContentRegistry;
-    private final ADIndexManagement anomalyDetectionIndices;
-    private final SearchFeatureDao searchFeatureDao;
-    private volatile Boolean filterByEnabled;
-    private Clock clock;
-    private Settings settings;
+public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTransportAction<ADIndex, ADIndexManagement> {
+    public static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
     @Inject
     public ValidateAnomalyDetectorTransportAction(
@@ -80,176 +51,42 @@ public class ValidateAnomalyDetectorTransportAction extends
         TransportService transportService,
         SearchFeatureDao searchFeatureDao
     ) {
-        super(ValidateAnomalyDetectorAction.NAME, transportService, actionFilters, ValidateAnomalyDetectorRequest::new);
-        this.client = client;
-        this.clientUtil = clientUtil;
-        this.clusterService = clusterService;
-        this.xContentRegistry = xContentRegistry;
-        this.anomalyDetectionIndices = anomalyDetectionIndices;
-        this.filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
-        this.searchFeatureDao = searchFeatureDao;
-        this.clock = Clock.systemUTC();
-        this.settings = settings;
+        super(
+            ValidateAnomalyDetectorAction.NAME,
+            client,
+            clientUtil,
+            clusterService,
+            xContentRegistry,
+            settings,
+            anomalyDetectionIndices,
+            actionFilters,
+            transportService,
+            searchFeatureDao,
+            AD_FILTER_BY_BACKEND_ROLES,
+            ValidationAspect.DETECTOR
+        );
     }
 
     @Override
-    protected void doExecute(Task task, ValidateAnomalyDetectorRequest request, ActionListener<ValidateAnomalyDetectorResponse> listener) {
-        User user = getUserContext(client);
-        AnomalyDetector anomalyDetector = request.getDetector();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener));
-        } catch (Exception e) {
-            logger.error(e);
-            listener.onFailure(e);
-        }
-    }
-
-    private void resolveUserAndExecute(
-        User requestedUser,
-        ActionListener<ValidateAnomalyDetectorResponse> listener,
-        ExecutorFunction function
-    ) {
-        try {
-            // Check if user has backend roles
-            // When filter by is enabled, block users validating detectors who do not have backend roles.
-            if (filterByEnabled && !checkFilterByBackendRoles(requestedUser, listener)) {
-                return;
-            }
-            // Validate Detector
-            function.execute();
-        } catch (Exception e) {
-            listener.onFailure(e);
-        }
-    }
-
-    private void validateExecute(
-        ValidateAnomalyDetectorRequest request,
-        User user,
-        ThreadContext.StoredContext storedContext,
-        ActionListener<ValidateAnomalyDetectorResponse> listener
-    ) {
-        storedContext.restore();
-        AnomalyDetector detector = request.getDetector();
-        ActionListener<ValidateAnomalyDetectorResponse> validateListener = ActionListener.wrap(response -> {
-            logger.debug("Result of validation process " + response);
-            // forcing response to be empty
-            listener.onResponse(new ValidateAnomalyDetectorResponse((DetectorValidationIssue) null));
-        }, exception -> {
-            if (exception instanceof ValidationException) {
-                // ADValidationException is converted as validation issues returned as response to user
-                DetectorValidationIssue issue = parseADValidationException((ValidationException) exception);
-                listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
-                return;
-            }
-            logger.error(exception);
-            listener.onFailure(exception);
-        });
-        checkIndicesAndExecute(detector.getIndices(), () -> {
-            ValidateAnomalyDetectorActionHandler handler = new ValidateAnomalyDetectorActionHandler(
-                clusterService,
-                client,
-                clientUtil,
-                validateListener,
-                anomalyDetectionIndices,
-                detector,
-                request.getRequestTimeout(),
-                request.getMaxSingleEntityAnomalyDetectors(),
-                request.getMaxMultiEntityAnomalyDetectors(),
-                request.getMaxAnomalyFeatures(),
-                RestRequest.Method.POST,
-                xContentRegistry,
-                user,
-                searchFeatureDao,
-                request.getValidationType(),
-                clock,
-                settings
-            );
-            try {
-                handler.start();
-            } catch (Exception exception) {
-                String errorMessage = String
-                    .format(Locale.ROOT, "Unknown exception caught while validating detector %s", request.getDetector());
-                logger.error(errorMessage, exception);
-                listener.onFailure(exception);
-            }
-        }, listener);
-    }
-
-    protected DetectorValidationIssue parseADValidationException(ValidationException exception) {
-        String originalErrorMessage = exception.getMessage();
-        String errorMessage = "";
-        Map<String, String> subIssues = null;
-        IntervalTimeConfiguration intervalSuggestion = exception.getIntervalSuggestion();
-        switch (exception.getType()) {
-            case FEATURE_ATTRIBUTES:
-                int firstLeftBracketIndex = originalErrorMessage.indexOf("[");
-                int lastRightBracketIndex = originalErrorMessage.lastIndexOf("]");
-                if (firstLeftBracketIndex != -1) {
-                    // if feature issue messages are between square brackets like
-                    // [Feature has issue: A, Feature has issue: B]
-                    errorMessage = originalErrorMessage.substring(firstLeftBracketIndex + 1, lastRightBracketIndex);
-                    subIssues = getFeatureSubIssuesFromErrorMessage(errorMessage);
-                } else {
-                    // features having issue like over max feature limit, duplicate feature name, etc.
-                    errorMessage = originalErrorMessage;
-                }
-                break;
-            case NAME:
-            case CATEGORY:
-            case DETECTION_INTERVAL:
-            case FILTER_QUERY:
-            case TIMEFIELD_FIELD:
-            case SHINGLE_SIZE_FIELD:
-            case WINDOW_DELAY:
-            case RESULT_INDEX:
-            case GENERAL_SETTINGS:
-            case AGGREGATION:
-            case TIMEOUT:
-            case INDICES:
-                errorMessage = originalErrorMessage;
-                break;
-        }
-        return new DetectorValidationIssue(exception.getAspect(), exception.getType(), errorMessage, subIssues, intervalSuggestion);
-    }
-
-    // Example of method output:
-    // String input:Feature has invalid query returning empty aggregated data: average_total_rev, Feature has invalid query causing runtime
-    // exception: average_total_rev-2
-    // output: "sub_issues": {
-    // "average_total_rev": "Feature has invalid query returning empty aggregated data",
-    // "average_total_rev-2": "Feature has invalid query causing runtime exception"
-    // }
-    private Map<String, String> getFeatureSubIssuesFromErrorMessage(String errorMessage) {
-        Map<String, String> result = new HashMap<>();
-        String[] subIssueMessagesSuffix = errorMessage.split(", ");
-        for (int i = 0; i < subIssueMessagesSuffix.length; i++) {
-            result.put(subIssueMessagesSuffix[i].split(": ")[1], subIssueMessagesSuffix[i].split(": ")[0]);
-        }
-        return result;
-    }
-
-    private void checkIndicesAndExecute(
-        List<String> indices,
-        ExecutorFunction function,
-        ActionListener<ValidateAnomalyDetectorResponse> listener
-    ) {
-        SearchRequest searchRequest = new SearchRequest()
-            .indices(indices.toArray(new String[0]))
-            .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
-        client.search(searchRequest, ActionListener.wrap(r -> function.execute(), e -> {
-            if (e instanceof IndexNotFoundException) {
-                // IndexNotFoundException is converted to a ADValidationException that gets
-                // parsed to a DetectorValidationIssue that is returned to
-                // the user as a response indicating index doesn't exist
-                DetectorValidationIssue issue = parseADValidationException(
-                    new ValidationException(ADCommonMessages.INDEX_NOT_FOUND, ValidationIssueType.INDICES, ValidationAspect.DETECTOR)
-                );
-                listener.onResponse(new ValidateAnomalyDetectorResponse(issue));
-                return;
-            }
-            logger.error(e);
-            listener.onFailure(e);
-        }));
+    protected Processor<ValidateConfigResponse> createProcessor(Config detector, ValidateConfigRequest request, User user) {
+        return new ValidateAnomalyDetectorActionHandler(
+            clusterService,
+            client,
+            clientUtil,
+            indexManagement,
+            detector,
+            request.getRequestTimeout(),
+            request.getMaxSingleEntityAnomalyDetectors(),
+            request.getMaxMultiEntityAnomalyDetectors(),
+            request.getMaxAnomalyFeatures(),
+            request.getMaxCategoricalFields(),
+            RestRequest.Method.POST,
+            xContentRegistry,
+            user,
+            searchFeatureDao,
+            request.getValidationType(),
+            clock,
+            settings
+        );
     }
 }

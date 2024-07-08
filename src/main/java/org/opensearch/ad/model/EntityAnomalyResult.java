@@ -13,6 +13,8 @@ package org.opensearch.ad.model;
 
 import java.util.List;
 
+import org.opensearch.timeseries.model.Mergeable;
+
 public class EntityAnomalyResult implements Mergeable {
 
     private List<AnomalyResult> anomalyResults;

@@ -13,6 +13,8 @@ package org.opensearch.timeseries.constant;
 
 import java.util.Locale;
 
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
+
 public class CommonMessages {
     // ======================================
     // Validation message
@@ -52,9 +54,9 @@ public class CommonMessages {
     public static String TIME_FIELD_NOT_ENOUGH_HISTORICAL_DATA =
         "There isn't enough historical data found with current timefield selected.";
     public static String CATEGORY_FIELD_TOO_SPARSE =
-        "Data is most likely too sparse with the given category fields. Consider revising category field/s or ingesting more data ";
+        "Data is most likely too sparse with the given category fields. Consider revising category field/s or ingesting more data.";
     public static String WINDOW_DELAY_REC =
-        "Latest seen data point is at least %d minutes ago, consider changing window delay to at least %d minutes.";
+        "Latest seen data point is at least %d minutes ago. Consider changing window delay to at least %d minutes.";
     public static String INTERVAL_REC = "The selected interval might collect sparse data. Consider changing interval length to: ";
     public static String RAW_DATA_TOO_SPARSE =
         "Source index data is potentially too sparse for model training. Consider changing interval length or ingesting more data";
@@ -63,8 +65,14 @@ public class CommonMessages {
     public static String CATEGORY_FIELD_NO_DATA =
         "No entity was found with the given categorical fields. Consider revising category field/s or ingesting more data";
     public static String FEATURE_QUERY_TOO_SPARSE =
-        "Data is most likely too sparse when given feature queries are applied. Consider revising feature queries.";
+        "Data is most likely too sparse when given feature queries are applied. Consider revising feature queries";
     public static String TIMEOUT_ON_INTERVAL_REC = "Timed out getting interval recommendation";
+    public static final String NOT_EXISTENT_VALIDATION_TYPE = "The given validation type doesn't exist";
+    public static final String NOT_EXISTENT_SUGGEST_TYPE = "The given suggest type doesn't exist";
+    public static final String DESCRIPTION_LENGTH_TOO_LONG = "Description length is too long. Max length is "
+        + TimeSeriesSettings.MAX_DESCRIPTION_LENGTH
+        + " characters.";
+    public static final String INDEX_NOT_FOUND = "index does not exist";
 
     // ======================================
     // Index message
@@ -77,7 +85,7 @@ public class CommonMessages {
     // Resource constraints
     // ======================================
     public static final String MEMORY_CIRCUIT_BROKEN_ERR_MSG =
-        "The total OpenSearch memory usage exceeds our threshold, opening the AD memory circuit.";
+        "The total OpenSearch memory usage exceeds our threshold, opening the memory circuit.";
 
     // ======================================
     // Transport
@@ -139,4 +147,9 @@ public class CommonMessages {
     // Stats API
     // ======================================
     public static String FAIL_TO_GET_STATS = "Fail to get stats";
+
+    // ======================================
+    // Suggest API
+    // ======================================
+    public static String FAIL_SUGGEST_ERR_MSG = "Fail to suggest parameters for ";
 }

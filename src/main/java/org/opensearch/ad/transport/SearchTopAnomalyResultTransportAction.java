@@ -46,7 +46,6 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.script.Script;
-import org.opensearch.script.ScriptType;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -64,9 +63,9 @@ import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.util.QueryUtil;
 import org.opensearch.transport.TransportService;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Transport action to fetch top anomaly results for some HC detector. Generates a
@@ -219,7 +218,7 @@ public class SearchTopAnomalyResultTransportAction extends
     @Override
     protected void doExecute(Task task, SearchTopAnomalyResultRequest request, ActionListener<SearchTopAnomalyResultResponse> listener) {
 
-        GetAnomalyDetectorRequest getAdRequest = new GetAnomalyDetectorRequest(
+        GetConfigRequest getAdRequest = new GetConfigRequest(
             request.getId(),
             // The default version value used in org.opensearch.rest.action.RestActions.parseVersion()
             -3L,
@@ -302,10 +301,10 @@ public class SearchTopAnomalyResultTransportAction extends
             SearchRequest searchRequest = generateSearchRequest(request);
 
             // Adding search over any custom result indices
-            String rawCustomResultIndex = getAdResponse.getDetector().getCustomResultIndex();
-            String customResultIndex = rawCustomResultIndex == null ? null : rawCustomResultIndex.trim();
-            if (!Strings.isNullOrEmpty(customResultIndex)) {
-                searchRequest.indices(defaultIndex, customResultIndex);
+            String rawCustomResultIndexPattern = getAdResponse.getDetector().getCustomResultIndexPattern();
+            String customResultIndexPattern = rawCustomResultIndexPattern == null ? null : rawCustomResultIndexPattern.trim();
+            if (!Strings.isNullOrEmpty(customResultIndexPattern)) {
+                searchRequest.indices(defaultIndex, customResultIndexPattern);
             }
 
             // Utilizing the existing search() from SearchHandler to handle security permissions. Both user role
@@ -322,7 +321,7 @@ public class SearchTopAnomalyResultTransportAction extends
                         clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
                         request.getSize(),
                         orderType,
-                        customResultIndex
+                        customResultIndexPattern
                     )
                 );
 
@@ -506,7 +505,7 @@ public class SearchTopAnomalyResultTransportAction extends
     private AggregationBuilder generateAggregation(SearchTopAnomalyResultRequest request) {
         List<CompositeValuesSourceBuilder<?>> sources = new ArrayList<>();
         for (String categoryField : request.getCategoryFields()) {
-            Script script = getScriptForCategoryField(categoryField);
+            Script script = QueryUtil.getScriptForCategoryField(categoryField);
             sources.add(new TermsValuesSourceBuilder(categoryField).script(script));
         }
 
@@ -527,36 +526,6 @@ public class SearchTopAnomalyResultTransportAction extends
             .size(PAGE_SIZE)
             .subAggregation(maxAnomalyGradeAggregation)
             .subAggregation(bucketSort);
-    }
-
-    /**
-     * Generates the painless script to fetch results that have an entity name matching the passed-in category field.
-     *
-     * @param categoryField the category field to be used as a source
-     * @return the painless script used to get all docs with entity name values matching the category field
-     */
-    private Script getScriptForCategoryField(String categoryField) {
-        StringBuilder builder = new StringBuilder()
-            .append("String value = null;")
-            .append("if (params == null || params._source == null || params._source.entity == null) {")
-            .append("return \"\"")
-            .append("}")
-            .append("for (item in params._source.entity) {")
-            .append("if (item[\"name\"] == params[\"categoryField\"]) {")
-            .append("value = item['value'];")
-            .append("break;")
-            .append("}")
-            .append("}")
-            .append("return value;");
-
-        // The last argument contains the K/V pair to inject the categoryField value into the script
-        return new Script(
-            ScriptType.INLINE,
-            "painless",
-            builder.toString(),
-            Collections.emptyMap(),
-            ImmutableMap.of("categoryField", categoryField)
-        );
     }
 
     /**

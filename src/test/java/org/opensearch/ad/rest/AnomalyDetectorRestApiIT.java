@@ -14,7 +14,6 @@ package org.opensearch.ad.rest;
 import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.DUPLICATE_DETECTOR_MSG;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
-import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -37,7 +36,6 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -54,6 +52,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.rest.handler.AbstractTimeSeriesActionHandler;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -118,7 +117,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features) throws IOException {
-        TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD);
+        return createIndexAndGetAnomalyDetector(indexName, features, false);
+    }
+
+    private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features, boolean useDateNanos)
+        throws IOException {
+        TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD, useDateNanos);
         String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
         TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
@@ -127,6 +131,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
+        Feature feature = TestHelpers.randomFeature();
         AnomalyDetector detectorDuplicateName = new AnomalyDetector(
             AnomalyDetector.NO_ID,
             randomLong(),
@@ -134,7 +139,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             randomAlphaOfLength(5),
             randomAlphaOfLength(5),
             detector.getIndices(),
-            ImmutableList.of(TestHelpers.randomFeature()),
+            ImmutableList.of(feature),
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -145,7 +150,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         TestHelpers
@@ -193,6 +205,35 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("incorrect version", version > 0);
     }
 
+    public void testCreateAnomalyDetectorWithDateNanos() throws Exception {
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(TestHelpers.randomFeature(true)), true);
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
+
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(detector),
+                    null
+                )
+        );
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
+
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        int version = (int) responseMap.get("_version");
+        assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
+        assertTrue("incorrect version", version > 0);
+    }
+
     public void testUpdateAnomalyDetectorCategoryField() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Response response = TestHelpers
@@ -200,6 +241,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
+        List<Feature> features = detector.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
         AnomalyDetector newDetector = new AnomalyDetector(
             id,
             null,
@@ -207,7 +250,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getDescription(),
             detector.getTimeField(),
             detector.getIndices(),
-            detector.getFeatureAttributes(),
+            features,
             detector.getFilterQuery(),
             detector.getInterval(),
             detector.getWindowDelay(),
@@ -218,7 +261,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             ImmutableList.of(randomAlphaOfLength(5)),
             detector.getUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption((int) expectedFeatures),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
         Exception ex = expectThrows(
             ResponseException.class,
@@ -257,6 +307,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testUpdateAnomalyDetector() throws Exception {
         AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(INDEX_NAME), true, client());
         String newDescription = randomAlphaOfLength(5);
+        List<Feature> features = detector.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
         AnomalyDetector newDetector = new AnomalyDetector(
             detector.getId(),
             detector.getVersion(),
@@ -264,7 +316,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             newDescription,
             detector.getTimeField(),
             detector.getIndices(),
-            detector.getFeatureAttributes(),
+            features,
             detector.getFilterQuery(),
             detector.getInterval(),
             detector.getWindowDelay(),
@@ -275,7 +327,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             detector.getUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption((int) expectedFeatures),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
@@ -319,6 +378,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testUpdateAnomalyDetectorNameToExisting() throws Exception {
         AnomalyDetector detector1 = createIndexAndGetAnomalyDetector("index-test-one");
         AnomalyDetector detector2 = createIndexAndGetAnomalyDetector("index-test-two");
+        List<Feature> features = detector1.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
         AnomalyDetector newDetector1WithDetector2Name = new AnomalyDetector(
             detector1.getId(),
             detector1.getVersion(),
@@ -326,7 +387,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector1.getDescription(),
             detector1.getTimeField(),
             detector1.getIndices(),
-            detector1.getFeatureAttributes(),
+            features,
             detector1.getFilterQuery(),
             detector1.getInterval(),
             detector1.getWindowDelay(),
@@ -337,7 +398,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             detector1.getUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption((int) expectedFeatures),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         TestHelpers
@@ -358,6 +426,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testUpdateAnomalyDetectorNameToNew() throws Exception {
         AnomalyDetector detector = createAnomalyDetector(createIndexAndGetAnomalyDetector(INDEX_NAME), true, client());
+        List<Feature> features = detector.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
         AnomalyDetector detectorWithNewName = new AnomalyDetector(
             detector.getId(),
             detector.getVersion(),
@@ -365,7 +435,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getDescription(),
             detector.getTimeField(),
             detector.getIndices(),
-            detector.getFeatureAttributes(),
+            features,
             detector.getFilterQuery(),
             detector.getInterval(),
             detector.getWindowDelay(),
@@ -376,7 +446,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             detector.getUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption((int) expectedFeatures),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         TestHelpers
@@ -403,7 +480,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createRandomAnomalyDetector(true, true, client());
 
         String newDescription = randomAlphaOfLength(5);
-
+        List<Feature> features = detector.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
         AnomalyDetector newDetector = new AnomalyDetector(
             detector.getId(),
             detector.getVersion(),
@@ -411,7 +489,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             newDescription,
             detector.getTimeField(),
             detector.getIndices(),
-            detector.getFeatureAttributes(),
+            features,
             detector.getFilterQuery(),
             detector.getInterval(),
             detector.getWindowDelay(),
@@ -422,7 +500,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             detector.getUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption((int) expectedFeatures),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         deleteIndexWithAdminClient(CommonName.CONFIG_INDEX);
@@ -738,7 +823,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Detector job is running",
+                "Job is running",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -766,7 +851,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
         String newDescription = randomAlphaOfLength(5);
-
+        List<Feature> features = detector.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
         AnomalyDetector newDetector = new AnomalyDetector(
             detector.getId(),
             detector.getVersion(),
@@ -774,7 +860,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             newDescription,
             detector.getTimeField(),
             detector.getIndices(),
-            detector.getFeatureAttributes(),
+            features,
             detector.getFilterQuery(),
             detector.getInterval(),
             detector.getWindowDelay(),
@@ -785,13 +871,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             detector.getUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption((int) expectedFeatures),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Detector job is running",
+                "Job is running",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -895,7 +988,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                FAIL_TO_FIND_CONFIG_MSG,
+                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -997,7 +1090,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                FAIL_TO_FIND_CONFIG_MSG,
+                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1055,7 +1148,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Can't start detector job as no features configured",
+                "Can't start job as no features configured",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1076,7 +1169,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "Can't start detector job as no features configured",
+                "Can't start job as no features configured",
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1161,7 +1254,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             ResponseException.class,
             () -> startAnomalyDetector(detector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), client())
         );
-        assertTrue(e.getMessage().contains("Can't start detector job as no enabled features configured"));
+        assertTrue(e.getMessage().contains("Can't start job as no enabled features configured"));
     }
 
     public void testDeleteAnomalyDetectorWhileRunning() throws Exception {
@@ -1173,7 +1266,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         // Deleting detector should fail while its running
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getId(), client()); });
-        Assert.assertTrue(exception.getMessage().contains("Detector is running"));
+        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Historical is running"));
     }
 
     public void testBackwardCompatibilityWithOpenDistro() throws IOException {
@@ -1332,7 +1425,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                ADCommonMessages.NOT_EXISTENT_VALIDATION_TYPE,
+                CommonMessages.NOT_EXISTENT_VALIDATION_TYPE,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1376,7 +1469,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
         assertEquals("Validation returned message regarding empty indices", RestStatus.OK, TestHelpers.restStatus(resp));
-        String errorMessage = NO_DOCS_IN_USER_INDEX_MSG + "[" + detector.getIndices().get(0) + "]";
+        String errorMessage = String.format(Locale.ROOT, NO_DOCS_IN_USER_INDEX_MSG, "[" + detector.getIndices().get(0) + "]");
         assertEquals("duplicate error message", errorMessage, messageMap.get("indices").get("message"));
     }
 
@@ -1475,7 +1568,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .extractValue("detector", responseMap);
         assertEquals(
             "non-existing category",
-            String.format(Locale.ROOT, AbstractAnomalyDetectorActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword"),
+            String.format(Locale.ROOT, AbstractTimeSeriesActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword"),
             messageMap.get("category_field").get("message")
         );
 

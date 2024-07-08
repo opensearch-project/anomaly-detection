@@ -60,7 +60,6 @@ import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.search.SearchModule;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
-import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Job;
@@ -75,7 +74,6 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
     private ClientUtil clientUtil;
     private Clock clock;
     private Duration duration;
-    private ThreadPool context;
     private AnomalyDetector detectorToCheck;
     private Settings settings;
     private String adId = "123";
@@ -114,7 +112,6 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
             .build();
         clock = mock(Clock.class);
         duration = Duration.ofHours(1);
-        context = TestHelpers.createThreadPool();
 
         clientUtil = new ClientUtil(client);
         Set<Setting<?>> nodestateSetting = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
@@ -144,7 +141,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
         );
 
         checkpointResponse = mock(GetResponse.class);
-        jobToCheck = TestHelpers.randomAnomalyDetectorJob(true, Instant.ofEpochMilli(1602401500000L), null);
+        jobToCheck = TestHelpers.randomJob(true, Instant.ofEpochMilli(1602401500000L), null);
     }
 
     @Override
@@ -192,9 +189,9 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(
-                String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
-                args.length >= 2
-            );
+                    String.format(Locale.ROOT, "The size of args is %d.  Its content is %s", args.length, Arrays.toString(args)),
+                    args.length >= 2
+                    );
 
             GetRequest request = null;
             ActionListener<GetResponse> listener = null;

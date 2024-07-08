@@ -25,14 +25,11 @@ import java.util.concurrent.TimeUnit;
 import org.junit.*;
 import org.mockito.Mockito;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.ADTaskProfileRunner;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.model.EntityProfile;
-import org.opensearch.ad.model.InitProgressProfile;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.ad.util.*;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.ClusterSettings;
@@ -50,8 +47,12 @@ import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.EntityProfile;
+import org.opensearch.timeseries.model.InitProgressProfile;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.transport.GetConfigRequest;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -101,7 +102,8 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
             clientUtil,
             Settings.EMPTY,
             xContentRegistry(),
-            adTaskManager
+            adTaskManager,
+            mock(ADTaskProfileRunner.class)
         );
         task = Mockito.mock(Task.class);
         response = new ActionListener<GetAnomalyDetectorResponse>() {
@@ -126,14 +128,14 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
     @Test
     public void testGetTransportAction() throws IOException {
-        GetAnomalyDetectorRequest getConfigRequest = new GetAnomalyDetectorRequest("1234", 4321, false, false, "nonempty", "", false, null);
-        action.doExecute(task, getConfigRequest, response);
+        GetConfigRequest getAnomalyDetectorRequest = new GetConfigRequest("1234", 4321, false, false, "nonempty", "", false, null);
+        action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 
     @Test
     public void testGetTransportActionWithReturnJob() throws IOException {
-        GetAnomalyDetectorRequest getConfigRequest = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, null);
-        action.doExecute(task, getConfigRequest, response);
+        GetConfigRequest getAnomalyDetectorRequest = new GetConfigRequest("1234", 4321, true, false, "", "abcd", false, null);
+        action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 
     @Test
@@ -144,23 +146,23 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
     @Test
     public void testGetAnomalyDetectorRequest() throws IOException {
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, entity);
+        GetConfigRequest request = new GetConfigRequest("1234", 4321, true, false, "", "abcd", false, entity);
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
-        GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
-        Assert.assertEquals(request.getDetectorID(), newRequest.getDetectorID());
+        GetConfigRequest newRequest = new GetConfigRequest(input);
+        Assert.assertEquals(request.getConfigID(), newRequest.getConfigID());
         Assert.assertEquals(request.getRawPath(), newRequest.getRawPath());
         Assert.assertNull(newRequest.validate());
     }
 
     @Test
     public void testGetAnomalyDetectorRequestNoEntityValue() throws IOException {
-        GetAnomalyDetectorRequest request = new GetAnomalyDetectorRequest("1234", 4321, true, false, "", "abcd", false, null);
+        GetConfigRequest request = new GetConfigRequest("1234", 4321, true, false, "", "abcd", false, null);
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
-        GetAnomalyDetectorRequest newRequest = new GetAnomalyDetectorRequest(input);
+        GetConfigRequest newRequest = new GetConfigRequest(input);
         Assert.assertNull(newRequest.getEntity());
     }
 
@@ -169,7 +171,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
     public void testGetAnomalyDetectorResponse() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        Job adJob = TestHelpers.randomAnomalyDetectorJob();
+        Job adJob = TestHelpers.randomJob();
         GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
             4321,
             "1234",
@@ -203,7 +205,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
     public void testGetAnomalyDetectorProfileResponse() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        Job adJob = TestHelpers.randomAnomalyDetectorJob();
+        Job adJob = TestHelpers.randomJob();
         InitProgressProfile initProgress = new InitProgressProfile("99%", 2L, 2);
         EntityProfile entityProfile = new EntityProfile.Builder().initProgress(initProgress).build();
         GetAnomalyDetectorResponse response = new GetAnomalyDetectorResponse(
@@ -230,7 +232,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
         // {init_progress={percentage=99%, estimated_minutes_left=2, needed_shingles=2}}
         Map<String, Object> map = TestHelpers.XContentBuilderToMap(builder);
-        Map<String, Object> parsedInitProgress = (Map<String, Object>) (map.get(ADCommonName.INIT_PROGRESS));
+        Map<String, Object> parsedInitProgress = (Map<String, Object>) (map.get(CommonName.INIT_PROGRESS));
         Assert.assertEquals(initProgress.getPercentage(), parsedInitProgress.get(InitProgressProfile.PERCENTAGE).toString());
         assertTrue(initProgress.toString().contains("[percentage=99%,estimated_minutes_left=2,needed_shingles=2]"));
         Assert

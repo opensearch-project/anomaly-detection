@@ -20,6 +20,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.opensearch.Version;
 import org.opensearch.ad.model.AnomalyResult;
@@ -33,6 +35,8 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -88,7 +92,8 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
             threadPool,
             settings,
             nodeFilter,
-            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES
+            TimeSeriesSettings.MAX_UPDATE_RETRY_TIMES,
+            NamedXContentRegistry.EMPTY
         );
     }
 
@@ -142,7 +147,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         entity_nested_mapping.put("name", Collections.singletonMap("type", "keyword"));
         entity_nested_mapping.put("value", Collections.singletonMap("type", "keyword"));
         entity_mapping.put(CommonName.PROPERTIES, entity_nested_mapping);
-        mappings.put(CommonName.ENTITY_FIELD, entity_mapping);
+        mappings.put(CommonName.ENTITY_KEY, entity_mapping);
 
         Map<String, Object> error_mapping = new HashMap<>();
         error_mapping.put("type", "text");
@@ -168,6 +173,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("feature_name", Collections.singletonMap("type", "keyword"));
         mappings.put(CommonName.FEATURE_DATA_FIELD, feature_mapping);
         mappings.put(AnomalyResult.IS_ANOMALY_FIELD, Collections.singletonMap("type", "boolean"));
         mappings.put(CommonName.MODEL_ID_FIELD, Collections.singletonMap("type", "keyword"));
@@ -188,7 +194,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         attribution_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
         mappings.put(AnomalyResult.RELEVANT_ATTRIBUTION_FIELD, attribution_mapping);
 
-        mappings.put(CommonName.SCHEMA_VERSION_FIELD, Collections.singletonMap("type", "integer"));
+        mappings.put(org.opensearch.timeseries.constant.CommonName.SCHEMA_VERSION_FIELD, Collections.singletonMap("type", "integer"));
 
         mappings.put(CommonName.TASK_ID_FIELD, Collections.singletonMap("type", "keyword"));
 
@@ -221,7 +227,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         return mappings;
     }
 
-    public void testCorrectMapping() throws IOException {
+    public void testCorrectMapping() throws IOException, InterruptedException {
         Map<String, Object> mappings = createMapping();
 
         IndexMetadata indexMetadata1 = new IndexMetadata.Builder(customIndexName)
@@ -237,15 +243,24 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(adIndices.isValidResultIndexMapping(customIndexName));
+        CountDownLatch countDown = new CountDownLatch(1);
+        adIndices.validateResultIndexMapping(customIndexName, ActionListener.wrap(valid -> {
+            assertTrue(valid);
+            countDown.countDown();
+        }, exception -> {
+            assertTrue(exception.getMessage(), false);
+            countDown.countDown();
+        }));
+        countDown.await(60, TimeUnit.SECONDS);
     }
 
     /**
      * Test that the mapping returned by get mapping request returns the same mapping
      * but with different order
      * @throws IOException when MappingMetadata constructor throws errors
+     * @throws InterruptedException
      */
-    public void testCorrectReordered() throws IOException {
+    public void testCorrectReordered() throws IOException, InterruptedException {
         Map<String, Object> mappings = createMapping();
 
         Map<String, Object> feature_mapping = new HashMap<>();
@@ -254,6 +269,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         // feature_id comes before data compared with what createMapping returned
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("feature_name", Collections.singletonMap("type", "keyword"));
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         mappings.put(CommonName.FEATURE_DATA_FIELD, feature_mapping);
 
@@ -270,15 +286,24 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(adIndices.isValidResultIndexMapping(customIndexName));
+        CountDownLatch countDown = new CountDownLatch(1);
+        adIndices.validateResultIndexMapping(customIndexName, ActionListener.wrap(valid -> {
+            assertTrue(valid);
+            countDown.countDown();
+        }, exception -> {
+            assertTrue(exception.getMessage(), false);
+            countDown.countDown();
+        }));
+        countDown.await(60, TimeUnit.SECONDS);
     }
 
     /**
      * Test that the mapping returned by get mapping request returns a super set
      * of result index mapping
      * @throws IOException when MappingMetadata constructor throws errors
+     * @throws InterruptedException
      */
-    public void testSuperset() throws IOException {
+    public void testSuperset() throws IOException, InterruptedException {
         Map<String, Object> mappings = createMapping();
 
         Map<String, Object> feature_mapping = new HashMap<>();
@@ -286,6 +311,7 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         Map<String, Object> feature_nested_mapping = new HashMap<>();
         feature_mapping.put(CommonName.PROPERTIES, feature_nested_mapping);
         feature_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        feature_nested_mapping.put("feature_name", Collections.singletonMap("type", "keyword"));
         feature_nested_mapping.put("data", Collections.singletonMap("type", "double"));
         mappings.put("a", feature_mapping);
 
@@ -302,10 +328,18 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(adIndices.isValidResultIndexMapping(customIndexName));
+        CountDownLatch countDown = new CountDownLatch(1);
+        adIndices.validateResultIndexMapping(customIndexName, ActionListener.wrap(valid -> {
+            assertTrue(valid);
+            countDown.countDown();
+        }, exception -> {
+            assertTrue(exception.getMessage(), false);
+            countDown.countDown();
+        }));
+        countDown.await(60, TimeUnit.SECONDS);
     }
 
-    public void testInCorrectMapping() throws IOException {
+    public void testInCorrectMapping() throws IOException, InterruptedException {
         Map<String, Object> mappings = new HashMap<>();
 
         Map<String, Object> past_mapping = new HashMap<>();
@@ -337,7 +371,15 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         when(clusterService.state())
             .thenReturn(ClusterState.builder(clusterName).metadata(Metadata.builder().put(indexMetadata1, true).build()).build());
 
-        assertTrue(!adIndices.isValidResultIndexMapping(customIndexName));
+        CountDownLatch countDown = new CountDownLatch(1);
+        adIndices.validateResultIndexMapping(customIndexName, ActionListener.wrap(valid -> {
+            assertTrue("Should be invalid mapping", !valid);
+            countDown.countDown();
+        }, exception -> {
+            assertTrue("should not reach here.", false);
+            countDown.countDown();
+        }));
+        assertTrue(countDown.await(60, TimeUnit.SECONDS));
     }
 
 }

@@ -28,18 +28,13 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_IMPUTATION_NEIGHBOR_DISTANCE;
 
 import java.io.IOException;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -53,14 +48,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.util.ArrayEqMatcher;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.EndRunException;
-import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
+import org.opensearch.timeseries.feature.FeatureManager;
+import org.opensearch.timeseries.feature.Features;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -73,8 +68,6 @@ import junitparams.Parameters;
 public class FeatureManagerTests {
 
     // configuration
-    private int maxTrainSamples;
-    private int maxSampleStride;
     private int trainSampleTimeRangeInHours;
     private int minTrainSamples;
     private int shingleSize;
@@ -82,7 +75,6 @@ public class FeatureManagerTests {
     private int maxNeighborDistance;
     private double previewSampleRate;
     private int maxPreviewSamples;
-    private Duration featureBufferTtl;
     private long intervalInMilliseconds;
 
     @Mock
@@ -90,9 +82,6 @@ public class FeatureManagerTests {
 
     @Mock
     private SearchFeatureDao searchFeatureDao;
-
-    @Mock
-    private Imputer imputer;
 
     @Mock
     private Clock clock;
@@ -108,8 +97,6 @@ public class FeatureManagerTests {
     public void setup() {
         MockitoAnnotations.initMocks(this);
 
-        maxTrainSamples = 24;
-        maxSampleStride = 100;
         trainSampleTimeRangeInHours = 1;
         minTrainSamples = 4;
         shingleSize = 3;
@@ -117,7 +104,6 @@ public class FeatureManagerTests {
         maxNeighborDistance = 2;
         previewSampleRate = 0.5;
         maxPreviewSamples = 2;
-        featureBufferTtl = Duration.ofMillis(1_000L);
 
         detectorId = "id";
         when(detector.getId()).thenReturn(detectorId);
@@ -125,8 +111,6 @@ public class FeatureManagerTests {
         IntervalTimeConfiguration detectorIntervalTimeConfig = new IntervalTimeConfiguration(1, ChronoUnit.MINUTES);
         intervalInMilliseconds = detectorIntervalTimeConfig.toDuration().toMillis();
         when(detector.getIntervalInMilliseconds()).thenReturn(intervalInMilliseconds);
-
-        Imputer imputer = new LinearUniformImputer(false);
 
         ExecutorService executorService = mock(ExecutorService.class);
 
@@ -140,19 +124,14 @@ public class FeatureManagerTests {
         this.featureManager = spy(
             new FeatureManager(
                 searchFeatureDao,
-                imputer,
-                clock,
-                maxTrainSamples,
-                maxSampleStride,
+                new LinearUniformImputer(false),
                 trainSampleTimeRangeInHours,
                 minTrainSamples,
                 maxMissingPointsRate,
                 maxNeighborDistance,
                 previewSampleRate,
                 maxPreviewSamples,
-                featureBufferTtl,
-                threadPool,
-                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
+                threadPool
             )
         );
     }
@@ -188,7 +167,6 @@ public class FeatureManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     @Parameters(method = "getTrainDataTestData")
     public void getColdStartData_returnExpectedToListener(
         Long latestTime,
@@ -200,10 +178,10 @@ public class FeatureManagerTests {
         when(detector.getIntervalInMilliseconds()).thenReturn(detectionInterval);
         when(detector.getShingleSize()).thenReturn(4);
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(1);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.ofNullable(latestTime));
             return null;
-        }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
+        }).when(searchFeatureDao).getLatestDataTime(eq(detector), eq(Optional.empty()), eq(AnalysisType.AD), any(ActionListener.class));
         if (latestTime != null) {
             doAnswer(invocation -> {
                 ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
@@ -218,19 +196,14 @@ public class FeatureManagerTests {
         featureManager = spy(
             new FeatureManager(
                 searchFeatureDao,
-                imputer,
-                clock,
-                maxTrainSamples,
-                maxSampleStride,
+                new LinearUniformImputer(false),
                 trainSampleTimeRangeInHours,
                 minTrainSamples,
                 0.5, /*maxMissingPointsRate*/
                 1, /*maxNeighborDistance*/
                 previewSampleRate,
                 maxPreviewSamples,
-                featureBufferTtl,
-                threadPool,
-                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
+                threadPool
             )
         );
         featureManager.getColdStartData(detector, listener);
@@ -242,13 +215,12 @@ public class FeatureManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getColdStartData_throwToListener_whenSearchFail() {
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(1);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
+        }).when(searchFeatureDao).getLatestDataTime(eq(detector), eq(Optional.empty()), eq(AnalysisType.AD), any(ActionListener.class));
 
         ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
         featureManager.getColdStartData(detector, listener);
@@ -257,13 +229,12 @@ public class FeatureManagerTests {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     public void getColdStartData_throwToListener_onQueryCreationError() throws Exception {
         doAnswer(invocation -> {
-            ActionListener<Optional<Long>> listener = invocation.getArgument(1);
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.ofNullable(0L));
             return null;
-        }).when(searchFeatureDao).getLatestDataTime(eq(detector), any(ActionListener.class));
+        }).when(searchFeatureDao).getLatestDataTime(eq(detector), eq(Optional.empty()), eq(AnalysisType.AD), any(ActionListener.class));
         doThrow(IOException.class)
             .when(searchFeatureDao)
             .getFeatureSamplesForPeriods(eq(detector), any(), eq(AnalysisType.AD), any(ActionListener.class));
@@ -317,123 +288,22 @@ public class FeatureManagerTests {
         featureManager.batchShingle(points, shingleSize);
     }
 
-    @Test
-    public void clear_deleteFeatures() throws IOException {
-        long start = shingleSize * intervalInMilliseconds;
-        long end = (shingleSize + 1) * intervalInMilliseconds;
-
-        AtomicBoolean firstQuery = new AtomicBoolean(true);
-
-        doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
-            if (firstQuery.get()) {
-                firstQuery.set(false);
-                daoListener
-                    .onResponse(asList(Optional.of(new double[] { 3 }), Optional.of(new double[] { 2 }), Optional.of(new double[] { 1 })));
-            } else {
-                daoListener.onResponse(asList(Optional.ofNullable(null), Optional.ofNullable(null), Optional.of(new double[] { 1 })));
-            }
-            return null;
-        })
-            .when(searchFeatureDao)
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
-
-        SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
-        assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
-        assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
-
-        featureManager.clear(detector.getId());
-
-        SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
-        assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
-        assertFalse(afterMaintenance.getProcessedFeatures().isPresent());
-    }
-
-    private SinglePointFeatures getCurrentFeatures(AnomalyDetector detector, long start, long end) throws IOException {
-        ActionListener<SinglePointFeatures> listener = mock(ActionListener.class);
-        ArgumentCaptor<SinglePointFeatures> captor = ArgumentCaptor.forClass(SinglePointFeatures.class);
-        featureManager.getCurrentFeatures(detector, start, end, listener);
+    private Optional<double[]> getCurrentFeatures(AnomalyDetector detector, long start, long end) throws IOException {
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        ArgumentCaptor<Optional<double[]>> captor = ArgumentCaptor.forClass(Optional.class);
+        featureManager.getCurrentFeatures(detector, start, end, AnalysisType.AD, listener);
         verify(listener).onResponse(captor.capture());
         return captor.getValue();
     }
 
-    @Test
-    public void maintenance_removeStaleData() throws IOException {
-        long start = shingleSize * intervalInMilliseconds;
-        long end = (shingleSize + 1) * intervalInMilliseconds;
-
-        AtomicBoolean firstQuery = new AtomicBoolean(true);
-
-        doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
-            if (firstQuery.get()) {
-                firstQuery.set(false);
-                daoListener
-                    .onResponse(asList(Optional.of(new double[] { 3 }), Optional.of(new double[] { 2 }), Optional.of(new double[] { 1 })));
-            } else {
-                daoListener.onResponse(asList(Optional.ofNullable(null), Optional.ofNullable(null), Optional.of(new double[] { 1 })));
-            }
-            return null;
-        })
-            .when(searchFeatureDao)
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
-
-        SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
-        assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
-        assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
-        when(clock.instant()).thenReturn(Instant.ofEpochMilli(end + 1).plus(featureBufferTtl));
-
-        featureManager.maintenance();
-
-        SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
-        assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
-        assertFalse(afterMaintenance.getProcessedFeatures().isPresent());
+    private Exception getCurrentFeaturesOnFailure(AnomalyDetector detector, long start, long end) throws IOException {
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        ArgumentCaptor<Exception> captor = ArgumentCaptor.forClass(Exception.class);
+        featureManager.getCurrentFeatures(detector, start, end, AnalysisType.AD, listener);
+        verify(listener).onFailure(captor.capture());
+        return captor.getValue();
     }
 
-    @Test
-    public void maintenance_keepRecentData() throws IOException {
-        long start = shingleSize * intervalInMilliseconds;
-        long end = (shingleSize + 1) * intervalInMilliseconds;
-
-        AtomicBoolean firstQuery = new AtomicBoolean(true);
-
-        doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
-            if (firstQuery.get()) {
-                firstQuery.set(false);
-                daoListener
-                    .onResponse(asList(Optional.of(new double[] { 3 }), Optional.of(new double[] { 2 }), Optional.of(new double[] { 1 })));
-            } else {
-                daoListener.onResponse(asList(Optional.ofNullable(null), Optional.ofNullable(null), Optional.of(new double[] { 1 })));
-            }
-            return null;
-        })
-            .when(searchFeatureDao)
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
-
-        SinglePointFeatures beforeMaintenance = getCurrentFeatures(detector, start, end);
-        assertTrue(beforeMaintenance.getUnprocessedFeatures().isPresent());
-        assertTrue(beforeMaintenance.getProcessedFeatures().isPresent());
-        when(clock.instant()).thenReturn(Instant.ofEpochMilli(end));
-
-        featureManager.maintenance();
-
-        SinglePointFeatures afterMaintenance = getCurrentFeatures(detector, start, end);
-        assertTrue(afterMaintenance.getUnprocessedFeatures().isPresent());
-        assertTrue(afterMaintenance.getProcessedFeatures().isPresent());
-    }
-
-    @Test
-    public void maintenance_doNotThrowException() {
-        when(clock.instant()).thenThrow(new RuntimeException());
-
-        featureManager.maintenance();
-    }
-
-    @SuppressWarnings("unchecked")
     private void getPreviewFeaturesTemplate(List<Optional<double[]>> samplesResults, boolean querySuccess, boolean previewSuccess)
         throws IOException {
         long start = 0L;
@@ -460,20 +330,13 @@ public class FeatureManagerTests {
             return null;
         }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), any());
 
-        when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 1, 3 } })), eq(3))).thenReturn(new double[][] { { 1, 2, 3 } });
-        when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 0, 120000 } })), eq(3)))
-            .thenReturn(new double[][] { { 0, 60000, 120000 } });
-        when(imputer.impute(argThat(new ArrayEqMatcher<>(new double[][] { { 60000, 180000 } })), eq(3)))
-            .thenReturn(new double[][] { { 60000, 120000, 180000 } });
-
         ActionListener<Features> listener = mock(ActionListener.class);
         featureManager.getPreviewFeatures(detector, start, end, listener);
 
         if (previewSuccess) {
             Features expected = new Features(
-                asList(new SimpleEntry<>(120_000L, 180_000L)),
-                new double[][] { { 3 } },
-                new double[][] { { 1, 2, 3 } }
+                asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(60_000L, 120_000L), new SimpleEntry<>(120_000L, 180_000L)),
+                new double[][] { { 1 }, { 2 }, { 3 } }
             );
             verify(listener).onResponse(expected);
         } else {
@@ -518,9 +381,8 @@ public class FeatureManagerTests {
         featureManager.getPreviewFeaturesForEntity(detector, entity, start, end, listener);
 
         Features expected = new Features(
-            asList(new SimpleEntry<>(120_000L, 180_000L)),
-            new double[][] { { 30 } },
-            new double[][] { { 10, 20, 30 } }
+            asList(new SimpleEntry<>(0L, 60_000L), new SimpleEntry<>(60_000L, 120_000L), new SimpleEntry<>(120_000L, 180_000L)),
+            new double[][] { { 10 }, { 20 }, { 30 } }
         );
         verify(listener).onResponse(expected);
     }
@@ -591,21 +453,17 @@ public class FeatureManagerTests {
 
     private Object[] getCurrentFeaturesTestData_whenAfterQueryResultsFormFullShingle() {
         return new Object[] {
+            new Object[] { asList(Optional.empty()), 3, Optional.of(asList(Optional.of(new double[] { 3 }))), new double[] { 3 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.empty()),
-                3,
-                Optional.of(asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 2 }), Optional.of(new double[] { 3 }))),
-                new double[] { 1, 2, 3 } },
-            new Object[] {
-                asList(Optional.empty(), Optional.of(new double[] { 1 }), Optional.of(new double[] { 5 })),
+                asList(Optional.of(new double[] { 5 })),
                 1,
                 Optional.of(asList(Optional.of(new double[] { 3 }))),
-                new double[] { 1, 5, 3 } },
+                new double[] { 3 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 1, 2 })),
+                asList(Optional.of(new double[] { 1, 2 })),
                 2,
-                Optional.of(asList(Optional.of(new double[] { 3, 4 }), Optional.of(new double[] { 5, 6 }))),
-                new double[] { 1, 2, 3, 4, 5, 6 } }, };
+                Optional.of(asList(Optional.of(new double[] { 5, 6 }))),
+                new double[] { 5, 6 } }, };
     }
 
     @Test
@@ -624,85 +482,66 @@ public class FeatureManagerTests {
 
         // Set up
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, testQueryResponse);
-        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
+        Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
-        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
+        assertTrue(listenerResponse.isPresent());
 
-        double[] actualProcessedFeatures = listenerResponse.getProcessedFeatures().get();
+        double[] actualProcessedFeatures = listenerResponse.get();
         for (int i = 0; i < expectedProcessedFeatures.length; i++) {
             assertEquals(expectedProcessedFeatures[i], actualProcessedFeatures[i], 0);
         }
     }
 
-    private Object[] getCurrentFeaturesTestData_whenNoQueryNeededToFormFullShingle() {
+    private Object[] getCurrentFeaturesTestData_IOException() {
         return new Object[] {
-            new Object[] {
-                asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 2 }), Optional.of(new double[] { 3 })),
-                new double[] { 1, 2, 3 } },
-            new Object[] {
-                asList(Optional.of(new double[] { 1, 2 }), Optional.of(new double[] { 3, 4 }), Optional.of(new double[] { 5, 6 })),
-                new double[] { 1, 2, 3, 4, 5, 6 } } };
+            new Object[] { asList(Optional.of(new double[] { 3 })), new double[] { 3 } },
+            new Object[] { asList(Optional.of(new double[] { 5, 6 })), new double[] { 5, 6 } } };
     }
 
     @Test
-    @Parameters(method = "getCurrentFeaturesTestData_whenNoQueryNeededToFormFullShingle")
-    public void getCurrentFeatures_returnExpectedProcessedFeatures_whenNoQueryNeededToFormFullShingle(
+    @Parameters(method = "getCurrentFeaturesTestData_IOException")
+    public void getCurrentFeatures_returnExpectedProcessedFeatures_IOException(
         List<Optional<double[]>> preQueryResponse,
         double[] expectedProcessedFeatures
     ) throws IOException {
-        int expectedNumQueriesToSearchFeatureDao = 1;
+        int expectedNumQueriesToSearchFeatureDao = 2;
         long start = shingleSize * intervalInMilliseconds;
         long end = start + intervalInMilliseconds;
 
-        // Set up
+        // Set up. 2nd call throws IOException
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, Optional.empty());
-        featureManager.getCurrentFeatures(detector, start, end, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, start, end, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, start, end);
+        Exception listenerResponse = getCurrentFeaturesOnFailure(detector, start, end);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
-        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
-
-        double[] actualProcessedFeatures = listenerResponse.getProcessedFeatures().get();
-        for (int i = 0; i < expectedProcessedFeatures.length; i++) {
-            assertEquals(expectedProcessedFeatures[i], actualProcessedFeatures[i], 0);
-        }
+        assertTrue(listenerResponse instanceof IOException);
     }
 
     private Object[] getCurrentFeaturesTestData_whenAfterQueryResultsAllowImputedShingle() {
         return new Object[] {
+            new Object[] { asList(Optional.empty()), 3, Optional.of(asList(Optional.of(new double[] { 1 }))), new double[] { 1 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.empty()),
-                3,
-                Optional.of(asList(Optional.of(new double[] { 1 }), Optional.empty(), Optional.of(new double[] { 3 }))),
-                new double[] { 1, 3, 3 } },
-            new Object[] {
-                asList(Optional.of(new double[] { 1 }), Optional.empty(), Optional.of(new double[] { 5 })),
+                asList(Optional.of(new double[] { 1 })),
                 1,
                 Optional.of(asList(Optional.of(new double[] { 3 }))),
-                new double[] { 5, 5, 3 } },
+                new double[] { 3 } },
+            new Object[] { asList(Optional.empty()), 1, Optional.of(asList(Optional.of(new double[] { 2 }))), new double[] { 2 } },
             new Object[] {
-                asList(Optional.empty(), Optional.of(new double[] { 1 }), Optional.empty()),
-                1,
+                asList(Optional.of(new double[] { 1 })),
+                2,
                 Optional.of(asList(Optional.of(new double[] { 2 }))),
-                new double[] { 1, 2, 2 } },
+                new double[] { 2 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 1 })),
+                asList(Optional.of(Optional.empty())),
                 2,
-                Optional.of(asList(Optional.empty(), Optional.of(new double[] { 2 }))),
-                new double[] { 1, 2, 2 } },
-            new Object[] {
-                asList(Optional.of(new double[] { 5, 6 }), Optional.empty(), Optional.empty()),
-                2,
-                Optional.of(asList(Optional.of(new double[] { 3, 4 }), Optional.of(new double[] { 1, 2 }))),
-                new double[] { 3, 4, 3, 4, 1, 2 } }, };
+                Optional.of(asList(Optional.of(new double[] { 1, 2 }))),
+                new double[] { 1, 2 } } };
     }
 
     @Test
@@ -721,19 +560,13 @@ public class FeatureManagerTests {
 
         // Set up
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, testQueryResponse);
-        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
+        Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
-        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
-
-        double[] actualProcessedFeatures = listenerResponse.getProcessedFeatures().get();
-        for (int i = 0; i < expectedProcessedFeatures.length; i++) {
-            assertEquals(expectedProcessedFeatures[i], actualProcessedFeatures[i], 0);
-        }
+        assertTrue(listenerResponse.isPresent());
     }
 
     private Object[] getCurrentFeaturesTestData_whenMissingCurrentDataPoint() {
@@ -767,26 +600,19 @@ public class FeatureManagerTests {
 
         // Set up
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, testQueryResponse);
-        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
+        Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        assertFalse(listenerResponse.getUnprocessedFeatures().isPresent());
-        assertFalse(listenerResponse.getProcessedFeatures().isPresent());
+        assertFalse(listenerResponse.isPresent());
     }
 
     private Object[] getCurrentFeaturesTestData_whenAfterQueryResultsCannotBeShingled() {
         return new Object[] {
-            new Object[] {
-                asList(Optional.of(new double[] { 1 }), Optional.of(new double[] { 2 }), Optional.of(new double[] { 3 })),
-                3,
-                Optional.of(asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 4 }))), },
-            new Object[] {
-                asList(Optional.of(new double[] { 1, 2 }), Optional.empty(), Optional.empty()),
-                1,
-                Optional.of(asList(Optional.of(new double[] { 3, 4 }))), } };
+            new Object[] { asList(Optional.of(Optional.of(new double[] { 3 }))), 3, Optional.of(asList(Optional.of(new double[] { 4 }))), },
+            new Object[] { asList(Optional.of(Optional.empty())), 1, Optional.of(asList(Optional.of(new double[] { 3, 4 }))), } };
     }
 
     @Test
@@ -804,14 +630,13 @@ public class FeatureManagerTests {
 
         // Set up
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, testQueryResponse);
-        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
+        Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
-        assertFalse(listenerResponse.getProcessedFeatures().isPresent());
+        assertTrue(listenerResponse.isPresent());
     }
 
     private Object[] getCurrentFeaturesTestData_whenQueryThrowsIOException() {
@@ -834,11 +659,11 @@ public class FeatureManagerTests {
 
         // Set up
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, Optional.empty());
-        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        ActionListener<SinglePointFeatures> listener = mock(ActionListener.class);
-        featureManager.getCurrentFeatures(detector, testStartTime, testEndTime, listener);
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        featureManager.getCurrentFeatures(detector, testStartTime, testEndTime, AnalysisType.AD, listener);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
         verify(listener).onFailure(any(IOException.class));
@@ -846,22 +671,17 @@ public class FeatureManagerTests {
 
     private Object[] getCurrentFeaturesTestData_cacheMissingData() {
         return new Object[] {
-            new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.empty()),
-                Optional.of(asList(Optional.of(new double[] { 1 }))),
-                Optional.empty() },
+            new Object[] { asList(Optional.empty()), Optional.of(asList(Optional.of(new double[] { 1 }))), },
             new Object[] {
                 asList(Optional.of(new double[] { 1, 2 }), Optional.empty(), Optional.of(new double[] { 3, 4 })),
-                Optional.of(asList(Optional.of(new double[] { 5, 6 }))),
-                Optional.of(new double[] { 3, 4, 3, 4, 5, 6 }) } };
+                Optional.of(asList(Optional.of(new double[] { 5, 6 }))), } };
     }
 
     @Test
     @Parameters(method = "getCurrentFeaturesTestData_cacheMissingData")
     public void getCurrentFeatures_returnExpectedFeatures_cacheMissingData(
         List<Optional<double[]>> firstQueryResponseToBeCached,
-        Optional<List<Optional<double[]>>> secondQueryResponse,
-        Optional<double[]> expectedProcessedFeaturesOptional
+        Optional<List<Optional<double[]>>> secondQueryResponse
     ) throws IOException {
         long firstStartTime = shingleSize * intervalInMilliseconds;
         long firstEndTime = firstStartTime + intervalInMilliseconds;
@@ -871,72 +691,50 @@ public class FeatureManagerTests {
         setupSearchFeatureDaoForGetCurrentFeatures(firstQueryResponseToBeCached, secondQueryResponse);
 
         // first call to cache missing points
-        featureManager.getCurrentFeatures(detector, firstStartTime, firstEndTime, mock(ActionListener.class));
-        verify(searchFeatureDao, times(1))
-            .getFeatureSamplesForPeriods(
-                eq(detector),
-                argThat(list -> list.size() == shingleSize),
-                eq(AnalysisType.AD),
-                any(ActionListener.class)
-            );
-
-        // second call should only fetch current point even if previous points missing
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, secondStartTime, secondEndTime);
+        featureManager.getCurrentFeatures(detector, firstStartTime, firstEndTime, AnalysisType.AD, mock(ActionListener.class));
         verify(searchFeatureDao, times(1))
             .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == 1), eq(AnalysisType.AD), any(ActionListener.class));
 
-        assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
-        if (expectedProcessedFeaturesOptional.isPresent()) {
-            assertTrue(listenerResponse.getProcessedFeatures().isPresent());
-            double[] expectedProcessedFeatures = expectedProcessedFeaturesOptional.get();
-            double[] actualProcessedFeatures = listenerResponse.getProcessedFeatures().get();
-            for (int i = 0; i < expectedProcessedFeatures.length; i++) {
-                assertEquals(expectedProcessedFeatures[i], actualProcessedFeatures[i], 0);
-            }
-        } else {
-            assertFalse(listenerResponse.getProcessedFeatures().isPresent());
-        }
+        // second call should only fetch current point even if previous points missing
+        Optional<double[]> listenerResponse = getCurrentFeatures(detector, secondStartTime, secondEndTime);
+        verify(searchFeatureDao, times(2))
+            .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == 1), eq(AnalysisType.AD), any(ActionListener.class));
+
+        assertTrue(listenerResponse.isPresent());
     }
 
     private Object[] getCurrentFeaturesTestData_withTimeJitterUpToHalfInterval() {
         return new Object[] {
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 1 })),
+                asList(Optional.of(new double[] { 1 })),
                 2.1,
-                Optional.of(asList(Optional.of(new double[] { 2 }), Optional.of(new double[] { 3 }))),
-                new double[] { 1, 2, 3 } },
+                Optional.of(asList(Optional.of(new double[] { 3 }))),
+                new double[] { 3 } },
             new Object[] {
-                asList(Optional.of(new double[] { 1 }), Optional.empty(), Optional.of(new double[] { 5 })),
+                asList(Optional.of(Optional.of(new double[] { 5 }))),
                 0.8,
                 Optional.of(asList(Optional.of(new double[] { 3 }))),
-                new double[] { 5, 5, 3 } },
+                new double[] { 3 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 1 })),
+                asList(Optional.of(new double[] { 1 })),
                 1.49,
                 Optional.of(asList(Optional.of(new double[] { 2 }))),
-                new double[] { 1, 1, 2 } },
+                new double[] { 2 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 1 })),
+                asList(Optional.of(new double[] { 1 })),
                 1.51,
-                Optional.of(asList(Optional.empty(), Optional.of(new double[] { 2 }))),
-                new double[] { 1, 1, 2 } },
+                Optional.of(asList(Optional.of(new double[] { 2 }))),
+                new double[] { 2 } },
             new Object[] {
-                asList(Optional.empty(), Optional.empty(), Optional.of(new double[] { 1 })),
+                asList(Optional.of(new double[] { 1 })),
                 2.49,
-                Optional.of(asList(Optional.empty(), Optional.of(new double[] { 2 }))),
-                new double[] { 1, 2, 2 } },
+                Optional.of(asList(Optional.of(new double[] { 2 }))),
+                new double[] { 2 } },
             new Object[] {
-                asList(Optional.of(new double[] { 1, 2 }), Optional.of(new double[] { 3, 4 }), Optional.of(new double[] { 5, 6 })),
+                asList(Optional.of(Optional.of(new double[] { 5, 6 }))),
                 2.5,
-                Optional
-                    .of(
-                        asList(
-                            Optional.of(new double[] { 7, 8 }),
-                            Optional.of(new double[] { 9, 10 }),
-                            Optional.of(new double[] { 11, 12 })
-                        )
-                    ),
-                new double[] { 7, 8, 9, 10, 11, 12 } }, };
+                Optional.of(asList(Optional.of(new double[] { 11, 12 }))),
+                new double[] { 11, 12 } }, };
     }
 
     @Test
@@ -956,19 +754,13 @@ public class FeatureManagerTests {
 
         // Set up
         setupSearchFeatureDaoForGetCurrentFeatures(preQueryResponse, testQueryResponse);
-        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, mock(ActionListener.class));
+        featureManager.getCurrentFeatures(detector, previousStartTime, previousEndTime, AnalysisType.AD, mock(ActionListener.class));
 
         // Start test
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
+        Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
             .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-        assertTrue(listenerResponse.getUnprocessedFeatures().isPresent());
-        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
-
-        double[] actualProcessedFeatures = listenerResponse.getProcessedFeatures().get();
-        for (int i = 0; i < expectedProcessedFeatures.length; i++) {
-            assertEquals(expectedProcessedFeatures[i], actualProcessedFeatures[i], 0);
-        }
+        assertTrue(listenerResponse.isPresent());
     }
 
     private <K, V> Entry<K, V> entry(K key, V value) {
@@ -985,130 +777,5 @@ public class FeatureManagerTests {
 
     private Object[] getCurrentFeaturesTestData_setsShingleSizeFromDetectorConfig() {
         return new Object[] { new Object[] { 1 }, new Object[] { 4 }, new Object[] { 8 }, new Object[] { 20 } };
-    }
-
-    @Test
-    @Parameters(method = "getCurrentFeaturesTestData_setsShingleSizeFromDetectorConfig")
-    public void getCurrentFeatures_setsShingleSizeFromDetectorConfig(int shingleSize) throws IOException {
-        when(detector.getShingleSize()).thenReturn(shingleSize);
-
-        doAnswer(invocation -> {
-            List<Entry<Long, Long>> ranges = invocation.getArgument(1);
-            assertEquals(ranges.size(), shingleSize);
-
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
-            List<Optional<double[]>> response = new ArrayList<Optional<double[]>>();
-            for (int i = 0; i < ranges.size(); i++) {
-                response.add(Optional.of(new double[] { i }));
-            }
-            daoListener.onResponse(response);
-            return null;
-        })
-            .when(searchFeatureDao)
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
-
-        SinglePointFeatures listenerResponse = getCurrentFeatures(detector, 0, intervalInMilliseconds);
-        assertTrue(listenerResponse.getProcessedFeatures().isPresent());
-        assertEquals(listenerResponse.getProcessedFeatures().get().length, shingleSize);
-        assertEquals(featureManager.getShingleSize(detector.getId()), shingleSize);
-    }
-
-    @Test
-    public void testGetShingledFeatureForHistoricalAnalysisFromEmptyShingleWithoutMissingData() {
-        long millisecondsPerMinute = 60000;
-        int shingleSize = 8;
-        when(detector.getShingleSize()).thenReturn(shingleSize);
-
-        Deque<Entry<Long, Optional<double[]>>> shingle = new ArrayDeque<>();
-
-        long endTime = Instant.now().toEpochMilli();
-        int i = 0;
-        for (; i < shingleSize - MAX_IMPUTATION_NEIGHBOR_DISTANCE; i++) {
-            double[] testData = new double[] { i };
-            Optional<double[]> dataPoint = Optional.of(testData);
-            SinglePointFeatures feature = featureManager.getShingledFeatureForHistoricalAnalysis(detector, shingle, dataPoint, endTime);
-            endTime += millisecondsPerMinute;
-
-            assertTrue(Arrays.equals(testData, feature.getUnprocessedFeatures().get()));
-            assertFalse(feature.getProcessedFeatures().isPresent());
-        }
-
-        double[] testData = new double[] { i++ };
-        Optional<double[]> dataPoint = Optional.of(testData);
-        SinglePointFeatures feature = featureManager.getShingledFeatureForHistoricalAnalysis(detector, shingle, dataPoint, endTime);
-        assertTrue(feature.getProcessedFeatures().isPresent());
-        assertTrue(Arrays.equals(new double[] { 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 }, feature.getProcessedFeatures().get()));
-
-        endTime += millisecondsPerMinute;
-        testData = new double[] { i++ };
-        dataPoint = Optional.of(testData);
-        feature = featureManager.getShingledFeatureForHistoricalAnalysis(detector, shingle, dataPoint, endTime);
-        assertTrue(feature.getProcessedFeatures().isPresent());
-        assertTrue(Arrays.equals(new double[] { 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0 }, feature.getProcessedFeatures().get()));
-
-        for (; i < 2 * shingleSize; i++) {
-            endTime += millisecondsPerMinute;
-            SinglePointFeatures singlePointFeatures = featureManager
-                .getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.of(new double[] { i }), endTime);
-            assertTrue(singlePointFeatures.getProcessedFeatures().isPresent());
-            assertTrue(
-                Arrays
-                    .equals(
-                        new double[] { i - 7, i - 6, i - 5, i - 4, i - 3, i - 2, i - 1, i },
-                        singlePointFeatures.getProcessedFeatures().get()
-                    )
-            );
-        }
-    }
-
-    @Test
-    public void testGetShingledFeatureForHistoricalAnalysisWithTooManyMissingData() {
-        long millisecondsPerMinute = 60000;
-        int shingleSize = 8;
-        when(detector.getShingleSize()).thenReturn(shingleSize);
-
-        Deque<Entry<Long, Optional<double[]>>> shingle = new ArrayDeque<>();
-
-        long endTime = Instant.now().toEpochMilli();
-        int i = 0;
-        for (; i < shingleSize; i++) {
-            featureManager.getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.of(new double[] { i }), endTime);
-            endTime += millisecondsPerMinute;
-        }
-
-        for (int j = 0; j < MAX_IMPUTATION_NEIGHBOR_DISTANCE + 1; j++) {
-            SinglePointFeatures feature = featureManager
-                .getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.empty(), endTime);
-            endTime += millisecondsPerMinute;
-            assertFalse(feature.getProcessedFeatures().isPresent());
-        }
-        SinglePointFeatures feature = featureManager
-            .getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.of(new double[] { i }), endTime);
-        assertFalse(feature.getProcessedFeatures().isPresent());
-    }
-
-    @Test
-    public void testGetShingledFeatureForHistoricalAnalysisWithOneMissingData() {
-        long millisecondsPerMinute = 60000;
-        int shingleSize = 8;
-        when(detector.getShingleSize()).thenReturn(shingleSize);
-
-        Deque<Entry<Long, Optional<double[]>>> shingle = new ArrayDeque<>();
-
-        long endTime = Instant.now().toEpochMilli();
-        int i = 0;
-        for (; i < shingleSize; i++) {
-            featureManager.getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.of(new double[] { i }), endTime);
-            endTime += millisecondsPerMinute;
-        }
-
-        SinglePointFeatures feature1 = featureManager.getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.empty(), endTime);
-        assertFalse(feature1.getProcessedFeatures().isPresent());
-
-        endTime += millisecondsPerMinute;
-        SinglePointFeatures feature2 = featureManager
-            .getShingledFeatureForHistoricalAnalysis(detector, shingle, Optional.of(new double[] { i }), endTime);
-        assertTrue(feature2.getProcessedFeatures().isPresent());
-        assertTrue(Arrays.equals(new double[] { 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 8.0 }, feature2.getProcessedFeatures().get()));
     }
 }

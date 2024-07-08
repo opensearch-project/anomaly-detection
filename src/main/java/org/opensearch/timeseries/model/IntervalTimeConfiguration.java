@@ -89,10 +89,12 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         IntervalTimeConfiguration that = (IntervalTimeConfiguration) o;
         return getInterval() == that.getInterval() && getUnit() == that.getUnit();
     }
@@ -101,6 +103,12 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
     @Override
     public int hashCode() {
         return Objects.hashCode(interval, unit);
+    }
+
+    @Generated
+    @Override
+    public String toString() {
+        return "IntervalTimeConfiguration [interval=" + interval + ", unit=" + unit + "]";
     }
 
     public long getInterval() {
@@ -118,5 +126,14 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
      */
     public Duration toDuration() {
         return Duration.of(interval, unit);
+    }
+
+    /**
+     *
+     * @param other interval to compare
+     * @return current interval is larger than or equal to the given interval
+     */
+    public boolean gte(IntervalTimeConfiguration other) {
+        return toDuration().compareTo(other.toDuration()) >= 0;
     }
 }

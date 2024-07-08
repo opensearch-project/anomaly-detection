@@ -27,13 +27,11 @@ import org.junit.Before;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.ad.caching.CacheProvider;
-import org.opensearch.ad.caching.EntityCache;
+import org.opensearch.ad.caching.ADCacheProvider;
+import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.feature.FeatureManager;
-import org.opensearch.ad.ml.EntityColdStarter;
-import org.opensearch.ad.ml.ModelManager;
+import org.opensearch.ad.ml.ADColdStart;
+import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -46,6 +44,14 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.feature.FeatureManager;
+import org.opensearch.timeseries.transport.CronNodeResponse;
+import org.opensearch.timeseries.transport.CronResponse;
+import org.opensearch.timeseries.transport.DeleteModelNodeRequest;
+import org.opensearch.timeseries.transport.DeleteModelNodeResponse;
+import org.opensearch.timeseries.transport.DeleteModelRequest;
+import org.opensearch.timeseries.transport.DeleteModelResponse;
 import org.opensearch.transport.TransportService;
 
 import com.google.gson.JsonElement;
@@ -53,7 +59,7 @@ import com.google.gson.JsonElement;
 import test.org.opensearch.ad.util.JsonDeserializer;
 
 public class DeleteModelTransportActionTests extends AbstractTimeSeriesTest {
-    private DeleteModelTransportAction action;
+    private DelegateDeleteADModelTransportAction action;
     private String localNodeID;
 
     @Override
@@ -70,15 +76,15 @@ public class DeleteModelTransportActionTests extends AbstractTimeSeriesTest {
         TransportService transportService = mock(TransportService.class);
         ActionFilters actionFilters = mock(ActionFilters.class);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
-        ModelManager modelManager = mock(ModelManager.class);
+        ADModelManager modelManager = mock(ADModelManager.class);
         FeatureManager featureManager = mock(FeatureManager.class);
-        CacheProvider cacheProvider = mock(CacheProvider.class);
-        EntityCache entityCache = mock(EntityCache.class);
+        ADCacheProvider cacheProvider = mock(ADCacheProvider.class);
+        ADPriorityCache entityCache = mock(ADPriorityCache.class);
         when(cacheProvider.get()).thenReturn(entityCache);
         ADTaskCacheManager adTaskCacheManager = mock(ADTaskCacheManager.class);
-        EntityColdStarter coldStarter = mock(EntityColdStarter.class);
+        ADColdStart coldStarter = mock(ADColdStart.class);
 
-        action = new DeleteModelTransportAction(
+        action = new DelegateDeleteADModelTransportAction(
             threadPool,
             clusterService,
             transportService,
@@ -134,6 +140,6 @@ public class DeleteModelTransportActionTests extends AbstractTimeSeriesTest {
 
     public void testEmptyDetectorID() {
         ActionRequestValidationException e = new DeleteModelRequest().validate();
-        assertThat(e.validationErrors(), Matchers.hasItem(ADCommonMessages.AD_ID_MISSING_MSG));
+        assertThat(e.validationErrors(), Matchers.hasItem(CommonMessages.CONFIG_ID_MISSING_MSG));
     }
 }

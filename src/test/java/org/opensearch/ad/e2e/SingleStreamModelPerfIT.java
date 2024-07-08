@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -32,6 +31,7 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.opensearch.ad.AbstractADSyntheticDataTest;
 import org.opensearch.client.RestClient;
 import org.opensearch.timeseries.TestHelpers;
 
@@ -40,7 +40,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
+public class SingleStreamModelPerfIT extends AbstractADSyntheticDataTest {
     protected static final Logger LOG = (Logger) LogManager.getLogger(SingleStreamModelPerfIT.class);
 
     public void testDataset() throws Exception {
@@ -68,12 +68,34 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
         List<JsonObject> data = getData(dataFileName);
         List<Entry<Instant, Instant>> anomalies = getAnomalyWindows(labelFileName);
 
-        bulkIndexTrainData(datasetName, data, trainTestSplit, client, null);
+        String mapping = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+            + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client, mapping);
         // single-stream detector can use window delay 0 here because we give the run api the actual data time
-        String detectorId = createDetector(datasetName, intervalMinutes, client, null, 0);
-        simulateSingleStreamStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        String detector = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
+                    + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
+                    + "\"schema_version\": 0 }",
+                datasetName,
+                intervalMinutes,
+                0
+            );
+        String detectorId = createDetector(client, detector);
+
+        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
+        Instant begin = trainTime;
+        Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
+
+        simulateStartDetector(detectorId, begin, end, client, 1);
+        simulateWaitForInitDetector(detectorId, client, end, 1);
         bulkIndexTestData(data, datasetName, trainTestSplit, client);
-        double[] testResults = getTestResults(detectorId, data, trainTestSplit, intervalMinutes, anomalies, client);
+        double[] testResults = getTestResults(detectorId, data, trainTestSplit, intervalMinutes, anomalies, client, 1);
         verifyTestResults(testResults, anomalies, minPrecision, minRecall, maxError);
     }
 
@@ -91,12 +113,15 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
         double errors = testResults[3];
 
         // precision = predicted anomaly points that are true / predicted anomaly points
-        double precision = positives > 0 ? truePositives / positives : 1;
-        assertTrue(precision >= minPrecision);
+        double precision = positives > 0 ? truePositives / positives : 0;
+        assertTrue(
+            String.format(Locale.ROOT, "precision expected at least %f but got %f", minPrecision, precision),
+            precision >= minPrecision
+        );
 
         // recall = windows containing predicted anomaly points / total anomaly windows
-        double recall = anomalies.size() > 0 ? positiveAnomalies / anomalies.size() : 1;
-        assertTrue(String.format(Locale.ROOT, "recall should be %f but got %f", recall, minRecall), recall >= minRecall);
+        double recall = anomalies.size() > 0 ? positiveAnomalies / anomalies.size() : 0;
+        assertTrue(String.format(Locale.ROOT, "recall should be at least %f but got %f", recall, minRecall), recall >= minRecall);
 
         assertTrue(errors <= maxError);
         LOG.info("Precision: {}, Window recall: {}", precision, recall);
@@ -108,19 +133,34 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
         int trainTestSplit,
         int intervalMinutes,
         List<Entry<Instant, Instant>> anomalies,
-        RestClient client
+        RestClient client,
+        int entitySize
     ) throws Exception {
 
-        double positives = 0;
-        double truePositives = 0;
-        Set<Integer> positiveAnomalies = new HashSet<>();
-        double errors = 0;
+        int errors = 0;
         for (int i = trainTestSplit; i < data.size(); i++) {
             Instant begin = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(i).get("timestamp").getAsString()));
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
-                Map<String, Object> response = getDetectionResult(detectorId, begin, end, client);
-                double anomalyGrade = (double) response.get("anomalyGrade");
+                runDetectionResult(detectorId, begin, end, client, entitySize);
+            } catch (Exception e) {
+                errors++;
+                LOG.error("failed to run detection result", e);
+            }
+        }
+
+        double positives = 0;
+        double truePositives = 0;
+        Set<Integer> positiveAnomalies = new HashSet<>();
+
+        for (int i = trainTestSplit; i < data.size(); i++) {
+            Instant begin = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(i).get("timestamp").getAsString()));
+            Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
+            try {
+                List<JsonObject> sourceList = getAnomalyResult(detectorId, end, 1, client);
+                assertTrue("anomalyGrade cannot be negative", sourceList.size() == 1);
+                double anomalyGrade = getAnomalyGrade(sourceList.get(0));
+                assertTrue("anomalyGrade cannot be negative", anomalyGrade >= 0);
                 if (anomalyGrade > 0) {
                     positives++;
                     int result = isAnomaly(begin, anomalies);
@@ -131,7 +171,7 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
                 }
             } catch (Exception e) {
                 errors++;
-                logger.error("failed to get detection results", e);
+                LOG.error("failed to get detection results", e);
             }
         }
         return new double[] { positives, truePositives, positiveAnomalies.size(), errors };
@@ -151,54 +191,6 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
         return anomalies;
     }
 
-    /**
-     * Simulate starting detector without waiting for job scheduler to run. Our build process is already very slow (takes 10 mins+)
-     * to finish integration tests. This method triggers run API to simulate job scheduler execution in a fast-paced way.
-     * @param detectorId Detector Id
-     * @param data Data in Json format
-     * @param trainTestSplit Training data size
-     * @param shingleSize Shingle size
-     * @param intervalMinutes Detector Interval
-     * @param client OpenSearch Client
-     * @throws Exception when failing to query/indexing from/to OpenSearch
-     */
-    private void simulateSingleStreamStartDetector(
-        String detectorId,
-        List<JsonObject> data,
-        int trainTestSplit,
-        int shingleSize,
-        int intervalMinutes,
-        RestClient client
-    ) throws Exception {
-
-        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
-
-        Instant begin = null;
-        Instant end = null;
-        for (int i = 0; i < shingleSize; i++) {
-            begin = trainTime.minus(intervalMinutes * (shingleSize - 1 - i), ChronoUnit.MINUTES);
-            end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
-            try {
-                getDetectionResult(detectorId, begin, end, client);
-            } catch (Exception e) {}
-        }
-        // It takes time to wait for model initialization
-        long startTime = System.currentTimeMillis();
-        do {
-            try {
-                Thread.sleep(5_000);
-                getDetectionResult(detectorId, begin, end, client);
-                break;
-            } catch (Exception e) {
-                long duration = System.currentTimeMillis() - startTime;
-                // we wait at most 60 secs
-                if (duration > 60_000) {
-                    throw new RuntimeException(e);
-                }
-            }
-        } while (true);
-    }
-
     private void bulkIndexTestData(List<JsonObject> data, String datasetName, int trainTestSplit, RestClient client) throws Exception {
         StringBuilder bulkRequestBuilder = new StringBuilder();
         for (int i = trainTestSplit; i < data.size(); i++) {
@@ -216,15 +208,5 @@ public class SingleStreamModelPerfIT extends AbstractSyntheticDataTest {
             );
         Thread.sleep(1_000);
         waitAllSyncheticDataIngested(data.size(), datasetName, client);
-    }
-
-    private int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
-        for (int i = 0; i < labels.size(); i++) {
-            Entry<Instant, Instant> window = labels.get(i);
-            if (time.compareTo(window.getKey()) >= 0 && time.compareTo(window.getValue()) <= 0) {
-                return i;
-            }
-        }
-        return -1;
     }
 }

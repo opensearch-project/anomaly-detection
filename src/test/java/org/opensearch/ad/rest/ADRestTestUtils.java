@@ -43,10 +43,14 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.TaskProfile;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TimeSeriesTask;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -211,7 +215,14 @@ public class ADRestTestUtils {
             categoryFields,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption()
+            TestHelpers.randomImputationOption(1),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null
         );
 
         if (historical) {
@@ -260,12 +271,12 @@ public class ADRestTestUtils {
         for (Object adTaskResponse : adTaskResponses) {
             String id = (String) ((Map<String, Object>) adTaskResponse).get("_id");
             Map<String, Object> source = (Map<String, Object>) ((Map<String, Object>) adTaskResponse).get("_source");
-            String state = (String) source.get(ADTask.STATE_FIELD);
+            String state = (String) source.get(TimeSeriesTask.STATE_FIELD);
             String parsedDetectorId = (String) source.get(ADTask.DETECTOR_ID_FIELD);
-            Double taskProgress = (Double) source.get(ADTask.TASK_PROGRESS_FIELD);
-            Double initProgress = (Double) source.get(ADTask.INIT_PROGRESS_FIELD);
-            String parsedTaskType = (String) source.get(ADTask.TASK_TYPE_FIELD);
-            String coordinatingNode = (String) source.get(ADTask.COORDINATING_NODE_FIELD);
+            Double taskProgress = (Double) source.get(TimeSeriesTask.TASK_PROGRESS_FIELD);
+            Double initProgress = (Double) source.get(TimeSeriesTask.INIT_PROGRESS_FIELD);
+            String parsedTaskType = (String) source.get(TimeSeriesTask.TASK_TYPE_FIELD);
+            String coordinatingNode = (String) source.get(TimeSeriesTask.COORDINATING_NODE_FIELD);
             ADTask adTask = ADTask
                 .builder()
                 .taskId(id)
@@ -366,7 +377,8 @@ public class ADRestTestUtils {
                 Instant.ofEpochMilli(lastUpdateTime),
                 null,
                 null,
-                null
+                null,
+                AnalysisType.AD
             );
             results.put(ANOMALY_DETECTOR_JOB, job);
         }
@@ -387,13 +399,13 @@ public class ADRestTestUtils {
     }
 
     private static ADTask parseAdTask(Map<String, Object> taskMap) {
-        String id = (String) taskMap.get(ADTask.TASK_ID_FIELD);
-        String state = (String) taskMap.get(ADTask.STATE_FIELD);
+        String id = (String) taskMap.get(TimeSeriesTask.TASK_ID_FIELD);
+        String state = (String) taskMap.get(TimeSeriesTask.STATE_FIELD);
         String parsedDetectorId = (String) taskMap.get(ADTask.DETECTOR_ID_FIELD);
-        Double taskProgress = (Double) taskMap.get(ADTask.TASK_PROGRESS_FIELD);
-        Double initProgress = (Double) taskMap.get(ADTask.INIT_PROGRESS_FIELD);
-        String parsedTaskType = (String) taskMap.get(ADTask.TASK_TYPE_FIELD);
-        String coordinatingNode = (String) taskMap.get(ADTask.COORDINATING_NODE_FIELD);
+        Double taskProgress = (Double) taskMap.get(TimeSeriesTask.TASK_PROGRESS_FIELD);
+        Double initProgress = (Double) taskMap.get(TimeSeriesTask.INIT_PROGRESS_FIELD);
+        String parsedTaskType = (String) taskMap.get(TimeSeriesTask.TASK_TYPE_FIELD);
+        String coordinatingNode = (String) taskMap.get(TimeSeriesTask.COORDINATING_NODE_FIELD);
         return ADTask
             .builder()
             .taskId(id)
@@ -465,16 +477,16 @@ public class ADRestTestUtils {
         return taskId;
     }
 
-    public static ADTaskProfile waitUntilTaskDone(RestClient client, String detectorId) throws InterruptedException {
+    public static TaskProfile waitUntilTaskDone(RestClient client, String detectorId) throws InterruptedException {
         return waitUntilTaskReachState(client, detectorId, TestHelpers.HISTORICAL_ANALYSIS_DONE_STATS);
     }
 
-    public static ADTaskProfile waitUntilTaskReachState(RestClient client, String detectorId, Set<String> targetStates)
+    public static TaskProfile waitUntilTaskReachState(RestClient client, String detectorId, Set<String> targetStates)
         throws InterruptedException {
         int i = 0;
         int retryTimes = 200;
-        ADTaskProfile adTaskProfile = null;
-        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getAdTask().getState())) && i < retryTimes) {
+        TaskProfile<ADTask> adTaskProfile = null;
+        while ((adTaskProfile == null || !targetStates.contains(adTaskProfile.getTask().getState())) && i < retryTimes) {
             try {
                 adTaskProfile = getADTaskProfile(client, detectorId);
             } catch (Exception e) {
@@ -488,7 +500,7 @@ public class ADRestTestUtils {
         return adTaskProfile;
     }
 
-    public static ADTaskProfile getADTaskProfile(RestClient client, String detectorId) throws IOException, ParseException {
+    public static TaskProfile<ADTask> getADTaskProfile(RestClient client, String detectorId) throws IOException, ParseException {
         Response profileResponse = TestHelpers
             .makeRequest(
                 client,
@@ -501,10 +513,10 @@ public class ADRestTestUtils {
         return parseADTaskProfile(profileResponse);
     }
 
-    public static ADTaskProfile parseADTaskProfile(Response profileResponse) throws IOException, ParseException {
+    public static TaskProfile<ADTask> parseADTaskProfile(Response profileResponse) throws IOException, ParseException {
         String profileResult = EntityUtils.toString(profileResponse.getEntity());
         XContentParser parser = TestHelpers.parser(profileResult);
-        ADTaskProfile adTaskProfile = null;
+        TaskProfile<ADTask> adTaskProfile = null;
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();

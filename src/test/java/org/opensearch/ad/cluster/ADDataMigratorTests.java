@@ -47,6 +47,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.InternalAggregations;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.cluster.ADDataMigrator;
 import org.opensearch.timeseries.constant.CommonName;
 
 public class ADDataMigratorTests extends ADUnitTestCase {

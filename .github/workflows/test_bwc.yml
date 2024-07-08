@@ -17,7 +17,7 @@ jobs:
     needs: Get-CI-Image-Tag
     strategy:
       matrix:
-        java: [11,17,20]
+        java: [21]
       fail-fast: false
 
     name: Test Anomaly detection BWC

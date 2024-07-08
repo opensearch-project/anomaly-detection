@@ -13,11 +13,11 @@ package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.constant.ADCommonValue;
 
 public class SearchADTasksAction extends ActionType<SearchResponse> {
     // External Action which used for public facing RestAPIs.
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "tasks/search";
+    public static final String NAME = ADCommonValue.EXTERNAL_ACTION_PREFIX + "tasks/search";
     public static final SearchADTasksAction INSTANCE = new SearchADTasksAction();
 
     private SearchADTasksAction() {

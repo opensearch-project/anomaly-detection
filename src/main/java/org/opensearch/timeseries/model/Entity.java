@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import org.apache.lucene.search.join.ScoreMode;
 import org.apache.lucene.util.SetOnce;
 import org.opensearch.common.Numbers;
 import org.opensearch.common.hash.MurmurHash3;
@@ -38,6 +39,9 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParser.Token;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.NestedQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.constant.CommonName;
@@ -187,10 +191,12 @@ public class Entity implements ToXContentObject, Writeable {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         Entity that = (Entity) o;
         return Objects.equal(attributes, that.attributes);
     }
@@ -339,9 +345,11 @@ public class Entity implements ToXContentObject, Writeable {
           }
         }
      *
+     * Used to query customer index
+     *
      *@return a list of term query builder
      */
-    public List<TermQueryBuilder> getTermQueryBuilders() {
+    public List<TermQueryBuilder> getTermQueryForCustomerIndex() {
         List<TermQueryBuilder> res = new ArrayList<>();
         for (Map.Entry<String, String> attribute : attributes.entrySet()) {
             res.add(new TermQueryBuilder(attribute.getKey(), attribute.getValue()));
@@ -349,10 +357,66 @@ public class Entity implements ToXContentObject, Writeable {
         return res;
     }
 
-    public List<TermQueryBuilder> getTermQueryBuilders(String pathPrefix) {
+    public List<TermQueryBuilder> getTermQueryForCustomerIndex(String pathPrefix) {
         List<TermQueryBuilder> res = new ArrayList<>();
         for (Map.Entry<String, String> attribute : attributes.entrySet()) {
             res.add(new TermQueryBuilder(pathPrefix + attribute.getKey(), attribute.getValue()));
+        }
+        return res;
+    }
+
+    /**
+     * Used to query result index.
+     *
+     * @return a list of term queries to locate documents containing the entity
+     */
+    public List<NestedQueryBuilder> getTermQueryForResultIndex() {
+        String path = "entity";
+        String entityName = path + ".name";
+        String entityValue = path + ".value";
+
+        List<NestedQueryBuilder> res = new ArrayList<>();
+
+        for (Map.Entry<String, String> attribute : attributes.entrySet()) {
+            /*
+             * each attribute pair corresponds to a nested query like
+            "nested": {
+            "query": {
+              "bool": {
+                "filter": [
+                  {
+                    "term": {
+                      "entity.name": {
+                        "value": "turkey4",
+                        "boost": 1
+                      }
+                    }
+                  },
+                  {
+                    "term": {
+                      "entity.value": {
+                        "value": "Turkey",
+                        "boost": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "path": "entity",
+            "ignore_unmapped": false,
+            "score_mode": "none",
+            "boost": 1
+            }
+            },*/
+            BoolQueryBuilder nestedBoolQueryBuilder = new BoolQueryBuilder();
+
+            TermQueryBuilder entityNameFilterQuery = QueryBuilders.termQuery(entityName, attribute.getKey());
+            nestedBoolQueryBuilder.filter(entityNameFilterQuery);
+            TermQueryBuilder entityValueFilterQuery = QueryBuilders.termQuery(entityValue, attribute.getValue());
+            nestedBoolQueryBuilder.filter(entityValueFilterQuery);
+
+            res.add(new NestedQueryBuilder(path, nestedBoolQueryBuilder, ScoreMode.None));
         }
         return res;
     }

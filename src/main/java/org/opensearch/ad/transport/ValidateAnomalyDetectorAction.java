@@ -12,14 +12,15 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.ad.constant.CommonValue;
+import org.opensearch.ad.constant.ADCommonValue;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 
-public class ValidateAnomalyDetectorAction extends ActionType<ValidateAnomalyDetectorResponse> {
+public class ValidateAnomalyDetectorAction extends ActionType<ValidateConfigResponse> {
 
-    public static final String NAME = CommonValue.EXTERNAL_ACTION_PREFIX + "detector/validate";
+    public static final String NAME = ADCommonValue.EXTERNAL_ACTION_PREFIX + "detector/validate";
     public static final ValidateAnomalyDetectorAction INSTANCE = new ValidateAnomalyDetectorAction();
 
     private ValidateAnomalyDetectorAction() {
-        super(NAME, ValidateAnomalyDetectorResponse::new);
+        super(NAME, ValidateConfigResponse::new);
     }
 }

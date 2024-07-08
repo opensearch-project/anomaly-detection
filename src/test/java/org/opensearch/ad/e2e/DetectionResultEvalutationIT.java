@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.opensearch.ad.AbstractADSyntheticDataTest;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -39,52 +40,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
+public class DetectionResultEvalutationIT extends AbstractADSyntheticDataTest {
     protected static final Logger LOG = (Logger) LogManager.getLogger(DetectionResultEvalutationIT.class);
-
-    /**
-     * Wait for HCAD cold start to finish.
-     * @param detectorId Detector Id
-     * @param data Data in Json format
-     * @param trainTestSplit Training data size
-     * @param shingleSize Shingle size
-     * @param intervalMinutes Detector Interval
-     * @param client OpenSearch Client
-     * @throws Exception when failing to query/indexing from/to OpenSearch
-     */
-    private void waitForHCADStartDetector(
-        String detectorId,
-        List<JsonObject> data,
-        int trainTestSplit,
-        int shingleSize,
-        int intervalMinutes,
-        RestClient client
-    ) throws Exception {
-
-        long startTime = System.currentTimeMillis();
-        long duration = 0;
-        do {
-            /*
-             * single stream detectors will throw exception if not finding models in the
-             * callback, while HCAD detectors will return early, record the exception in
-             * node state, and throw exception in the next run. HCAD did it this way since
-             * it does not know when current run is gonna finish (e.g, we may have millions
-             * of entities to process in one run). So for single-stream detector test case,
-             * we can check the exception to see if models are initialized or not. So HCAD,
-             * we have to either wait for next runs or use profile API. Here I chose profile
-             * API since it is faster. Will add these explanation in the comments.
-             */
-            Thread.sleep(5_000);
-            String initProgress = profileDetectorInitProgress(detectorId, client);
-            if (initProgress.equals("100%")) {
-                break;
-            }
-            try {
-                profileDetectorInitProgress(detectorId, client);
-            } catch (Exception e) {}
-            duration = System.currentTimeMillis() - startTime;
-        } while (duration <= 60_000);
-    }
 
     public void testValidationIntervalRecommendation() throws Exception {
         RestClient client = client();
@@ -260,20 +217,44 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
             row.addProperty(tsField, adjustedDate);
         }
 
-        bulkIndexTrainData(datasetName, data, trainTestSplit, client, categoricalField);
+        String mapping = String
+            .format(
+                Locale.ROOT,
+                "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+                    + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" },"
+                    + "\"%s\": { \"type\": \"keyword\"} } } }",
+                categoricalField
+            );
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client, mapping);
 
-        String detectorId = createDetector(datasetName, intervalMinutes, client, categoricalField, 0);
+        String detector = String
+            .format(
+                Locale.ROOT,
+                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                    + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"Feature1\" } } } }, { \"feature_name\""
+                    + ": \"feature 2\", \"feature_enabled\": \"true\", \"aggregation_query\": { \"Feature2\": { \"sum\": { \"field\": "
+                    + "\"Feature2\" } } } }], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
+                    + "\"category_field\": [\"%s\"], "
+                    + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
+                    + "\"schema_version\": 0  }",
+                datasetName,
+                intervalMinutes,
+                categoricalField,
+                0
+            );
+        String detectorId = createDetector(client, detector);
         // cannot stop without actually starting detector because ad complains no ad job index
         startDetector(detectorId, client);
         profileDetectorInitProgress(detectorId, client);
         // it would be long if we wait for the job actually run the work periodically; speed it up by using simulateHCADStartDetector
-        waitForHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        waitForInitDetector(detectorId, client);
         String initProgress = profileDetectorInitProgress(detectorId, client);
         assertEquals("init progress is " + initProgress, "100%", initProgress);
         stopDetector(detectorId, client);
         // restart detector
         startDetector(detectorId, client);
-        waitForHCADStartDetector(detectorId, data, trainTestSplit, shingleSize, intervalMinutes, client);
+        waitForInitDetector(detectorId, client);
         initProgress = profileDetectorInitProgress(detectorId, client);
         assertEquals("init progress is " + initProgress, "100%", initProgress);
     }
@@ -284,31 +265,5 @@ public class DetectionResultEvalutationIT extends AbstractSyntheticDataTest {
         Map<String, Object> response = entityAsMap(client.performRequest(request));
         String responseDetectorId = (String) response.get("_id");
         assertEquals(detectorId, responseDetectorId);
-    }
-
-    private void startDetector(String detectorId, RestClient client) throws Exception {
-        Request request = new Request("POST", String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_start", detectorId));
-
-        Map<String, Object> response = entityAsMap(client.performRequest(request));
-        String responseDetectorId = (String) response.get("_id");
-        assertEquals(detectorId, responseDetectorId);
-    }
-
-    private String profileDetectorInitProgress(String detectorId, RestClient client) throws Exception {
-        Request request = new Request(
-            "GET",
-            String.format(Locale.ROOT, "/_plugins/_anomaly_detection/detectors/%s/_profile/init_progress", detectorId)
-        );
-
-        Map<String, Object> response = entityAsMap(client.performRequest(request));
-        /*
-         * Example response:
-         * {
-         *   "init_progress": {
-         *      "percentage": "100%"
-         *    }
-         *   }
-         */
-        return (String) ((Map<String, Object>) response.get("init_progress")).get("percentage");
     }
 }
