@@ -20,7 +20,6 @@ import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.transport.BooleanNodeResponse;
 import org.opensearch.timeseries.transport.BooleanResponse;
-import org.opensearch.timeseries.transport.ForecastRunOnceProfileNodeRequest;
 import org.opensearch.transport.TransportService;
 
 public class ForecastRunOnceProfileTransportAction extends

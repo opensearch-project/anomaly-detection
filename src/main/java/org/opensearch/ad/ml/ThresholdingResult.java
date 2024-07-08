@@ -136,6 +136,11 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
 
     protected final double confidence;
 
+    // actual or imputed data
+    private double[] currentData;
+
+    private boolean[] featureImputed;
+
     /**
      * Constructor for default empty value or backward compatibility.
      * In terms of bwc, when an old node sends request for threshold results,
@@ -148,7 +153,7 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
      *   saving or not.
      */
     public ThresholdingResult(double grade, double confidence, double rcfScore) {
-        this(grade, confidence, rcfScore, 0, 0, null, null, null, null, 0, 0);
+        this(grade, confidence, rcfScore, 0, 0, null, null, null, null, 0, 0, null, null);
     }
 
     public ThresholdingResult(
@@ -162,7 +167,9 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
         double[][] expectedValuesList,
         double[] likelihoodOfValues,
         double threshold,
-        int forestSize
+        int forestSize,
+        double[] currentData,
+        boolean[] featureImputed
     ) {
         super(totalUpdates, rcfScore);
         this.confidence = confidence;
@@ -175,6 +182,9 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
         this.likelihoodOfValues = likelihoodOfValues;
         this.threshold = threshold;
         this.forestSize = forestSize;
+        this.currentData = currentData;
+        this.featureImputed = featureImputed;
+
     }
 
     /**
@@ -223,12 +233,22 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
         return forestSize;
     }
 
+    public double[] getCurrentData() {
+        return currentData;
+    }
+
+    public boolean isFeatureImputed(int i) {
+        return featureImputed[i];
+    }
+
     @Override
     public boolean equals(Object o) {
-        if (!super.equals(o))
+        if (!super.equals(o)) {
             return false;
-        if (getClass() != o.getClass())
+        }
+        if (getClass() != o.getClass()) {
             return false;
+        }
         ThresholdingResult that = (ThresholdingResult) o;
         return Double.doubleToLongBits(confidence) == Double.doubleToLongBits(that.confidence)
             && Double.doubleToLongBits(this.grade) == Double.doubleToLongBits(that.grade)
@@ -238,7 +258,9 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
             && Arrays.deepEquals(expectedValuesList, that.expectedValuesList)
             && Arrays.equals(likelihoodOfValues, that.likelihoodOfValues)
             && Double.doubleToLongBits(threshold) == Double.doubleToLongBits(that.threshold)
-            && forestSize == that.forestSize;
+            && forestSize == that.forestSize
+            && Arrays.equals(currentData, that.currentData)
+            && Arrays.equals(featureImputed, that.featureImputed);
     }
 
     @Override
@@ -254,7 +276,9 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
                 Arrays.deepHashCode(expectedValuesList),
                 Arrays.hashCode(likelihoodOfValues),
                 threshold,
-                forestSize
+                forestSize,
+                Arrays.hashCode(currentData),
+                Arrays.hashCode(featureImputed)
             );
     }
 
@@ -271,6 +295,8 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
             .append("likelihoodOfValues", Arrays.toString(likelihoodOfValues))
             .append("threshold", threshold)
             .append("forestSize", forestSize)
+            .append("currentData", Arrays.toString(currentData))
+            .append("featureImputed", Arrays.toString(featureImputed))
             .toString();
     }
 
@@ -330,7 +356,9 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
                         pastValues,
                         expectedValuesList,
                         likelihoodOfValues,
-                        threshold
+                        threshold,
+                        currentData,
+                        featureImputed
                     )
             );
     }

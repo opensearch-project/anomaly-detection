@@ -411,7 +411,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             // If single-category HC changed category field from IP to error type, the AD result page may show both IP and error type
             // in top N entities list. That's confusing.
             // So we decide to block updating detector category field.
-            // for forecasting, we will not show results after forecaster configuration change (excluding changes like description)
+            // for forecasting, we will not show results after forecaster configuration change
             // thus it is safe to allow updating everything. In the future, we might change AD to allow such behavior.
             if (!canUpdateEverything) {
                 if (!ParseUtils.listEqualsWithoutConsideringOrder(existingConfig.getCategoryFields(), config.getCategoryFields())) {
@@ -435,15 +435,15 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 );
 
             handler.confirmBatchRunning(id, batchTasks, confirmBatchRunningListener);
-        } catch (IOException e) {
-            String message = "Failed to parse anomaly detector " + id;
+        } catch (Exception e) {
+            String message = "Failed to parse config " + id;
             logger.error(message, e);
             listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
         }
 
     }
 
-    protected void validateAgainstExistingHCConfig(String detectorId, boolean indexingDryRun, ActionListener<T> listener) {
+    protected void validateAgainstExistingHCConfig(String configId, boolean indexingDryRun, ActionListener<T> listener) {
         if (timeSeriesIndices.doesConfigIndexExist()) {
             QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(Config.CATEGORY_FIELD));
 
@@ -455,12 +455,12 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     searchRequest,
                     ActionListener
                         .wrap(
-                            response -> onSearchHCConfigResponse(response, detectorId, indexingDryRun, listener),
+                            response -> onSearchHCConfigResponse(response, configId, indexingDryRun, listener),
                             exception -> listener.onFailure(exception)
                         )
                 );
         } else {
-            validateCategoricalField(detectorId, indexingDryRun, listener);
+            validateCategoricalField(configId, indexingDryRun, listener);
         }
 
     }
@@ -527,25 +527,14 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     @SuppressWarnings("unchecked")
-    protected void validateCategoricalField(String detectorId, boolean indexingDryRun, ActionListener<T> listener) {
+    protected void validateCategoricalField(String configId, boolean indexingDryRun, ActionListener<T> listener) {
         List<String> categoryField = config.getCategoryFields();
 
-        if (categoryField == null) {
-            searchConfigInputIndices(detectorId, indexingDryRun, listener);
-            return;
-        }
+        // categoryField should have at least 1 element. Otherwise, we won't reach here.
 
         // we only support a certain number of categorical field
         // If there is more fields than required, Config's constructor
-        // throws validation exception before reaching this line
-        int maxCategoryFields = maxCategoricalFields;
-        if (categoryField.size() > maxCategoryFields) {
-            listener
-                .onFailure(
-                    createValidationException(CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields), ValidationIssueType.CATEGORY)
-                );
-            return;
-        }
+        // throws validation exception before reaching here
 
         String categoryField0 = categoryField.get(0);
 
@@ -585,10 +574,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                                     Map<String, Object> metadataMap = (Map<String, Object>) type;
                                     String typeName = (String) metadataMap.get(CommonName.TYPE);
                                     if (!typeName.equals(CommonName.KEYWORD_TYPE) && !typeName.equals(CommonName.IP_TYPE)) {
-                                        listener
-                                            .onFailure(
-                                                createValidationException(CATEGORICAL_FIELD_TYPE_ERR_MSG, ValidationIssueType.CATEGORY)
-                                            );
+                                        String error = String.format(Locale.ROOT, CATEGORICAL_FIELD_TYPE_ERR_MSG, field2Metadata.getKey());
+                                        listener.onFailure(createValidationException(error, ValidationIssueType.CATEGORY));
                                         return;
                                     }
                                 }
@@ -610,9 +597,9 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 return;
             }
 
-            searchConfigInputIndices(detectorId, indexingDryRun, listener);
+            searchConfigInputIndices(configId, indexingDryRun, listener);
         }, error -> {
-            String message = String.format(Locale.ROOT, "Fail to get the index mapping of %s", config.getIndices());
+            String message = String.format(Locale.ROOT, CommonMessages.FAIL_TO_GET_MAPPING_MSG, config.getIndices());
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
@@ -621,7 +608,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             .executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, context, mappingsListener);
     }
 
-    protected void searchConfigInputIndices(String detectorId, boolean indexingDryRun, ActionListener<T> listener) {
+    protected void searchConfigInputIndices(String configId, boolean indexingDryRun, ActionListener<T> listener) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(QueryBuilders.matchAllQuery())
             .size(0)
@@ -631,7 +618,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
         ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(
-                searchResponse -> onSearchConfigInputIndicesResponse(searchResponse, detectorId, indexingDryRun, listener),
+                searchResponse -> onSearchConfigInputIndicesResponse(searchResponse, configId, indexingDryRun, listener),
                 exception -> listener.onFailure(exception)
             );
 
@@ -640,7 +627,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchConfigInputIndicesResponse(
         SearchResponse response,
-        String detectorId,
+        String configId,
         boolean indexingDryRun,
         ActionListener<T> listener
     ) throws IOException {
@@ -653,7 +640,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             }
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
-            validateConfigFeatures(detectorId, indexingDryRun, listener);
+            validateConfigFeatures(configId, indexingDryRun, listener);
         }
     }
 
@@ -724,7 +711,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
-    @SuppressWarnings("unchecked")
     protected void indexConfig(String id, ActionListener<T> listener) throws IOException {
         Config copiedConfig = copyConfig(user, config);
         IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
@@ -776,7 +762,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
-    protected String checkShardsFailure(IndexResponse response) {
+    public String checkShardsFailure(IndexResponse response) {
         StringBuilder failureReasons = new StringBuilder();
         if (response.getShardInfo().getFailed() > 0) {
             for (ReplicationResponse.ShardInfo.Failure failure : response.getShardInfo().getFailures()) {
@@ -832,7 +818,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
             SearchRequest searchRequest = new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(ssb);
             ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
-                Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()));
+                Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()), false);
                 if (aggFeatureResult.isPresent()) {
                     multiFeatureQueriesResponseListener
                         .onResponse(

@@ -911,7 +911,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
 
     @SuppressWarnings("unchecked")
     public void testStartHistoricalAnalysisWithNoOwningNode() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of());
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableList.of(randomFeature(true)));
         DateRange detectionDateRange = TestHelpers.randomDetectionDateRange();
         User user = null;
         int availableTaskSlots = randomIntBetween(1, 10);

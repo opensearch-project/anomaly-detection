@@ -40,6 +40,7 @@ import org.opensearch.timeseries.model.DataByFeatureId;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IndexableResult;
+import org.opensearch.timeseries.util.DataUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.base.Objects;
@@ -66,6 +67,7 @@ public class AnomalyResult extends IndexableResult {
     public static final String THRESHOLD_FIELD = "threshold";
     // unused currently. added since odfe 1.4
     public static final String IS_ANOMALY_FIELD = "is_anomaly";
+    public static final String FEATURE_IMPUTED = "feature_imputed";
 
     private final Double anomalyScore;
     private final Double anomalyGrade;
@@ -193,6 +195,9 @@ public class AnomalyResult extends IndexableResult {
      */
     private final String modelId;
 
+    // whether a feature value is imputed or not
+    private List<FeatureImputed> featureImputed;
+
     // used when indexing exception or error or an empty result
     public AnomalyResult(
         String detectorId,
@@ -228,6 +233,7 @@ public class AnomalyResult extends IndexableResult {
             null,
             null,
             null,
+            null,
             null
         );
     }
@@ -252,7 +258,8 @@ public class AnomalyResult extends IndexableResult {
         List<DataByFeatureId> relevantAttribution,
         List<DataByFeatureId> pastValues,
         List<ExpectedValueList> expectedValuesList,
-        Double threshold
+        Double threshold,
+        List<FeatureImputed> featureImputed
     ) {
         super(
             configId,
@@ -276,6 +283,7 @@ public class AnomalyResult extends IndexableResult {
         this.pastValues = pastValues;
         this.expectedValuesList = expectedValuesList;
         this.threshold = threshold;
+        this.featureImputed = featureImputed;
     }
 
     /**
@@ -302,6 +310,8 @@ public class AnomalyResult extends IndexableResult {
      * @param expectedValuesList Expected values
      * @param likelihoodOfValues Likelihood of the expected values
      * @param threshold Current threshold
+     * @param currentData imputed data if any
+     * @param featureImputed whether feature is imputed or not
      * @return the converted AnomalyResult instance
      */
     public static AnomalyResult fromRawTRCFResult(
@@ -326,14 +336,17 @@ public class AnomalyResult extends IndexableResult {
         double[] pastValues,
         double[][] expectedValuesList,
         double[] likelihoodOfValues,
-        Double threshold
+        Double threshold,
+        double[] currentData,
+        boolean[] featureImputed
     ) {
         List<DataByFeatureId> convertedRelevantAttribution = null;
         List<DataByFeatureId> convertedPastValuesList = null;
         List<ExpectedValueList> convertedExpectedValues = null;
 
+        int featureSize = featureData == null ? 0 : featureData.size();
+
         if (grade > 0) {
-            int featureSize = featureData.size();
             if (relevantAttribution != null) {
                 if (relevantAttribution.length == featureSize) {
                     convertedRelevantAttribution = new ArrayList<>(featureSize);
@@ -352,11 +365,21 @@ public class AnomalyResult extends IndexableResult {
                 }
             }
 
-            if (pastValues != null) {
+            // it is possible pastValues is not null but relativeIndex is null. It would happen when the imputation ends in a continuous
+            // area.
+            if (pastValues != null && relativeIndex != null && relativeIndex < 0) {
                 if (pastValues.length == featureSize) {
                     convertedPastValuesList = new ArrayList<>(featureSize);
                     for (int j = 0; j < featureSize; j++) {
-                        convertedPastValuesList.add(new DataByFeatureId(featureData.get(j).getFeatureId(), pastValues[j]));
+                        // When impute missing values, the first imputation will generate NaN value, but OS's double type won't accept NaN
+                        // value.
+                        // So we will break out of the loop and not save a past value.
+                        if (Double.isNaN(pastValues[j]) || Double.isInfinite(pastValues[j])) {
+                            convertedPastValuesList = null;
+                            break;
+                        } else {
+                            convertedPastValuesList.add(new DataByFeatureId(featureData.get(j).getFeatureId(), pastValues[j]));
+                        }
                     }
                 } else {
                     LOG
@@ -404,6 +427,20 @@ public class AnomalyResult extends IndexableResult {
             }
         }
 
+        List<FeatureImputed> featureImputedList = new ArrayList<>();
+        if (featureImputed != null) {
+            for (int i = 0; i < featureImputed.length; i++) {
+                FeatureData featureItem = featureData.get(i);
+                // round to 3rd decimal places
+                if (featureImputed[i]) {
+                    featureItem.setData(DataUtil.roundDouble(currentData[i], 3));
+                } else {
+                    featureItem.setData(DataUtil.roundDouble(featureItem.getData(), 3));
+                }
+                featureImputedList.add(new FeatureImputed(featureItem.getFeatureId(), featureImputed[i]));
+            }
+        }
+
         return new AnomalyResult(
             detectorId,
             taskId,
@@ -420,13 +457,14 @@ public class AnomalyResult extends IndexableResult {
             user,
             schemaVersion,
             modelId,
-            (relativeIndex == null || dataStartTime == null)
+            (relativeIndex == null || dataStartTime == null || relativeIndex >= 0)
                 ? null
                 : Instant.ofEpochMilli(dataStartTime.toEpochMilli() + relativeIndex * intervalMillis),
             convertedRelevantAttribution,
             convertedPastValuesList,
             convertedExpectedValues,
-            threshold
+            threshold,
+            featureImputedList
         );
     }
 
@@ -470,6 +508,16 @@ public class AnomalyResult extends IndexableResult {
         }
 
         this.threshold = input.readOptionalDouble();
+
+        int inputLength = input.readVInt();
+        if (inputLength > 0) {
+            this.featureImputed = new ArrayList<>();
+            for (int i = 0; i < inputLength; i++) {
+                featureImputed.add(new FeatureImputed(input));
+            }
+        } else {
+            this.featureImputed = null;
+        }
     }
 
     @Override
@@ -545,6 +593,9 @@ public class AnomalyResult extends IndexableResult {
         if (threshold != null && !threshold.isNaN()) {
             xContentBuilder.field(THRESHOLD_FIELD, threshold);
         }
+        if (featureImputed != null && featureImputed.size() > 0) {
+            xContentBuilder.array(FEATURE_IMPUTED, featureImputed.toArray());
+        }
         return xContentBuilder.endObject();
     }
 
@@ -569,6 +620,7 @@ public class AnomalyResult extends IndexableResult {
         List<DataByFeatureId> pastValues = new ArrayList<>();
         List<ExpectedValueList> expectedValues = new ArrayList<>();
         Double threshold = null;
+        List<FeatureImputed> featureImputed = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -648,6 +700,13 @@ public class AnomalyResult extends IndexableResult {
                 case THRESHOLD_FIELD:
                     threshold = parser.doubleValue();
                     break;
+                case FEATURE_IMPUTED:
+                    featureImputed = new ArrayList<>();
+                    ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
+                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
+                        featureImputed.add(FeatureImputed.parse(parser));
+                    }
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -674,17 +733,20 @@ public class AnomalyResult extends IndexableResult {
             relavantAttribution,
             pastValues,
             expectedValues,
-            threshold
+            threshold,
+            featureImputed
         );
     }
 
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (!super.equals(o))
+        if (!super.equals(o)) {
             return false;
-        if (getClass() != o.getClass())
+        }
+        if (getClass() != o.getClass()) {
             return false;
+        }
         AnomalyResult that = (AnomalyResult) o;
         return Objects.equal(modelId, that.modelId)
             && Objects.equal(confidence, that.confidence)
@@ -694,7 +756,8 @@ public class AnomalyResult extends IndexableResult {
             && Objects.equal(relevantAttribution, that.relevantAttribution)
             && Objects.equal(pastValues, that.pastValues)
             && Objects.equal(expectedValuesList, that.expectedValuesList)
-            && Objects.equal(threshold, that.threshold);
+            && Objects.equal(threshold, that.threshold)
+            && Objects.equal(featureImputed, that.featureImputed);
     }
 
     @Generated
@@ -712,7 +775,8 @@ public class AnomalyResult extends IndexableResult {
                 relevantAttribution,
                 pastValues,
                 expectedValuesList,
-                threshold
+                threshold,
+                featureImputed
             );
         return result;
     }
@@ -732,6 +796,7 @@ public class AnomalyResult extends IndexableResult {
                 .append("pastValues", pastValues)
                 .append("expectedValuesList", StringUtils.join(expectedValuesList, "|"))
                 .append("threshold", threshold)
+                .append("featureImputed", featureImputed)
                 .toString();
     }
 
@@ -773,6 +838,10 @@ public class AnomalyResult extends IndexableResult {
 
     public String getModelId() {
         return modelId;
+    }
+
+    public List<FeatureImputed> getFeatureImputed() {
+        return featureImputed;
     }
 
     /**
@@ -825,6 +894,15 @@ public class AnomalyResult extends IndexableResult {
         }
 
         out.writeOptionalDouble(threshold);
+
+        if (featureImputed != null) {
+            out.writeVInt(featureImputed.size());
+            for (FeatureImputed imputed : featureImputed) {
+                imputed.writeTo(out);
+            }
+        } else {
+            out.writeVInt(0);
+        }
     }
 
     public static AnomalyResult getDummyResult() {

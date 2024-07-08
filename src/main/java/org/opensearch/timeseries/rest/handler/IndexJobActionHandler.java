@@ -293,7 +293,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                     );
                 }
             } catch (IOException e) {
-                String message = "Failed to parse anomaly detector job " + job.getName();
+                String message = "Failed to parse job " + job.getName();
                 logger.error(message, e);
                 listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
             }
@@ -351,13 +351,13 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                     if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
                         taskManager.updateLatestFlagOfOldTasksAndCreateNewTask(config, dateRange, false, user, TaskState.CREATED, listener);
                     } else {
-                        logger.error("Failed to init anomaly detection state index", e);
+                        logger.error("Failed to init state index", e);
                         listener.onFailure(e);
                     }
                 }));
             }
         } catch (Exception e) {
-            logger.error("Failed to start detector " + config.getId(), e);
+            logger.error("Failed to start config " + config.getId(), e);
             listener.onFailure(e);
         }
     }

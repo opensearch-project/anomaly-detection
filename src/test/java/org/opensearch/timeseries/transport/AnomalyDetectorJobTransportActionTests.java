@@ -205,7 +205,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             waitUntil(() -> {
                 try {
                     ADTask task = getADTask(taskId);
-                    return !TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(task.getState());
+                    return HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(task.getState());
                 } catch (IOException e) {
                     return false;
                 }

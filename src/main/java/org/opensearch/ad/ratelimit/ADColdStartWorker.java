@@ -118,7 +118,7 @@ public class ADColdStartWorker extends
             null,
             modelId,
             configId,
-            ModelManager.ModelType.RCFCASTER.getName(),
+            ModelManager.ModelType.TRCF.getName(),
             clock,
             0,
             request.getEntity(),
@@ -131,6 +131,9 @@ public class ADColdStartWorker extends
         return new AnomalyResult(
             config.getId(),
             taskId,
+            Double.NaN,
+            Double.NaN,
+            Double.NaN,
             ParseUtils.getFeatureData(entry.getValueList(), config),
             entry.getDataStartTime(),
             entry.getDataEndTime(),
@@ -140,7 +143,13 @@ public class ADColdStartWorker extends
             entity,
             config.getUser(),
             config.getSchemaVersion(),
-            modelId
+            modelId,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
         );
     }
 }

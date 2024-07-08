@@ -13,19 +13,11 @@ package org.opensearch.timeseries;
 
 import static java.util.Collections.unmodifiableList;
 import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS;
-import static org.opensearch.ad.constant.ADCommonName.CHECKPOINT_INDEX_NAME;
-import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
-import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
-import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME;
-import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_STATE_INDEX;
-import static org.opensearch.timeseries.constant.CommonName.CONFIG_INDEX;
-import static org.opensearch.timeseries.constant.CommonName.JOB_INDEX;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -54,6 +46,7 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
+import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -99,6 +92,8 @@ import org.opensearch.ad.transport.ADCancelTaskAction;
 import org.opensearch.ad.transport.ADCancelTaskTransportAction;
 import org.opensearch.ad.transport.ADEntityProfileAction;
 import org.opensearch.ad.transport.ADEntityProfileTransportAction;
+import org.opensearch.ad.transport.ADHCImputeAction;
+import org.opensearch.ad.transport.ADHCImputeTransportAction;
 import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.ADProfileTransportAction;
 import org.opensearch.ad.transport.ADResultBulkAction;
@@ -181,6 +176,7 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
+import org.opensearch.forecast.ml.ForecastInferencer;
 import org.opensearch.forecast.ml.ForecastModelManager;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.Forecaster;
@@ -257,7 +253,6 @@ import org.opensearch.forecast.transport.ValidateForecasterAction;
 import org.opensearch.forecast.transport.ValidateForecasterTransportAction;
 import org.opensearch.forecast.transport.handler.ForecastIndexMemoryPressureAwareResultHandler;
 import org.opensearch.forecast.transport.handler.ForecastSearchHandler;
-import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
 import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
@@ -266,7 +261,6 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
-import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
@@ -323,7 +317,7 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, JobSchedulerExtension {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -817,7 +811,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
+            .put(
+                StatNames.JOB_INDEX_STATUS.getName(),
+                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
+            )
             .put(
                 StatNames.MODEL_COUNT.getName(),
                 new TimeSeriesStat<>(false, new ADModelsOnNodeCountSupplier(adModelManager, adCacheProvider))
@@ -825,6 +822,16 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             .build();
 
         adStats = new ADStats(adStatsMap);
+
+        ADInferencer adInferencer = new ADInferencer(
+            adModelManager,
+            adStats,
+            adCheckpoint,
+            adColdstartQueue,
+            adSaveResultStrategy,
+            adCacheProvider,
+            threadPool
+        );
 
         ADCheckpointReadWorker adCheckpointReadQueue = new ADCheckpointReadWorker(
             heapSizeBytes,
@@ -845,12 +852,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adCheckpoint,
             adColdstartQueue,
             stateManager,
-            anomalyDetectionIndices,
             adCacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             adCheckpointWriteQueue,
-            adStats,
-            adSaveResultStrategy
+            adInferencer
         );
 
         ADColdEntityWorker adColdEntityQueue = new ADColdEntityWorker(
@@ -1199,11 +1204,24 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
+            .put(
+                StatNames.JOB_INDEX_STATUS.getName(),
+                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
+            )
             .put(StatNames.MODEL_COUNT.getName(), new TimeSeriesStat<>(false, new ForecastModelsOnNodeCountSupplier(forecastCacheProvider)))
             .build();
 
         forecastStats = new ForecastStats(forecastStatsMap);
+
+        ForecastInferencer forecastInferencer = new ForecastInferencer(
+            forecastModelManager,
+            forecastStats,
+            forecastCheckpoint,
+            forecastColdstartQueue,
+            forecastSaveResultStrategy,
+            forecastCacheProvider,
+            threadPool
+        );
 
         ForecastCheckpointReadWorker forecastCheckpointReadQueue = new ForecastCheckpointReadWorker(
             heapSizeBytes,
@@ -1224,12 +1242,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastCheckpoint,
             forecastColdstartQueue,
             stateManager,
-            forecastIndices,
             forecastCacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             forecastCheckpointWriteQueue,
-            forecastStats,
-            forecastSaveResultStrategy
+            forecastInferencer
         );
 
         ForecastColdEntityWorker forecastColdEntityQueue = new ForecastColdEntityWorker(
@@ -1350,6 +1366,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 adIndexJobActionHandler,
                 adSaveResultStrategy,
                 new ADTaskProfileRunner(hashRing, client),
+                adInferencer,
                 // forecast components
                 forecastIndices,
                 forecastStats,
@@ -1368,12 +1385,13 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 forecastIndexJobActionHandler,
                 forecastTaskCacheManager,
                 forecastSaveResultStrategy,
-                new ForecastTaskProfileRunner()
+                new ForecastTaskProfileRunner(),
+                forecastInferencer
             );
     }
 
     /**
-     * createComponents doesn't work for Clock as ES process cannot start
+     * createComponents doesn't work for Clock as OS process cannot start
      * complaining it cannot find Clock instances for transport actions constructors.
      * @return a UTC clock
      */
@@ -1650,6 +1668,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 new ActionHandler<>(SearchTopAnomalyResultAction.INSTANCE, SearchTopAnomalyResultTransportAction.class),
                 new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADSingleStreamResultAction.INSTANCE, ADSingleStreamResultTransportAction.class),
+                new ActionHandler<>(ADHCImputeAction.INSTANCE, ADHCImputeTransportAction.class),
                 // forecast
                 new ActionHandler<>(IndexForecasterAction.INSTANCE, IndexForecasterTransportAction.class),
                 new ActionHandler<>(ForecastResultAction.INSTANCE, ForecastResultTransportAction.class),
@@ -1677,26 +1696,13 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
     }
 
     @Override
-    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
-        List<SystemIndexDescriptor> systemIndexDescriptors = new ArrayList<>();
-        systemIndexDescriptors.add(new SystemIndexDescriptor(CONFIG_INDEX, "Time Series Analytics config index"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(ALL_AD_RESULTS_INDEX_PATTERN, "AD result index pattern"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(CHECKPOINT_INDEX_NAME, "AD Checkpoints index"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(DETECTION_STATE_INDEX, "AD State index"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(FORECAST_CHECKPOINT_INDEX_NAME, "Forecast Checkpoints index"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(FORECAST_STATE_INDEX, "Forecast state index"));
-        systemIndexDescriptors.add(new SystemIndexDescriptor(JOB_INDEX, "Time Series Analytics job index"));
-        return systemIndexDescriptors;
-    }
-
-    @Override
     public String getJobType() {
         return TIME_SERIES_JOB_TYPE;
     }
 
     @Override
     public String getJobIndex() {
-        return JOB_INDEX;
+        return CommonName.JOB_INDEX;
     }
 
     @Override

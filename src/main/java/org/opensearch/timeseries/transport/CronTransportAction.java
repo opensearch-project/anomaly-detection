@@ -33,14 +33,12 @@ import org.opensearch.forecast.ml.ForecastColdStart;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
-import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.transport.TransportService;
 
 public class CronTransportAction extends TransportNodesAction<CronRequest, CronResponse, CronNodeRequest, CronNodeResponse> {
     private final Logger LOG = LogManager.getLogger(CronTransportAction.class);
     private NodeStateManager transportStateManager;
     private ADModelManager adModelManager;
-    private FeatureManager featureManager;
     private ADCacheProvider adCacheProvider;
     private ForecastCacheProvider forecastCacheProvider;
     private ADColdStart adEntityColdStarter;
@@ -56,7 +54,6 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ActionFilters actionFilters,
         NodeStateManager tarnsportStatemanager,
         ADModelManager adModelManager,
-        FeatureManager featureManager,
         ADCacheProvider adCacheProvider,
         ForecastCacheProvider forecastCacheProvider,
         ADColdStart adEntityColdStarter,
@@ -77,7 +74,6 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         );
         this.transportStateManager = tarnsportStatemanager;
         this.adModelManager = adModelManager;
-        this.featureManager = featureManager;
         this.adCacheProvider = adCacheProvider;
         this.forecastCacheProvider = forecastCacheProvider;
         this.adEntityColdStarter = adEntityColdStarter;

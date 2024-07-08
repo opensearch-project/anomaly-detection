@@ -12,7 +12,9 @@
 package org.opensearch.timeseries.transport;
 
 import java.net.ConnectException;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +22,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -79,8 +83,10 @@ import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
+import org.opensearch.timeseries.util.DataUtil;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.timeseries.util.TimeUtil;
 import org.opensearch.transport.ActionNotFoundTransportException;
 import org.opensearch.transport.ConnectTransportException;
 import org.opensearch.transport.NodeNotConnectedException;
@@ -111,20 +117,16 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
     protected Class<ResultResponseType> transportResultResponseClazz;
     private StatNames hcRequestCountStat;
     private String threadPoolName;
-    // within an interval, how many percents are used to process requests.
-    // 1.0 means we use all of the detection interval to process requests.
-    // to ensure we don't block next interval, it is better to set it less than 1.0.
-    private final float intervalRatioForRequest;
     private int maxEntitiesPerInterval;
     private int pageSize;
     protected final ThreadPool threadPool;
-    private final HashRing hashRing;
+    protected final HashRing hashRing;
     protected final NodeStateManager nodeStateManager;
     protected final TransportService transportService;
     private final Stats timeSeriesStats;
     private final TaskManagerType realTimeTaskManager;
     private NamedXContentRegistry xContentRegistry;
-    private final Client client;
+    protected final Client client;
     private final SecurityClientUtil clientUtil;
     private Settings settings;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
@@ -137,7 +139,6 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
 
     public ResultProcessor(
         Setting<TimeValue> requestTimeoutSetting,
-        float intervalRatioForRequests,
         String entityResultAction,
         StatNames hcRequestCountStat,
         Settings settings,
@@ -166,8 +167,6 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             .withType(TransportRequestOptions.Type.REG)
             .withTimeout(requestTimeoutSetting.get(settings))
             .build();
-        this.intervalRatioForRequest = intervalRatioForRequests;
-
         this.maxEntitiesPerInterval = maxEntitiesPerIntervalSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(maxEntitiesPerIntervalSetting, it -> maxEntitiesPerInterval = it);
 
@@ -205,35 +204,40 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
     class PageListener implements ActionListener<CompositeRetriever.Page> {
         private PageIterator pageIterator;
         private String configId;
+        private Config config;
         private long dataStartTime;
         private long dataEndTime;
-        private Runnable finishRunnable;
         private String taskId;
+        private AtomicInteger receivedPages;
+        private AtomicInteger sentOutPages;
 
-        PageListener(
-            PageIterator pageIterator,
-            String detectorId,
-            long dataStartTime,
-            long dataEndTime,
-            Runnable finishRunnable,
-            String taskId
-        ) {
+        PageListener(PageIterator pageIterator, Config config, long dataStartTime, long dataEndTime, String taskId) {
             this.pageIterator = pageIterator;
-            this.configId = detectorId;
+            this.configId = config.getId();
+            this.config = config;
             this.dataStartTime = dataStartTime;
             this.dataEndTime = dataEndTime;
-            this.finishRunnable = finishRunnable;
             this.taskId = taskId;
+            this.receivedPages = new AtomicInteger();
+            this.sentOutPages = new AtomicInteger();
         }
 
         @Override
         public void onResponse(CompositeRetriever.Page entityFeatures) {
+            // start processing next page after sending out features for previous page
             if (pageIterator.hasNext()) {
                 pageIterator.next(this);
-            } else {
-                finishRunnable.run();
             }
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
+                sentOutPages.incrementAndGet();
+
+                LOG
+                    .info(
+                        "Sending an HC request to process data from timestamp {} to {} for config {}",
+                        dataStartTime,
+                        dataEndTime,
+                        configId
+                    );
                 // wrap expensive operation inside ad threadpool
                 threadPool.executor(threadPoolName).execute(() -> {
                     try {
@@ -269,7 +273,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                                         String
                                             .format(
                                                 Locale.ROOT,
-                                                ResultProcessor.NODE_UNRESPONSIVE_ERR_MSG + " %s for detector %s",
+                                                ResultProcessor.NODE_UNRESPONSIVE_ERR_MSG + " %s for config %s",
                                                 modelNodeId,
                                                 configId
                                             )
@@ -279,6 +283,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                         }
 
                         final AtomicReference<Exception> failure = new AtomicReference<>();
+
                         node2Entities.stream().forEach(nodeEntity -> {
                             DiscoveryNode node = nodeEntity.getKey();
                             transportService
@@ -295,7 +300,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                                     ),
                                     option,
                                     new ActionListenerResponseHandler<>(
-                                        new ErrorResponseListener(node.getId(), configId, failure),
+                                        new ErrorResponseListener(node.getId(), configId, failure, receivedPages),
                                         AcknowledgedResponse::new,
                                         ThreadPool.Names.SAME
                                     )
@@ -308,17 +313,23 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                     }
                 });
             }
+
+            if (!pageIterator.hasNext() && config.getImputationOption() != null) {
+                if (sentOutPages.get() > 0) {
+                    // at least 1 page sent out. Wait until all responses are back.
+                    scheduleImputeHCTask();
+                } else {
+                    // no data in current interval. Send out impute request right away.
+                    imputeHC(dataStartTime, dataEndTime, configId, taskId);
+                }
+
+            }
         }
 
         @Override
         public void onFailure(Exception e) {
-            try {
-                LOG.error("Unexpetected exception", e);
-                handleException(e);
-            } finally {
-                // make sure we return listener
-                finishRunnable.run();
-            }
+            LOG.error("Unexpetected exception", e);
+            handleException(e);
         }
 
         private void handleException(Exception e) {
@@ -328,6 +339,47 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 convertedException = new InternalFailure(configId, cause);
             }
             nodeStateManager.setException(configId, convertedException);
+        }
+
+        /**
+         * Schedules imputeHC to after sent pages are equal to received pages at a fixed interval.
+         *
+         * We need to send impute request after ensuring it happens after all other entity feature requests.
+         * otherwise, we may rescore the same entity.
+         *
+         * If the condition is not met, it checks the condition regularly. The checker task is automatically
+         * canceled and the scheduler is shut down after a specified timeout period.
+         */
+        private void scheduleImputeHCTask() {
+            AtomicReference<ThreadPool.Cancellable> cancellable = new AtomicReference<>();
+            AtomicBoolean sent = new AtomicBoolean();
+
+            final Runnable checkerTask = new Runnable() {
+                private final long timeoutMillis = TimeUtil.calculateTimeoutMillis(config, dataEndTime);
+
+                @Override
+                public void run() {
+                    if (sentOutPages.get() == receivedPages.get()) {
+                        if (!sent.get()) {
+                            // since we don't know when cancel will succeed, need sent to ensure imputeHC is only called once
+                            sent.set(true);
+                            imputeHC(dataStartTime, dataEndTime, configId, taskId);
+                        }
+
+                        if (cancellable.get() != null) {
+                            cancellable.get().cancel();
+                        }
+                    } else if (Instant.now().toEpochMilli() >= timeoutMillis) {
+                        LOG.warn("Scheduled impute HC task is cancelled due to timeout");
+                        if (cancellable != null) {
+                            cancellable.get().cancel();
+                        }
+                    }
+                }
+            };
+
+            // Schedule the task at a 2 second interval
+            cancellable.set(threadPool.scheduleWithFixedDelay(checkerTask, TimeValue.timeValueSeconds(2), threadPoolName));
         }
     }
 
@@ -437,7 +489,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             }
 
             // assume request are in epoch milliseconds
-            long nextDetectionStartTime = request.getEnd() + (long) (config.getIntervalInMilliseconds() * intervalRatioForRequest);
+            long nextDetectionStartTime = request.getEnd() + config.getIntervalInMilliseconds();
 
             CompositeRetriever compositeRetriever = new CompositeRetriever(
                 dataStartTime,
@@ -464,38 +516,23 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 return;
             }
 
-            Runnable finishRunnable = () -> {
-                // When pagination finishes or the time is up,
-                // return response or exceptions.
-                if (previousException.isPresent()) {
-                    listener.onFailure(previousException.get());
-                } else {
-                    listener
-                        .onResponse(
-                            createResultResponse(new ArrayList<FeatureData>(), null, null, config.getIntervalInMinutes(), true, taskId)
-                        );
-                }
-            };
+            PageListener getEntityFeatureslistener = new PageListener(pageIterator, config, dataStartTime, dataEndTime, taskId);
 
-            PageListener getEntityFeatureslistener = new PageListener(
-                pageIterator,
-                configID,
-                dataStartTime,
-                dataEndTime,
-                finishRunnable,
-                taskId
-            );
+            // hasNext is always true unless time is up at this point (won't happen in normal cases)
             if (pageIterator.hasNext()) {
-                LOG
-                    .info(
-                        "Sending an HC request to process data from timestamp {} to {} for config {}",
-                        dataStartTime,
-                        dataEndTime,
-                        configID
-                    );
                 pageIterator.next(getEntityFeatureslistener);
+            } else if (config.getImputationOption() != null) {
+                imputeHC(dataStartTime, dataEndTime, configID, taskId);
+            }
+
+            // return early to not wait for completion of all entities so we won't block next interval
+            if (previousException.isPresent()) {
+                listener.onFailure(previousException.get());
             } else {
-                finishRunnable.run();
+                listener
+                    .onResponse(
+                        createResultResponse(new ArrayList<FeatureData>(), null, null, config.getIntervalInMinutes(), true, taskId)
+                    );
             }
 
             return;
@@ -513,6 +550,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
 
         DiscoveryNode rcfNode = asRCFNode.get();
 
+        // early return listener in shouldStart
         if (!shouldStart(listener, configID, config, rcfNode.getId(), rcfModelID)) {
             return;
         }
@@ -587,9 +625,9 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             Optional<TimeSeriesException> actualException = NotSerializedExceptionName
                 .convertWrappedTimeSeriesException((NotSerializableExceptionWrapper) causeException, configID);
             if (actualException.isPresent()) {
-                TimeSeriesException adException = actualException.get();
-                failure.set(adException);
-                if (adException instanceof ResourceNotFoundException) {
+                TimeSeriesException tsException = actualException.get();
+                failure.set(tsException);
+                if (tsException instanceof ResourceNotFoundException) {
                     // During a rolling upgrade or blue/green deployment, ResourceNotFoundException might be caused by old node using RCF
                     // 1.0
                     // cannot recognize new checkpoint produced by the coordinating node using compact RCF. Add pressure to mute the node
@@ -764,16 +802,19 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
         private String nodeId;
         private final String configId;
         private AtomicReference<Exception> failure;
+        private AtomicInteger receivedPages;
 
-        public ErrorResponseListener(String nodeId, String configId, AtomicReference<Exception> failure) {
+        public ErrorResponseListener(String nodeId, String configId, AtomicReference<Exception> failure, AtomicInteger receivedPage) {
             this.nodeId = nodeId;
             this.configId = configId;
             this.failure = failure;
+            this.receivedPages = receivedPage;
         }
 
         @Override
         public void onResponse(AcknowledgedResponse response) {
             try {
+                receivedPages.incrementAndGet();
                 if (response.isAcknowledged() == false) {
                     LOG.error("Cannot send entities' features to {} for {}", nodeId, configId);
                     nodeStateManager.addPressure(nodeId, configId);
@@ -789,6 +830,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
         @Override
         public void onFailure(Exception e) {
             try {
+                receivedPages.incrementAndGet();
                 // e.g., we have connection issues with all of the nodes while restarting clusters
                 LOG.error(new ParameterizedMessage("Cannot send entities' features to {} for {}", nodeId, configId), e);
 
@@ -832,34 +874,68 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 }
             }
 
-            if (featureOptional.isEmpty()) {
+            if ((featureOptional.isEmpty() || DataUtil.areAnyElementsNaN(featureOptional.get())) && config.getImputationOption() == null) {
                 // Feature not available is common when we have data holes. Respond empty response
                 // and don't log to avoid bloating our logs.
-                LOG.debug("No data in current window between {} and {} for {}", dataStartTime, dataEndTime, configId);
                 listener
-                    .onResponse(createResultResponse(new ArrayList<FeatureData>(), "No data in current window", null, null, false, taskId));
+                    .onResponse(
+                        createResultResponse(
+                            new ArrayList<FeatureData>(),
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    "No data in current window between %d and %d for %s",
+                                    dataStartTime,
+                                    dataEndTime,
+                                    configId
+                                ),
+                            null,
+                            null,
+                            false,
+                            taskId
+                        )
+                    );
                 return;
             }
 
             final AtomicReference<Exception> failure = new AtomicReference<Exception>();
 
-            LOG
-                .info(
-                    "Sending a single stream request to node {} to process data from timestamp {} to {} for config {}",
-                    rcfNode.getId(),
-                    dataStartTime,
-                    dataEndTime,
-                    configId
-                );
+            double[] point = null;
+            if (featureOptional.isPresent()) {
+                point = featureOptional.get();
+            } else {
+                int featureSize = config.getEnabledFeatureIds().size();
+                point = new double[featureSize];
+                Arrays.fill(point, Double.NaN);
+            }
 
+            if (DataUtil.areAnyElementsNaN(point)) {
+                LOG
+                    .info(
+                        "Sending a single stream request to node {} to impute/process data from timestamp {} to {} for config {}",
+                        rcfNode.getId(),
+                        dataStartTime,
+                        dataEndTime,
+                        configId
+                    );
+            } else {
+                LOG
+                    .info(
+                        "Sending a single stream request to node {} to process data from timestamp {} to {} for config {}",
+                        rcfNode.getId(),
+                        dataStartTime,
+                        dataEndTime,
+                        configId
+                    );
+            }
             transportService
                 .sendRequest(
                     rcfNode,
                     singleStreamActionName,
-                    new SingleStreamResultRequest(configId, rcfModelId, dataStartTime, dataEndTime, featureOptional.get(), taskId),
+                    new SingleStreamResultRequest(configId, rcfModelId, dataStartTime, dataEndTime, point, taskId),
                     option,
                     new ActionListenerResponseHandler<>(
-                        new ErrorResponseListener(rcfNode.getId(), configId, failure),
+                        new ErrorResponseListener(rcfNode.getId(), configId, failure, new AtomicInteger()),
                         AcknowledgedResponse::new,
                         ThreadPool.Names.SAME
                     )
@@ -867,18 +943,13 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
 
             if (previousException.isPresent()) {
                 listener.onFailure(previousException.get());
-            } else if (featureOptional.isEmpty()) {
-                // Feature not available is common when we have data holes. Respond empty response
-                // and don't log to avoid bloating our logs.
-                LOG.debug("No data in current window between {} and {} for {}", dataStartTime, dataEndTime, configId);
-                listener
-                    .onResponse(createResultResponse(new ArrayList<FeatureData>(), "No data in current window", null, null, false, taskId));
             } else {
                 listener
                     .onResponse(
                         createResultResponse(new ArrayList<FeatureData>(), null, null, config.getIntervalInMinutes(), true, taskId)
                     );
             }
+
         }, exception -> { handleQueryFailure(exception, listener, configId); });
     }
 
@@ -890,4 +961,6 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
         Boolean isHC,
         String taskId
     );
+
+    protected abstract void imputeHC(long dataStartTime, long dataEndTime, String configID, String taskId);
 }

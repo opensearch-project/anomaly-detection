@@ -104,7 +104,6 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
     ) {
         String configId = config.getId();
         try {
-
             if (!response.shouldSave()) {
                 updateRealtimeTask(response, configId);
                 return;
@@ -115,7 +114,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
             User user = config.getUser();
 
             if (response.getError() != null) {
-                log.info("Result action run successfully for {} with error {}", configId, response.getError());
+                log.info("Result action run for {} with error {}", configId, response.getError());
             }
 
             List<IndexableResultType> analysisResults = response

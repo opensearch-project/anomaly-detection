@@ -47,6 +47,7 @@ public class ADIndexMemoryPressureAwareResultHandler extends
             listener.onFailure(new TimeSeriesException("no result to save"));
             return;
         }
+        // we retry failed bulk requests in ResultWriteWorker
         client.execute(ADResultBulkAction.INSTANCE, currentBulkRequest, ActionListener.<ResultBulkResponse>wrap(response -> {
             LOG.debug(CommonMessages.SUCCESS_SAVING_RESULT_MSG);
             listener.onResponse(response);

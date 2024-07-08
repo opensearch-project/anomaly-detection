@@ -157,7 +157,7 @@ public class SingleStreamModelPerfIT extends AbstractADSyntheticDataTest {
             Instant begin = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(data.get(i).get("timestamp").getAsString()));
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
-                List<JsonObject> sourceList = getAnomalyResult(detectorId, end, 1, client);
+                List<JsonObject> sourceList = getRealTimeAnomalyResult(detectorId, end, 1, client);
                 assertTrue("anomalyGrade cannot be negative", sourceList.size() == 1);
                 double anomalyGrade = getAnomalyGrade(sourceList.get(0));
                 assertTrue("anomalyGrade cannot be negative", anomalyGrade >= 0);
