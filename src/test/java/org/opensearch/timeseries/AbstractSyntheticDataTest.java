@@ -7,9 +7,14 @@ package org.opensearch.timeseries;
 
 import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
 
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -27,12 +32,23 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.stream.JsonReader;
 
 public class AbstractSyntheticDataTest extends ODFERestTestCase {
     public static final Logger LOG = (Logger) LogManager.getLogger(AbstractSyntheticDataTest.class);
+    public static final String SYNTHETIC_DATA_MAPPING = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\": \"date\"},"
+        + " \"Feature1\": { \"type\": \"double\" }, \"Feature2\": { \"type\": \"double\" } } } }";
+    public static final String RULE_DATA_MAPPING = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\":"
+        + "\"date\""
+        + "},"
+        + " \"transform._doc_count\": { \"type\": \"integer\" },"
+        + "\"componentName\": { \"type\": \"keyword\"} } } }";
+    public static final String SYNTHETIC_DATASET_NAME = "synthetic";
+    public static final String RULE_DATASET_NAME = "rule";
 
     /**
      * In real time AD, we mute a node for a detector if that node keeps returning
@@ -152,6 +168,83 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         RequestOptions.Builder options = RequestOptions.DEFAULT.toBuilder();
         options.setWarningsHandler(strictDeprecationMode ? WarningsHandler.STRICT : WarningsHandler.PERMISSIVE);
         request.setOptions(options.build());
+    }
+
+    /**
+     * Read data from a json array file up to a specified size
+     * @param datasetFileName data set file name
+     * @param size the limit of json elements to read
+     * @return the read JsonObject list
+     * @throws URISyntaxException when failing to find datasetFileName
+     * @throws Exception when there is a parsing error.
+     */
+    public static List<JsonObject> readJsonArrayWithLimit(String datasetFileName, int limit) throws URISyntaxException {
+        List<JsonObject> jsonObjects = new ArrayList<>();
+        try (
+            FileReader fileReader = new FileReader(
+                new File(AbstractSyntheticDataTest.class.getClassLoader().getResource(datasetFileName).toURI()),
+                Charset.defaultCharset()
+            );
+            JsonReader jsonReader = new JsonReader(fileReader)
+        ) {
+
+            Gson gson = new Gson();
+            JsonArray jsonArray = gson.fromJson(jsonReader, JsonArray.class);
+
+            for (int i = 0; i < limit && i < jsonArray.size(); i++) {
+                JsonObject jsonObject = jsonArray.get(i).getAsJsonObject();
+                jsonObjects.add(jsonObject);
+            }
+
+        } catch (IOException e) {
+            LOG.error("fail to read json array", e);
+        }
+        return jsonObjects;
+    }
+
+    /**
+     *
+     * @param datasetName Data set name
+     * @param trainTestSplit the number of rows in training data
+     * @return train time
+     * @throws Exception when failing to ingest data
+     */
+    private static Instant loadData(String datasetName, int trainTestSplit, String mapping) throws Exception {
+        RestClient client = client();
+
+        String dataFileName = String.format(Locale.ROOT, "org/opensearch/ad/e2e/data/%s.data", datasetName);
+
+        List<JsonObject> data = readJsonArrayWithLimit(dataFileName, trainTestSplit);
+
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client, mapping);
+        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
+        if (canBeParsedAsLong(trainTimeStr)) {
+            return Instant.ofEpochMilli(Long.parseLong(trainTimeStr));
+        } else {
+            return Instant.parse(trainTimeStr);
+        }
+
+    }
+
+    protected static Instant loadSyntheticData(int trainTestSplit) throws Exception {
+        return loadData(SYNTHETIC_DATASET_NAME, trainTestSplit, SYNTHETIC_DATA_MAPPING);
+    }
+
+    protected static Instant loadRuleData(int trainTestSplit) throws Exception {
+        return loadData(RULE_DATASET_NAME, trainTestSplit, RULE_DATA_MAPPING);
+    }
+
+    public static boolean canBeParsedAsLong(String str) {
+        if (str == null || str.isEmpty()) {
+            return false; // Handle null or empty strings as not parsable
+        }
+
+        try {
+            Long.parseLong(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
 }

@@ -28,6 +28,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.rest.handler.Processor;
 import org.opensearch.timeseries.transport.BaseValidateConfigTransportAction;
 import org.opensearch.timeseries.transport.ValidateConfigRequest;
@@ -61,7 +62,8 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
             actionFilters,
             transportService,
             searchFeatureDao,
-            AD_FILTER_BY_BACKEND_ROLES
+            AD_FILTER_BY_BACKEND_ROLES,
+            ValidationAspect.DETECTOR
         );
     }
 

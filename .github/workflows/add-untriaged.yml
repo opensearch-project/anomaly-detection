@@ -4,6 +4,9 @@ on:
   issues:
     types: [opened, reopened, transferred]
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   apply-label:
     runs-on: ubuntu-latest

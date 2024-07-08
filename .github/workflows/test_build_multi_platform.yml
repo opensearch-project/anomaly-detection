@@ -7,6 +7,9 @@ on:
     branches:
       - "*"
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   Get-CI-Image-Tag:
     uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
@@ -53,11 +56,6 @@ jobs:
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
-      - name: Upload Coverage Report
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./build/reports/jacoco/test/jacocoTestReport.xml
-          flags: plugin
 
   Build-ad-linux:
     needs: [Get-CI-Image-Tag, spotless]
@@ -65,7 +63,7 @@ jobs:
       matrix:
         java: [11, 17, 21]
       fail-fast: false
-    name: Build and Test Anomaly detection Plugin
+    name: Build and Test Anomaly detection Plugin on Linux
     runs-on: ubuntu-latest
     container:
       # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
@@ -94,11 +92,6 @@ jobs:
                                ./gradlew build -x spotlessJava &&
                                ./gradlew publishToMavenLocal &&
                                ./gradlew integTest -PnumNodes=3"
-      - name: Upload Coverage Report
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./build/reports/jacoco/test/jacocoTestReport.xml
-          flags: plugin
 
   Build-ad-macos:
     needs: spotless
@@ -107,7 +100,7 @@ jobs:
         java: [11,17,21]
       fail-fast: false
 
-    name: Build and Test Anomaly detection Plugin
+    name: Build and Test Anomaly detection Plugin on MacOS
     runs-on: macos-13
     env:
       JENKINS_URL: build.ci.opensearch.org
@@ -128,14 +121,17 @@ jobs:
       - name: Build and Run Tests
         run: |
           ./gradlew build -x spotlessJava
+      # coverage.gradle is only applied in single local node test
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          file: ./build/reports/jacoco/test/jacocoTestReport.xml
+          flags: plugin
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
-      - name: Upload Coverage Report
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./build/reports/jacoco/test/jacocoTestReport.xml
-          flags: plugin

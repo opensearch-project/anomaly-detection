@@ -12,12 +12,12 @@
 package org.opensearch.ad.rest;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Random;
 
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
@@ -67,17 +67,35 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
      * @return a random password.
      */
     public static String generatePassword(String username) {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+        String upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowerCase = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "_";
+        String characters = upperCase + lowerCase + digits + special;
 
-        Random rng = new Random();
+        SecureRandom rng = new SecureRandom();
 
+        // Ensure password includes at least one character from each set
         char[] password = new char[15];
-        for (int i = 0; i < 15; i++) {
-            char nextChar = characters.charAt(rng.nextInt(characters.length()));
-            while (username.indexOf(nextChar) > -1) {
+        password[0] = upperCase.charAt(rng.nextInt(upperCase.length()));
+        password[1] = lowerCase.charAt(rng.nextInt(lowerCase.length()));
+        password[2] = digits.charAt(rng.nextInt(digits.length()));
+        password[3] = special.charAt(rng.nextInt(special.length()));
+
+        for (int i = 4; i < 15; i++) {
+            char nextChar;
+            do {
                 nextChar = characters.charAt(rng.nextInt(characters.length()));
-            }
+            } while (username.indexOf(nextChar) > -1);
             password[i] = nextChar;
+        }
+
+        // Shuffle the array to ensure the first 4 characters are not always in the same position
+        for (int i = password.length - 1; i > 0; i--) {
+            int index = rng.nextInt(i + 1);
+            char temp = password[index];
+            password[index] = password[i];
+            password[i] = temp;
         }
 
         return new String(password);

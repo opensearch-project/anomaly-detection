@@ -158,7 +158,7 @@ public final class RestHandlerUtils {
         List<Feature> features = config.getFeatureAttributes();
         if (features != null) {
             if (features.size() > maxFeatures) {
-                return "Can't create more than " + maxFeatures + " features";
+                return "Can't create more than " + maxFeatures + " feature(s)";
             }
             return validateFeaturesConfig(config.getFeatureAttributes());
         }
