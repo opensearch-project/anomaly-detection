@@ -948,7 +948,6 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
 
             // training data ranges from timestamps[0] ~ timestamps[trainTestSplit-1]
             doAnswer(invocation -> {
-                GetRequest request = invocation.getArgument(0);
                 ActionListener<GetResponse> listener = invocation.getArgument(2);
 
                 listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));

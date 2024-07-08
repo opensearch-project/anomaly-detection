@@ -390,6 +390,42 @@ public final class ParseUtils {
         return new SearchSourceBuilder().query(internalFilterQuery).size(0).aggregation(dateRangeBuilder);
     }
 
+    public static SearchSourceBuilder generateColdStartQueryForSingleFeature(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        NamedXContentRegistry xContentRegistry,
+        int featureIndex
+    ) throws IOException {
+
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().filter(config.getFilterQuery());
+
+        if (entity.isPresent()) {
+            for (TermQueryBuilder term : entity.get().getTermQueryForCustomerIndex()) {
+                internalFilterQuery.filter(term);
+            }
+        }
+
+        DateRangeAggregationBuilder dateRangeBuilder = dateRange("date_range").field(config.getTimeField()).format("epoch_millis");
+        for (Entry<Long, Long> range : ranges) {
+            dateRangeBuilder.addRange(range.getKey(), range.getValue());
+        }
+
+        if (config.getFeatureAttributes() != null) {
+            Feature feature = config.getFeatureAttributes().get(featureIndex);
+            AggregatorFactories.Builder internalAgg = parseAggregators(
+                feature.getAggregation().toString(),
+                xContentRegistry,
+                feature.getId()
+            );
+            dateRangeBuilder.subAggregation(internalAgg.getAggregatorFactories().iterator().next());
+        } else {
+            throw new IllegalArgumentException("empty feature");
+        }
+
+        return new SearchSourceBuilder().query(internalFilterQuery).size(0).aggregation(dateRangeBuilder);
+    }
+
     /**
      * Map feature data to its Id and name
      * @param currentFeature Feature data
@@ -802,6 +838,13 @@ public final class ParseUtils {
         return featureFields;
     }
 
+    /**
+     * This works only when the query is a simple aggregation. It won't work for aggregation with a filter.
+     * @param feature Feature in AD
+     * @param xContentRegistry used to parse xcontent
+     * @return parsed field name
+     * @throws IOException when parsing fails
+     */
     public static List<String> getFieldNamesForFeature(Feature feature, NamedXContentRegistry xContentRegistry) throws IOException {
         ParseUtils.parseAggregators(feature.getAggregation().toString(), xContentRegistry, feature.getId());
         XContentParser parser = XContentType.JSON

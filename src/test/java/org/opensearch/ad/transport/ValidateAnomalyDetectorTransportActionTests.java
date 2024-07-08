@@ -19,7 +19,6 @@ import java.util.Locale;
 
 import org.junit.Test;
 import org.opensearch.ad.ADIntegTestCase;
-import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -79,7 +78,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.INDICES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(ADCommonMessages.INDEX_NOT_FOUND));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.INDEX_NOT_FOUND));
     }
 
     @Test

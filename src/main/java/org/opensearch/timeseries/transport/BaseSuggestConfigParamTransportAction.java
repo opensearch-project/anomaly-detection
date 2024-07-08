@@ -111,7 +111,6 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     }
 
     protected void suggestInterval(Config config, User user, TimeValue timeout, ActionListener<SuggestConfigParamResponse> listener) {
-        IntervalCalculation intervalCalculation = new IntervalCalculation(config, timeout, client, clientUtil, user, context, clock);
         LatestTimeRetriever latestTimeRetriever = new LatestTimeRetriever(
             config,
             timeout,
@@ -130,7 +129,19 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         ActionListener<Pair<Optional<Long>, Map<String, Object>>> latestTimeListener = ActionListener.wrap(latestEntityAttributes -> {
             Optional<Long> latestTime = latestEntityAttributes.getLeft();
             if (latestTime.isPresent()) {
-                intervalCalculation.findInterval(latestTime.get(), latestEntityAttributes.getRight(), intervalSuggestionListener);
+                IntervalCalculation intervalCalculation = new IntervalCalculation(
+                    config,
+                    timeout,
+                    client,
+                    clientUtil,
+                    user,
+                    context,
+                    clock,
+                    searchFeatureDao,
+                    latestTime.get(),
+                    latestEntityAttributes.getRight()
+                );
+                intervalCalculation.findInterval(intervalSuggestionListener);
             } else {
                 listener.onFailure(new TimeSeriesException("Empty data. Cannot find a good interval."));
             }

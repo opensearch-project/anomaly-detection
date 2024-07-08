@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -114,7 +115,19 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
             long seed = z;
             LOG.info("seed = " + seed);
             // recreate in each loop; otherwise, we will have heap overflow issue.
-            searchFeatureDao = mock(SearchFeatureDao.class);
+            searchFeatureDao = spy(
+                new SearchFeatureDao(
+                    client,
+                    xContentRegistry(), // Important. Without this, ParseUtils cannot parse anything
+                    securityCientUtil,
+                    clusterService,
+                    TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+                    clock,
+                    1,
+                    1,
+                    60_000L
+                )
+            );
 
             featureManager = new FeatureManager(
                 searchFeatureDao,
