@@ -90,7 +90,6 @@ public class CronTransportActionTests extends AbstractTimeSeriesTest {
             actionFilters,
             tarnsportStatemanager,
             modelManager,
-            featureManager,
             cacheProvider,
             forecastCacheProvider,
             entityColdStarter,

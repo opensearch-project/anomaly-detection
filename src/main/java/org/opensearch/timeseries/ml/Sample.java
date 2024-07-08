@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.annotation.Generated;
@@ -31,7 +32,6 @@ public class Sample implements ToXContentObject {
     private final Instant dataEndTime;
 
     public Sample(double[] data, Instant dataStartTime, Instant dataEndTime) {
-        super();
         this.data = data;
         this.dataStartTime = dataStartTime;
         this.dataEndTime = dataEndTime;
@@ -82,6 +82,9 @@ public class Sample implements ToXContentObject {
      *   Key: value_list, Value type: java.util.ArrayList
      *    Item type: java.lang.Double
      *    Value: 8840.0, Type: java.lang.Double
+     *   Key: feature_imputed, Value type: java.util.ArrayList
+     *    Item type: java.lang.Boolean
+     *    Value: true, Type: java.lang.Boolean
      * @return a Sample.
      */
     public static Sample extractSample(Map<String, Object> map) {
@@ -102,7 +105,6 @@ public class Sample implements ToXContentObject {
         Instant dataEndTime = Instant.ofEpochMilli(dataEndTimeLong);
         Instant dataStartTime = Instant.ofEpochMilli(dataStartTimeLong);
 
-        // Create a new Sample object and return it
         return new Sample(data, dataStartTime, dataEndTime);
     }
 
@@ -112,7 +114,11 @@ public class Sample implements ToXContentObject {
 
     @Override
     public String toString() {
-        return "Sample [data=" + Arrays.toString(data) + ", dataStartTime=" + dataStartTime + ", dataEndTime=" + dataEndTime + "]";
+        return new ToStringBuilder(this)
+            .append("data", Arrays.toString(data))
+            .append("dataStartTime", dataStartTime)
+            .append("dataEndTime", dataEndTime)
+            .toString();
     }
 
     @Generated
@@ -125,11 +131,6 @@ public class Sample implements ToXContentObject {
             return false;
         }
         Sample sample = (Sample) o;
-        // a few fields not included:
-        // 1)didn't include uiMetadata since toXContent/parse will produce a map of map
-        // and cause the parsed one not equal to the original one. This can be confusing.
-        // 2)didn't include id, schemaVersion, and lastUpdateTime as we deemed equality based on contents.
-        // Including id fails tests like AnomalyDetectorExecutionInput.testParseAnomalyDetectorExecutionInput.
         return Arrays.equals(data, sample.data)
             && dataStartTime.truncatedTo(ChronoUnit.MILLIS).equals(sample.dataStartTime.truncatedTo(ChronoUnit.MILLIS))
             && dataEndTime.truncatedTo(ChronoUnit.MILLIS).equals(sample.dataEndTime.truncatedTo(ChronoUnit.MILLIS));
@@ -138,6 +139,7 @@ public class Sample implements ToXContentObject {
     @Generated
     @Override
     public int hashCode() {
-        return Objects.hashCode(data, dataStartTime.truncatedTo(ChronoUnit.MILLIS), dataEndTime.truncatedTo(ChronoUnit.MILLIS));
+        return Objects
+            .hashCode(Arrays.hashCode(data), dataStartTime.truncatedTo(ChronoUnit.MILLIS), dataEndTime.truncatedTo(ChronoUnit.MILLIS));
     }
 }

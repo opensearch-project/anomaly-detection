@@ -22,6 +22,7 @@ import org.opensearch.timeseries.model.DateRange;
 public class JobRequest extends ActionRequest {
 
     private String configID;
+    // data start/end time. See ADBatchTaskRunner.getDateRangeOfSourceData.
     private DateRange dateRange;
     private boolean historical;
     private String rawPath;

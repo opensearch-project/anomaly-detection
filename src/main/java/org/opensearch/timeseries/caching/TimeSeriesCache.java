@@ -83,6 +83,13 @@ public interface TimeSeriesCache<RCFModelType extends ThresholdedRandomCutForest
     List<ModelState<RCFModelType>> getAllModels();
 
     /**
+     * Gets a config's modelStates hosted on a node
+     *
+     * @return list of modelStates
+     */
+    List<ModelState<RCFModelType>> getAllModels(String configId);
+
+    /**
      * Get the number of active entities of a config
      * @param configId Config Id
      * @return The number of active entities

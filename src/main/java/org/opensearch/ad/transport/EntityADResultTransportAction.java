@@ -24,6 +24,7 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
+import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyResult;
@@ -32,7 +33,6 @@ import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.ADColdEntityWorker;
 import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
-import org.opensearch.ad.stats.ADStats;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
@@ -44,7 +44,6 @@ import org.opensearch.timeseries.caching.CacheProvider;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.EntityResultProcessor;
 import org.opensearch.timeseries.transport.EntityResultRequest;
 import org.opensearch.timeseries.util.ExceptionUtil;
@@ -78,21 +77,17 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
     private CacheProvider<ThresholdedRandomCutForest, ADPriorityCache> cache;
     private final NodeStateManager stateManager;
     private ThreadPool threadPool;
-    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
+    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADInferencer, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
 
     private final ADCacheProvider entityCache;
-    private final ADModelManager manager;
-    private final ADStats timeSeriesStats;
-    private final ADColdStartWorker entityColdStartWorker;
     private final ADCheckpointReadWorker checkpointReadQueue;
     private final ADColdEntityWorker coldEntityQueue;
-    private final ADSaveResultStrategy adSaveResultStategy;
+    private final ADInferencer inferencer;
 
     @Inject
     public EntityADResultTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
-        ADModelManager manager,
         CircuitBreakerService adCircuitBreakerService,
         ADCacheProvider entityCache,
         NodeStateManager stateManager,
@@ -100,9 +95,7 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
         ADCheckpointReadWorker checkpointReadQueue,
         ADColdEntityWorker coldEntityQueue,
         ThreadPool threadPool,
-        ADColdStartWorker entityColdStartWorker,
-        ADStats timeSeriesStats,
-        ADSaveResultStrategy adSaveResultStategy
+        ADInferencer inferencer
     ) {
         super(EntityADResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.adCircuitBreakerService = adCircuitBreakerService;
@@ -111,13 +104,10 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
         this.threadPool = threadPool;
 
         this.entityCache = entityCache;
-        this.manager = manager;
-        this.timeSeriesStats = timeSeriesStats;
-        this.entityColdStartWorker = entityColdStartWorker;
         this.checkpointReadQueue = checkpointReadQueue;
         this.coldEntityQueue = coldEntityQueue;
-        this.adSaveResultStategy = adSaveResultStategy;
         this.intervalDataProcessor = null;
+        this.inferencer = inferencer;
     }
 
     @Override
@@ -151,13 +141,11 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
 
             this.intervalDataProcessor = new EntityResultProcessor<>(
                 entityCache,
-                manager,
-                timeSeriesStats,
-                entityColdStartWorker,
                 checkpointReadQueue,
                 coldEntityQueue,
-                adSaveResultStategy,
-                StatNames.AD_MODEL_CORRUTPION_COUNT
+                inferencer,
+                threadPool,
+                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
             );
 
             stateManager

@@ -54,10 +54,11 @@ public class LegacyOpenDistroAnomalyDetectorSettings {
             Setting.Property.Deprecated
         );
 
+    // give enough timeout to process a single page (max 1000 entities)
     public static final Setting<TimeValue> REQUEST_TIMEOUT = Setting
         .positiveTimeSetting(
             "opendistro.anomaly_detection.request_timeout",
-            TimeValue.timeValueSeconds(10),
+            TimeValue.timeValueSeconds(60),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic,
             Setting.Property.Deprecated

@@ -12,7 +12,6 @@
 package org.opensearch.ad.transport;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -173,7 +172,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             }
         };
 
-        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), anyInt(), anyInt());
+        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), any());
 
         doAnswer(responseMock -> {
             Long startTime = responseMock.getArgument(1);
@@ -373,7 +372,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
                 Assert.assertTrue(false);
             }
         };
-        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), anyInt(), anyInt());
+        doReturn(TestHelpers.randomThresholdingResults()).when(modelManager).getPreviewResults(any(), any());
 
         doAnswer(responseMock -> {
             Long startTime = responseMock.getArgument(1);

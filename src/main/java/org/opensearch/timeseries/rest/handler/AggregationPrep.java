@@ -72,6 +72,10 @@ public class AggregationPrep {
     }
 
     public double getHistorgramBucketHitRate(SearchResponse response) {
+        int numberOfSamples = getNumberOfSamples();
+        if (numberOfSamples == 0) {
+            return 0;
+        }
         Histogram histogram = validateAndRetrieveHistogramAggregation(response);
         if (histogram == null || histogram.getBuckets() == null) {
             logger.warn("Empty histogram buckets");
@@ -80,7 +84,7 @@ public class AggregationPrep {
         // getBuckets returns non-empty bucket (e.g., doc_count > 0)
         int bucketCount = histogram.getBuckets().size();
 
-        return bucketCount / getNumberOfSamples();
+        return bucketCount / numberOfSamples;
     }
 
     public List<Long> getTimestamps(SearchResponse response) {

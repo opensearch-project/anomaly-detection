@@ -25,6 +25,7 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
+import org.opensearch.forecast.ml.ForecastInferencer;
 import org.opensearch.forecast.ml.ForecastModelManager;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
@@ -34,7 +35,6 @@ import org.opensearch.forecast.ratelimit.ForecastColdEntityWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
-import org.opensearch.forecast.stats.ForecastStats;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
@@ -44,7 +44,6 @@ import org.opensearch.timeseries.caching.CacheProvider;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.EntityResultProcessor;
 import org.opensearch.timeseries.transport.EntityResultRequest;
 import org.opensearch.timeseries.util.ExceptionUtil;
@@ -78,21 +77,17 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
     private CacheProvider<RCFCaster, ForecastPriorityCache> cache;
     private final NodeStateManager stateManager;
     private ThreadPool threadPool;
-    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
+    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
 
     private final ForecastCacheProvider entityCache;
-    private final ForecastModelManager manager;
-    private final ForecastStats timeSeriesStats;
-    private final ForecastColdStartWorker entityColdStartWorker;
     private final ForecastCheckpointReadWorker checkpointReadQueue;
     private final ForecastColdEntityWorker coldEntityQueue;
-    private final ForecastSaveResultStrategy forecastSaveResultStategy;
+    private final ForecastInferencer inferencer;
 
     @Inject
     public EntityForecastResultTransportAction(
         ActionFilters actionFilters,
         TransportService transportService,
-        ForecastModelManager manager,
         CircuitBreakerService adCircuitBreakerService,
         ForecastCacheProvider entityCache,
         NodeStateManager stateManager,
@@ -101,9 +96,7 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
         ForecastCheckpointReadWorker checkpointReadQueue,
         ForecastColdEntityWorker coldEntityQueue,
         ThreadPool threadPool,
-        ForecastColdStartWorker entityColdStartWorker,
-        ForecastStats timeSeriesStats,
-        ForecastSaveResultStrategy forecastSaveResultStategy
+        ForecastInferencer inferencer
     ) {
         super(EntityForecastResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.circuitBreakerService = adCircuitBreakerService;
@@ -112,12 +105,9 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
         this.threadPool = threadPool;
         this.intervalDataProcessor = null;
         this.entityCache = entityCache;
-        this.manager = manager;
-        this.timeSeriesStats = timeSeriesStats;
-        this.entityColdStartWorker = entityColdStartWorker;
         this.checkpointReadQueue = checkpointReadQueue;
         this.coldEntityQueue = coldEntityQueue;
-        this.forecastSaveResultStategy = forecastSaveResultStategy;
+        this.inferencer = inferencer;
     }
 
     @Override
@@ -151,13 +141,11 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
 
             intervalDataProcessor = new EntityResultProcessor<>(
                 entityCache,
-                manager,
-                timeSeriesStats,
-                entityColdStartWorker,
                 checkpointReadQueue,
                 coldEntityQueue,
-                forecastSaveResultStategy,
-                StatNames.FORECAST_MODEL_CORRUTPION_COUNT
+                inferencer,
+                threadPool,
+                TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME
             );
 
             stateManager

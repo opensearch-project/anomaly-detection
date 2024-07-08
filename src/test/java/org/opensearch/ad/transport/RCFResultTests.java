@@ -139,7 +139,9 @@ public class RCFResultTests extends OpenSearchTestCase {
                         expectedValuesList,
                         likelihood,
                         threshold,
-                        forestSize
+                        forestSize,
+                        new double[] { 0 },
+                        null
                     )
                 );
             return null;
@@ -312,7 +314,9 @@ public class RCFResultTests extends OpenSearchTestCase {
                         expectedValuesList,
                         likelihood,
                         threshold,
-                        30
+                        30,
+                        new double[] { 0 },
+                        null
                     )
                 );
             return null;

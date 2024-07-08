@@ -14,7 +14,7 @@ import java.util.TreeMap;
 
 import com.google.gson.JsonObject;
 
-public class RuleIT extends AbstractRuleTestCase {
+public class RealTimeRuleIT extends AbstractRuleTestCase {
     public void testRuleWithDateNanos() throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
@@ -25,7 +25,7 @@ public class RuleIT extends AbstractRuleTestCase {
             int numberOfEntities = 2;
             int trainTestSplit = 100;
 
-            TrainResult trainResult = ingestTrainData(
+            TrainResult trainResult = ingestTrainDataAndCreateDetector(
                 datasetName,
                 intervalMinutes,
                 numberOfEntities,
@@ -35,11 +35,12 @@ public class RuleIT extends AbstractRuleTestCase {
                 (trainTestSplit + 1) * numberOfEntities
             );
 
+            startRealTimeDetector(trainResult, numberOfEntities, intervalMinutes, false);
             List<JsonObject> data = trainResult.data;
             LOG.info("scoring data at {}", data.get(trainResult.rawDataTrainTestSplit).get("timestamp").getAsString());
 
             // one run call will evaluate all entities within an interval
-            int numberEntitiesScored = findTrainTimeEntities(trainResult.rawDataTrainTestSplit, data);
+            int numberEntitiesScored = findGivenTimeEntities(trainResult.rawDataTrainTestSplit, data);
             // an entity might have missing values (e.g., at timestamp 1694713200000).
             // Use a map to record the number of times we have seen them.
             // data start time -> the number of entities
@@ -47,7 +48,7 @@ public class RuleIT extends AbstractRuleTestCase {
             // rawDataTrainTestSplit is the actual index of next test data.
             assertFalse(
                 scoreOneResult(
-                    data.get(trainResult.rawDataTrainTestSplit),
+                    data.get(trainResult.rawDataTrainTestSplit).get("timestamp").getAsString(),
                     entityMap,
                     trainResult.windowDelay,
                     intervalMinutes,
@@ -64,7 +65,7 @@ public class RuleIT extends AbstractRuleTestCase {
                 Instant begin = Instant.ofEpochMilli(Long.parseLong(beginTimeStampAsString));
                 Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
                 try {
-                    List<JsonObject> sourceList = getAnomalyResult(trainResult.detectorId, end, numberEntitiesScored, client());
+                    List<JsonObject> sourceList = getRealTimeAnomalyResult(trainResult.detectorId, end, numberEntitiesScored, client());
 
                     assertTrue(
                         String

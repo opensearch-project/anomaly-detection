@@ -262,7 +262,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         when(adTaskCacheManager.hasQueriedResultIndex(anyString())).thenReturn(false);
 
-        detector = TestHelpers.randomAnomalyDetectorWithEmptyFeature();
+        detector = TestHelpers.randomAnomalyDetector("timestamp", "sourceIndex");
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
             listener.onResponse(Optional.of(detector));

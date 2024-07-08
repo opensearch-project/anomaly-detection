@@ -88,11 +88,11 @@ public abstract class AbstractRetriever {
             .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countedInStats(false));
     }
 
-    protected Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
-        return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
+    protected Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds, boolean keepMissingValue) {
+        return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds, keepMissingValue);
     }
 
-    protected Optional<double[]> parseAggregations(Optional<Aggregations> aggregations, List<String> featureIds) {
+    protected Optional<double[]> parseAggregations(Optional<Aggregations> aggregations, List<String> featureIds, boolean keepMissingValue) {
         return aggregations
             .map(aggs -> aggs.asMap())
             .map(
@@ -101,7 +101,16 @@ public abstract class AbstractRetriever {
                     .mapToDouble(id -> Optional.ofNullable(map.get(id)).map(this::parseAggregation).orElse(Double.NaN))
                     .toArray()
             )
-            .filter(result -> Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d)));
+            .flatMap(result -> {
+                if (keepMissingValue) {
+                    // Convert Double.isInfinite values to Double.NaN
+                    return Optional.of(Arrays.stream(result).map(d -> Double.isInfinite(d) ? Double.NaN : d).toArray());
+                } else {
+                    // Return the array only if it contains no Double.NaN or Double.isInfinite
+                    boolean noneNaNOrInfinite = Arrays.stream(result).noneMatch(d -> Double.isNaN(d) || Double.isInfinite(d));
+                    return noneNaNOrInfinite ? Optional.of(result) : Optional.empty();
+                }
+            });
     }
 
     protected void updateSourceAfterKey(Map<String, Object> afterKey, SearchSourceBuilder search) {

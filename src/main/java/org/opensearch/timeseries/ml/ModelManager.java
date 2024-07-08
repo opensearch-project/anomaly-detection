@@ -28,6 +28,7 @@ import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
+import org.opensearch.timeseries.util.DataUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
@@ -130,15 +131,12 @@ public abstract class ModelManager<RCFModelType extends ThresholdedRandomCutFore
         }
     }
 
-    @SuppressWarnings("unchecked")
     public <RCFDescriptor extends AnomalyDescriptor> IntermediateResultType score(
         Sample sample,
         String modelId,
         ModelState<RCFModelType> modelState,
         Config config
     ) {
-
-        IntermediateResultType result = createEmptyResult();
         Optional<RCFModelType> model = modelState.getModel();
         try {
             if (model != null && model.isPresent()) {
@@ -147,23 +145,22 @@ public abstract class ModelManager<RCFModelType extends ThresholdedRandomCutFore
                 if (!modelState.getSamples().isEmpty()) {
                     for (Sample unProcessedSample : modelState.getSamples()) {
                         // we are sure that the process method will indeed return an instance of RCFDescriptor.
-                        rcfModel.process(unProcessedSample.getValueList(), unProcessedSample.getDataEndTime().getEpochSecond());
+                        double[] unProcessedPoint = unProcessedSample.getValueList();
+                        int[] missingIndices = DataUtil.generateMissingIndicesArray(unProcessedPoint);
+                        rcfModel.process(unProcessedPoint, unProcessedSample.getDataEndTime().getEpochSecond(), missingIndices);
                     }
                     modelState.clearSamples();
                 }
 
-                RCFDescriptor lastResult = (RCFDescriptor) rcfModel
-                    .process(sample.getValueList(), sample.getDataEndTime().getEpochSecond());
-                if (lastResult != null) {
-                    result = toResult(rcfModel.getForest(), lastResult);
-                }
+                return score(sample, config, rcfModel);
             }
         } catch (Exception e) {
             LOG
                 .error(
                     new ParameterizedMessage(
-                        "Fail to score for [{}]: model Id [{}], feature [{}]",
+                        "Fail to score for [{}] at [{}]: model Id [{}], feature [{}]",
                         modelState.getEntity().isEmpty() ? modelState.getConfigId() : modelState.getEntity().get(),
+                        sample.getDataEndTime().getEpochSecond(),
                         modelId,
                         Arrays.toString(sample.getValueList())
                     ),
@@ -173,13 +170,28 @@ public abstract class ModelManager<RCFModelType extends ThresholdedRandomCutFore
         } finally {
             modelState.setLastUsedTime(clock.instant());
         }
-        return result;
+        return createEmptyResult();
+    }
+
+    @SuppressWarnings("unchecked")
+    public <RCFDescriptor extends AnomalyDescriptor> IntermediateResultType score(Sample sample, Config config, RCFModelType rcfModel) {
+        double[] point = sample.getValueList();
+
+        int[] missingValues = DataUtil.generateMissingIndicesArray(point);
+        RCFDescriptor lastResult = (RCFDescriptor) rcfModel.process(point, sample.getDataEndTime().getEpochSecond(), missingValues);
+        if (lastResult != null) {
+            return toResult(rcfModel.getForest(), lastResult, point, missingValues != null, config);
+        }
+        return createEmptyResult();
     }
 
     protected abstract IntermediateResultType createEmptyResult();
 
     protected abstract <RCFDescriptor extends AnomalyDescriptor> IntermediateResultType toResult(
         RandomCutForest forecast,
-        RCFDescriptor castDescriptor
+        RCFDescriptor castDescriptor,
+        double[] point,
+        boolean featureImputed,
+        Config config
     );
 }

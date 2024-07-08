@@ -102,8 +102,7 @@ public final class AnomalyDetectorRunner {
                             startTime.toEpochMilli(),
                             endTime.toEpochMilli(),
                             ActionListener.wrap(features -> {
-                                List<ThresholdingResult> entityResults = modelManager
-                                    .getPreviewResults(features, detector.getShingleSize(), detector.getTimeDecay());
+                                List<ThresholdingResult> entityResults = modelManager.getPreviewResults(features, detector);
                                 List<AnomalyResult> sampledEntityResults = sample(
                                     parsePreviewResult(detector, features, entityResults, entity),
                                     maxPreviewResults
@@ -116,8 +115,7 @@ public final class AnomalyDetectorRunner {
         } else {
             featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
                 try {
-                    List<ThresholdingResult> results = modelManager
-                        .getPreviewResults(features, detector.getShingleSize(), detector.getTimeDecay());
+                    List<ThresholdingResult> results = modelManager.getPreviewResults(features, detector);
                     listener.onResponse(sample(parsePreviewResult(detector, features, results, null), maxPreviewResults));
                 } catch (Exception e) {
                     onFailure(e, listener, detector.getId());
