@@ -72,4 +72,5 @@ public abstract class TimeConfiguration implements Writeable, ToXContentObject {
         }
         throw new IllegalArgumentException("Find no schedule definition");
     }
+
 }

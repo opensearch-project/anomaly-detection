@@ -12,9 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
@@ -23,15 +21,12 @@ import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.aggregations.AggregationBuilder;
-import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
@@ -42,15 +37,14 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 public class IntervalCalculation {
     private final Logger logger = LogManager.getLogger(IntervalCalculation.class);
 
-    private final Config config;
-    private final TimeValue requestTimeout;
-    private final HistogramAggregationHelper histogramAggHelper;
+    private final AggregationPrep aggregationPrep;
     private final Client client;
     private final SecurityClientUtil clientUtil;
     private final User user;
     private final AnalysisType context;
     private final Clock clock;
-    private final FullBucketRatePredicate acceptanceCriteria;
+    private final Map<String, Object> topEntity;
+    private final long endMillis;
 
     public IntervalCalculation(
         Config config,
@@ -59,49 +53,43 @@ public class IntervalCalculation {
         SecurityClientUtil clientUtil,
         User user,
         AnalysisType context,
-        Clock clock
+        Clock clock,
+        SearchFeatureDao searchFeatureDao,
+        long latestTime,
+        Map<String, Object> topEntity
     ) {
-        this.config = config;
-        this.requestTimeout = requestTimeout;
-        this.histogramAggHelper = new HistogramAggregationHelper(config, requestTimeout);
+        this.aggregationPrep = new AggregationPrep(searchFeatureDao, requestTimeout, config);
         this.client = client;
         this.clientUtil = clientUtil;
         this.user = user;
         this.context = context;
         this.clock = clock;
-        this.acceptanceCriteria = new FullBucketRatePredicate();
+        this.topEntity = topEntity;
+        this.endMillis = latestTime;
 
     }
 
-    public void findInterval(long latestTime, Map<String, Object> topEntity, ActionListener<IntervalTimeConfiguration> listener) {
-        ActionListener<Pair<IntervalTimeConfiguration, Boolean>> minimumIntervalListener = ActionListener.wrap(minIntervalAndValidity -> {
-            if (minIntervalAndValidity.getRight()) {
-                // the minimum interval is also the interval passing acceptance criteria and we can return immediately
-                listener.onResponse(minIntervalAndValidity.getLeft());
-            } else if (minIntervalAndValidity.getLeft() == null) {
+    public void findInterval(ActionListener<IntervalTimeConfiguration> listener) {
+        ActionListener<IntervalTimeConfiguration> minimumIntervalListener = ActionListener.wrap(minInterval -> {
+            if (minInterval == null) {
                 // the minimum interval is too large
                 listener.onResponse(null);
             } else {
-                // starting exploring larger interval
-                getBucketAggregates(latestTime, topEntity, minIntervalAndValidity.getLeft(), listener);
+                // starting exploring whether minimum or larger interval satisfy density requirement
+                getBucketAggregates(minInterval, listener);
             }
         }, listener::onFailure);
         // we use 1 minute = 60000 milliseconds to find minimum interval
-        LongBounds longBounds = histogramAggHelper.getTimeRangeBounds(latestTime, 60000);
-        findMinimumInterval(topEntity, longBounds, minimumIntervalListener);
+        LongBounds longBounds = aggregationPrep.getTimeRangeBounds(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), endMillis);
+        findMinimumInterval(longBounds, minimumIntervalListener);
     }
 
-    private void getBucketAggregates(
-        long latestTime,
-        Map<String, Object> topEntity,
-        IntervalTimeConfiguration minimumInterval,
-        ActionListener<IntervalTimeConfiguration> listener
-    ) throws IOException {
+    private void getBucketAggregates(IntervalTimeConfiguration minimumInterval, ActionListener<IntervalTimeConfiguration> listener)
+        throws IOException {
 
         try {
-            int newIntervalInMinutes = increaseAndGetNewInterval(minimumInterval);
-            LongBounds timeStampBounds = histogramAggHelper.getTimeRangeBounds(latestTime, newIntervalInMinutes);
-            SearchRequest searchRequest = composeIntervalQuery(topEntity, newIntervalInMinutes, timeStampBounds);
+            LongBounds timeStampBounds = aggregationPrep.getTimeRangeBounds(minimumInterval, endMillis);
+            SearchRequest searchRequest = aggregationPrep.createSearchRequest(minimumInterval, timeStampBounds, topEntity);
             ActionListener<IntervalTimeConfiguration> intervalListener = ActionListener
                 .wrap(interval -> listener.onResponse(interval), exception -> {
                     listener.onFailure(exception);
@@ -110,9 +98,8 @@ public class IntervalCalculation {
             final ActionListener<SearchResponse> searchResponseListener = new IntervalRecommendationListener(
                 intervalListener,
                 searchRequest.source(),
-                (IntervalTimeConfiguration) config.getInterval(),
+                minimumInterval,
                 clock.millis() + TimeSeriesSettings.TOP_VALIDATE_TIMEOUT_IN_MILLIS,
-                latestTime,
                 timeStampBounds
             );
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -151,10 +138,8 @@ public class IntervalCalculation {
      */
     class IntervalRecommendationListener implements ActionListener<SearchResponse> {
         private final ActionListener<IntervalTimeConfiguration> intervalListener;
-        SearchSourceBuilder searchSourceBuilder;
         IntervalTimeConfiguration currentIntervalToTry;
         private final long expirationEpochMs;
-        private final long latestTime;
         private LongBounds currentTimeStampBounds;
 
         IntervalRecommendationListener(
@@ -162,34 +147,19 @@ public class IntervalCalculation {
             SearchSourceBuilder searchSourceBuilder,
             IntervalTimeConfiguration currentIntervalToTry,
             long expirationEpochMs,
-            long latestTime,
             LongBounds timeStampBounds
         ) {
             this.intervalListener = intervalListener;
-            this.searchSourceBuilder = searchSourceBuilder;
             this.currentIntervalToTry = currentIntervalToTry;
             this.expirationEpochMs = expirationEpochMs;
-            this.latestTime = latestTime;
             this.currentTimeStampBounds = timeStampBounds;
         }
 
         @Override
         public void onResponse(SearchResponse response) {
             try {
-                Histogram aggregate = null;
-                try {
-                    aggregate = histogramAggHelper.checkBucketResultErrors(response);
-                } catch (ValidationException e) {
-                    intervalListener.onFailure(e);
-                }
-
-                if (aggregate == null) {
-                    intervalListener.onResponse(null);
-                    return;
-                }
-
                 int newIntervalMinute = increaseAndGetNewInterval(currentIntervalToTry);
-                double fullBucketRate = histogramAggHelper.processBucketAggregationResults(aggregate, newIntervalMinute * 60000, config);
+                double fullBucketRate = aggregationPrep.getBucketHitRate(response, currentIntervalToTry, endMillis);
                 // If rate is above success minimum then return interval suggestion.
                 if (fullBucketRate > TimeSeriesSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
                     intervalListener.onResponse(this.currentIntervalToTry);
@@ -221,18 +191,12 @@ public class IntervalCalculation {
 
         private void searchWithDifferentInterval(int newIntervalMinuteValue) {
             this.currentIntervalToTry = new IntervalTimeConfiguration(newIntervalMinuteValue, ChronoUnit.MINUTES);
-            this.currentTimeStampBounds = histogramAggHelper.getTimeRangeBounds(latestTime, newIntervalMinuteValue);
-            // Searching again using an updated interval
-            SearchSourceBuilder updatedSearchSourceBuilder = histogramAggHelper
-                .getSearchSourceBuilder(
-                    searchSourceBuilder.query(),
-                    histogramAggHelper.getBucketAggregation(newIntervalMinuteValue, currentTimeStampBounds)
-                );
+            this.currentTimeStampBounds = aggregationPrep.getTimeRangeBounds(currentIntervalToTry, endMillis);
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
             clientUtil
                 .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
-                    new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(updatedSearchSourceBuilder),
+                    aggregationPrep.createSearchRequest(currentIntervalToTry, currentTimeStampBounds, topEntity),
                     client::search,
                     user,
                     client,
@@ -281,43 +245,17 @@ public class IntervalCalculation {
      *
      * @param topEntity top entity to use
      * @param timeStampBounds Used to determine start and end date range to search for data
-     * @param listener returns minimum interval and whether the interval passes data density test
+     * @param listener returns minimum interval
      */
-    private void findMinimumInterval(
-        Map<String, Object> topEntity,
-        LongBounds timeStampBounds,
-        ActionListener<Pair<IntervalTimeConfiguration, Boolean>> listener
-    ) {
+    private void findMinimumInterval(LongBounds timeStampBounds, ActionListener<IntervalTimeConfiguration> listener) {
         try {
-            SearchRequest searchRequest = composeIntervalQuery(topEntity, 1, timeStampBounds);
+            SearchRequest searchRequest = aggregationPrep
+                .createSearchRequest(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), timeStampBounds, topEntity);
             final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
-                Histogram aggregate = null;
-                try {
-                    aggregate = histogramAggHelper.checkBucketResultErrors(response);
-                } catch (ValidationException e) {
-                    listener.onFailure(e);
-                }
-
-                if (aggregate == null) {
-                    // fail to find the minimum interval. Return one minute.
-                    logger.warn("Fail to get aggregated result");
-                    listener.onResponse(Pair.of(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), Boolean.FALSE));
-                    return;
-                }
-                // In all cases, when the specified end time does not exist, the actual end time is the closest available time after the
-                // specified end.
-                // so we only have non-empty buckets
-                // in the original order, buckets are sorted in the ascending order of timestamps.
-                // Since the stream processing preserves the order of elements, we don't need to sort timestamps again.
-                List<Long> timestamps = aggregate
-                    .getBuckets()
-                    .stream()
-                    .map(entry -> HistogramAggregationHelper.convertKeyToEpochMillis(entry.getKey()))
-                    .collect(Collectors.toList());
-
+                List<Long> timestamps = aggregationPrep.getTimestamps(response);
                 if (timestamps.isEmpty()) {
                     logger.warn("empty data, return one minute by default");
-                    listener.onResponse(Pair.of(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), Boolean.FALSE));
+                    listener.onResponse(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES));
                     return;
                 }
 
@@ -325,17 +263,10 @@ public class IntervalCalculation {
                 long minimumMinutes = millisecondsToCeilMinutes(((Double) medianDifference).longValue());
                 if (minimumMinutes > TimeSeriesSettings.MAX_INTERVAL_REC_LENGTH_IN_MINUTES) {
                     logger.warn("The minimum interval is too large: {}", minimumMinutes);
-                    listener.onResponse(Pair.of(null, false));
+                    listener.onResponse(null);
                     return;
                 }
-                listener
-                    .onResponse(
-                        Pair
-                            .of(
-                                new IntervalTimeConfiguration(minimumMinutes, ChronoUnit.MINUTES),
-                                acceptanceCriteria.test(aggregate, minimumMinutes)
-                            )
-                    );
+                listener.onResponse(new IntervalTimeConfiguration(minimumMinutes, ChronoUnit.MINUTES));
             }, listener::onFailure);
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
@@ -388,44 +319,5 @@ public class IntervalCalculation {
         // that any duration that exceeds a whole minute but is less than the next
         // whole minute is rounded up to the next minute.
         return (milliseconds + 59999) / 60000;
-    }
-
-    private SearchRequest composeIntervalQuery(Map<String, Object> topEntity, int intervalInMinutes, LongBounds timeStampBounds) {
-        AggregationBuilder aggregation = histogramAggHelper.getBucketAggregation(intervalInMinutes, timeStampBounds);
-        BoolQueryBuilder query = QueryBuilders.boolQuery().filter(config.getFilterQuery());
-        if (config.isHighCardinality()) {
-            if (topEntity.isEmpty()) {
-                throw new ValidationException(
-                    CommonMessages.CATEGORY_FIELD_TOO_SPARSE,
-                    ValidationIssueType.CATEGORY,
-                    ValidationAspect.MODEL
-                );
-            }
-            for (Map.Entry<String, Object> entry : topEntity.entrySet()) {
-                query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
-            }
-        }
-
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
-            .query(query)
-            .aggregation(aggregation)
-            .size(0)
-            .timeout(requestTimeout);
-        return new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
-    }
-
-    interface HistogramPredicate {
-        boolean test(Histogram histogram, long minimumMinutes);
-    }
-
-    class FullBucketRatePredicate implements HistogramPredicate {
-
-        @Override
-        public boolean test(Histogram histogram, long minimumMinutes) {
-            double fullBucketRate = histogramAggHelper.processBucketAggregationResults(histogram, minimumMinutes * 60000, config);
-            // If rate is above success minimum then return true.
-            return fullBucketRate > TimeSeriesSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE;
-        }
-
     }
 }

@@ -17,6 +17,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
+import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.rest.handler.ModelValidationActionHandler;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -50,7 +51,8 @@ public class ADModelValidationActionHandler extends ModelValidationActionHandler
             clock,
             settings,
             user,
-            AnalysisType.AD
+            AnalysisType.AD,
+            ValidationIssueType.DETECTION_INTERVAL
         );
     }
 
