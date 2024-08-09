@@ -92,6 +92,11 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
     public static final String NO_DOCS_IN_USER_INDEX_MSG = "Can't create anomaly detector as no document is found in the indices: %s";
     public static final String DUPLICATE_DETECTOR_MSG =
         "Cannot create anomaly detector with name [%s] as it's already used by another detector";
+
+    /**
+     * Message indicating that validation failed for one or more features of the anomaly detector.
+     * This message is formatted with the detector's identifier.
+     */
     public static final String VALIDATION_FEATURE_FAILURE = "Validation failed for feature(s) of detector %s";
 
     /**

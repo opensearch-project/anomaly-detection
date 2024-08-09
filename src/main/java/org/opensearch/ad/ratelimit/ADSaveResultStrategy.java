@@ -71,7 +71,6 @@ public class ADSaveResultStrategy implements SaveResultStrategy<AnomalyResult, T
                     taskId,
                     null
                 );
-
             for (AnomalyResult r : indexableResults) {
                 saveResult(r, config);
             }

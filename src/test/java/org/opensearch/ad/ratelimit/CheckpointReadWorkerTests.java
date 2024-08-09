@@ -48,6 +48,7 @@ import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
+import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -102,6 +103,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     FeatureRequest request, request2, request3;
     ClusterSettings clusterSettings;
     ADStats adStats;
+    ADInferencer inferencer;
 
     @Override
     public void setUp() throws Exception {
@@ -150,6 +152,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         };
 
         adStats = new ADStats(statsMap);
+        inferencer = new ADInferencer(modelManager, adStats, checkpoint, coldstartQueue, resultWriteStrategy, cacheProvider, threadPool);
 
         // Integer.MAX_VALUE makes a huge heap
         worker = new ADCheckpointReadWorker(
@@ -171,12 +174,10 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             checkpoint,
             coldstartQueue,
             nodeStateManager,
-            anomalyDetectionIndices,
             cacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            adStats,
-            resultWriteStrategy
+            inferencer
         );
 
         request = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, new double[] { 0 }, 0, entity, null);
@@ -247,14 +248,14 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     public void testRegular() {
         regularTestSetUp(new RegularSetUpConfig.Builder().build());
 
-        verify(resultWriteStrategy, times(1)).saveResult(any(), any(), any(), anyString());
+        verify(resultWriteStrategy, times(1)).saveResult(any(), any(), any(), any(), anyString(), any(), any(), any());
         verify(checkpointWriteQueue, never()).write(any(), anyBoolean(), any());
     }
 
     public void testCannotLoadModel() {
         regularTestSetUp(new RegularSetUpConfig.Builder().canHostModel(false).build());
 
-        verify(resultWriteStrategy, times(1)).saveResult(any(), any(), any(), anyString());
+        verify(resultWriteStrategy, times(1)).saveResult(any(), any(), any(), any(), anyString(), any(), any(), any());
         verify(checkpointWriteQueue, times(1)).write(any(), anyBoolean(), any());
     }
 
@@ -262,7 +263,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         regularTestSetUp(new RegularSetUpConfig.Builder().fullModel(false).build());
         // even though saveResult is called, the actual won't happen as the rcf score is 0
         // we have the guard condition at the beginning of saveResult method.
-        verify(resultWriteStrategy, times(1)).saveResult(any(), any(), any(), anyString());
+        verify(resultWriteStrategy, times(1)).saveResult(any(), any(), any(), any(), anyString(), any(), any(), any());
         verify(checkpointWriteQueue, never()).write(any(), anyBoolean(), any());
     }
 
@@ -552,12 +553,10 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             checkpoint,
             coldstartQueue,
             nodeStateManager,
-            anomalyDetectionIndices,
             cacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            adStats,
-            resultWriteStrategy
+            inferencer
         );
 
         regularTestSetUp(new RegularSetUpConfig.Builder().build());
@@ -604,12 +603,10 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             checkpoint,
             coldstartQueue,
             nodeStateManager,
-            anomalyDetectionIndices,
             cacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            adStats,
-            resultWriteStrategy
+            inferencer
         );
 
         List<FeatureRequest> requests = new ArrayList<>();
@@ -657,12 +654,10 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             checkpoint,
             coldstartQueue,
             nodeStateManager,
-            anomalyDetectionIndices,
             cacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
-            adStats,
-            resultWriteStrategy
+            inferencer
         );
 
         List<FeatureRequest> requests = new ArrayList<>();
@@ -805,7 +800,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
 
         state = MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
         when(checkpoint.processHCGetResponse(any(), anyString(), anyString())).thenReturn(state);
-        // anyString won't match null. That's why we use any() at position 4 instead of anyString.
+        // anyString won't match null. That's why we use any() at position 2 instead of anyString.
         doThrow(new IllegalArgumentException()).when(modelManager).getResult(any(), any(), anyString(), any(), any());
 
         List<FeatureRequest> requests = new ArrayList<>();
@@ -813,7 +808,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         worker.putAll(requests);
 
         verify(modelManager, times(1)).getResult(any(), any(), anyString(), any(), any());
-        verify(resultWriteStrategy, never()).saveResult(any(), any(), any(), anyString());
+        verify(resultWriteStrategy, never()).saveResult(any(), any(), any(), any(), anyString(), any(), any(), any());
         verify(checkpointWriteQueue, never()).write(any(), anyBoolean(), any());
         verify(coldstartQueue, times(1)).put(any());
         Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();

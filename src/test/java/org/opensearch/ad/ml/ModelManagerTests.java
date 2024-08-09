@@ -27,6 +27,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -197,7 +198,7 @@ public class ModelManagerTests {
         descriptor.setAttribution(attributionVec);
         descriptor.setTotalUpdates(numSamples);
         descriptor.setRelevantAttribution(new double[] { 0, 0, 0, 0, 0 });
-        when(trcf.process(any(), anyLong())).thenReturn(descriptor);
+        when(trcf.process(any(), anyLong(), any())).thenReturn(descriptor);
 
         ExecutorService executorService = mock(ExecutorService.class);
         when(threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
@@ -363,7 +364,9 @@ public class ModelManagerTests {
             expectedValuesList,
             likelihood,
             threshold,
-            numTrees
+            numTrees,
+            point,
+            null
         );
         verify(listener).onResponse(eq(expected));
 
@@ -802,7 +805,7 @@ public class ModelManagerTests {
     }
 
     @Test
-    public void getPreviewResults_returnNoAnomalies_forNoAnomalies() {
+    public void getPreviewResults_returnNoAnomalies_forNoAnomalies() throws IOException {
         int numPoints = 1000;
         double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
         List<Entry<Long, Long>> timeRanges = IntStream
@@ -811,14 +814,17 @@ public class ModelManagerTests {
             .collect(Collectors.toList());
         Features features = new Features(timeRanges, points);
 
-        List<ThresholdingResult> results = modelManager.getPreviewResults(features, shingleSize, 0.0001);
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+        when(detector.getRecencyEmphasis()).thenReturn(10000);
+        List<ThresholdingResult> results = modelManager.getPreviewResults(features, detector);
 
         assertEquals(numPoints, results.size());
         assertTrue(results.stream().noneMatch(r -> r.getGrade() > 0));
     }
 
     @Test
-    public void getPreviewResults_returnAnomalies_forLastAnomaly() {
+    public void getPreviewResults_returnAnomalies_forLastAnomaly() throws IOException {
         int numPoints = 1000;
         double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
         points[points.length - 1] = new double[] { 1. };
@@ -828,7 +834,10 @@ public class ModelManagerTests {
             .collect(Collectors.toList());
         Features features = new Features(timeRanges, points);
 
-        List<ThresholdingResult> results = modelManager.getPreviewResults(features, shingleSize, 0.0001);
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+        when(detector.getRecencyEmphasis()).thenReturn(10000);
+        List<ThresholdingResult> results = modelManager.getPreviewResults(features, detector);
 
         assertEquals(numPoints, results.size());
         assertTrue(results.stream().limit(numPoints - 1).noneMatch(r -> r.getGrade() > 0));
@@ -836,9 +845,13 @@ public class ModelManagerTests {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void getPreviewResults_throwIllegalArgument_forInvalidInput() {
+    public void getPreviewResults_throwIllegalArgument_forInvalidInput() throws IOException {
         Features features = new Features(new ArrayList<Entry<Long, Long>>(), new double[0][0]);
-        modelManager.getPreviewResults(features, shingleSize, 0.0001);
+
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+        when(detector.getRecencyEmphasis()).thenReturn(10000);
+        modelManager.getPreviewResults(features, detector);
     }
 
     @Test
@@ -998,7 +1011,9 @@ public class ModelManagerTests {
                 descriptor.getExpectedValuesList(),
                 descriptor.getLikelihoodOfValues(),
                 descriptor.getThreshold(),
-                numTrees
+                numTrees,
+                this.point,
+                null
             ),
             result
         );
@@ -1015,7 +1030,7 @@ public class ModelManagerTests {
         when(rcf.getShingleSize()).thenReturn(8);
         when(rcf.getDimensions()).thenReturn(40);
         when(this.trcf.getForest()).thenReturn(rcf);
-        doThrow(new IllegalArgumentException()).when(trcf).process(any(), anyLong());
+        doThrow(new IllegalArgumentException()).when(trcf).process(any(), anyLong(), any());
         when(this.modelState.getSamples())
             .thenReturn(new ArrayDeque<>(Arrays.asList(new Sample(this.point, Instant.now(), Instant.now()))));
         modelManager.score(new Sample(this.point, Instant.now(), Instant.now()), this.modelId, this.modelState, anomalyDetector);

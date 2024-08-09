@@ -1,7 +1,7 @@
 {
   "dynamic": true,
   "_meta": {
-    "schema_version": 4
+    "schema_version": 5
   },
   "properties": {
     "detectorId": {
@@ -57,6 +57,17 @@
         "data_end_time": {
           "type": "date",
           "format": "strict_date_time||epoch_millis"
+        },
+        "feature_imputed": {
+          "type": "nested",
+            "properties": {
+              "feature_id": {
+                "type": "keyword"
+              },
+              "imputed": {
+                "type": "boolean"
+              }
+          }
         }
       }
     }

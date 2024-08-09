@@ -463,8 +463,10 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
             // make sure the following logic making sense via checking lastRoundFirstStartTime > 0
             if (lastRounddataSample != null && lastRounddataSample.size() > 0) {
                 concatenatedDataSample = new ArrayList<>();
-                concatenatedDataSample.addAll(lastRounddataSample);
+                // since we move farther in history in current one, last round data should come
+                // after current round data to keep time in sequence.
                 concatenatedDataSample.addAll(samples);
+                concatenatedDataSample.addAll(lastRounddataSample);
             } else {
                 concatenatedDataSample = samples;
             }
@@ -525,12 +527,17 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                 case ZERO:
                     return builder.imputationMethod(ImputationMethod.ZERO);
                 case FIXED_VALUES:
-                    // we did validate default fill is not empty and size matches enabled feature number in Config's constructor
-                    return builder.imputationMethod(ImputationMethod.FIXED_VALUES).fillValues(imputationOption.getDefaultFill().get());
+                    // we did validate default fill is not empty, size matches enabled feature number in Config's constructor,
+                    // and feature names matches existing features
+                    List<String> enabledFeatureName = config.getEnabledFeatureNames();
+                    double[] fillValues = new double[enabledFeatureName.size()];
+                    Map<String, Double> defaultFillMap = imputationOption.getDefaultFill();
+                    for (int i = 0; i < enabledFeatureName.size(); i++) {
+                        fillValues[i] = defaultFillMap.get(enabledFeatureName.get(i));
+                    }
+                    return builder.imputationMethod(ImputationMethod.FIXED_VALUES).fillValues(fillValues);
                 case PREVIOUS:
                     return builder.imputationMethod(ImputationMethod.PREVIOUS);
-                case LINEAR:
-                    return builder.imputationMethod(ImputationMethod.LINEAR);
                 default:
                     // by default using last known value
                     return builder.imputationMethod(ImputationMethod.PREVIOUS);

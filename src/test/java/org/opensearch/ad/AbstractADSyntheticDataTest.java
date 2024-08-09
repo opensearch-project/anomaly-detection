@@ -11,38 +11,79 @@
 
 package org.opensearch.ad;
 
-import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
-import org.apache.hc.core5.http.HttpHeaders;
-import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.junit.Before;
 import org.opensearch.client.Request;
+import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.timeseries.AbstractSyntheticDataTest;
-import org.opensearch.timeseries.TestHelpers;
 
-import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
+    protected static class TrainResult {
+        public String detectorId;
+        public List<JsonObject> data;
+        // actual index of training data. As we have multiple entities,
+        // trainTestSplit means how many groups of entities are used for training.
+        // rawDataTrainTestSplit is the actual index of training data.
+        public int rawDataTrainTestSplit;
+        public Duration windowDelay;
+        public Instant trainTime;
+        // first data time in data
+        public Instant firstDataTime;
+        // last data time in data
+        public Instant finalDataTime;
+
+        public TrainResult(String detectorId, List<JsonObject> data, int rawDataTrainTestSplit, Duration windowDelay, Instant trainTime) {
+            this.detectorId = detectorId;
+            this.data = data;
+            this.rawDataTrainTestSplit = rawDataTrainTestSplit;
+            this.windowDelay = windowDelay;
+            this.trainTime = trainTime;
+
+            this.firstDataTime = getDataTime(0);
+            this.finalDataTime = getDataTime(data.size() - 1);
+        }
+
+        private Instant getDataTime(int index) {
+            String finalTimeStr = data.get(index).get("timestamp").getAsString();
+            return Instant.ofEpochMilli(Long.parseLong(finalTimeStr));
+        }
+    }
+
     public static final Logger LOG = (Logger) LogManager.getLogger(AbstractADSyntheticDataTest.class);
 
-    private static int batchSize = 1000;
+    protected static final double EPSILON = 1e-3;
+
+    @Override
+    @Before
+    public void setUp() throws Exception {
+        super.setUp();
+        // increase the AD memory percentage. Since enabling jacoco coverage instrumentation,
+        // the memory is not enough to finish HistoricalAnalysisRestApiIT.
+        updateClusterSettings(AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(), 0.5);
+    }
 
     protected void runDetectionResult(String detectorId, Instant begin, Instant end, RestClient client, int entitySize) throws IOException,
         InterruptedException {
@@ -59,11 +100,80 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         Thread.sleep(50 * entitySize);
     }
 
-    protected List<JsonObject> getAnomalyResult(String detectorId, Instant end, int entitySize, RestClient client)
-        throws InterruptedException {
+    protected void startHistorical(String detectorId, Instant begin, Instant end, RestClient client, int entitySize) throws IOException,
+        InterruptedException {
+        // trigger run in current interval
+        Request request = new Request(
+            "POST",
+            String.format(Locale.ROOT, "/_opendistro/_anomaly_detection/detectors/%s/_start", detectorId)
+        );
+        request
+            .setJsonEntity(
+                String.format(Locale.ROOT, "{ \"start_time\": %d, \"end_time\": %d }", begin.toEpochMilli(), end.toEpochMilli())
+            );
+        int statusCode = client.performRequest(request).getStatusLine().getStatusCode();
+        assert (statusCode >= 200 && statusCode < 300);
+
+        // wait for 50 milliseconds per entity before next query
+        Thread.sleep(50 * entitySize);
+    }
+
+    protected Map<String, Object> preview(String detector, Instant begin, Instant end, RestClient client) throws IOException,
+        InterruptedException {
+        LOG.info("preview detector {}", detector);
+        // trigger run in current interval
+        Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/_preview");
+        request
+            .setJsonEntity(
+                String
+                    .format(
+                        Locale.ROOT,
+                        "{ \"period_start\": %d, \"period_end\": %d, \"detector\": %s }",
+                        begin.toEpochMilli(),
+                        end.toEpochMilli(),
+                        detector
+                    )
+            );
+        Response response = client.performRequest(request);
+        int statusCode = response.getStatusLine().getStatusCode();
+        assert (statusCode >= 200 && statusCode < 300);
+
+        return entityAsMap(response);
+    }
+
+    protected Map<String, Object> previewWithFailure(String detector, Instant begin, Instant end, RestClient client) throws IOException,
+        InterruptedException {
+        // trigger run in current interval
+        Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/_preview");
+        request
+            .setJsonEntity(
+                String
+                    .format(
+                        Locale.ROOT,
+                        "{ \"period_start\": %d, \"period_end\": %d, \"detector\": %s }",
+                        begin.toEpochMilli(),
+                        end.toEpochMilli(),
+                        detector
+                    )
+            );
+        Response response = client.performRequest(request);
+        int statusCode = response.getStatusLine().getStatusCode();
+        assert (statusCode == 400);
+
+        return entityAsMap(response);
+    }
+
+    protected List<JsonObject> getAnomalyResult(
+        String detectorId,
+        Instant end,
+        int entitySize,
+        RestClient client,
+        boolean approximateDataEndTime,
+        long intervalMillis
+    ) throws InterruptedException {
         Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/results/_search");
 
-        String jsonTemplate = "{\n"
+        String jsonTemplatePrefix = "{\n"
             + "    \"query\": {\n"
             + "        \"bool\": {\n"
             + "            \"filter\": [\n"
@@ -81,19 +191,38 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
             + "                },\n"
             + "                {\n"
             + "                    \"range\": {\n"
-            + "                        \"data_end_time\": {\n"
-            + "                            \"gte\": %d,\n"
-            + "                            \"lte\": %d\n"
-            + "                        }\n"
-            + "                    }\n"
-            + "                }\n"
-            + "            ]\n"
-            + "        }\n"
-            + "    }\n"
-            + "}";
+            + "                        \"data_end_time\": {\n";
+
+        StringBuilder jsonTemplate = new StringBuilder();
+        jsonTemplate.append(jsonTemplatePrefix);
+
+        if (approximateDataEndTime) {
+            // we may get two interval results if using gte
+            jsonTemplate.append("                            \"gt\": %d,\n                            \"lte\": %d\n");
+        } else {
+            jsonTemplate.append("                            \"gte\": %d,\n                            \"lte\": %d\n");
+        }
+
+        jsonTemplate
+            .append(
+                "                        }\n"
+                    + "                    }\n"
+                    + "                }\n"
+                    + "            ]\n"
+                    + "        }\n"
+                    + "    }\n"
+                    + "}"
+            );
 
         long dateEndTime = end.toEpochMilli();
-        String formattedJson = String.format(Locale.ROOT, jsonTemplate, detectorId, dateEndTime, dateEndTime);
+        String formattedJson = null;
+
+        if (approximateDataEndTime) {
+            formattedJson = String.format(Locale.ROOT, jsonTemplate.toString(), detectorId, dateEndTime - intervalMillis, dateEndTime);
+        } else {
+            formattedJson = String.format(Locale.ROOT, jsonTemplate.toString(), detectorId, dateEndTime, dateEndTime);
+        }
+
         request.setJsonEntity(formattedJson);
 
         // wait until results are available
@@ -135,6 +264,7 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
             String matchAll = "{\n" + "  \"size\": 1000,\n" + "  \"query\": {\n" + "    \"match_all\": {}\n" + "  }\n" + "}";
             request.setJsonEntity(matchAll);
             JsonArray hits = getHits(client, request);
+            LOG.info("Query: {}", formattedJson);
             LOG.info("match all result: {}", hits);
         } catch (Exception e) {
             LOG.warn("Exception while waiting for match all result", e);
@@ -143,12 +273,26 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         return new ArrayList<>();
     }
 
-    protected double getAnomalyGrade(JsonObject source) {
+    protected List<JsonObject> getRealTimeAnomalyResult(String detectorId, Instant end, int entitySize, RestClient client)
+        throws InterruptedException {
+        return getAnomalyResult(detectorId, end, entitySize, client, false, 0);
+    }
+
+    public double getAnomalyGrade(JsonObject source) {
         return source.get("anomaly_grade").getAsDouble();
     }
 
-    protected String getEntity(JsonObject source) {
-        return source.get("entity").getAsJsonArray().get(0).getAsJsonObject().get("value").getAsString();
+    public double getConfidence(JsonObject source) {
+        return source.get("confidence").getAsDouble();
+    }
+
+    public String getEntity(JsonObject source) {
+        JsonElement element = source.get("entity");
+        if (element == null) {
+            // single stream
+            return "dummy";
+        }
+        return element.getAsJsonArray().get(0).getAsJsonObject().get("value").getAsString();
     }
 
     /**
@@ -157,13 +301,46 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
      * @param defaultVal default anomaly time. Usually data end time.
      * @return anomaly event time.
      */
-    protected Instant getAnomalyTime(JsonObject source, Instant defaultVal) {
+    public Instant getAnomalyTime(JsonObject source, Instant defaultVal) {
         JsonElement anomalyTime = source.get("approx_anomaly_start_time");
         if (anomalyTime != null) {
             long epochhMillis = anomalyTime.getAsLong();
             return Instant.ofEpochMilli(epochhMillis);
         }
         return defaultVal;
+    }
+
+    public JsonObject getFeature(JsonObject source, int index) {
+        JsonArray featureDataArray = source.getAsJsonArray("feature_data");
+
+        // Get the index element from the JsonArray
+        return featureDataArray.get(index).getAsJsonObject();
+    }
+
+    public JsonObject getImputed(JsonObject source, int index) {
+        JsonArray featureDataArray = source.getAsJsonArray("feature_imputed");
+        if (featureDataArray == null) {
+            return null;
+        }
+
+        // Get the index element from the JsonArray
+        return featureDataArray.get(index).getAsJsonObject();
+    }
+
+    protected JsonObject getImputed(JsonObject source, String featureId) {
+        JsonArray featureDataArray = source.getAsJsonArray("feature_imputed");
+        if (featureDataArray == null) {
+            return null;
+        }
+
+        for (int i = 0; i < featureDataArray.size(); i++) {
+            // Get the index element from the JsonArray
+            JsonObject jsonObject = featureDataArray.get(i).getAsJsonObject();
+            if (jsonObject.get("feature_id").getAsString().equals(featureId)) {
+                return jsonObject;
+            }
+        }
+        return null;
     }
 
     protected String createDetector(RestClient client, String detectorJson) throws Exception {
@@ -247,9 +424,11 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
      * @param client OpenSearch Client
      * @param end date end time of the most recent detection period
      * @param entitySize the number of entity results to wait for
+     * @return initial result
      * @throws Exception when failing to query/indexing from/to OpenSearch
      */
-    protected void simulateWaitForInitDetector(String detectorId, RestClient client, Instant end, int entitySize) throws Exception {
+    protected List<JsonObject> simulateWaitForInitDetector(String detectorId, RestClient client, Instant end, int entitySize)
+        throws Exception {
 
         long startTime = System.currentTimeMillis();
         long duration = 0;
@@ -257,45 +436,42 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
 
             Thread.sleep(1_000);
 
-            List<JsonObject> sourceList = getAnomalyResult(detectorId, end, entitySize, client);
+            List<JsonObject> sourceList = getRealTimeAnomalyResult(detectorId, end, entitySize, client);
             if (sourceList.size() > 0 && getAnomalyGrade(sourceList.get(0)) >= 0) {
-                break;
+                return sourceList;
             }
 
             duration = System.currentTimeMillis() - startTime;
         } while (duration <= 60_000);
 
-        assertTrue("time out while waiting for initing detector", duration <= 60_000);
+        assertTrue("time out while waiting for initing detector", false);
+        return null;
     }
 
-    protected void bulkIndexData(List<JsonObject> data, String datasetName, RestClient client, String mapping, int ingestDataSize)
-        throws Exception {
-        createIndex(datasetName, client, mapping);
-        StringBuilder bulkRequestBuilder = new StringBuilder();
-        LOG.info("data size {}", data.size());
-        int count = 0;
-        int pickedIngestSize = Math.min(ingestDataSize, data.size());
-        for (int i = 0; i < pickedIngestSize; i++) {
-            bulkRequestBuilder.append("{ \"index\" : { \"_index\" : \"" + datasetName + "\", \"_id\" : \"" + i + "\" } }\n");
-            bulkRequestBuilder.append(data.get(i).toString()).append("\n");
-            count++;
-            if (count >= batchSize || i == pickedIngestSize - 1) {
-                count = 0;
-                TestHelpers
-                    .makeRequest(
-                        client,
-                        "POST",
-                        "_bulk?refresh=true",
-                        null,
-                        toHttpEntity(bulkRequestBuilder.toString()),
-                        ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-                    );
-                Thread.sleep(1_000);
-            }
-        }
+    protected List<JsonObject> waitForHistoricalDetector(
+        String detectorId,
+        RestClient client,
+        Instant end,
+        int entitySize,
+        int intervalMillis
+    ) throws Exception {
 
-        waitAllSyncheticDataIngested(data.size(), datasetName, client);
-        LOG.info("data ingestion complete");
+        long startTime = System.currentTimeMillis();
+        long duration = 0;
+        do {
+
+            Thread.sleep(1_000);
+
+            List<JsonObject> sourceList = getAnomalyResult(detectorId, end, entitySize, client, true, intervalMillis);
+            if (sourceList.size() > 0 && getAnomalyGrade(sourceList.get(0)) >= 0) {
+                return sourceList;
+            }
+
+            duration = System.currentTimeMillis() - startTime;
+        } while (duration <= 60_000);
+
+        assertTrue("time out while waiting for historical detector to finish", false);
+        return null;
     }
 
     /**
@@ -313,7 +489,7 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         runDetectionResult(detectorId, begin, end, client, entitySize);
     }
 
-    protected int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
+    public int isAnomaly(Instant time, List<Entry<Instant, Instant>> labels) {
         for (int i = 0; i < labels.size(); i++) {
             Entry<Instant, Instant> window = labels.get(i);
             if (time.compareTo(window.getKey()) >= 0 && time.compareTo(window.getValue()) <= 0) {
@@ -330,5 +506,125 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         List<JsonObject> list = new ArrayList<>(jsonArray.size());
         jsonArray.iterator().forEachRemaining(i -> list.add(i.getAsJsonObject()));
         return list;
+    }
+
+    protected Instant dataToExecutionTime(Instant instant, Duration windowDelay) {
+        return instant.plus(windowDelay);
+    }
+
+    /**
+     * Assume the data is sorted in time. The method look up and below startIndex
+     * and return how many timestamps equal to timestampStr.
+     * @param startIndex where to start look for timestamp
+     * @return how many timestamps equal to timestampStr
+     */
+    protected int findGivenTimeEntities(int startIndex, List<JsonObject> data) {
+        String timestampStr = data.get(startIndex).get("timestamp").getAsString();
+        int count = 1;
+        for (int i = startIndex - 1; i >= 0; i--) {
+            String trainTimeStr = data.get(i).get("timestamp").getAsString();
+            if (trainTimeStr.equals(timestampStr)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        for (int i = startIndex + 1; i < data.size(); i++) {
+            String trainTimeStr = data.get(i).get("timestamp").getAsString();
+            if (trainTimeStr.equals(timestampStr)) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        return count;
+    }
+
+    /**
+     *
+     * @param beginTimeStampAsString data start time in string
+     * @param entityMap a map to record the number of times we have seen a timestamp. Used to detect missing values.
+     * @param windowDelay ingestion delay
+     * @param intervalMinutes detector interval
+     * @param detectorId detector Id
+     * @param client RestFul client
+     * @param numberOfEntities the number of entities.
+     * @return whether we erred out.
+     */
+    protected boolean scoreOneResult(
+        String beginTimeStampAsString,
+        TreeMap<String, Integer> entityMap,
+        Duration windowDelay,
+        int intervalMinutes,
+        String detectorId,
+        RestClient client,
+        int numberOfEntities
+    ) {
+        Integer newCount = entityMap.compute(beginTimeStampAsString, (key, oldValue) -> (oldValue == null) ? 1 : oldValue + 1);
+        if (newCount > 1) {
+            // we have seen this timestamp before. Without this line, we will get rcf IllegalArgumentException about out of order tuples
+            return false;
+        }
+        Instant begin = dataToExecutionTime(Instant.ofEpochMilli(Long.parseLong(beginTimeStampAsString)), windowDelay);
+        Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
+        try {
+            runDetectionResult(detectorId, begin, end, client, numberOfEntities);
+        } catch (Exception e) {
+            LOG.error("failed to run detection result", e);
+            return true;
+        }
+        return false;
+    }
+
+    protected List<JsonObject> startRealTimeDetector(
+        TrainResult trainResult,
+        int numberOfEntities,
+        int intervalMinutes,
+        boolean imputeEnabled
+    ) throws Exception {
+        Instant executeBegin = dataToExecutionTime(trainResult.trainTime, trainResult.windowDelay);
+        Instant executeEnd = executeBegin.plus(intervalMinutes, ChronoUnit.MINUTES);
+        Instant dataEnd = trainResult.trainTime.plus(intervalMinutes, ChronoUnit.MINUTES);
+
+        LOG.info("start detector {}, dataStart {}, dataEnd {}", trainResult.detectorId, trainResult.trainTime, dataEnd);
+        simulateStartDetector(trainResult.detectorId, executeBegin, executeEnd, client(), numberOfEntities);
+        int resultsToWait = numberOfEntities;
+        if (!imputeEnabled) {
+            resultsToWait = findGivenTimeEntities(trainResult.rawDataTrainTestSplit - 1, trainResult.data);
+        }
+        LOG.info("wait for initting detector {}. {} results are expected.", trainResult.detectorId, resultsToWait);
+        return simulateWaitForInitDetector(trainResult.detectorId, client(), dataEnd, resultsToWait);
+    }
+
+    protected List<JsonObject> startHistoricalDetector(
+        TrainResult trainResult,
+        int numberOfEntities,
+        int intervalMinutes,
+        boolean imputeEnabled
+    ) throws Exception {
+        LOG.info("start historical detector {}", trainResult.detectorId);
+        startHistorical(trainResult.detectorId, trainResult.firstDataTime, trainResult.finalDataTime, client(), numberOfEntities);
+        int resultsToWait = numberOfEntities;
+        if (!imputeEnabled) {
+            findGivenTimeEntities(trainResult.data.size() - 1, trainResult.data);
+        }
+        LOG
+            .info(
+                "wait for historical detector {} at {}. {} results are expected.",
+                trainResult.detectorId,
+                trainResult.finalDataTime,
+                resultsToWait
+            );
+        return waitForHistoricalDetector(
+            trainResult.detectorId,
+            client(),
+            trainResult.finalDataTime,
+            resultsToWait,
+            intervalMinutes * 60000
+        );
+    }
+
+    public static boolean areDoublesEqual(double d1, double d2) {
+        return Math.abs(d1 - d2) < EPSILON;
     }
 }

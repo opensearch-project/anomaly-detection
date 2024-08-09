@@ -352,7 +352,12 @@ public class AnomalyResultResponse extends ResultResponse<AnomalyResult> {
                         pastValues,
                         expectedValuesList,
                         likelihoodOfValues,
-                        threshold
+                        threshold,
+                        // Starting from version 2.15, this class is used to store job execution errors, not actual results,
+                        // as the single stream has been changed to async mode. The job no longer waits for results before returning.
+                        // Therefore, we set the following two fields to null, as we will not record any imputed fields.
+                        null,
+                        null
                     )
             );
     }

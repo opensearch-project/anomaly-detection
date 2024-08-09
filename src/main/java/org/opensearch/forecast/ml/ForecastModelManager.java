@@ -21,6 +21,7 @@ import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.ml.ModelManager;
+import org.opensearch.timeseries.model.Config;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
@@ -49,7 +50,13 @@ public class ForecastModelManager extends
     }
 
     @Override
-    protected <RCFDescriptor extends AnomalyDescriptor> RCFCasterResult toResult(RandomCutForest forecast, RCFDescriptor castDescriptor) {
+    protected <RCFDescriptor extends AnomalyDescriptor> RCFCasterResult toResult(
+        RandomCutForest forecast,
+        RCFDescriptor castDescriptor,
+        double[] point,
+        boolean isImputed,
+        Config config
+    ) {
         if (castDescriptor instanceof ForecastDescriptor) {
             ForecastDescriptor forecastDescriptor = (ForecastDescriptor) castDescriptor;
             // Use forecastDescriptor in the rest of your method

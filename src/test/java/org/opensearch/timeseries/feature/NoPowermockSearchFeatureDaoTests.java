@@ -643,7 +643,7 @@ public class NoPowermockSearchFeatureDaoTests extends AbstractTimeSeriesTest {
             true
         );
 
-        Optional<double[]> parsedResult = searchFeatureDao.parseBucket(bucket, Arrays.asList(featureId));
+        Optional<double[]> parsedResult = searchFeatureDao.parseBucket(bucket, Arrays.asList(featureId), false);
 
         assertTrue(parsedResult.isPresent());
         double[] parsedCardinality = parsedResult.get();

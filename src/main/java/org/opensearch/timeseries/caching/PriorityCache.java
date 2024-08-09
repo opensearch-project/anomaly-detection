@@ -762,6 +762,21 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
     }
 
     /**
+     * Gets a config's modelStates hosted on a node
+     *
+     * @return list of modelStates
+     */
+    @Override
+    public List<ModelState<RCFModelType>> getAllModels(String configId) {
+        List<ModelState<RCFModelType>> states = new ArrayList<>();
+        CacheBufferType cacheBuffer = activeEnities.get(configId);
+        if (cacheBuffer != null) {
+            states.addAll(cacheBuffer.getAllModelStates());
+        }
+        return states;
+    }
+
+    /**
      * Gets all of a config's model sizes hosted on a node
      *
      * @param configId config Id

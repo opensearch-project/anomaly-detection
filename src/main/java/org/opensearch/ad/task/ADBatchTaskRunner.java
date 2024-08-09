@@ -25,6 +25,7 @@ import static org.opensearch.timeseries.stats.StatNames.AD_EXECUTING_BATCH_TASK_
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,7 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -87,6 +89,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.FeatureData;
@@ -105,7 +108,6 @@ import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.RandomCutForest;
-import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1087,62 +1089,61 @@ public class ADBatchTaskRunner {
         List<AnomalyResult> anomalyResults = new ArrayList<>();
 
         long intervalEndTime = pieceStartTime;
+        AnomalyDetector detector = adTask.getDetector();
         for (int i = 0; i < pieceSize && intervalEndTime < dataEndTime; i++) {
             Optional<double[]> dataPoint = dataPoints.containsKey(intervalEndTime) ? dataPoints.get(intervalEndTime) : Optional.empty();
             intervalEndTime = intervalEndTime + interval;
+            Instant pieceDataStartTime = Instant.ofEpochMilli(intervalEndTime - interval);
+            Instant pieceDataEndTime = Instant.ofEpochMilli(intervalEndTime);
 
-            if (dataPoint.isEmpty()) {
+            if (dataPoint.isEmpty() && detector.getImputationOption() == null) {
                 AnomalyResult anomalyResult = new AnomalyResult(
                     adTask.getConfigId(),
                     adTask.getConfigLevelTaskId(),
                     null,
-                    Instant.ofEpochMilli(intervalEndTime - interval),
-                    Instant.ofEpochMilli(intervalEndTime),
+                    pieceDataStartTime,
+                    pieceDataEndTime,
                     executeStartTime,
                     Instant.now(),
                     "No data in current detection window",
                     Optional.ofNullable(adTask.getEntity()),
-                    adTask.getDetector().getUser(),
+                    detector.getUser(),
                     anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                     adTask.getEntityModelId()
                 );
                 anomalyResults.add(anomalyResult);
             } else {
-                List<FeatureData> featureData = ParseUtils.getFeatureData(dataPoint.get(), adTask.getDetector());
-                // 0 is placeholder for timestamp. In the future, we will add
-                // data time stamp there.
-                AnomalyDescriptor descriptor = trcf.process(dataPoint.get(), intervalEndTime);
-                double score = descriptor.getRCFScore();
-                if (!adTaskCacheManager.isThresholdModelTrained(taskId) && score > 0) {
+                // dataPoint is empty or or dataPoint may have partial results (missing feature value is Double.NaN) or imputation option is
+                // not null
+                double[] toScore = null;
+                if (dataPoint.isEmpty()) {
+                    toScore = new double[detector.getEnabledFeatureIds().size()];
+                    Arrays.fill(toScore, Double.NaN);
+                } else {
+                    toScore = dataPoint.get();
+                }
+                ThresholdingResult thresholdingResult = modelManager
+                    .score(new Sample(toScore, pieceDataStartTime, pieceDataEndTime), detector, trcf);
+                if (!adTaskCacheManager.isThresholdModelTrained(taskId) && thresholdingResult.getRcfScore() > 0) {
                     adTaskCacheManager.setThresholdModelTrained(taskId, true);
                 }
+                List<FeatureData> featureData = ParseUtils.getFeatureData(toScore, adTask.getDetector());
 
-                AnomalyResult anomalyResult = AnomalyResult
-                    .fromRawTRCFResult(
-                        adTask.getConfigId(),
-                        adTask.getDetector().getIntervalInMilliseconds(),
-                        adTask.getConfigLevelTaskId(),
-                        score,
-                        descriptor.getAnomalyGrade(),
-                        descriptor.getDataConfidence(),
-                        featureData,
-                        Instant.ofEpochMilli(intervalEndTime - interval),
-                        Instant.ofEpochMilli(intervalEndTime),
+                List<AnomalyResult> indexableResults = thresholdingResult
+                    .toIndexableResults(
+                        detector,
+                        pieceDataStartTime,
+                        pieceDataEndTime,
                         executeStartTime,
                         Instant.now(),
-                        null,
+                        featureData,
                         Optional.ofNullable(adTask.getEntity()),
-                        adTask.getDetector().getUser(),
                         anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT),
                         adTask.getEntityModelId(),
-                        modelManager.normalizeAttribution(trcf.getForest(), descriptor.getRelevantAttribution()),
-                        descriptor.getRelativeIndex(),
-                        descriptor.getPastValues(),
-                        descriptor.getExpectedValuesList(),
-                        descriptor.getLikelihoodOfValues(),
-                        descriptor.getThreshold()
+                        adTask.getConfigLevelTaskId(),
+                        null
                     );
-                anomalyResults.add(anomalyResult);
+                anomalyResults.addAll(indexableResults);
             }
         }
 
@@ -1300,7 +1301,14 @@ public class ADBatchTaskRunner {
                     );
             }, TimeValue.timeValueSeconds(pieceIntervalSeconds), AD_BATCH_TASK_THREAD_POOL_NAME);
         } else {
-            logger.info("AD task finished for detector {}, task id: {}", detectorId, taskId);
+            logger
+                .info(
+                    "AD task finished for detector {}, task id: {}, pieceStartTime: {}, dataEndTime: {}",
+                    detectorId,
+                    taskId,
+                    pieceStartTime,
+                    dataEndTime
+                );
             adTaskCacheManager.remove(taskId, detectorId, detectorTaskId);
             adTaskManager
                 .updateTask(

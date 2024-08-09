@@ -61,7 +61,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
     Integer customResultIndexTTL = null;
 
     public void testForecasterConstructor() {
-        ImputationOption imputationOption = TestHelpers.randomImputationOption(0);
+        ImputationOption imputationOption = TestHelpers.randomImputationOption(features);
 
         Forecaster forecaster = new Forecaster(
             forecasterId,
@@ -135,7 +135,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 user,
                 resultIndex,
                 horizon,
-                TestHelpers.randomImputationOption(0),
+                TestHelpers.randomImputationOption(features),
                 recencyEmphasis,
                 seasonality,
                 randomIntBetween(1, 1000),
@@ -173,7 +173,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 user,
                 resultIndex,
                 horizon,
-                TestHelpers.randomImputationOption(0),
+                TestHelpers.randomImputationOption(features),
                 recencyEmphasis,
                 seasonality,
                 randomIntBetween(1, 1000),
@@ -211,7 +211,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 user,
                 resultIndex,
                 horizon,
-                TestHelpers.randomImputationOption(0),
+                TestHelpers.randomImputationOption(features),
                 recencyEmphasis,
                 seasonality,
                 randomIntBetween(1, 1000),
@@ -249,7 +249,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 user,
                 resultIndex,
                 horizon,
-                TestHelpers.randomImputationOption(0),
+                TestHelpers.randomImputationOption(features),
                 recencyEmphasis,
                 seasonality,
                 randomIntBetween(1, 1000),
@@ -287,7 +287,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 user,
                 resultIndex,
                 horizon,
-                TestHelpers.randomImputationOption(0),
+                TestHelpers.randomImputationOption(features),
                 recencyEmphasis,
                 seasonality,
                 randomIntBetween(1, 1000),
@@ -324,7 +324,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             user,
             resultIndex,
             horizon,
-            TestHelpers.randomImputationOption(0),
+            TestHelpers.randomImputationOption(features),
             recencyEmphasis,
             seasonality,
             randomIntBetween(1, 1000),
@@ -359,7 +359,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 user,
                 resultIndex,
                 horizon,
-                TestHelpers.randomImputationOption(0),
+                TestHelpers.randomImputationOption(features),
                 recencyEmphasis,
                 seasonality,
                 randomIntBetween(1, 1000),

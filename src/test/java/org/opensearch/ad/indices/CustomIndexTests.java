@@ -224,6 +224,14 @@ public class CustomIndexTests extends AbstractTimeSeriesTest {
         roles_mapping.put("fields", Collections.singletonMap("keyword", Collections.singletonMap("type", "keyword")));
         user_nested_mapping.put("roles", roles_mapping);
         mappings.put(CommonName.USER_FIELD, user_mapping);
+
+        Map<String, Object> imputed_mapping = new HashMap<>();
+        imputed_mapping.put("type", "nested");
+        mappings.put(AnomalyResult.FEATURE_IMPUTED, imputed_mapping);
+        Map<String, Object> imputed_nested_mapping = new HashMap<>();
+        imputed_mapping.put(CommonName.PROPERTIES, imputed_nested_mapping);
+        imputed_nested_mapping.put("feature_id", Collections.singletonMap("type", "keyword"));
+        imputed_nested_mapping.put("imputed", Collections.singletonMap("type", "boolean"));
         return mappings;
     }
 

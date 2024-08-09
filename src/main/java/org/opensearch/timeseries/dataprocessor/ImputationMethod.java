@@ -18,8 +18,4 @@ public enum ImputationMethod {
      * This method replaces missing values with the last known value in the respective input dimension. It's a commonly used method for time series data, where temporal continuity is expected.
      */
     PREVIOUS,
-    /**
-     * This method estimates missing values by interpolating linearly between known values in the respective input dimension. This method assumes that the data follows a linear trend.
-     */
-    LINEAR
 }

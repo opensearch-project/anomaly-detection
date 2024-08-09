@@ -9,12 +9,14 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 
 import java.io.IOException;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.annotation.Generated;
 
 import com.google.common.base.Objects;
 
@@ -79,10 +81,12 @@ public class DataByFeatureId implements ToXContentObject, Writeable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         DataByFeatureId that = (DataByFeatureId) o;
         return Objects.equal(getFeatureId(), that.getFeatureId()) && Objects.equal(getData(), that.getData());
     }
@@ -100,10 +104,19 @@ public class DataByFeatureId implements ToXContentObject, Writeable {
         return data;
     }
 
+    public void setData(Double data) {
+        this.data = data;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(featureId);
         out.writeDouble(data);
     }
 
+    @Generated
+    @Override
+    public String toString() {
+        return super.toString() + ", " + new ToStringBuilder(this).append("featureId", featureId).append("data", data).toString();
+    }
 }

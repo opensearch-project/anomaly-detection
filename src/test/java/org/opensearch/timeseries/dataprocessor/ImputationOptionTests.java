@@ -6,8 +6,11 @@
 package org.opensearch.timeseries.dataprocessor;
 
 import java.io.IOException;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
+import org.junit.BeforeClass;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -19,14 +22,46 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.test.OpenSearchTestCase;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class ImputationOptionTests extends OpenSearchTestCase {
+    private static ObjectMapper mapper;
+    private static Map<String, Double> map;
+    private static String xContent;
+
+    @BeforeClass
+    public static void setUpOnce() {
+        mapper = new ObjectMapper();
+        double[] defaultFill = { 1.0, 2.0, 3.0 };
+        map = new HashMap<>();
+        map.put("a", defaultFill[0]);
+        map.put("b", defaultFill[1]);
+        map.put("c", defaultFill[2]);
+
+        xContent = "{"
+            + "\"method\":\"FIXED_VALUES\","
+            + "\"defaultFill\":[{\"feature_name\":\"a\", \"data\":1.0},{\"feature_name\":\"b\", \"data\":2.0},{\"feature_name\":\"c\", \"data\":3.0}]}";
+    }
+
+    private Map<String, Double> randomMap(double[] defaultFill) {
+        Map<String, Double> map = new HashMap<>();
+
+        for (int i = 0; i < defaultFill.length; i++) {
+            String randomKey = UUID.randomUUID().toString(); // generate a random UUID string as the key
+            map.put(randomKey, defaultFill[i]);
+        }
+
+        return map;
+    }
 
     public void testStreamInputAndOutput() throws IOException {
         // Prepare the data to be read by the StreamInput object.
         ImputationMethod method = ImputationMethod.PREVIOUS;
         double[] defaultFill = { 1.0, 2.0, 3.0 };
+        Map<String, Double> map1 = randomMap(defaultFill);
 
-        ImputationOption option = new ImputationOption(method, Optional.of(defaultFill), false);
+        ImputationOption option = new ImputationOption(method, map1);
 
         // Write the ImputationOption to the StreamOutput.
         BytesStreamOutput out = new BytesStreamOutput();
@@ -39,26 +74,25 @@ public class ImputationOptionTests extends OpenSearchTestCase {
 
         // Check that the created ImputationOption has the correct values.
         assertEquals(method, inOption.getMethod());
-        assertArrayEquals(defaultFill, inOption.getDefaultFill().get(), 1e-6);
+        assertEquals(map1, inOption.getDefaultFill());
     }
 
     public void testToXContent() throws IOException {
-        double[] defaultFill = { 1.0, 2.0, 3.0 };
-        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill), false);
 
-        String xContent = "{" + "\"method\":\"FIXED_VALUES\"," + "\"defaultFill\":[1.0,2.0,3.0],\"integerSensitive\":false" + "}";
+        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, map);
 
         XContentBuilder builder = imputationOption.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS);
         String actualJson = BytesReference.bytes(builder).utf8ToString();
 
-        assertEquals(xContent, actualJson);
+        JsonNode expectedTree = mapper.readTree(xContent);
+        JsonNode actualTree = mapper.readTree(actualJson);
+
+        assertEquals(expectedTree, actualTree);
     }
 
     public void testParse() throws IOException {
-        String xContent = "{" + "\"method\":\"FIXED_VALUES\"," + "\"defaultFill\":[1.0,2.0,3.0],\"integerSensitive\":false" + "}";
 
-        double[] defaultFill = { 1.0, 2.0, 3.0 };
-        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill), false);
+        ImputationOption imputationOption = new ImputationOption(ImputationMethod.FIXED_VALUES, map);
 
         try (
             XContentParser parser = JsonXContent.jsonXContent
@@ -73,22 +107,24 @@ public class ImputationOptionTests extends OpenSearchTestCase {
             ImputationOption parsedOption = ImputationOption.parse(parser);
 
             assertEquals(imputationOption.getMethod(), parsedOption.getMethod());
-            assertTrue(imputationOption.getDefaultFill().isPresent());
-            assertTrue(parsedOption.getDefaultFill().isPresent());
-            assertEquals(imputationOption.getDefaultFill().get().length, parsedOption.getDefaultFill().get().length);
-            for (int i = 0; i < imputationOption.getDefaultFill().get().length; i++) {
-                assertEquals(imputationOption.getDefaultFill().get()[i], parsedOption.getDefaultFill().get()[i], 0);
-            }
+            assertTrue(imputationOption.getDefaultFill().size() > 0);
+            assertTrue(parsedOption.getDefaultFill().size() > 0);
+
+            // The assertEquals method checks if the two maps are equal. The Map interface's equals method ensures that
+            // the maps are considered equal if they contain the same key-value pairs, regardless of the order in which
+            // they were inserted.
+            assertEquals(imputationOption.getDefaultFill(), parsedOption.getDefaultFill());
         }
     }
 
     public void testEqualsAndHashCode() {
         double[] defaultFill1 = { 1.0, 2.0, 3.0 };
-        double[] defaultFill2 = { 4.0, 5.0, 6.0 };
 
-        ImputationOption option1 = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1), false);
-        ImputationOption option2 = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1), false);
-        ImputationOption option3 = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill2), false);
+        Map<String, Double> map1 = randomMap(defaultFill1);
+
+        ImputationOption option1 = new ImputationOption(ImputationMethod.FIXED_VALUES, map1);
+        ImputationOption option2 = new ImputationOption(ImputationMethod.FIXED_VALUES, map1);
+        ImputationOption option3 = new ImputationOption(ImputationMethod.PREVIOUS);
 
         // Test reflexivity
         assertTrue(option1.equals(option1));
@@ -98,7 +134,7 @@ public class ImputationOptionTests extends OpenSearchTestCase {
         assertTrue(option2.equals(option1));
 
         // Test transitivity
-        ImputationOption option2Clone = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill1), false);
+        ImputationOption option2Clone = new ImputationOption(ImputationMethod.FIXED_VALUES, map1);
         assertTrue(option1.equals(option2));
         assertTrue(option2.equals(option2Clone));
         assertTrue(option1.equals(option2Clone));

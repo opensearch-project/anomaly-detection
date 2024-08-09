@@ -1,0 +1,50 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.ad.ml;
+
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME;
+
+import org.opensearch.ad.caching.ADCacheProvider;
+import org.opensearch.ad.caching.ADPriorityCache;
+import org.opensearch.ad.indices.ADIndex;
+import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
+import org.opensearch.ad.ratelimit.ADColdStartWorker;
+import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
+import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.ml.Inferencer;
+import org.opensearch.timeseries.stats.StatNames;
+import org.opensearch.timeseries.stats.Stats;
+
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
+
+public class ADInferencer extends
+    Inferencer<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADSaveResultStrategy, ADPriorityCache, ADColdStartWorker> {
+
+    public ADInferencer(
+        ADModelManager modelManager,
+        Stats stats,
+        ADCheckpointDao checkpointDao,
+        ADColdStartWorker coldStartWorker,
+        ADSaveResultStrategy resultWriteWorker,
+        ADCacheProvider cache,
+        ThreadPool threadPool
+    ) {
+        super(
+            modelManager,
+            stats,
+            StatNames.AD_MODEL_CORRUTPION_COUNT.getName(),
+            checkpointDao,
+            coldStartWorker,
+            resultWriteWorker,
+            cache,
+            threadPool,
+            AD_THREAD_POOL_NAME
+        );
+    }
+
+}

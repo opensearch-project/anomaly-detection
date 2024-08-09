@@ -51,7 +51,6 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
-import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
@@ -150,10 +149,10 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     /**
-     * Returns to listener the epoch time of the latset data under the detector.
+     * Returns to listener the epoch time of the latest data under the detector.
      *
      * @param config info about the data
-     * @param listener onResponse is called with the epoch time of the latset data under the detector
+     * @param listener onResponse is called with the epoch time of the latest data under the detector
      */
     public void getLatestDataTime(Config config, Optional<Entity> entity, AnalysisType context, ActionListener<Optional<Long>> listener) {
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
@@ -525,7 +524,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     public void getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ActionListener<Optional<double[]>> listener) {
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
-            .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds())), listener::onFailure);
+            .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds(), true)), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
         // checkpoint
         clientUtil
@@ -551,7 +550,7 @@ public class SearchFeatureDao extends AbstractRetriever {
 
         SearchRequest searchRequest = new SearchRequest(detector.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
-            listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds()));
+            listener.onResponse(parseBucketAggregationResponse(response, detector.getEnabledFeatureIds(), true));
         }, listener::onFailure);
         // inject user role while searching.
         clientUtil
@@ -565,31 +564,41 @@ public class SearchFeatureDao extends AbstractRetriever {
             );
     }
 
-    private Map<Long, Optional<double[]>> parseBucketAggregationResponse(SearchResponse response, List<String> featureIds) {
+    private Map<Long, Optional<double[]>> parseBucketAggregationResponse(
+        SearchResponse response,
+        List<String> featureIds,
+        boolean keepMissingValue
+    ) {
         Map<Long, Optional<double[]>> dataPoints = new HashMap<>();
         List<Aggregation> aggregations = response.getAggregations().asList();
         logger.debug("Feature aggregation result size {}", aggregations.size());
         for (Aggregation agg : aggregations) {
             List<InternalComposite.InternalBucket> buckets = ((InternalComposite) agg).getBuckets();
             buckets.forEach(bucket -> {
-                Optional<double[]> featureData = parseAggregations(Optional.ofNullable(bucket.getAggregations()), featureIds);
+                Optional<double[]> featureData = parseAggregations(
+                    Optional.ofNullable(bucket.getAggregations()),
+                    featureIds,
+                    keepMissingValue
+                );
                 dataPoints.put((Long) bucket.getKey().get(CommonName.DATE_HISTOGRAM), featureData);
             });
         }
         return dataPoints;
     }
 
-    public Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds) {
-        return parseAggregations(Optional.ofNullable(response).map(resp -> resp.getAggregations()), featureIds);
+    public Optional<double[]> parseResponse(SearchResponse response, List<String> featureIds, boolean keepMissingData) {
+        return parseAggregations(Optional.ofNullable(response).map(resp -> resp.getAggregations()), featureIds, keepMissingData);
     }
 
     /**
-     * Gets samples of features for the time ranges.
+     * Gets features for the time ranges.
      *
-     * Sampled features are not true features. They are intended to be approximate results produced at low costs.
+     * If called by preview API, sampled features are not true features.
+     * They are intended to be approximate results produced at low costs.
      *
      * @param config info about the indices, documents, feature query
      * @param ranges list of time ranges
+     * @param keepMissingValues whether to keep missing values or not in the result
      * @param listener handle approximate features for the time ranges
      * @throws IOException if a user gives wrong query input when defining a detector
      */
@@ -597,9 +606,10 @@ public class SearchFeatureDao extends AbstractRetriever {
         Config config,
         List<Entry<Long, Long>> ranges,
         AnalysisType context,
+        boolean keepMissingValues,
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
-        SearchRequest request = createPreviewSearchRequest(config, ranges);
+        SearchRequest request = createRangeSearchRequest(config, ranges);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
@@ -613,7 +623,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                         .stream()
                         .filter(InternalDateRange.class::isInstance)
                         .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
-                        .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()))
+                        .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds(), keepMissingValues))
                         .collect(Collectors.toList())
                 );
         }, listener::onFailure);
@@ -640,9 +650,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         }
     }
 
-    private SearchRequest createPreviewSearchRequest(Config config, List<Entry<Long, Long>> ranges) throws IOException {
+    private SearchRequest createRangeSearchRequest(Config config, List<Entry<Long, Long>> ranges) throws IOException {
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generatePreviewQuery(config, ranges, xContent);
+            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateRangeQuery(config, ranges, xContent);
             return new SearchRequest(config.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger.warn("Failed to create feature search request for " + config.getId() + " for preview", e);
@@ -752,7 +762,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
             .filter(bucket -> bucket.getDocCount() > docCountThreshold)
             .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
-            .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()))
+            .map(bucket -> parseBucket(bucket, config.getEnabledFeatureIds(), false))
             .collect(Collectors.toList());
     }
 
@@ -801,7 +811,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
             .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
             .filter(bucket -> bucket.getDocCount() > docCountThreshold)
-            .filter(bucket -> parseBucket(bucket, config.getEnabledFeatureIds()).isPresent())
+            .filter(bucket -> parseBucket(bucket, config.getEnabledFeatureIds(), false).isPresent())
             .sorted(Comparator.comparing((Bucket bucket) -> (ZonedDateTime) bucket.getFrom()))
             .map(bucket -> ((ZonedDateTime) bucket.getFrom()).toInstant().toEpochMilli())
             .collect(Collectors.toList());
@@ -849,11 +859,6 @@ public class SearchFeatureDao extends AbstractRetriever {
                 );
             throw new IllegalStateException(e);
         }
-    }
-
-    @Override
-    public Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
-        return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds);
     }
 
     /**

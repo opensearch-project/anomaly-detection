@@ -7,6 +7,9 @@ on:
     branches:
       - "*"
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   Get-CI-Image-Tag:
     uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
@@ -19,7 +22,7 @@ jobs:
     strategy:
       matrix:
         # each test scenario (rule, hc, single_stream) is treated as a separate job.
-        test: [rule, hc, single_stream]
+        test: [rule, hc, single_stream,missing]
       fail-fast: false
     concurrency:
       # The concurrency setting is used to limit the concurrency of each test scenario group to ensure they do not run concurrently on the same machine. 
@@ -48,11 +51,16 @@ jobs:
           chown -R 1000:1000 `pwd`
           case ${{ matrix.test }} in
             rule)
-              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.RuleModelPerfIT' \
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.RealTimeRuleModelPerfIT' \
                 -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
                 -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
                 -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dmodel-benchmark=true \
                 -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.HistoricalRuleModelPerfIT' \
+                                -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
+                                -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
+                                -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dmodel-benchmark=true \
+                                -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
               ;;
             hc)
               su `id -un 1000` -c "./gradlew ':test' --tests 'org.opensearch.ad.ml.HCADModelPerfTests' \
@@ -65,5 +73,11 @@ jobs:
                 -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false \
                 -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true \
                 -Dtests.timeoutSuite=3600000! -Dmodel-benchmark=true"
+              ;;
+            missing)
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.RealTimeMissingSingleFeatureModelPerfIT' \
+                            -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false \
+                            -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true \
+                            -Dtests.timeoutSuite=3600000! -Dmodel-benchmark=true"
               ;;
           esac

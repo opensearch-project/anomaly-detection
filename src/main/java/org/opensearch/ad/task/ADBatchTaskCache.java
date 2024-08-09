@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.timeseries.ml.ModelColdStart;
@@ -84,6 +85,8 @@ public class ADBatchTaskCache {
             // imputation with shingle size 1 is not meaningful
             rcfBuilder.forestMode(ForestMode.STANDARD);
         }
+
+        ADColdStart.applyRule(rcfBuilder, detector);
 
         rcfModel = rcfBuilder.build();
         this.thresholdModelTrained = false;

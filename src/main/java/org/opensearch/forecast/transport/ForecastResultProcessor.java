@@ -46,7 +46,6 @@ public class ForecastResultProcessor extends
 
     public ForecastResultProcessor(
         Setting<TimeValue> requestTimeoutSetting,
-        float intervalRatioForRequests,
         String entityResultAction,
         StatNames hcRequestCountStat,
         Settings settings,
@@ -68,7 +67,6 @@ public class ForecastResultProcessor extends
     ) {
         super(
             requestTimeoutSetting,
-            intervalRatioForRequests,
             entityResultAction,
             hcRequestCountStat,
             settings,
@@ -106,4 +104,8 @@ public class ForecastResultProcessor extends
         return new ForecastResultResponse(features, error, rcfTotalUpdates, configInterval, isHC, taskId);
     }
 
+    @Override
+    protected void imputeHC(long dataStartTime, long dataEndTime, String configID, String taskId) {
+        // no imputation for forecasting as on the fly imputation and error estimation should not mix
+    }
 }

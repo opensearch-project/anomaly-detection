@@ -36,8 +36,11 @@ public class BulkUtil {
 
         Set<String> failedId = new HashSet<>();
         for (BulkItemResponse response : bulkResponse.getItems()) {
-            if (response.isFailed() && ExceptionUtil.isRetryAble(response.getFailure().getStatus())) {
-                failedId.add(response.getId());
+            if (response.isFailed()) {
+                logger.info("bulk indexing failure: {}", response.getFailureMessage());
+                if (ExceptionUtil.isRetryAble(response.getFailure().getStatus())) {
+                    failedId.add(response.getId());
+                }
             }
         }
 

@@ -226,7 +226,7 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
     }
 
     @Override
-    protected String getDuplicateConfigErrorMsg(String name) {
+    public String getDuplicateConfigErrorMsg(String name) {
         return String.format(Locale.ROOT, DUPLICATE_FORECASTER_MSG, name);
     }
 

@@ -24,10 +24,10 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
+import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.stats.ADStats;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Provider;
 import org.opensearch.common.settings.Setting;
@@ -38,7 +38,6 @@ import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.ratelimit.CheckpointReadWorker;
-import org.opensearch.timeseries.stats.StatNames;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
@@ -55,7 +54,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  *
  */
 public class ADCheckpointReadWorker extends
-    CheckpointReadWorker<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker> {
+    CheckpointReadWorker<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADInferencer> {
     public static final String WORKER_NAME = "ad-checkpoint-read";
 
     public ADCheckpointReadWorker(
@@ -77,12 +76,10 @@ public class ADCheckpointReadWorker extends
         ADCheckpointDao checkpointDao,
         ADColdStartWorker entityColdStartQueue,
         NodeStateManager stateManager,
-        ADIndexManagement indexUtil,
         Provider<ADPriorityCache> cacheProvider,
         Duration stateTtl,
         ADCheckpointWriteWorker checkpointWriteQueue,
-        ADStats adStats,
-        ADSaveResultStrategy resultWriteWorker
+        ADInferencer inferencer
     ) {
         super(
             WORKER_NAME,
@@ -105,17 +102,14 @@ public class ADCheckpointReadWorker extends
             checkpointDao,
             entityColdStartQueue,
             stateManager,
-            indexUtil,
             cacheProvider,
             stateTtl,
             checkpointWriteQueue,
-            adStats,
             AD_CHECKPOINT_READ_QUEUE_CONCURRENCY,
             AD_CHECKPOINT_READ_QUEUE_BATCH_SIZE,
             ADCommonName.CHECKPOINT_INDEX_NAME,
-            StatNames.AD_MODEL_CORRUTPION_COUNT,
             AnalysisType.AD,
-            resultWriteWorker
+            inferencer
         );
     }
 }
