@@ -477,24 +477,18 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
     }
 
     public void testParseNullCustomResultIndex_nullFlattenResultIndexMapping() throws IOException {
-        Forecaster forecaster = TestHelpers.ForecasterBuilder
-                .newInstance()
-                .setFlattenResultIndexMapping(null)
-                .build();
+        Forecaster forecaster = TestHelpers.ForecasterBuilder.newInstance().setFlattenResultIndexMapping(null).build();
         String forecasterString = TestHelpers
-                .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(forecasterString);
         Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
         assertEquals(forecaster, parsedForecaster);
     }
 
     public void testValidCustomResultIndex_withFlattenResultIndexMapping() throws IOException {
-        Forecaster forecaster = TestHelpers.ForecasterBuilder
-                .newInstance()
-                .setFlattenResultIndexMapping(true)
-                .build();
+        Forecaster forecaster = TestHelpers.ForecasterBuilder.newInstance().setFlattenResultIndexMapping(true).build();
         String forecasterString = TestHelpers
-                .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(forecasterString);
         Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
         assertEquals(forecaster, parsedForecaster);
