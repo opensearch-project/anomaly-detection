@@ -48,8 +48,8 @@ import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
-import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -103,7 +103,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
     FeatureRequest request, request2, request3;
     ClusterSettings clusterSettings;
     ADStats adStats;
-    ADInferencer inferencer;
+    ADRealTimeInferencer inferencer;
 
     @Override
     public void setUp() throws Exception {
@@ -152,7 +152,15 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         };
 
         adStats = new ADStats(statsMap);
-        inferencer = new ADInferencer(modelManager, adStats, checkpoint, coldstartQueue, resultWriteStrategy, cacheProvider, threadPool);
+        inferencer = new ADRealTimeInferencer(
+            modelManager,
+            adStats,
+            checkpoint,
+            coldstartQueue,
+            resultWriteStrategy,
+            cacheProvider,
+            threadPool
+        );
 
         // Integer.MAX_VALUE makes a huge heap
         worker = new ADCheckpointReadWorker(
@@ -180,9 +188,33 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             inferencer
         );
 
-        request = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, new double[] { 0 }, 0, entity, null);
-        request2 = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, new double[] { 0 }, 0, entity2, null);
-        request3 = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, new double[] { 0 }, 0, entity3, null);
+        request = new FeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 0 },
+            System.currentTimeMillis(),
+            entity,
+            null
+        );
+        request2 = new FeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 0 },
+            System.currentTimeMillis(),
+            entity2,
+            null
+        );
+        request3 = new FeatureRequest(
+            Integer.MAX_VALUE,
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 0 },
+            System.currentTimeMillis(),
+            entity3,
+            null
+        );
     }
 
     static class RegularSetUpConfig {

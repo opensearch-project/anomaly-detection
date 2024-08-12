@@ -24,8 +24,8 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
-import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.cluster.service.ClusterService;
@@ -54,7 +54,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  *
  */
 public class ADCheckpointReadWorker extends
-    CheckpointReadWorker<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADInferencer> {
+    CheckpointReadWorker<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADRealTimeInferencer> {
     public static final String WORKER_NAME = "ad-checkpoint-read";
 
     public ADCheckpointReadWorker(
@@ -79,7 +79,7 @@ public class ADCheckpointReadWorker extends
         Provider<ADPriorityCache> cacheProvider,
         Duration stateTtl,
         ADCheckpointWriteWorker checkpointWriteQueue,
-        ADInferencer inferencer
+        ADRealTimeInferencer inferencer
     ) {
         super(
             WORKER_NAME,

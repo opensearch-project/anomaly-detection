@@ -25,18 +25,22 @@ import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
 import org.opensearch.timeseries.ratelimit.ColdStartWorker;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.ratelimit.SaveResultStrategy;
 import org.opensearch.timeseries.stats.Stats;
-import org.opensearch.timeseries.util.TimeUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class Inferencer<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriterType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, CacheType extends TimeSeriesCache<RCFModelType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>> {
-    private static final Logger LOG = LogManager.getLogger(Inferencer.class);
+/**
+ * Since we assume model state's last access time is current time and compare it with incoming data's execution time,
+ * this class is only meant to be used by real time analysis.
+ */
+public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriterType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, CacheType extends TimeSeriesCache<RCFModelType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>> {
+    private static final Logger LOG = LogManager.getLogger(RealTimeInferencer.class);
     protected ModelManagerType modelManager;
     protected Stats stats;
     private String modelCorruptionStat;
@@ -48,7 +52,7 @@ public abstract class Inferencer<RCFModelType extends ThresholdedRandomCutForest
     private ThreadPool threadPool;
     private String threadPoolName;
 
-    public Inferencer(
+    public RealTimeInferencer(
         ModelManagerType modelManager,
         Stats stats,
         String modelCorruptionStat,
@@ -83,17 +87,29 @@ public abstract class Inferencer<RCFModelType extends ThresholdedRandomCutForest
      * @return whether process succeeds or not
      */
     public boolean process(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId) {
-        long expiryEpoch = TimeUtil.calculateTimeoutMillis(config, sample.getDataEndTime().toEpochMilli());
-        return processWithTimeout(sample, modelState, config, taskId, expiryEpoch);
+        long windowDelayMillis = config.getWindowDelay() == null
+            ? 0
+            : ((IntervalTimeConfiguration) config.getWindowDelay()).toDuration().toMillis();
+        long curExecutionEnd = sample.getDataEndTime().toEpochMilli() + windowDelayMillis;
+        long nextExecutionEnd = curExecutionEnd + config.getIntervalInMilliseconds();
+
+        return processWithTimeout(sample, modelState, config, taskId, curExecutionEnd, nextExecutionEnd);
     }
 
-    private boolean processWithTimeout(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId, long expiryEpoch) {
+    private boolean processWithTimeout(
+        Sample sample,
+        ModelState<RCFModelType> modelState,
+        Config config,
+        String taskId,
+        long curExecutionEnd,
+        long nextExecutionEnd
+    ) {
         String modelId = modelState.getModelId();
         ReentrantLock lock = (ReentrantLock) modelLocks.computeIfAbsent(modelId, k -> new ReentrantLock());
 
         if (lock.tryLock()) {
             try {
-                tryProcess(sample, modelState, config, taskId);
+                tryProcess(sample, modelState, config, taskId, curExecutionEnd);
             } finally {
                 if (lock.isHeldByCurrentThread()) {
                     lock.unlock();
@@ -101,13 +117,13 @@ public abstract class Inferencer<RCFModelType extends ThresholdedRandomCutForest
             }
             return true;
         } else {
-            if (System.currentTimeMillis() >= expiryEpoch) {
+            if (System.currentTimeMillis() >= nextExecutionEnd) {
                 LOG.warn("Timeout reached, not retrying.");
             } else {
                 // Schedule a retry in one second
                 threadPool
                     .schedule(
-                        () -> processWithTimeout(sample, modelState, config, taskId, expiryEpoch),
+                        () -> processWithTimeout(sample, modelState, config, taskId, curExecutionEnd, nextExecutionEnd),
                         new TimeValue(1, TimeUnit.SECONDS),
                         threadPoolName
                     );
@@ -117,7 +133,14 @@ public abstract class Inferencer<RCFModelType extends ThresholdedRandomCutForest
         }
     }
 
-    private boolean tryProcess(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId) {
+    private boolean tryProcess(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId, long curExecutionEnd) {
+        // execution end time (when job starts execution in this interval) >= last used time => the model state is updated in
+        // previous intervals
+        // This can happen while scheduled to waiting some other threads have already scored the same interval (e.g., during tests
+        // when everything happens fast)
+        if (curExecutionEnd < modelState.getLastUsedTime().toEpochMilli()) {
+            return false;
+        }
         String modelId = modelState.getModelId();
         try {
             RCFResultType result = modelManager.getResult(sample, modelState, modelId, config, taskId);

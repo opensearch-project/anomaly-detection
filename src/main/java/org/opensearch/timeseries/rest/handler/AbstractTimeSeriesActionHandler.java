@@ -482,7 +482,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                             searchRequest,
                             ActionListener
                                 .wrap(
-                                    response -> onSearchSingleStreamConfigResponse(response, indexingDryRun, listener),
+                                    response -> onSearchTotalConfigResponse(response, indexingDryRun, listener),
                                     exception -> listener.onFailure(exception)
                                 )
                         );
@@ -496,7 +496,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
-    protected void onSearchSingleStreamConfigResponse(SearchResponse response, boolean indexingDryRun, ActionListener<T> listener)
+    protected void onSearchTotalConfigResponse(SearchResponse response, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
         if (response.getHits().getTotalHits().value >= getMaxSingleStreamConfigs()) {
             String errorMsgSingleEntity = getExceedMaxSingleStreamConfigsErrorMsg(getMaxSingleStreamConfigs());

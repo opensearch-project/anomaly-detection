@@ -18,7 +18,7 @@ import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.caching.ADCacheProvider;
-import org.opensearch.ad.ml.ADInferencer;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -41,7 +41,7 @@ public class ADHCImputeTransportAction extends
 
     private ADCacheProvider cache;
     private NodeStateManager nodeStateManager;
-    private ADInferencer adInferencer;
+    private ADRealTimeInferencer adInferencer;
 
     @Inject
     public ADHCImputeTransportAction(
@@ -51,7 +51,7 @@ public class ADHCImputeTransportAction extends
         ActionFilters actionFilters,
         ADCacheProvider priorityCache,
         NodeStateManager nodeStateManager,
-        ADInferencer adInferencer
+        ADRealTimeInferencer adInferencer
     ) {
         super(
             ADHCImputeAction.NAME,
@@ -104,9 +104,9 @@ public class ADHCImputeTransportAction extends
             long executionEndTime = dataEndMillis + windowDelayMillis;
             String taskId = nodeRequest.getRequest().getTaskId();
             for (ModelState<ThresholdedRandomCutForest> modelState : cache.get().getAllModels(configId)) {
-                // execution end time (when job starts execution in this interval) > last used time => the model state is updated in
+                // execution end time (when job starts execution in this interval) >= last used time => the model state is updated in
                 // previous intervals
-                if (executionEndTime > modelState.getLastUsedTime().toEpochMilli()) {
+                if (executionEndTime >= modelState.getLastUsedTime().toEpochMilli()) {
                     double[] nanArray = new double[featureSize];
                     Arrays.fill(nanArray, Double.NaN);
                     adInferencer

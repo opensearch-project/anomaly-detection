@@ -146,6 +146,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
          * x + y - y' != x.
          */
         long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes();
+
         Duration windowDelay = Duration.ofMinutes(windowDelayMinutes);
         return new TrainResult(null, data, rawDataTrainTestSplit, windowDelay, trainTime);
     }

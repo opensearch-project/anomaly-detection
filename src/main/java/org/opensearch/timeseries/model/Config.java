@@ -219,17 +219,17 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
 
         if (imputationOption != null && imputationOption.getMethod() == ImputationMethod.FIXED_VALUES) {
-            Map<String, Double> defaultFill = imputationOption.getDefaultFill();
-            if (defaultFill.isEmpty()) {
-                issueType = ValidationIssueType.IMPUTATION;
-                errorMessage = "No given values for fixed value interpolation";
-                return;
-            }
-
             // Calculate the number of enabled features
             List<Feature> enabledFeatures = features == null
                 ? null
                 : features.stream().filter(Feature::getEnabled).collect(Collectors.toList());
+
+            Map<String, Double> defaultFill = imputationOption.getDefaultFill();
+            if (defaultFill.isEmpty() && enabledFeatures.size() > 0) {
+                issueType = ValidationIssueType.IMPUTATION;
+                errorMessage = "No given values for fixed value imputation";
+                return;
+            }
 
             // Check if the length of the defaultFill array matches the number of expected features
             if (enabledFeatures == null || defaultFill.size() != enabledFeatures.size()) {
@@ -762,27 +762,27 @@ public abstract class Config implements Writeable, ToXContentObject {
     @Override
     public String toString() {
         return new ToStringBuilder(this)
-                .append("name", name)
-                .append("description", description)
-                .append("timeField", timeField)
-                .append("indices", indices)
-                .append("featureAttributes", featureAttributes)
-                .append("filterQuery", filterQuery)
-                .append("interval", interval)
-                .append("windowDelay", windowDelay)
-                .append("shingleSize", shingleSize)
-                .append("categoryFields", categoryFields)
-                .append("schemaVersion", schemaVersion)
-                .append("user", user)
-                .append("customResultIndex", customResultIndexOrAlias)
-                .append("imputationOption", imputationOption)
-                .append("recencyEmphasis", recencyEmphasis)
-                .append("seasonIntervals", seasonIntervals)
-                .append("historyIntervals", historyIntervals)
-                .append("customResultIndexMinSize", customResultIndexMinSize)
-                .append("customResultIndexMinAge", customResultIndexMinAge)
-                .append("customResultIndexTTL", customResultIndexTTL)
-                .append("flattenResultIndexMapping", flattenResultIndexMapping)
-                .toString();
+            .append("name", name)
+            .append("description", description)
+            .append("timeField", timeField)
+            .append("indices", indices)
+            .append("featureAttributes", featureAttributes)
+            .append("filterQuery", filterQuery)
+            .append("interval", interval)
+            .append("windowDelay", windowDelay)
+            .append("shingleSize", shingleSize)
+            .append("categoryFields", categoryFields)
+            .append("schemaVersion", schemaVersion)
+            .append("user", user)
+            .append("customResultIndex", customResultIndexOrAlias)
+            .append("imputationOption", imputationOption)
+            .append("recencyEmphasis", recencyEmphasis)
+            .append("seasonIntervals", seasonIntervals)
+            .append("historyIntervals", historyIntervals)
+            .append("customResultIndexMinSize", customResultIndexMinSize)
+            .append("customResultIndexMinAge", customResultIndexMinAge)
+            .append("customResultIndexTTL", customResultIndexTTL)
+            .append("flattenResultIndexMapping", flattenResultIndexMapping)
+            .toString();
     }
 }

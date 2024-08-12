@@ -16,16 +16,16 @@ import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.ml.Inferencer;
+import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
-public class ForecastInferencer extends
-    Inferencer<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastSaveResultStrategy, ForecastPriorityCache, ForecastColdStartWorker> {
+public class ForecastRealTimeInferencer extends
+    RealTimeInferencer<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastSaveResultStrategy, ForecastPriorityCache, ForecastColdStartWorker> {
 
-    public ForecastInferencer(
+    public ForecastRealTimeInferencer(
         ForecastModelManager modelManager,
         Stats stats,
         ForecastCheckpointDao checkpointDao,

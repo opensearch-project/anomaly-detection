@@ -74,6 +74,7 @@ public class CommonMessages {
         + " characters.";
     public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String FAIL_TO_GET_MAPPING_MSG = "Fail to get the index mapping of %s";
+    public static final String FAIL_TO_GET_CONFIG_MSG = "Fail to get config";
 
     // ======================================
     // Index message

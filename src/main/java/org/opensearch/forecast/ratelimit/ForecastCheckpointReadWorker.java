@@ -22,8 +22,8 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
-import org.opensearch.forecast.ml.ForecastInferencer;
 import org.opensearch.forecast.ml.ForecastModelManager;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.threadpool.ThreadPool;
@@ -36,7 +36,7 @@ import org.opensearch.timeseries.ratelimit.CheckpointReadWorker;
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastCheckpointReadWorker extends
-    CheckpointReadWorker<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastInferencer> {
+    CheckpointReadWorker<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer> {
     public static final String WORKER_NAME = "forecast-checkpoint-read";
 
     public ForecastCheckpointReadWorker(
@@ -61,7 +61,7 @@ public class ForecastCheckpointReadWorker extends
         Provider<ForecastPriorityCache> cacheProvider,
         Duration stateTtl,
         ForecastCheckpointWriteWorker checkpointWriteQueue,
-        ForecastInferencer inferencer
+        ForecastRealTimeInferencer inferencer
     ) {
         super(
             WORKER_NAME,

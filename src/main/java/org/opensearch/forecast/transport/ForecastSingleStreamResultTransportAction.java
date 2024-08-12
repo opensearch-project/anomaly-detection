@@ -16,8 +16,8 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
-import org.opensearch.forecast.ml.ForecastInferencer;
 import org.opensearch.forecast.ml.ForecastModelManager;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointMaintainWorker;
@@ -39,7 +39,7 @@ import org.opensearch.transport.TransportService;
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastSingleStreamResultTransportAction extends
-    AbstractSingleStreamResultTransportAction<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastCheckpointMaintainWorker, ForecastCacheBuffer, ForecastPriorityCache, ForecastCacheProvider, ForecastResult, RCFCasterResult, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastInferencer, ForecastCheckpointReadWorker, ForecastResultWriteRequest> {
+    AbstractSingleStreamResultTransportAction<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastCheckpointMaintainWorker, ForecastCacheBuffer, ForecastPriorityCache, ForecastCacheProvider, ForecastResult, RCFCasterResult, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastResultWriteRequest> {
 
     private static final Logger LOG = LogManager.getLogger(ForecastSingleStreamResultTransportAction.class);
 
@@ -51,7 +51,7 @@ public class ForecastSingleStreamResultTransportAction extends
         ForecastCacheProvider cache,
         NodeStateManager stateManager,
         ForecastCheckpointReadWorker checkpointReadQueue,
-        ForecastInferencer inferencer,
+        ForecastRealTimeInferencer inferencer,
         ThreadPool threadPool
     ) {
         super(

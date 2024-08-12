@@ -69,8 +69,8 @@ import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
-import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
@@ -177,7 +177,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
     private ADPriorityCache entityCache;
     private ADTaskManager adTaskManager;
     private ADSaveResultStrategy resultSaver;
-    private ADInferencer inferencer;
+    private ADRealTimeInferencer inferencer;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -323,7 +323,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         attrs3.put(serviceField, app0);
         attrs3.put(hostField, server3);
 
-        inferencer = new ADInferencer(
+        inferencer = new ADRealTimeInferencer(
             normalModelManager,
             adStats,
             mock(ADCheckpointDao.class),

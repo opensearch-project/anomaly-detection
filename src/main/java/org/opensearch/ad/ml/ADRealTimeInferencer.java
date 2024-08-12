@@ -16,16 +16,16 @@ import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.ml.Inferencer;
+import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public class ADInferencer extends
-    Inferencer<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADSaveResultStrategy, ADPriorityCache, ADColdStartWorker> {
+public class ADRealTimeInferencer extends
+    RealTimeInferencer<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADSaveResultStrategy, ADPriorityCache, ADColdStartWorker> {
 
-    public ADInferencer(
+    public ADRealTimeInferencer(
         ADModelManager modelManager,
         Stats stats,
         ADCheckpointDao checkpointDao,

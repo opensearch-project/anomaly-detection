@@ -24,8 +24,8 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
-import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
@@ -77,12 +77,12 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
     private CacheProvider<ThresholdedRandomCutForest, ADPriorityCache> cache;
     private final NodeStateManager stateManager;
     private ThreadPool threadPool;
-    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADInferencer, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
+    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
 
     private final ADCacheProvider entityCache;
     private final ADCheckpointReadWorker checkpointReadQueue;
     private final ADColdEntityWorker coldEntityQueue;
-    private final ADInferencer inferencer;
+    private final ADRealTimeInferencer inferencer;
 
     @Inject
     public EntityADResultTransportAction(
@@ -95,7 +95,7 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
         ADCheckpointReadWorker checkpointReadQueue,
         ADColdEntityWorker coldEntityQueue,
         ThreadPool threadPool,
-        ADInferencer inferencer
+        ADRealTimeInferencer inferencer
     ) {
         super(EntityADResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.adCircuitBreakerService = adCircuitBreakerService;

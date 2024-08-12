@@ -20,8 +20,8 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
-import org.opensearch.forecast.ml.ForecastInferencer;
 import org.opensearch.forecast.ml.ForecastModelManager;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.threadpool.ThreadPool;
@@ -49,7 +49,7 @@ import com.amazon.randomcutforest.parkservices.RCFCaster;
  *
  */
 public class ForecastColdEntityWorker extends
-    ColdEntityWorker<RCFCaster, ForecastResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, RCFCasterResult, ForecastModelManager, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastInferencer, ForecastCheckpointReadWorker> {
+    ColdEntityWorker<RCFCaster, ForecastResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, RCFCasterResult, ForecastModelManager, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker> {
     public static final String WORKER_NAME = "forecast-cold-entity";
 
     public ForecastColdEntityWorker(

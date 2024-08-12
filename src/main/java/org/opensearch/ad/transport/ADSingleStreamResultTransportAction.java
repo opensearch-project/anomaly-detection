@@ -13,8 +13,8 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
-import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointMaintainWorker;
@@ -37,7 +37,7 @@ import org.opensearch.transport.TransportService;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class ADSingleStreamResultTransportAction extends
-    AbstractSingleStreamResultTransportAction<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADCheckpointMaintainWorker, ADCacheBuffer, ADPriorityCache, ADCacheProvider, AnomalyResult, ThresholdingResult, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADInferencer, ADCheckpointReadWorker, ADResultWriteRequest> {
+    AbstractSingleStreamResultTransportAction<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADCheckpointMaintainWorker, ADCacheBuffer, ADPriorityCache, ADCacheProvider, AnomalyResult, ThresholdingResult, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker, ADResultWriteRequest> {
 
     @Inject
     public ADSingleStreamResultTransportAction(
@@ -47,7 +47,7 @@ public class ADSingleStreamResultTransportAction extends
         ADCacheProvider cache,
         NodeStateManager stateManager,
         ADCheckpointReadWorker checkpointReadQueue,
-        ADInferencer inferencer,
+        ADRealTimeInferencer inferencer,
         ThreadPool threadPool
     ) {
         super(

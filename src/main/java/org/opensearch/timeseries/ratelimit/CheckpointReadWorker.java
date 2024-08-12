@@ -44,11 +44,11 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.ml.CheckpointDao;
-import org.opensearch.timeseries.ml.Inferencer;
 import org.opensearch.timeseries.ml.IntermediateResult;
 import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
@@ -57,7 +57,7 @@ import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends Inferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>>
+public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends RealTimeInferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>>
     extends BatchWorker<FeatureRequest, MultiGetRequest, MultiGetResponse> {
 
     private static final Logger LOG = LogManager.getLogger(CheckpointReadWorker.class);

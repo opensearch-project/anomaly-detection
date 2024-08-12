@@ -70,8 +70,8 @@ import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.ml.ADCheckpointDao;
-import org.opensearch.ad.ml.ADInferencer;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -142,6 +142,8 @@ import org.opensearch.transport.TransportService;
 import com.google.gson.JsonElement;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
+import test.org.opensearch.ad.util.MLUtil;
+import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private Settings settings;
@@ -166,7 +168,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private ADTaskManager adTaskManager;
     private ADCheckpointReadWorker checkpointReadQueue;
     private ADCacheProvider cacheProvider;
-    private ADInferencer inferencer;
+    private ADRealTimeInferencer inferencer;
     private ADColdStartWorker coldStartWorker;
 
     @BeforeClass
@@ -356,7 +358,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         when(cacheProvider.get()).thenReturn(mock(ADPriorityCache.class));
 
         coldStartWorker = mock(ADColdStartWorker.class);
-        inferencer = new ADInferencer(
+        inferencer = new ADRealTimeInferencer(
             normalModelManager,
             adStats,
             mock(ADCheckpointDao.class),
@@ -612,12 +614,11 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         assertException(listener, LimitExceededException.class);
     }
 
-    @SuppressWarnings("unchecked")
     public void testInsufficientCapacityExceptionDuringRestoringModel() throws InterruptedException {
         ADModelManager badModelManager = mock(ADModelManager.class);
         doThrow(new NullPointerException()).when(badModelManager).getResult(any(), any(), any(), any(), any());
 
-        inferencer = new ADInferencer(
+        inferencer = new ADRealTimeInferencer(
             badModelManager,
             adStats,
             mock(ADCheckpointDao.class),
@@ -629,7 +630,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
 
         ADPriorityCache adPriorityCache = mock(ADPriorityCache.class);
         when(cacheProvider.get()).thenReturn(adPriorityCache);
-        when(adPriorityCache.get(anyString(), any())).thenReturn(mock(ModelState.class));
+        when(adPriorityCache.get(anyString(), any()))
+            .thenReturn(MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build()));
 
         CountDownLatch inProgress = new CountDownLatch(1);
         doAnswer(invocation -> {
@@ -668,7 +670,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             adTaskManager
         );
 
-        AnomalyResultRequest request = new AnomalyResultRequest(adID, 100, 200);
+        // make sure request data end time is assigned after state initialization to pass Inferencer.tryProcess method time check.
+        long start = System.currentTimeMillis() - 100;
+        long end = System.currentTimeMillis();
+        AnomalyResultRequest request = new AnomalyResultRequest(adID, start, end);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
 

@@ -98,6 +98,7 @@ public class MissingMultiFeatureIT extends MissingIT {
     }
 
     public void testHCPrevious() throws Exception {
+        lastSeen.clear();
         int numberOfEntities = 2;
 
         AbstractSyntheticDataTest.MISSING_MODE mode = AbstractSyntheticDataTest.MISSING_MODE.NO_MISSING_DATA;

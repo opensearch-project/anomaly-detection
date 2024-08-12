@@ -25,8 +25,8 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
-import org.opensearch.forecast.ml.ForecastInferencer;
 import org.opensearch.forecast.ml.ForecastModelManager;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointReadWorker;
@@ -77,12 +77,12 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
     private CacheProvider<RCFCaster, ForecastPriorityCache> cache;
     private final NodeStateManager stateManager;
     private ThreadPool threadPool;
-    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
+    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
 
     private final ForecastCacheProvider entityCache;
     private final ForecastCheckpointReadWorker checkpointReadQueue;
     private final ForecastColdEntityWorker coldEntityQueue;
-    private final ForecastInferencer inferencer;
+    private final ForecastRealTimeInferencer inferencer;
 
     @Inject
     public EntityForecastResultTransportAction(
@@ -96,7 +96,7 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
         ForecastCheckpointReadWorker checkpointReadQueue,
         ForecastColdEntityWorker coldEntityQueue,
         ThreadPool threadPool,
-        ForecastInferencer inferencer
+        ForecastRealTimeInferencer inferencer
     ) {
         super(EntityForecastResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
         this.circuitBreakerService = adCircuitBreakerService;

@@ -725,6 +725,7 @@ List<String> jacocoExclusions = [
         'org.opensearch.timeseries.transport.CronRequest',
         'org.opensearch.ad.task.ADBatchTaskCache',
         'org.opensearch.timeseries.ratelimit.RateLimitedRequestWorker',
+        'org.opensearch.timeseries.util.TimeUtil',
 ]
 
 
