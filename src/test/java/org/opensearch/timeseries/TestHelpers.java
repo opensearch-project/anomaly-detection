@@ -339,6 +339,7 @@ public class TestHelpers {
             new ArrayList<Rule>(),
             null,
             null,
+            null,
             null
         );
     }
@@ -388,6 +389,7 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
             null,
             null,
             null,
@@ -453,6 +455,7 @@ public class TestHelpers {
             null,
             null,
             null,
+            null,
             null
         );
     }
@@ -491,6 +494,7 @@ public class TestHelpers {
             null,
             null,
             null,
+            null,
             null
         );
     }
@@ -518,6 +522,7 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
             null,
             null,
             null,
@@ -554,6 +559,7 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
             null,
             null,
             null,
@@ -727,6 +733,7 @@ public class TestHelpers {
                 null,
                 null,
                 null,
+                null,
                 null
             );
         }
@@ -757,6 +764,7 @@ public class TestHelpers {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
+            null,
             null,
             null,
             null,
@@ -1721,6 +1729,7 @@ public class TestHelpers {
         Integer customResultIndexMinSize;
         Integer customResultIndexMinAge;
         Integer customResultIndexTTL;
+        Boolean flattenResultIndexMapping;
 
         ForecasterBuilder() throws IOException {
             forecasterId = randomAlphaOfLength(10);
@@ -1745,6 +1754,7 @@ public class TestHelpers {
             customResultIndexMinSize = null;
             customResultIndexMinAge = null;
             customResultIndexTTL = null;
+            flattenResultIndexMapping = null;
         }
 
         public static ForecasterBuilder newInstance() throws IOException {
@@ -1851,6 +1861,11 @@ public class TestHelpers {
             return this;
         }
 
+        public ForecasterBuilder setFlattenResultIndexMapping(Boolean flattenResultIndexMapping) {
+            this.flattenResultIndexMapping = flattenResultIndexMapping;
+            return this;
+        }
+
         public ForecasterBuilder setNullImputationOption() {
             this.imputationOption = null;
             return this;
@@ -1887,7 +1902,8 @@ public class TestHelpers {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL
+                customResultIndexTTL,
+                flattenResultIndexMapping
             );
         }
     }
@@ -1917,6 +1933,7 @@ public class TestHelpers {
             randomIntBetween(1, 1000),
             randomIntBetween(1, 128),
             randomIntBetween(1, 1000),
+            null,
             null,
             null,
             null
