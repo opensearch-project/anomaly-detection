@@ -79,6 +79,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String RESULT_INDEX_FIELD_MIN_SIZE = "result_index_min_size";
     public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
     public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
+    public static final String FLATTEN_RESULT_INDEX_MAPPING = "flatten_result_index_mapping";
 
     protected String id;
     protected Long version;
@@ -118,6 +119,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected Integer customResultIndexMinSize;
     protected Integer customResultIndexMinAge;
     protected Integer customResultIndexTTL;
+    protected Boolean flattenResultIndexMapping;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -148,7 +150,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         Integer historyIntervals,
         Integer customResultIndexMinSize,
         Integer customResultIndexMinAge,
-        Integer customResultIndexTTL
+        Integer customResultIndexTTL,
+        Boolean flattenResultIndexMapping
     ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
@@ -267,6 +270,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexMinSize = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinSize;
         this.customResultIndexMinAge = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinAge;
         this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
+        this.flattenResultIndexMapping = Strings.trimToNull(resultIndex) == null ? null : flattenResultIndexMapping;
     }
 
     public int suggestHistory() {
@@ -310,6 +314,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexMinSize = input.readOptionalInt();
         this.customResultIndexMinAge = input.readOptionalInt();
         this.customResultIndexTTL = input.readOptionalInt();
+        this.flattenResultIndexMapping = input.readOptionalBoolean();
     }
 
     /*
@@ -362,6 +367,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeOptionalInt(customResultIndexMinSize);
         output.writeOptionalInt(customResultIndexMinAge);
         output.writeOptionalInt(customResultIndexTTL);
+        output.writeOptionalBoolean(flattenResultIndexMapping);
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -418,7 +424,8 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(historyIntervals, config.historyIntervals)
             && Objects.equal(customResultIndexMinSize, config.customResultIndexMinSize)
             && Objects.equal(customResultIndexMinAge, config.customResultIndexMinAge)
-            && Objects.equal(customResultIndexTTL, config.customResultIndexTTL);
+            && Objects.equal(customResultIndexTTL, config.customResultIndexTTL)
+            && Objects.equal(flattenResultIndexMapping, config.flattenResultIndexMapping);
     }
 
     @Generated
@@ -445,7 +452,8 @@ public abstract class Config implements Writeable, ToXContentObject {
                 historyIntervals,
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL
+                customResultIndexTTL,
+                flattenResultIndexMapping
             );
     }
 
@@ -493,6 +501,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (customResultIndexTTL != null) {
             builder.field(RESULT_INDEX_FIELD_TTL, customResultIndexTTL);
+        }
+        if (flattenResultIndexMapping != null) {
+            builder.field(FLATTEN_RESULT_INDEX_MAPPING, flattenResultIndexMapping);
         }
         return builder;
     }
@@ -702,6 +713,10 @@ public abstract class Config implements Writeable, ToXContentObject {
         return customResultIndexTTL;
     }
 
+    public Boolean getFlattenResultIndexMapping() {
+        return flattenResultIndexMapping;
+    }
+
     /**
      * Identifies redundant feature names.
      *
@@ -756,6 +771,7 @@ public abstract class Config implements Writeable, ToXContentObject {
                 .append("customResultIndexMinSize", customResultIndexMinSize)
                 .append("customResultIndexMinAge", customResultIndexMinAge)
                 .append("customResultIndexTTL", customResultIndexTTL)
+                .append("flattenResultIndexMapping", flattenResultIndexMapping)
                 .toString();
     }
 }
