@@ -13,7 +13,6 @@ package org.opensearch.ad.ml;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -222,13 +221,11 @@ public class ADColdStart extends
         // use build instead of new TRCF(Builder) because build method did extra validation and initialization
         ThresholdedRandomCutForest trcf = rcfBuilder.build();
 
-        List<Sample> imputed = new ArrayList<>();
         for (int i = 0; i < pointSamples.size(); i++) {
             Sample dataSample = pointSamples.get(i);
             double[] dataValue = dataSample.getValueList();
             // We don't keep missing values during cold start as the actual data may not be reconstructed during the early stage.
             trcf.process(dataValue, dataSample.getDataEndTime().getEpochSecond());
-            imputed.add(new Sample(dataValue, dataSample.getDataStartTime(), dataSample.getDataEndTime()));
         }
 
         entityState.setModel(trcf);

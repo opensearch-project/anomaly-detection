@@ -35,6 +35,33 @@ import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
+/**
+ * This class manages the broadcasting mechanism and entity data processing for
+ * the HC detector. The system broadcasts a message after processing all records
+ * in each interval to ensure that each node examines its hot models in memory
+ * and determines which entity models have not received data during the current interval.
+ *
+ * "Hot" entities refer to those models actively loaded in memory, as opposed to
+ * "cold" models, which are not loaded and remain in storage due to limited memory resources.
+ *
+ * Upon receiving the broadcast message, each node checks whether each hot entity
+ * has received new data. If a hot entity has not received any data, the system
+ * assigns a NaN value to that entity. This NaN value signals to the model that no
+ * data was received, prompting it to impute the missing value based on previous data,
+ * rather than using current interval data.
+ *
+ * The system determines which node manages which entities based on memory availability.
+ * The coordinating node does not immediately know which entities are hot or cold;
+ * it learns this during the pagination process. Hot entities are those that have
+ * recently received data and are actively maintained in memory, while cold entities
+ * remain in storage and are processed only if time permits within the interval.
+ *
+ * For cold entities whose models are not loaded in memory, the system does not
+ * produce an anomaly result for that interval due to insufficient time or resources
+ * to process them. This is particularly relevant in scenarios with short intervals,
+ * such as one minute, where an underscaled cluster may cause processing delays
+ * that prevent timely anomaly detection for some entities.
+ */
 public class ADHCImputeTransportAction extends
     TransportNodesAction<ADHCImputeRequest, ADHCImputeNodesResponse, ADHCImputeNodeRequest, ADHCImputeNodeResponse> {
     private static final Logger LOG = LogManager.getLogger(ADHCImputeTransportAction.class);

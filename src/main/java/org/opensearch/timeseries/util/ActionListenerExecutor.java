@@ -20,7 +20,8 @@ public class ActionListenerExecutor {
 
     /**
      * Wraps the provided response and failure handlers in an ActionListener that executes the
-     * response handler asynchronously using the provided ExecutorService.
+     * response handler asynchronously using the provided ExecutorService. This would allow
+     * us to execute listener code using AD thread pool for example.
      *
      * @param <Response> the type of the response
      * @param onResponse a CheckedConsumer that handles the response; it can throw an exception
