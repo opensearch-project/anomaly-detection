@@ -184,12 +184,12 @@ public class FeatureManagerTests {
         }).when(searchFeatureDao).getLatestDataTime(eq(detector), eq(Optional.empty()), eq(AnalysisType.AD), any(ActionListener.class));
         if (latestTime != null) {
             doAnswer(invocation -> {
-                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(3);
+                ActionListener<List<Optional<double[]>>> listener = invocation.getArgument(4);
                 listener.onResponse(samples);
                 return null;
             })
                 .when(searchFeatureDao)
-                .getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), any(ActionListener.class));
+                .getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), eq(false), any(ActionListener.class));
         }
 
         ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
@@ -237,7 +237,7 @@ public class FeatureManagerTests {
         }).when(searchFeatureDao).getLatestDataTime(eq(detector), eq(Optional.empty()), eq(AnalysisType.AD), any(ActionListener.class));
         doThrow(IOException.class)
             .when(searchFeatureDao)
-            .getFeatureSamplesForPeriods(eq(detector), any(), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(), eq(AnalysisType.AD), eq(false), any(ActionListener.class));
 
         ActionListener<Optional<double[][]>> listener = mock(ActionListener.class);
         featureManager.getColdStartData(detector, listener);
@@ -317,8 +317,8 @@ public class FeatureManagerTests {
 
             ActionListener<List<Optional<double[]>>> listener = null;
 
-            if (args[3] instanceof ActionListener) {
-                listener = (ActionListener<List<Optional<double[]>>>) args[3];
+            if (args[4] instanceof ActionListener) {
+                listener = (ActionListener<List<Optional<double[]>>>) args[4];
             }
 
             if (querySuccess) {
@@ -328,7 +328,7 @@ public class FeatureManagerTests {
             }
 
             return null;
-        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), any());
+        }).when(searchFeatureDao).getFeatureSamplesForPeriods(eq(detector), eq(sampleRanges), eq(AnalysisType.AD), eq(false), any());
 
         ActionListener<Features> listener = mock(ActionListener.class);
         featureManager.getPreviewFeatures(detector, start, end, listener);
@@ -434,7 +434,7 @@ public class FeatureManagerTests {
         AtomicBoolean isPreQuery = new AtomicBoolean(true);
 
         doAnswer(invocation -> {
-            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(3);
+            ActionListener<List<Optional<double[]>>> daoListener = invocation.getArgument(4);
             if (isPreQuery.get()) {
                 isPreQuery.set(false);
                 daoListener.onResponse(preQueryResponse);
@@ -448,7 +448,7 @@ public class FeatureManagerTests {
             return null;
         })
             .when(searchFeatureDao)
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
     }
 
     private Object[] getCurrentFeaturesTestData_whenAfterQueryResultsFormFullShingle() {
@@ -487,7 +487,7 @@ public class FeatureManagerTests {
         // Start test
         Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         assertTrue(listenerResponse.isPresent());
 
         double[] actualProcessedFeatures = listenerResponse.get();
@@ -519,7 +519,7 @@ public class FeatureManagerTests {
         // Start test
         Exception listenerResponse = getCurrentFeaturesOnFailure(detector, start, end);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         assertTrue(listenerResponse instanceof IOException);
     }
 
@@ -565,7 +565,7 @@ public class FeatureManagerTests {
         // Start test
         Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         assertTrue(listenerResponse.isPresent());
     }
 
@@ -605,7 +605,7 @@ public class FeatureManagerTests {
         // Start test
         Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         assertFalse(listenerResponse.isPresent());
     }
 
@@ -635,7 +635,7 @@ public class FeatureManagerTests {
         // Start test
         Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         assertTrue(listenerResponse.isPresent());
     }
 
@@ -665,7 +665,7 @@ public class FeatureManagerTests {
         ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
         featureManager.getCurrentFeatures(detector, testStartTime, testEndTime, AnalysisType.AD, listener);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         verify(listener).onFailure(any(IOException.class));
     }
 
@@ -693,12 +693,24 @@ public class FeatureManagerTests {
         // first call to cache missing points
         featureManager.getCurrentFeatures(detector, firstStartTime, firstEndTime, AnalysisType.AD, mock(ActionListener.class));
         verify(searchFeatureDao, times(1))
-            .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == 1), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(
+                eq(detector),
+                argThat(list -> list.size() == 1),
+                eq(AnalysisType.AD),
+                eq(true),
+                any(ActionListener.class)
+            );
 
         // second call should only fetch current point even if previous points missing
         Optional<double[]> listenerResponse = getCurrentFeatures(detector, secondStartTime, secondEndTime);
         verify(searchFeatureDao, times(2))
-            .getFeatureSamplesForPeriods(eq(detector), argThat(list -> list.size() == 1), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(
+                eq(detector),
+                argThat(list -> list.size() == 1),
+                eq(AnalysisType.AD),
+                eq(true),
+                any(ActionListener.class)
+            );
 
         assertTrue(listenerResponse.isPresent());
     }
@@ -759,7 +771,7 @@ public class FeatureManagerTests {
         // Start test
         Optional<double[]> listenerResponse = getCurrentFeatures(detector, testStartTime, testEndTime);
         verify(searchFeatureDao, times(expectedNumQueriesToSearchFeatureDao))
-            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), any(ActionListener.class));
+            .getFeatureSamplesForPeriods(eq(detector), any(List.class), eq(AnalysisType.AD), eq(true), any(ActionListener.class));
         assertTrue(listenerResponse.isPresent());
     }
 

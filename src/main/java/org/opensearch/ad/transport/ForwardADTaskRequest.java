@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
@@ -27,6 +28,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.VersionException;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.DateRange;
@@ -197,10 +199,12 @@ public class ForwardADTaskRequest extends ActionRequest {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         ForwardADTaskRequest request = (ForwardADTaskRequest) o;
         return Objects.equals(detector, request.detector)
             && Objects.equals(adTask, request.adTask)
@@ -214,5 +218,19 @@ public class ForwardADTaskRequest extends ActionRequest {
     @Override
     public int hashCode() {
         return Objects.hash(detector, adTask, detectionDateRange, staleRunningEntities, user, availableTaskSlots, adTaskAction);
+    }
+
+    @Generated
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+            .append("detector", detector)
+            .append("adTask", adTask)
+            .append("detectionDateRange", detectionDateRange)
+            .append("staleRunningEntities", staleRunningEntities)
+            .append("user", user)
+            .append("availableTaskSlots", availableTaskSlots)
+            .append("adTaskAction", adTaskAction)
+            .toString();
     }
 }

@@ -19,6 +19,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.caching.CacheProvider;
 import org.opensearch.timeseries.caching.TimeSeriesCache;
@@ -31,6 +32,7 @@ import org.opensearch.timeseries.ml.IntermediateResult;
 import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
@@ -42,8 +44,7 @@ import org.opensearch.timeseries.ratelimit.ColdStartWorker;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.ratelimit.SaveResultStrategy;
-import org.opensearch.timeseries.stats.StatNames;
-import org.opensearch.timeseries.stats.Stats;
+import org.opensearch.timeseries.util.ActionListenerExecutor;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
@@ -52,56 +53,50 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * (e.g., EntityForecastResultTransportAction)
  *
  */
-public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutForest, IndexableResultType extends IndexableResult, IntermediateResultType extends IntermediateResult<IndexableResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ModelColdStartType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, IntermediateResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType, CacheType, IndexableResultType, IntermediateResultType, ModelManagerType, SaveResultStrategyType>, HCCheckpointReadWorkerType extends CheckpointReadWorker<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType, ModelManagerType, CacheType, SaveResultStrategyType, ColdStartWorkerType>, ColdEntityWorkerType extends ColdEntityWorker<RCFModelType, IndexableResultType, IndexType, IndexManagementType, CheckpointDaoType, IntermediateResultType, ModelManagerType, CheckpointWriteWorkerType, ModelColdStartType, CacheType, SaveResultStrategyType, ColdStartWorkerType, HCCheckpointReadWorkerType>> {
+public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutForest, IndexableResultType extends IndexableResult, IntermediateResultType extends IntermediateResult<IndexableResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ModelColdStartType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, IntermediateResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType, CacheType, IndexableResultType, IntermediateResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends RealTimeInferencer<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>, HCCheckpointReadWorkerType extends CheckpointReadWorker<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ModelColdStartType, ModelManagerType, CacheType, SaveResultStrategyType, ColdStartWorkerType, InferencerType>, ColdEntityWorkerType extends ColdEntityWorker<RCFModelType, IndexableResultType, IndexType, IndexManagementType, CheckpointDaoType, IntermediateResultType, ModelManagerType, CheckpointWriteWorkerType, ModelColdStartType, CacheType, SaveResultStrategyType, ColdStartWorkerType, InferencerType, HCCheckpointReadWorkerType>> {
 
     private static final Logger LOG = LogManager.getLogger(EntityResultProcessor.class);
 
     private CacheProvider<RCFModelType, CacheType> cache;
-    private ModelManagerType modelManager;
-    private Stats stats;
-    private ColdStartWorkerType entityColdStartWorker;
     private HCCheckpointReadWorkerType checkpointReadQueue;
     private ColdEntityWorkerType coldEntityQueue;
-    private SaveResultStrategyType saveResultStrategy;
-    private StatNames modelCorruptionStat;
+    private InferencerType inferencer;
+    private ThreadPool threadPool;
+    private String threadPoolName;
 
     public EntityResultProcessor(
         CacheProvider<RCFModelType, CacheType> cache,
-        ModelManagerType manager,
-        Stats stats,
-        ColdStartWorkerType entityColdStartWorker,
         HCCheckpointReadWorkerType checkpointReadQueue,
         ColdEntityWorkerType coldEntityQueue,
-        SaveResultStrategyType saveResultStrategy,
-        StatNames modelCorruptionStat
+        InferencerType inferencer,
+        ThreadPool threadPool,
+        String threadPoolName
     ) {
         this.cache = cache;
-        this.modelManager = manager;
-        this.stats = stats;
-        this.entityColdStartWorker = entityColdStartWorker;
         this.checkpointReadQueue = checkpointReadQueue;
         this.coldEntityQueue = coldEntityQueue;
-        this.saveResultStrategy = saveResultStrategy;
-        this.modelCorruptionStat = modelCorruptionStat;
+        this.inferencer = inferencer;
+        this.threadPool = threadPool;
+        this.threadPoolName = threadPoolName;
     }
 
     public ActionListener<Optional<? extends Config>> onGetConfig(
         ActionListener<AcknowledgedResponse> listener,
-        String forecasterId,
+        String configId,
         EntityResultRequest request,
         Optional<Exception> prevException,
         AnalysisType analysisType
     ) {
-        return ActionListener.wrap(configOptional -> {
+        return ActionListenerExecutor.wrap(configOptional -> {
             if (!configOptional.isPresent()) {
-                listener.onFailure(new EndRunException(forecasterId, "Config " + forecasterId + " is not available.", false));
+                listener.onFailure(new EndRunException(configId, "Config " + configId + " is not available.", false));
                 return;
             }
 
             Config config = configOptional.get();
 
             if (request.getEntities() == null) {
-                listener.onFailure(new EndRunException(forecasterId, "Fail to get any entities from request.", false));
+                listener.onFailure(new EndRunException(configId, "Fail to get any entities from request.", false));
                 return;
             }
 
@@ -115,7 +110,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                     entity = Entity.createSingleAttributeEntity(config.getCategoryFields().get(0), attrValues.get(CommonName.EMPTY_FIELD));
                 }
 
-                Optional<String> modelIdOptional = entity.getModelId(forecasterId);
+                Optional<String> modelIdOptional = entity.getModelId(configId);
                 if (modelIdOptional.isEmpty()) {
                     continue;
                 }
@@ -128,51 +123,19 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                     cacheMissEntities.put(entity, datapoint);
                     continue;
                 }
-                try {
-                    IntermediateResultType result = modelManager
-                        .getResult(
-                            new Sample(datapoint, Instant.ofEpochMilli(request.getStart()), Instant.ofEpochMilli(request.getEnd())),
-                            entityModel,
-                            modelId,
-                            config,
-                            request.getTaskId()
-                        );
-
-                    saveResultStrategy
-                        .saveResult(
-                            result,
-                            config,
-                            Instant.ofEpochMilli(request.getStart()),
-                            Instant.ofEpochMilli(request.getEnd()),
-                            modelId,
-                            datapoint,
-                            Optional.of(entity),
-                            request.getTaskId()
-                        );
-                } catch (IllegalArgumentException e) {
-                    // fail to score likely due to model corruption. Re-cold start to recover.
-                    LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", modelId), e);
-                    stats.getStat(modelCorruptionStat.getName()).increment();
-                    cache.get().removeModel(forecasterId, modelId);
-                    entityColdStartWorker
-                        .put(
-                            new FeatureRequest(
-                                System.currentTimeMillis() + config.getIntervalInMilliseconds(),
-                                forecasterId,
-                                RequestPriority.MEDIUM,
-                                datapoint,
-                                request.getStart(),
-                                entity,
-                                request.getTaskId()
-                            )
-                        );
-                }
+                inferencer
+                    .process(
+                        new Sample(datapoint, Instant.ofEpochMilli(request.getStart()), Instant.ofEpochMilli(request.getEnd())),
+                        entityModel,
+                        config,
+                        request.getTaskId()
+                    );
             }
 
             // split hot and cold entities
             Pair<List<Entity>, List<Entity>> hotColdEntities = cache
                 .get()
-                .selectUpdateCandidate(cacheMissEntities.keySet(), forecasterId, config);
+                .selectUpdateCandidate(cacheMissEntities.keySet(), configId, config);
 
             List<FeatureRequest> hotEntityRequests = new ArrayList<>();
             List<FeatureRequest> coldEntityRequests = new ArrayList<>();
@@ -187,7 +150,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                     .add(
                         new FeatureRequest(
                             System.currentTimeMillis() + config.getIntervalInMilliseconds(),
-                            forecasterId,
+                            configId,
                             // hot entities has MEDIUM priority
                             RequestPriority.MEDIUM,
                             hotEntityValue,
@@ -208,7 +171,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                     .add(
                         new FeatureRequest(
                             System.currentTimeMillis() + config.getIntervalInMilliseconds(),
-                            forecasterId,
+                            configId,
                             // cold entities has LOW priority
                             RequestPriority.LOW,
                             coldEntityValue,
@@ -232,14 +195,14 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                 .error(
                     new ParameterizedMessage(
                         "fail to get entity's analysis result for config [{}]: start: [{}], end: [{}]",
-                        forecasterId,
+                        configId,
                         request.getStart(),
                         request.getEnd()
                     ),
                     exception
                 );
             listener.onFailure(exception);
-        });
+        }, threadPool.executor(threadPoolName));
     }
 
     /**

@@ -267,11 +267,15 @@ public class SearchFeatureDaoParamTests {
         return new Object[] {
             new Object[] { asList(max), asList(maxName), new double[] { maxValue }, },
             new Object[] { asList(percentiles), asList(percentileName), new double[] { percentileValue } },
-            new Object[] { asList(missing), asList(missingName), null },
-            new Object[] { asList(infinity), asList(infinityName), null },
+            // we keep missing data
+            new Object[] { asList(missing), asList(missingName), new double[] { Double.NaN } },
+            new Object[] { asList(infinity), asList(infinityName), new double[] { Double.NaN } },
             new Object[] { asList(max, percentiles), asList(maxName, percentileName), new double[] { maxValue, percentileValue } },
             new Object[] { asList(max, percentiles), asList(percentileName, maxName), new double[] { percentileValue, maxValue } },
-            new Object[] { asList(max, percentiles, missing), asList(maxName, percentileName, missingName), null }, };
+            new Object[] {
+                asList(max, percentiles, missing),
+                asList(maxName, percentileName, missingName),
+                new double[] { maxValue, percentileValue, Double.NaN } }, };
     }
 
     private Object[] getFeaturesForSampledPeriodsData() {

@@ -22,10 +22,12 @@ import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
@@ -45,7 +47,6 @@ public class ADResultProcessor extends
 
     public ADResultProcessor(
         Setting<TimeValue> requestTimeoutSetting,
-        float intervalRatioForRequests,
         String entityResultAction,
         StatNames hcRequestCountStat,
         Settings settings,
@@ -65,7 +66,6 @@ public class ADResultProcessor extends
     ) {
         super(
             requestTimeoutSetting,
-            intervalRatioForRequests,
             entityResultAction,
             hcRequestCountStat,
             settings,
@@ -101,5 +101,34 @@ public class ADResultProcessor extends
         String taskId
     ) {
         return new AnomalyResultResponse(features, error, rcfTotalUpdates, configInterval, isHC, taskId);
+    }
+
+    @Override
+    protected void imputeHC(long dataStartTime, long dataEndTime, String configID, String taskId) {
+        LOG
+            .info(
+                "Sending an HC impute request to process data from timestamp {} to {} for config {}",
+                dataStartTime,
+                dataEndTime,
+                configID
+            );
+
+        DiscoveryNode[] dataNodes = hashRing.getNodesWithSameLocalVersion();
+
+        client
+            .execute(
+                ADHCImputeAction.INSTANCE,
+                new ADHCImputeRequest(configID, taskId, dataStartTime, dataEndTime, dataNodes),
+                ActionListener.wrap(hcImputeResponse -> {
+                    for (final ADHCImputeNodeResponse nodeResponse : hcImputeResponse.getNodes()) {
+                        if (nodeResponse.getPreviousException() != null) {
+                            nodeStateManager.setException(configID, nodeResponse.getPreviousException());
+                        }
+                    }
+                }, e -> {
+                    LOG.warn("fail to HC impute", e);
+                    nodeStateManager.setException(configID, e);
+                })
+            );
     }
 }

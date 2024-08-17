@@ -20,8 +20,9 @@ import java.util.Set;
  */
 public enum StatNames {
     // common stats
-    CONFIG_INDEX_STATUS("config_index_status", StatType.TIMESERIES),
-    JOB_INDEX_STATUS("job_index_status", StatType.TIMESERIES),
+    // keep the name the same for bwc
+    CONFIG_INDEX_STATUS("anomaly_detectors_index_status", StatType.TIMESERIES),
+    JOB_INDEX_STATUS("anomaly_detection_job_index_status", StatType.TIMESERIES),
     // AD stats
     AD_EXECUTE_REQUEST_COUNT("ad_execute_request_count", StatType.AD),
     AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count", StatType.AD),
@@ -31,7 +32,8 @@ public enum StatNames {
     SINGLE_STREAM_DETECTOR_COUNT("single_stream_detector_count", StatType.AD),
     HC_DETECTOR_COUNT("hc_detector_count", StatType.AD),
     ANOMALY_RESULTS_INDEX_STATUS("anomaly_results_index_status", StatType.AD),
-    AD_MODELS_CHECKPOINT_INDEX_STATUS("anomaly_models_checkpoint_index_status", StatType.AD),
+    // keep the name the same for bwc
+    AD_MODELS_CHECKPOINT_INDEX_STATUS("models_checkpoint_index_status", StatType.AD),
     ANOMALY_DETECTION_STATE_STATUS("anomaly_detection_state_status", StatType.AD),
     MODEL_INFORMATION("models", StatType.AD),
     AD_EXECUTING_BATCH_TASK_COUNT("ad_executing_batch_task_count", StatType.AD),

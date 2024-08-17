@@ -68,7 +68,6 @@ import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.model.TimeSeriesTask;
-import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.ResultProcessor;
@@ -303,7 +302,6 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         try {
             resultProcessor = new ForecastResultProcessor(
                 ForecastSettings.FORECAST_REQUEST_TIMEOUT,
-                TimeSeriesSettings.INTERVAL_RATIO_FOR_REQUESTS,
                 EntityForecastResultAction.NAME,
                 StatNames.FORECAST_HC_EXECUTE_REQUEST_COUNT,
                 settings,

@@ -98,11 +98,6 @@ public class TimeSeriesSettings {
     // ======================================
     public static final int MAX_BATCH_TASK_PIECE_SIZE = 10_000;
 
-    // within an interval, how many percents are used to process requests.
-    // 1.0 means we use all of the detection interval to process requests.
-    // to ensure we don't block next interval, it is better to set it less than 1.0.
-    public static final float INTERVAL_RATIO_FOR_REQUESTS = 0.9f;
-
     public static final Duration HOURLY_MAINTENANCE = Duration.ofHours(1);
 
     // Maximum number of deleted tasks can keep in cache.

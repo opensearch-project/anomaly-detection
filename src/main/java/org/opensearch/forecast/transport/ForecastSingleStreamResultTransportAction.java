@@ -17,6 +17,7 @@ import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
 import org.opensearch.forecast.ml.ForecastModelManager;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointMaintainWorker;
@@ -24,23 +25,21 @@ import org.opensearch.forecast.ratelimit.ForecastCheckpointReadWorker;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteRequest;
-import org.opensearch.forecast.ratelimit.ForecastResultWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
-import org.opensearch.forecast.stats.ForecastStats;
-import org.opensearch.forecast.transport.handler.ForecastIndexMemoryPressureAwareResultHandler;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
-import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.AbstractSingleStreamResultTransportAction;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastSingleStreamResultTransportAction extends
-    AbstractSingleStreamResultTransportAction<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastCheckpointMaintainWorker, ForecastCacheBuffer, ForecastPriorityCache, ForecastCacheProvider, ForecastResult, RCFCasterResult, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastCheckpointReadWorker, ForecastResultWriteRequest, ForecastResultBulkRequest, ForecastIndexMemoryPressureAwareResultHandler, ForecastResultWriteWorker> {
+    AbstractSingleStreamResultTransportAction<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastCheckpointMaintainWorker, ForecastCacheBuffer, ForecastPriorityCache, ForecastCacheProvider, ForecastResult, RCFCasterResult, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastResultWriteRequest> {
 
     private static final Logger LOG = LogManager.getLogger(ForecastSingleStreamResultTransportAction.class);
 
@@ -52,11 +51,8 @@ public class ForecastSingleStreamResultTransportAction extends
         ForecastCacheProvider cache,
         NodeStateManager stateManager,
         ForecastCheckpointReadWorker checkpointReadQueue,
-        ForecastModelManager modelManager,
-        ForecastIndexManagement indexUtil,
-        ForecastResultWriteWorker resultWriteQueue,
-        ForecastStats stats,
-        ForecastColdStartWorker forecastColdStartQueue
+        ForecastRealTimeInferencer inferencer,
+        ThreadPool threadPool
     ) {
         super(
             transportService,
@@ -65,15 +61,11 @@ public class ForecastSingleStreamResultTransportAction extends
             cache,
             stateManager,
             checkpointReadQueue,
-            modelManager,
-            indexUtil,
-            resultWriteQueue,
-            stats,
-            forecastColdStartQueue,
             ForecastSingleStreamResultAction.NAME,
-            ForecastIndex.RESULT,
             AnalysisType.FORECAST,
-            StatNames.FORECAST_MODEL_CORRUTPION_COUNT.getName()
+            inferencer,
+            threadPool,
+            TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME
         );
     }
 

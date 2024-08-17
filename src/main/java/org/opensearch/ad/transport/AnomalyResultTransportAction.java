@@ -44,7 +44,6 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.FeatureManager;
-import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.ResultProcessor;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -85,7 +84,6 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
         super(AnomalyResultAction.NAME, transportService, actionFilters, AnomalyResultRequest::new);
         this.resultProcessor = new ADResultProcessor(
             AnomalyDetectorSettings.AD_REQUEST_TIMEOUT,
-            TimeSeriesSettings.INTERVAL_RATIO_FOR_REQUESTS,
             EntityADResultAction.NAME,
             StatNames.AD_HC_EXECUTE_REQUEST_COUNT,
             settings,

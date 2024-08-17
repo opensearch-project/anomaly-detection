@@ -56,6 +56,7 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ADColdEntityWorker;
@@ -135,6 +136,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     ClusterService clusterService;
     ADStats adStats;
     ADSaveResultStrategy resultSaver;
+    ADRealTimeInferencer inferencer;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -161,10 +163,6 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
 
         detectorId = "123";
         entities = new HashMap<>();
-
-        start = 10L;
-        end = 20L;
-        request = new EntityResultRequest(detectorId, entities, start, end, AnalysisType.AD, null);
 
         clock = mock(Clock.class);
         now = Instant.now();
@@ -233,6 +231,11 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         coldEntities.add(cacheMissEntityObj);
         when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
 
+        // make sure request data end time is assigned after state initialization to pass Inferencer.tryProcess method time check.
+        start = System.currentTimeMillis() - 10;
+        end = System.currentTimeMillis();
+        request = new EntityResultRequest(detectorId, entities, start, end, AnalysisType.AD, null);
+
         indexUtil = mock(ADIndexManagement.class);
         when(indexUtil.getSchemaVersion(any())).thenReturn(CommonValue.NO_SCHEMA_VERSION);
 
@@ -261,10 +264,11 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         adStats = new ADStats(statsMap);
         resultSaver = new ADSaveResultStrategy(1, resultWriteQueue);
 
+        inferencer = new ADRealTimeInferencer(manager, adStats, checkpointDao, entityColdStartQueue, resultSaver, provider, threadPool);
+
         entityResult = new EntityADResultTransportAction(
             actionFilters,
             transportService,
-            manager,
             adCircuitBreakerService,
             provider,
             stateManager,
@@ -272,9 +276,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue,
-            adStats,
-            resultSaver
+            inferencer
         );
 
         // timeout in 60 seconds
@@ -388,10 +390,18 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     public void testFailToScore() {
         ADModelManager spyModelManager = spy(manager);
         doThrow(new IllegalArgumentException()).when(spyModelManager).getResult(any(), any(), anyString(), any(), any());
+        inferencer = new ADRealTimeInferencer(
+            spyModelManager,
+            adStats,
+            checkpointDao,
+            entityColdStartQueue,
+            resultSaver,
+            provider,
+            threadPool
+        );
         entityResult = new EntityADResultTransportAction(
             actionFilters,
             transportService,
-            spyModelManager,
             adCircuitBreakerService,
             provider,
             stateManager,
@@ -399,9 +409,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue,
-            adStats,
-            resultSaver
+            inferencer
         );
 
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();

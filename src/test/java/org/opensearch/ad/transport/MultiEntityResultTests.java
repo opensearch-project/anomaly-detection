@@ -68,7 +68,9 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
@@ -175,6 +177,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
     private ADPriorityCache entityCache;
     private ADTaskManager adTaskManager;
     private ADSaveResultStrategy resultSaver;
+    private ADRealTimeInferencer inferencer;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -319,6 +322,16 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         attrs3 = new HashMap<>();
         attrs3.put(serviceField, app0);
         attrs3.put(hostField, server3);
+
+        inferencer = new ADRealTimeInferencer(
+            normalModelManager,
+            adStats,
+            mock(ADCheckpointDao.class),
+            entityColdStartQueue,
+            resultSaver,
+            provider,
+            threadPool
+        );
     }
 
     @Override
@@ -413,7 +426,6 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             new ActionFilters(Collections.emptySet()),
             // since we send requests to testNodes[1]
             testNodes[nodeIndex].transportService,
-            normalModelManager,
             adCircuitBreakerService,
             provider,
             nodeStateManager,
@@ -421,9 +433,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue,
-            adStats,
-            resultSaver
+            inferencer
         );
 
         when(normalModelManager.getResult(any(), any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
@@ -782,7 +792,6 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             new ActionFilters(Collections.emptySet()),
             // since we send requests to testNodes[1]
             testNodes[1].transportService,
-            normalModelManager,
             openBreaker,
             provider,
             spyStateManager,
@@ -790,9 +799,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue,
-            adStats,
-            resultSaver
+            inferencer
         );
 
         CountDownLatch inProgress = new CountDownLatch(1);
@@ -966,7 +973,6 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             new ActionFilters(Collections.emptySet()),
             // since we send requests to testNodes[1]
             testNodes[1].transportService,
-            normalModelManager,
             adCircuitBreakerService,
             provider,
             stateManager,
@@ -974,9 +980,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             checkpointReadQueue,
             coldEntityQueue,
             threadPool,
-            entityColdStartQueue,
-            adStats,
-            resultSaver
+            inferencer
         );
 
         CountDownLatch modelNodeInProgress = new CountDownLatch(1);

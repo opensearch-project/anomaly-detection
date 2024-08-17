@@ -215,7 +215,7 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
     public void testSettingsGetValue() {
         Settings settings = Settings.builder().put("plugins.anomaly_detection.request_timeout", "42s").build();
         assertEquals(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(42));
-        assertEquals(LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(10));
+        assertEquals(LegacyOpenDistroAnomalyDetectorSettings.REQUEST_TIMEOUT.get(settings), TimeValue.timeValueSeconds(60));
 
         settings = Settings.builder().put("plugins.anomaly_detection.max_anomaly_detectors", 99).build();
         assertEquals(AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings), Integer.valueOf(99));

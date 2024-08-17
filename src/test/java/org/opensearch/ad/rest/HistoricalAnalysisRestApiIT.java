@@ -133,9 +133,6 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             if (!TaskState.RUNNING.name().equals(adTaskProfile.getTask().getState())) {
                 adTaskProfile = (ADTaskProfile) waitUntilTaskReachState(detectorId, ImmutableSet.of(TaskState.RUNNING.name())).get(0);
             }
-            // if (adTaskProfile.getTotalEntitiesCount() == null) {
-            // adTaskProfile = (ADTaskProfile) waitUntilEntityCountAvailable(detectorId).get(0);
-            // }
             assertEquals((int) Math.pow(categoryFieldDocCount, categoryFieldSize), adTaskProfile.getTotalEntitiesCount().intValue());
             assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
             assertTrue(adTaskProfile.getRunningEntitiesCount() > 0);
