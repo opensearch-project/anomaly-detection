@@ -35,7 +35,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.16.0"
+        bwcVersionShort = "2.17.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'
@@ -126,9 +126,9 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.12.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.0.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.0.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.0.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.1.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.1.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.1.0'
 
     // we inherit jackson-core from opensearch core
     implementation "com.fasterxml.jackson.core:jackson-databind:2.16.1"
@@ -356,8 +356,7 @@ integTest {
 
     if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
         filter {
-            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamModelPerfIT"
-            excludeTestsMatching "org.opensearch.ad.e2e.RuleModelPerfIT"
+            excludeTestsMatching "org.opensearch.ad.e2e.*ModelPerfIT"
         }
     }
 
@@ -676,11 +675,6 @@ List<String> jacocoExclusions = [
         // rest layer is tested in integration testing mostly, difficult to mock all of it
         'org.opensearch.ad.rest.*',
 
-        'org.opensearch.ad.model.ModelProfileOnNode',
-        'org.opensearch.ad.model.InitProgressProfile',
-        'org.opensearch.ad.rest.*',
-        'org.opensearch.ad.AnomalyDetectorJobRunner',
-
         // Class containing just constants. Don't need to test
         'org.opensearch.ad.constant.*',
         'org.opensearch.forecast.constant.*',
@@ -688,22 +682,50 @@ List<String> jacocoExclusions = [
         'org.opensearch.timeseries.settings.TimeSeriesSettings',
         'org.opensearch.forecast.settings.ForecastSettings',
 
-        'org.opensearch.ad.transport.CronRequest',
-        'org.opensearch.ad.AnomalyDetectorRunner',
-
         // related to transport actions added for security
         'org.opensearch.ad.transport.DeleteAnomalyDetectorTransportAction.1',
 
         // TODO: unified flow caused coverage drop
         'org.opensearch.ad.transport.DeleteAnomalyResultsTransportAction',
-        // TODO: fix unstable code coverage caused by null NodeClient issue
-        // https://github.com/opensearch-project/anomaly-detection/issues/241
-        'org.opensearch.ad.task.ADBatchTaskRunner',
-        'org.opensearch.ad.task.ADTaskManager',
-        // TODO: add forecast test coverage before release
+
+        // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.*',
-        'org.opensearch.ad.*',
+        'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction',
+        'org.opensearch.ad.ml.ADColdStart',
+        'org.opensearch.ad.transport.ADHCImputeNodesResponse',
+        'org.opensearch.timeseries.transport.BooleanNodeResponse',
+        'org.opensearch.timeseries.ml.TimeSeriesSingleStreamCheckpointDao',
+        'org.opensearch.timeseries.transport.JobRequest',
+        'org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler',
+        'org.opensearch.timeseries.ml.Inferencer',
+        'org.opensearch.timeseries.transport.SingleStreamResultRequest',
+        'org.opensearch.timeseries.transport.BooleanResponse',
+        'org.opensearch.timeseries.rest.handler.IndexJobActionHandler.1',
+        'org.opensearch.timeseries.transport.SuggestConfigParamResponse',
+        'org.opensearch.timeseries.transport.SuggestConfigParamRequest',
+        'org.opensearch.timeseries.ml.MemoryAwareConcurrentHashmap',
+        'org.opensearch.timeseries.transport.ResultBulkTransportAction',
+        'org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler',
+        'org.opensearch.timeseries.transport.handler.ResultIndexingHandler',
+        'org.opensearch.ad.transport.ADHCImputeNodeResponse',
+        'org.opensearch.timeseries.ml.Sample',
+        'org.opensearch.timeseries.ratelimit.FeatureRequest',
+        'org.opensearch.ad.transport.ADHCImputeNodeRequest',
+        'org.opensearch.timeseries.model.ModelProfileOnNode',
+        'org.opensearch.timeseries.transport.ValidateConfigRequest',
+        'org.opensearch.timeseries.transport.ResultProcessor.PageListener.1',
+        'org.opensearch.ad.transport.ADHCImputeRequest',
+        'org.opensearch.timeseries.transport.BaseDeleteConfigTransportAction.1',
+        'org.opensearch.timeseries.transport.BaseSuggestConfigParamTransportAction',
+        'org.opensearch.timeseries.rest.AbstractSearchAction.1',
+        'org.opensearch.ad.transport.ADSingleStreamResultTransportAction',
+        'org.opensearch.timeseries.ratelimit.RateLimitedRequestWorker.RequestQueue',
+        'org.opensearch.timeseries.rest.RestStatsAction',
+        'org.opensearch.ad.ml.ADCheckpointDao',
+        'org.opensearch.timeseries.transport.CronRequest',
+        'org.opensearch.ad.task.ADBatchTaskCache',
+        'org.opensearch.timeseries.ratelimit.RateLimitedRequestWorker',
+        'org.opensearch.timeseries.util.TimeUtil',
 ]
 
 

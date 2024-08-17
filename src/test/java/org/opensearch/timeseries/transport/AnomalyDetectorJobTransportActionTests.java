@@ -11,6 +11,7 @@
 
 package org.opensearch.timeseries.transport;
 
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_MODEL_MAX_SIZE_PERCENTAGE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_OLD_AD_TASK_DOCS_PER_DETECTOR;
@@ -83,6 +84,9 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         dateRange = new DateRange(startTime, endTime);
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type, 2000);
         createDetectorIndex();
+        // increase the AD memory percentage. Otherwise testStartHistoricalAnalysisForMultiCategoryHCWithUser
+        // may fail.
+        updateTransientSettings(ImmutableMap.of(AD_MODEL_MAX_SIZE_PERCENTAGE.getKey(), 0.5));
     }
 
     @Override
@@ -205,7 +209,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             waitUntil(() -> {
                 try {
                     ADTask task = getADTask(taskId);
-                    return !TestHelpers.HISTORICAL_ANALYSIS_RUNNING_STATS.contains(task.getState());
+                    return HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(task.getState());
                 } catch (IOException e) {
                     return false;
                 }

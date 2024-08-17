@@ -47,6 +47,7 @@ import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TaskProfile;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
+import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TimeSeriesTask;
@@ -196,6 +197,8 @@ public class ADRestTestUtils {
         boolean historical
     ) throws Exception {
         Instant now = Instant.now();
+        List<Feature> featureList = ImmutableList
+            .of(TestHelpers.randomFeature(randomAlphaOfLength(5), valueField, aggregationMethod, true));
         AnomalyDetector detector = new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -204,7 +207,7 @@ public class ADRestTestUtils {
             randomAlphaOfLength(30),
             timeField,
             ImmutableList.of(indexName),
-            ImmutableList.of(TestHelpers.randomFeature(randomAlphaOfLength(5), valueField, aggregationMethod, true)),
+            featureList,
             filterQuery == null ? TestHelpers.randomQuery("{\"match_all\":{\"boost\":1}}") : TestHelpers.randomQuery(filterQuery),
             new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
             new IntervalTimeConfiguration(windowDelayIntervalInMinutes, ChronoUnit.MINUTES),
@@ -215,7 +218,8 @@ public class ADRestTestUtils {
             categoryFields,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption(1),
+            // we don't release imputation until 2.17. Disable it in bwc first.
+            null, // TestHelpers.randomImputationOption(featureList),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),

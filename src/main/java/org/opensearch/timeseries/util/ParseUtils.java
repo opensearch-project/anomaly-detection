@@ -331,7 +331,7 @@ public final class ParseUtils {
         return internalSearchSourceBuilder;
     }
 
-    public static SearchSourceBuilder generatePreviewQuery(
+    public static SearchSourceBuilder generateRangeQuery(
         Config config,
         List<Entry<Long, Long>> ranges,
         NamedXContentRegistry xContentRegistry

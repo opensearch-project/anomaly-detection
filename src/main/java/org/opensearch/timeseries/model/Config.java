@@ -193,31 +193,6 @@ public abstract class Config implements Writeable, ToXContentObject {
             return;
         }
 
-        if (imputationOption != null && imputationOption.getMethod() == ImputationMethod.FIXED_VALUES) {
-            Optional<double[]> defaultFill = imputationOption.getDefaultFill();
-            if (defaultFill.isEmpty()) {
-                issueType = ValidationIssueType.IMPUTATION;
-                errorMessage = "No given values for fixed value interpolation";
-                return;
-            }
-
-            // Calculate the number of enabled features
-            long expectedFeatures = features == null ? 0 : features.stream().filter(Feature::getEnabled).count();
-
-            // Check if the length of the defaultFill array matches the number of expected features
-            if (defaultFill.get().length != expectedFeatures) {
-                issueType = ValidationIssueType.IMPUTATION;
-                errorMessage = String
-                    .format(
-                        Locale.ROOT,
-                        "Incorrect number of values to fill. Got: %d. Expected: %d.",
-                        defaultFill.get().length,
-                        expectedFeatures
-                    );
-                return;
-            }
-        }
-
         if (recencyEmphasis != null && (recencyEmphasis <= 0)) {
             issueType = ValidationIssueType.RECENCY_EMPHASIS;
             errorMessage = "recency emphasis has to be a positive integer";
@@ -243,12 +218,50 @@ public abstract class Config implements Writeable, ToXContentObject {
             return;
         }
 
+        if (imputationOption != null && imputationOption.getMethod() == ImputationMethod.FIXED_VALUES) {
+            // Calculate the number of enabled features
+            List<Feature> enabledFeatures = features == null
+                ? null
+                : features.stream().filter(Feature::getEnabled).collect(Collectors.toList());
+
+            Map<String, Double> defaultFill = imputationOption.getDefaultFill();
+            if (defaultFill.isEmpty() && enabledFeatures.size() > 0) {
+                issueType = ValidationIssueType.IMPUTATION;
+                errorMessage = "No given values for fixed value imputation";
+                return;
+            }
+
+            // Check if the length of the defaultFill array matches the number of expected features
+            if (enabledFeatures == null || defaultFill.size() != enabledFeatures.size()) {
+                issueType = ValidationIssueType.IMPUTATION;
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "Incorrect number of values to fill. Got: %d. Expected: %d.",
+                        defaultFill.size(),
+                        enabledFeatures == null ? 0 : enabledFeatures.size()
+                    );
+                return;
+            }
+
+            Map<String, Double> defaultFills = imputationOption.getDefaultFill();
+
+            for (int i = 0; i < enabledFeatures.size(); i++) {
+                if (!defaultFills.containsKey(enabledFeatures.get(i).getName())) {
+                    issueType = ValidationIssueType.IMPUTATION;
+                    errorMessage = String.format(Locale.ROOT, "Missing feature name: %s.", enabledFeatures.get(i).getName());
+                    return;
+                }
+            }
+        }
+
         this.id = id;
         this.version = version;
         this.name = name;
         this.description = description;
         this.timeField = timeField;
         this.indices = indices;
+        // we validate empty or no enabled features when starting config (Read IndexJobActionHandler.validateConfig)
         this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
         this.filterQuery = filterQuery;
         this.interval = interval;
@@ -748,30 +761,28 @@ public abstract class Config implements Writeable, ToXContentObject {
     @Generated
     @Override
     public String toString() {
-        return super.toString()
-            + ", "
-            + new ToStringBuilder(this)
-                .append("name", name)
-                .append("description", description)
-                .append("timeField", timeField)
-                .append("indices", indices)
-                .append("featureAttributes", featureAttributes)
-                .append("filterQuery", filterQuery)
-                .append("interval", interval)
-                .append("windowDelay", windowDelay)
-                .append("shingleSize", shingleSize)
-                .append("categoryFields", categoryFields)
-                .append("schemaVersion", schemaVersion)
-                .append("user", user)
-                .append("customResultIndex", customResultIndexOrAlias)
-                .append("imputationOption", imputationOption)
-                .append("recencyEmphasis", recencyEmphasis)
-                .append("seasonIntervals", seasonIntervals)
-                .append("historyIntervals", historyIntervals)
-                .append("customResultIndexMinSize", customResultIndexMinSize)
-                .append("customResultIndexMinAge", customResultIndexMinAge)
-                .append("customResultIndexTTL", customResultIndexTTL)
-                .append("flattenResultIndexMapping", flattenResultIndexMapping)
-                .toString();
+        return new ToStringBuilder(this)
+            .append("name", name)
+            .append("description", description)
+            .append("timeField", timeField)
+            .append("indices", indices)
+            .append("featureAttributes", featureAttributes)
+            .append("filterQuery", filterQuery)
+            .append("interval", interval)
+            .append("windowDelay", windowDelay)
+            .append("shingleSize", shingleSize)
+            .append("categoryFields", categoryFields)
+            .append("schemaVersion", schemaVersion)
+            .append("user", user)
+            .append("customResultIndex", customResultIndexOrAlias)
+            .append("imputationOption", imputationOption)
+            .append("recencyEmphasis", recencyEmphasis)
+            .append("seasonIntervals", seasonIntervals)
+            .append("historyIntervals", historyIntervals)
+            .append("customResultIndexMinSize", customResultIndexMinSize)
+            .append("customResultIndexMinAge", customResultIndexMinAge)
+            .append("customResultIndexTTL", customResultIndexTTL)
+            .append("flattenResultIndexMapping", flattenResultIndexMapping)
+            .toString();
     }
 }

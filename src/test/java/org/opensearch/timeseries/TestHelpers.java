@@ -45,7 +45,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
-import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
 import org.apache.hc.core5.http.ContentType;
@@ -136,7 +135,6 @@ import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.search.profile.SearchProfileShardResults;
 import org.opensearch.search.suggest.Suggest;
 import org.opensearch.test.ClusterServiceUtils;
-import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -332,7 +330,7 @@ public class TestHelpers {
             categoryFields,
             user,
             null,
-            TestHelpers.randomImputationOption(features == null ? 0 : (int) features.stream().filter(Feature::getEnabled).count()),
+            TestHelpers.randomImputationOption(features),
             randomIntBetween(1, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
             randomIntBetween(1, 1000),
@@ -385,7 +383,7 @@ public class TestHelpers {
             categoryFields,
             null,
             resultIndex,
-            TestHelpers.randomImputationOption((int) features.stream().filter(Feature::getEnabled).count()),
+            TestHelpers.randomImputationOption(features),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -430,6 +428,7 @@ public class TestHelpers {
         List<String> categoryFields,
         String resultIndex
     ) throws IOException {
+        List<Feature> features = ImmutableList.of(randomFeature(true));
         return new AnomalyDetector(
             detectorId,
             randomLong(),
@@ -437,7 +436,7 @@ public class TestHelpers {
             randomAlphaOfLength(30),
             timeField,
             indices,
-            ImmutableList.of(randomFeature(true)),
+            features,
             randomQuery(),
             randomIntervalTimeConfiguration(),
             new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
@@ -448,7 +447,7 @@ public class TestHelpers {
             categoryFields,
             randomUser(),
             resultIndex,
-            TestHelpers.randomImputationOption(1),
+            TestHelpers.randomImputationOption(features),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -487,7 +486,7 @@ public class TestHelpers {
             null,
             randomUser(),
             null,
-            TestHelpers.randomImputationOption(features == null ? 0 : (int) features.stream().filter(Feature::getEnabled).count()),
+            TestHelpers.randomImputationOption(features),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -518,7 +517,7 @@ public class TestHelpers {
             null,
             randomUser(),
             null,
-            TestHelpers.randomImputationOption(0),
+            null,
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -537,6 +536,7 @@ public class TestHelpers {
     public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval, boolean hcDetector) throws IOException {
         List<String> categoryField = hcDetector ? ImmutableList.of(randomAlphaOfLength(5)) : null;
         Feature feature = randomFeature();
+        List<Feature> featureList = ImmutableList.of(feature);
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -544,7 +544,7 @@ public class TestHelpers {
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
-            ImmutableList.of(feature),
+            featureList,
             randomQuery(),
             interval,
             randomIntervalTimeConfiguration(),
@@ -555,7 +555,7 @@ public class TestHelpers {
             categoryField,
             randomUser(),
             null,
-            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            TestHelpers.randomImputationOption(featureList),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -593,6 +593,9 @@ public class TestHelpers {
         private String resultIndex = null;
         private ImputationOption imputationOption = null;
         private List<Rule> rules = null;
+
+        // transform decay (reverse of recencyEmphasis) has to be [0, 1). So we cannot use 1.
+        private int recencyEmphasis = randomIntBetween(2, 10000);
 
         public static AnomalyDetectorBuilder newInstance(int numberOfFeatures) throws IOException {
             return new AnomalyDetectorBuilder(numberOfFeatures);
@@ -692,13 +695,18 @@ public class TestHelpers {
             return this;
         }
 
-        public AnomalyDetectorBuilder setImputationOption(ImputationMethod method, Optional<double[]> defaultFill, boolean integerSentive) {
-            this.imputationOption = new ImputationOption(method, defaultFill, integerSentive);
+        public AnomalyDetectorBuilder setImputationOption(ImputationMethod method, Map<String, Double> defaultFill) {
+            this.imputationOption = new ImputationOption(method, defaultFill);
             return this;
         }
 
         public AnomalyDetectorBuilder setRules(List<Rule> rules) {
             this.rules = rules;
+            return this;
+        }
+
+        public AnomalyDetectorBuilder setRecencyEmphasis(int recencyEmphasis) {
+            this.recencyEmphasis = recencyEmphasis;
             return this;
         }
 
@@ -722,8 +730,7 @@ public class TestHelpers {
                 user,
                 resultIndex,
                 imputationOption,
-                // transform decay has to be [0, 1). So we cannot use 1.
-                randomIntBetween(2, 10000),
+                recencyEmphasis,
                 randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
                 // make history intervals at least TimeSeriesSettings.NUM_MIN_SAMPLES.
                 // Otherwise, tests like EntityColdStarterTests.testTwoSegments may fail
@@ -742,6 +749,7 @@ public class TestHelpers {
     public static AnomalyDetector randomAnomalyDetectorWithInterval(TimeConfiguration interval, boolean hcDetector, boolean featureEnabled)
         throws IOException {
         List<String> categoryField = hcDetector ? ImmutableList.of(randomAlphaOfLength(5)) : null;
+        List<Feature> features = ImmutableList.of(randomFeature(featureEnabled));
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -749,7 +757,7 @@ public class TestHelpers {
             randomAlphaOfLength(30),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
-            ImmutableList.of(randomFeature(featureEnabled)),
+            features,
             randomQuery(),
             interval,
             randomIntervalTimeConfiguration(),
@@ -760,7 +768,7 @@ public class TestHelpers {
             categoryField,
             randomUser(),
             null,
-            TestHelpers.randomImputationOption(featureEnabled ? 1 : 0),
+            TestHelpers.randomImputationOption(features),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -971,7 +979,8 @@ public class TestHelpers {
             relavantAttribution,
             pastValues,
             expectedValuesList,
-            randomDoubleBetween(1.1, 10.0, true)
+            randomDoubleBetween(1.1, 10.0, true),
+            null
         );
     }
 
@@ -1052,7 +1061,8 @@ public class TestHelpers {
             relavantAttribution,
             pastValues,
             expectedValuesList,
-            randomDoubleBetween(1.1, 10.0, true)
+            randomDoubleBetween(1.1, 10.0, true),
+            null
         );
     }
 
@@ -1691,15 +1701,34 @@ public class TestHelpers {
         return clusterState;
     }
 
-    public static ImputationOption randomImputationOption(int featureSize) {
-        double[] defaultFill = DoubleStream.generate(OpenSearchTestCase::randomDouble).limit(featureSize).toArray();
-        ImputationOption fixedValue = new ImputationOption(ImputationMethod.FIXED_VALUES, Optional.of(defaultFill), false);
-        ImputationOption linear = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill), false);
-        ImputationOption linearIntSensitive = new ImputationOption(ImputationMethod.LINEAR, Optional.of(defaultFill), true);
-        ImputationOption zero = new ImputationOption(ImputationMethod.ZERO);
-        ImputationOption previous = new ImputationOption(ImputationMethod.PREVIOUS);
+    public static Map<String, Double> randomFixedValue(List<Feature> features) {
+        Map<String, Double> map = new HashMap<>();
+        if (features == null) {
+            return map;
+        }
 
-        List<ImputationOption> options = List.of(fixedValue, linear, linearIntSensitive, zero, previous);
+        Random random = new Random();
+
+        for (int i = 0; i < features.size(); i++) {
+            if (features.get(i).getEnabled()) {
+                double randomValue = random.nextDouble(); // generate a random double value
+                map.put(features.get(i).getName(), randomValue);
+            }
+        }
+
+        return map;
+    }
+
+    public static ImputationOption randomImputationOption(List<Feature> features) {
+        Map<String, Double> randomFixedValue = randomFixedValue(features);
+
+        List<ImputationOption> options = new ArrayList<>();
+        if (randomFixedValue.size() != 0) {
+            options.add(new ImputationOption(ImputationMethod.FIXED_VALUES, randomFixedValue));
+        }
+
+        options.add(new ImputationOption(ImputationMethod.ZERO));
+        options.add(new ImputationOption(ImputationMethod.PREVIOUS));
 
         // Select a random option
         int randomIndex = Randomness.get().nextInt(options.size());
@@ -1738,7 +1767,7 @@ public class TestHelpers {
             description = randomAlphaOfLength(20);
             timeField = randomAlphaOfLength(5);
             indices = ImmutableList.of(randomAlphaOfLength(10));
-            features = ImmutableList.of(randomFeature());
+            features = ImmutableList.of(randomFeature(true));
             filterQuery = randomQuery();
             forecastInterval = randomIntervalTimeConfiguration();
             windowDelay = randomIntervalTimeConfiguration();
@@ -1750,7 +1779,7 @@ public class TestHelpers {
             user = randomUser();
             resultIndex = null;
             horizon = randomIntBetween(1, 20);
-            imputationOption = randomImputationOption((int) features.stream().filter(Feature::getEnabled).count());
+            imputationOption = randomImputationOption(features);
             customResultIndexMinSize = null;
             customResultIndexMinAge = null;
             customResultIndexTTL = null;
@@ -1910,6 +1939,7 @@ public class TestHelpers {
 
     public static Forecaster randomForecaster() throws IOException {
         Feature feature = randomFeature();
+        List<Feature> featureList = ImmutableList.of(feature);
         return new Forecaster(
             randomAlphaOfLength(10),
             randomLong(),
@@ -1917,7 +1947,7 @@ public class TestHelpers {
             randomAlphaOfLength(20),
             randomAlphaOfLength(5),
             ImmutableList.of(randomAlphaOfLength(10)),
-            ImmutableList.of(feature),
+            featureList,
             randomQuery(),
             randomIntervalTimeConfiguration(),
             randomIntervalTimeConfiguration(),
@@ -1929,7 +1959,7 @@ public class TestHelpers {
             randomUser(),
             null,
             randomIntBetween(1, 20),
-            randomImputationOption(feature.getEnabled() ? 1 : 0),
+            randomImputationOption(featureList),
             randomIntBetween(1, 1000),
             randomIntBetween(1, 128),
             randomIntBetween(1, 1000),

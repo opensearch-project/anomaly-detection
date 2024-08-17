@@ -43,7 +43,6 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.FeatureManager;
-import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.ResultProcessor;
@@ -149,7 +148,6 @@ public class ForecastResultTransportAction extends HandledTransportAction<Foreca
 
             this.resultProcessor = new ForecastResultProcessor(
                 ForecastSettings.FORECAST_REQUEST_TIMEOUT,
-                TimeSeriesSettings.INTERVAL_RATIO_FOR_REQUESTS,
                 EntityForecastResultAction.NAME,
                 StatNames.FORECAST_HC_EXECUTE_REQUEST_COUNT,
                 settings,

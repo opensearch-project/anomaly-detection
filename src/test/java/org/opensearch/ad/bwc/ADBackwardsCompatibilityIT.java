@@ -468,5 +468,4 @@ public class ADBackwardsCompatibilityIT extends OpenSearchRestTestCase {
         Integer count = (Integer) responseMap.get("count");
         assertEquals(expectedCount, (long) count);
     }
-
 }

@@ -35,7 +35,7 @@ import com.google.common.base.Objects;
 public class Feature implements Writeable, ToXContentObject {
 
     private static final String FEATURE_ID_FIELD = "feature_id";
-    private static final String FEATURE_NAME_FIELD = "feature_name";
+    public static final String FEATURE_NAME_FIELD = "feature_name";
     private static final String FEATURE_ENABLED_FIELD = "feature_enabled";
     private static final String AGGREGATION_QUERY = "aggregation_query";
 
@@ -135,10 +135,12 @@ public class Feature implements Writeable, ToXContentObject {
     @Generated
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         Feature feature = (Feature) o;
         return Objects.equal(getId(), feature.getId())
             && Objects.equal(getName(), feature.getName())

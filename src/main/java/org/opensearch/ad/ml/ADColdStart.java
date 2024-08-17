@@ -171,7 +171,7 @@ public class ADColdStart extends
 
         double[] firstPoint = pointSamples.get(0).getValueList();
         if (firstPoint == null || firstPoint.length == 0) {
-            logger.info("Return early since data points must not be empty.");
+            logger.info("Return early since the first data point must not be empty.");
             return null;
         }
 
@@ -216,6 +216,29 @@ public class ADColdStart extends
         }
 
         AnomalyDetector detector = (AnomalyDetector) config;
+        applyRule(rcfBuilder, detector);
+
+        // use build instead of new TRCF(Builder) because build method did extra validation and initialization
+        ThresholdedRandomCutForest trcf = rcfBuilder.build();
+
+        for (int i = 0; i < pointSamples.size(); i++) {
+            Sample dataSample = pointSamples.get(i);
+            double[] dataValue = dataSample.getValueList();
+            // We don't keep missing values during cold start as the actual data may not be reconstructed during the early stage.
+            trcf.process(dataValue, dataSample.getDataEndTime().getEpochSecond());
+        }
+
+        entityState.setModel(trcf);
+
+        entityState.setLastUsedTime(clock.instant());
+
+        // save to checkpoint
+        checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
+
+        return pointSamples;
+    }
+
+    public static void applyRule(ThresholdedRandomCutForest.Builder rcfBuilder, AnomalyDetector detector) {
         ThresholdArrays thresholdArrays = IgnoreSimilarExtractor.processDetectorRules(detector);
 
         if (thresholdArrays != null) {
@@ -235,23 +258,5 @@ public class ADColdStart extends
                 rcfBuilder.ignoreNearExpectedFromBelowByRatio(thresholdArrays.ignoreSimilarFromBelowByRatio);
             }
         }
-
-        // use build instead of new TRCF(Builder) because build method did extra validation and initialization
-        ThresholdedRandomCutForest trcf = rcfBuilder.build();
-
-        for (int i = 0; i < pointSamples.size(); i++) {
-            Sample dataSample = pointSamples.get(i);
-            double[] dataValue = dataSample.getValueList();
-            trcf.process(dataValue, dataSample.getDataEndTime().getEpochSecond());
-        }
-
-        entityState.setModel(trcf);
-
-        entityState.setLastUsedTime(clock.instant());
-
-        // save to checkpoint
-        checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
-
-        return pointSamples;
     }
 }

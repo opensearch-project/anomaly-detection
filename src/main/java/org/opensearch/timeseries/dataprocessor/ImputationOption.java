@@ -8,12 +8,10 @@ package org.opensearch.timeseries.dataprocessor;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -22,53 +20,49 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.timeseries.model.DataByFeatureId;
+import org.opensearch.timeseries.model.Feature;
 
 public class ImputationOption implements Writeable, ToXContent {
     // field name in toXContent
     public static final String METHOD_FIELD = "method";
     public static final String DEFAULT_FILL_FIELD = "defaultFill";
-    public static final String INTEGER_SENSITIVE_FIELD = "integerSensitive";
 
     private final ImputationMethod method;
-    private final Optional<double[]> defaultFill;
-    private final boolean integerSentive;
+    private final Map<String, Double> defaultFill;
 
-    public ImputationOption(ImputationMethod method, Optional<double[]> defaultFill, boolean integerSentive) {
+    public ImputationOption(ImputationMethod method, Map<String, Double> defaultFill) {
         this.method = method;
         this.defaultFill = defaultFill;
-        this.integerSentive = integerSentive;
     }
 
     public ImputationOption(ImputationMethod method) {
-        this(method, Optional.empty(), false);
+        this(method, null);
     }
 
     public ImputationOption(StreamInput in) throws IOException {
         this.method = in.readEnum(ImputationMethod.class);
         if (in.readBoolean()) {
-            this.defaultFill = Optional.of(in.readDoubleArray());
+            this.defaultFill = in.readMap(StreamInput::readString, StreamInput::readDouble);
         } else {
-            this.defaultFill = Optional.empty();
+            this.defaultFill = null;
         }
-        this.integerSentive = in.readBoolean();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeEnum(method);
-        if (defaultFill.isEmpty()) {
+        if (defaultFill == null || defaultFill.isEmpty()) {
             out.writeBoolean(false);
         } else {
             out.writeBoolean(true);
-            out.writeDoubleArray(defaultFill.get());
+            out.writeMap(defaultFill, StreamOutput::writeString, StreamOutput::writeDouble);
         }
-        out.writeBoolean(integerSentive);
     }
 
     public static ImputationOption parse(XContentParser parser) throws IOException {
         ImputationMethod method = ImputationMethod.ZERO;
-        List<Double> defaultFill = null;
-        Boolean integerSensitive = null;
+        Map<String, Double> defaultFill = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -79,24 +73,40 @@ public class ImputationOption implements Writeable, ToXContent {
                     method = ImputationMethod.valueOf(parser.text().toUpperCase(Locale.ROOT));
                     break;
                 case DEFAULT_FILL_FIELD:
+                    defaultFill = new HashMap<>();
                     ensureExpectedToken(XContentParser.Token.START_ARRAY, parser.currentToken(), parser);
-                    defaultFill = new ArrayList<>();
-                    while (parser.nextToken() != XContentParser.Token.END_ARRAY) {
-                        defaultFill.add(parser.doubleValue());
+                    while ((parser.nextToken()) != XContentParser.Token.END_ARRAY) {
+
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
+
+                        String featureName = null;
+                        Double fillValue = null;
+                        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+                            String fillFieldName = parser.currentName();
+                            parser.nextToken();
+
+                            switch (fillFieldName) {
+                                case Feature.FEATURE_NAME_FIELD:
+                                    featureName = parser.text();
+                                    break;
+                                case DataByFeatureId.DATA_FIELD:
+                                    fillValue = parser.doubleValue();
+                                    break;
+                                default:
+                                    // the unknown field and it's children should be ignored
+                                    parser.skipChildren();
+                                    break;
+                            }
+                        }
+
+                        defaultFill.put(featureName, fillValue);
                     }
-                    break;
-                case INTEGER_SENSITIVE_FIELD:
-                    integerSensitive = parser.booleanValue();
                     break;
                 default:
                     break;
             }
         }
-        return new ImputationOption(
-            method,
-            Optional.ofNullable(defaultFill).map(list -> list.stream().mapToDouble(Double::doubleValue).toArray()),
-            integerSensitive
-        );
+        return new ImputationOption(method, defaultFill);
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -109,10 +119,16 @@ public class ImputationOption implements Writeable, ToXContent {
 
         builder.field(METHOD_FIELD, method);
 
-        if (!defaultFill.isEmpty()) {
-            builder.array(DEFAULT_FILL_FIELD, defaultFill.get());
+        if (defaultFill != null && !defaultFill.isEmpty()) {
+            builder.startArray(DEFAULT_FILL_FIELD);
+            for (Map.Entry<String, Double> fill : defaultFill.entrySet()) {
+                builder.startObject();
+                builder.field(Feature.FEATURE_NAME_FIELD, fill.getKey());
+                builder.field(DataByFeatureId.DATA_FIELD, fill.getValue());
+                builder.endObject();
+            }
+            builder.endArray();
         }
-        builder.field(INTEGER_SENSITIVE_FIELD, integerSentive);
         return xContentBuilder.endObject();
     }
 
@@ -126,34 +142,24 @@ public class ImputationOption implements Writeable, ToXContent {
         }
 
         ImputationOption other = (ImputationOption) o;
-        return method == other.method
-            && (defaultFill.isEmpty() ? other.defaultFill.isEmpty() : Arrays.equals(defaultFill.get(), other.defaultFill.get()))
-            && integerSentive == other.integerSentive;
+        return method == other.method && Objects.equals(defaultFill, other.defaultFill);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(method, (defaultFill.isEmpty() ? 0 : Arrays.hashCode(defaultFill.get())), integerSentive);
+        return Objects.hash(method, defaultFill);
     }
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this)
-            .append("method", method)
-            .append("defaultFill", (defaultFill.isEmpty() ? null : Arrays.toString(defaultFill.get())))
-            .append("integerSentive", integerSentive)
-            .toString();
+        return new ToStringBuilder(this).append("method", method).append("defaultFill", defaultFill).toString();
     }
 
     public ImputationMethod getMethod() {
         return method;
     }
 
-    public Optional<double[]> getDefaultFill() {
+    public Map<String, Double> getDefaultFill() {
         return defaultFill;
-    }
-
-    public boolean isIntegerSentive() {
-        return integerSentive;
     }
 }

@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Locale;
 
 import org.junit.Test;
@@ -377,6 +378,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     @Test
     public void testValidateAnomalyDetectorWithInvalidDetectorName() throws IOException {
         Feature feature = TestHelpers.randomFeature();
+        List<Feature> featureList = ImmutableList.of(feature);
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -384,7 +386,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             randomAlphaOfLength(5),
             timeField,
             ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
-            ImmutableList.of(feature),
+            featureList,
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -395,7 +397,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            TestHelpers.randomImputationOption(featureList),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
@@ -425,6 +427,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     @Test
     public void testValidateAnomalyDetectorWithDetectorNameTooLong() throws IOException {
         Feature feature = TestHelpers.randomFeature();
+        List<Feature> featureList = ImmutableList.of(feature);
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -432,7 +435,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             randomAlphaOfLength(5),
             timeField,
             ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
-            ImmutableList.of(feature),
+            featureList,
             TestHelpers.randomQuery(),
             TestHelpers.randomIntervalTimeConfiguration(),
             TestHelpers.randomIntervalTimeConfiguration(),
@@ -443,7 +446,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             TestHelpers.randomUser(),
             null,
-            TestHelpers.randomImputationOption(feature.getEnabled() ? 1 : 0),
+            TestHelpers.randomImputationOption(featureList),
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),

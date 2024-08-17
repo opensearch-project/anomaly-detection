@@ -80,6 +80,7 @@ import org.opensearch.test.rest.OpenSearchRestTestCase;
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
  */
 public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
+
     private static final Logger LOG = (Logger) LogManager.getLogger(ODFERestTestCase.class);
 
     protected boolean isHttps() {

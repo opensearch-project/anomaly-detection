@@ -325,6 +325,49 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
 
         int historySuggestions = ((Integer) responseMap.get("history"));
         assertEquals(37, historySuggestions);
+
+        // case 4: no feature is ok
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Detector-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 20,\n"
+            + "            \"unit\": \"SECONDS\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 4,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    }\n"
+            + "}";
+        formattedForecaster = String.format(Locale.ROOT, forecasterDef, SYNTHETIC_DATASET_NAME);
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, SUGGEST_INTERVAL_URI),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(1, (int) suggestions.get("interval"));
+        assertEquals("Minutes", suggestions.get("unit"));
     }
 
     public void testSuggestTenMinute() throws Exception {
@@ -512,6 +555,134 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         // no suggestion
+        assertEquals(0, responseMap.size());
+    }
+
+    /**
+     * Test data interval is larger than 1 hr and we fail to suggest
+     */
+    public void testFailToSuggest() throws Exception {
+        int trainTestSplit = 100;
+        String categoricalField = "componentName";
+        GenData dataGenerated = genUniformSingleFeatureData(
+            70,
+            trainTestSplit,
+            1,
+            categoricalField,
+            MISSING_MODE.NO_MISSING_DATA,
+            -1,
+            -1,
+            50
+        );
+        ingestUniformSingleFeatureData(trainTestSplit, dataGenerated.data, UNIFORM_DATASET_NAME, categoricalField);
+
+        // case 1: IntervalCalculation.findMinimumInterval cannot find any data point in the last 40 points and return 1 minute instead.
+        // We keep searching and find nothing below 1 hr and then return.
+        String forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"sum1\",\n"
+            + "            \"feature_name\": \"sum1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"sum1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"data\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 20,\n"
+            + "            \"unit\": \"SECONDS\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24\n"
+            + "}";
+
+        String formattedForecaster = String.format(Locale.ROOT, forecasterDef, UNIFORM_DATASET_NAME);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, SUGGEST_INTERVAL_URI),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        assertEquals(0, responseMap.size());
+
+        // case 2: IntervalCalculation.findMinimumInterval find an interval larger than 1 hr by going through the last 240 points.
+        // findMinimumInterval returns null and we stop searching further.
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"sum1\",\n"
+            + "            \"feature_name\": \"sum1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"sum1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"data\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 20,\n"
+            + "            \"unit\": \"SECONDS\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"history\": 240\n"
+            + "}";
+
+        formattedForecaster = String.format(Locale.ROOT, forecasterDef, UNIFORM_DATASET_NAME);
+
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, SUGGEST_INTERVAL_URI),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
+        responseMap = entityAsMap(response);
         assertEquals(0, responseMap.size());
     }
 

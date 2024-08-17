@@ -48,16 +48,16 @@ import org.opensearch.timeseries.ml.IntermediateResult;
 import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
+import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
-import org.opensearch.timeseries.stats.StatNames;
-import org.opensearch.timeseries.stats.Stats;
+import org.opensearch.timeseries.util.ActionListenerExecutor;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>>
+public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends RealTimeInferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>>
     extends BatchWorker<FeatureRequest, MultiGetRequest, MultiGetResponse> {
 
     private static final Logger LOG = LogManager.getLogger(CheckpointReadWorker.class);
@@ -65,13 +65,10 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
     protected final ModelManagerType modelManager;
     protected final CheckpointType checkpointDao;
     protected final ColdStartWorkerType coldStartWorker;
-    protected final SaveResultStrategyType resultWriteWorker;
-    protected final IndexManagementType indexUtil;
-    protected final Stats timeSeriesStats;
     protected final CheckpointWriteWorkerType checkpointWriteWorker;
     protected final Provider<? extends TimeSeriesCache<RCFModelType>> cacheProvider;
     protected final String checkpointIndexName;
-    protected final StatNames modelCorruptionStat;
+    protected final InferencerType inferencer;
 
     public CheckpointReadWorker(
         String workerName,
@@ -94,17 +91,14 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
         CheckpointType checkpointDao,
         ColdStartWorkerType entityColdStartWorker,
         NodeStateManager stateManager,
-        IndexManagementType indexUtil,
         Provider<? extends TimeSeriesCache<RCFModelType>> cacheProvider,
         Duration stateTtl,
         CheckpointWriteWorkerType checkpointWriteWorker,
-        Stats timeSeriesStats,
         Setting<Integer> concurrencySetting,
         Setting<Integer> batchSizeSetting,
         String checkpointIndexName,
-        StatNames modelCorruptionStat,
         AnalysisType context,
-        SaveResultStrategyType resultWriteWorker
+        InferencerType inferencer
     ) {
         super(
             workerName,
@@ -133,13 +127,10 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
         this.modelManager = modelManager;
         this.checkpointDao = checkpointDao;
         this.coldStartWorker = entityColdStartWorker;
-        this.indexUtil = indexUtil;
         this.cacheProvider = cacheProvider;
         this.checkpointWriteWorker = checkpointWriteWorker;
-        this.timeSeriesStats = timeSeriesStats;
         this.checkpointIndexName = checkpointIndexName;
-        this.modelCorruptionStat = modelCorruptionStat;
-        this.resultWriteWorker = resultWriteWorker;
+        this.inferencer = inferencer;
     }
 
     @Override
@@ -347,7 +338,7 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
         ModelState<RCFModelType> restoredModelState,
         String modelId
     ) {
-        return ActionListener.wrap(configOptional -> {
+        return ActionListenerExecutor.wrap(configOptional -> {
             if (configOptional.isEmpty()) {
                 LOG.warn(new ParameterizedMessage("Config [{}] is not available.", configId));
                 processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
@@ -356,51 +347,26 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
 
             Config config = configOptional.get();
 
-            RCFResultType result = null;
-            try {
-                result = modelManager
-                    .getResult(
-                        new Sample(
-                            origRequest.getCurrentFeature(),
-                            Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
-                            Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + config.getIntervalInMilliseconds())
-                        ),
-                        restoredModelState,
-                        modelId,
-                        config,
-                        origRequest.getTaskId()
-                    );
-            } catch (IllegalArgumentException e) {
-                // fail to score likely due to model corruption. Re-cold start to recover.
-                LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", origRequest.getModelId()), e);
-                timeSeriesStats.getStat(modelCorruptionStat.getName()).increment();
-                if (null != origRequest.getModelId()) {
-                    String entityModelId = origRequest.getModelId();
-                    checkpointDao
-                        .deleteModelCheckpoint(
-                            entityModelId,
-                            ActionListener
-                                .wrap(
-                                    r -> LOG.debug(new ParameterizedMessage("Succeeded in deleting checkpoint [{}].", entityModelId)),
-                                    ex -> LOG.error(new ParameterizedMessage("Failed to delete checkpoint [{}].", entityModelId), ex)
-                                )
-                        );
+            boolean processed = inferencer
+                .process(
+                    new Sample(
+                        origRequest.getCurrentFeature(),
+                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis()),
+                        Instant.ofEpochMilli(origRequest.getDataStartTimeMillis() + config.getIntervalInMilliseconds())
+                    ),
+                    restoredModelState,
+                    config,
+                    origRequest.getTaskId()
+                );
+            if (processed) {
+                // try to load to cache
+                boolean loaded = cacheProvider.get().hostIfPossible(config, restoredModelState);
+
+                if (false == loaded) {
+                    // not in memory. Maybe cold entities or some other entities
+                    // have filled the slot while waiting for loading checkpoints.
+                    checkpointWriteWorker.write(restoredModelState, true, RequestPriority.LOW);
                 }
-
-                coldStartWorker.put(origRequest);
-                processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
-                return;
-            }
-
-            resultWriteWorker.saveResult(result, config, origRequest, modelId);
-
-            // try to load to cache
-            boolean loaded = cacheProvider.get().hostIfPossible(config, restoredModelState);
-
-            if (false == loaded) {
-                // not in memory. Maybe cold entities or some other entities
-                // have filled the slot while waiting for loading checkpoints.
-                checkpointWriteWorker.write(restoredModelState, true, RequestPriority.LOW);
             }
 
             processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
@@ -408,6 +374,6 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
             LOG.error(new ParameterizedMessage("fail to get checkpoint [{}]", modelId, exception));
             nodeStateManager.setException(configId, exception);
             processCheckpointIteration(index + 1, toProcess, successfulRequests, retryableRequests);
-        });
+        }, threadPool.executor(threadPoolName));
     }
 }
