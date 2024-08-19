@@ -12,8 +12,8 @@
 package org.opensearch.action.admin.indices.mapping.get;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
@@ -32,6 +33,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.get.GetAction;
@@ -116,7 +118,12 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         super.setUp();
 
         settings = Settings.EMPTY;
+
         clusterService = mock(ClusterService.class);
+        ClusterName clusterName = new ClusterName("test");
+        ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+
         clientMock = spy(new NodeClient(settings, threadPool));
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
@@ -311,7 +318,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             assertTrue("should throw eror", false);
             inProgressLatch.countDown();
         }, e -> {
-            assertTrue(e.getMessage().contains(CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG));
+            String error = String.format(Locale.ROOT, CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG, field);
+            assertTrue("actual: " + e.getMessage(), e.getMessage().contains(error));
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
@@ -505,7 +513,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             if (fieldTypeName.equals(CommonName.IP_TYPE) || fieldTypeName.equals(CommonName.KEYWORD_TYPE)) {
                 assertTrue(e.getMessage().contains(IndexAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG));
             } else {
-                assertTrue(e.getMessage().contains(CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG));
+                String error = String.format(Locale.ROOT, CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG, field);
+                assertTrue("actual: " + e.getMessage(), e.getMessage().contains(error));
             }
             inProgressLatch.countDown();
         }));
@@ -798,5 +807,104 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
 
         verify(clientMock, times(0)).search(any(SearchRequest.class), any());
         verify(clientMock, times(1)).get(any(GetRequest.class), any());
+    }
+
+    public void testUpdateDifferentCategoricalField() throws InterruptedException {
+        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                if (action.equals(GetFieldMappingsAction.INSTANCE)) {
+                    try {
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
+                        );
+                        listener.onResponse((Response) response);
+                    } catch (IOException e) {
+                        logger.error("Create field mapping threw an exception", e);
+                    }
+                } else if (action.equals(GetAction.INSTANCE)) {
+                    // Serialize the object
+                    AnomalyDetector clone = new AnomalyDetector(
+                        detector.getId(),
+                        detector.getVersion(),
+                        detector.getName(),
+                        detector.getDescription(),
+                        detector.getTimeField(),
+                        detector.getIndices(),
+                        detector.getFeatureAttributes(),
+                        detector.getFilterQuery(),
+                        detector.getInterval(),
+                        detector.getWindowDelay(),
+                        detector.getShingleSize(),
+                        detector.getUiMetadata(),
+                        detector.getSchemaVersion(),
+                        Instant.now(),
+                        detector.getCategoryFields(),
+                        detector.getUser(),
+                        "opensearch-ad-plugin-result-blah",
+                        detector.getImputationOption(),
+                        detector.getRecencyEmphasis(),
+                        detector.getSeasonIntervals(),
+                        detector.getHistoryIntervals(),
+                        null,
+                        detector.getCustomResultIndexMinSize(),
+                        detector.getCustomResultIndexMinAge(),
+                        detector.getCustomResultIndexTTL(),
+                        false
+                    );
+                    try {
+                        listener.onResponse((Response) TestHelpers.createGetResponse(clone, clone.getId(), CommonName.CONFIG_INDEX));
+                    } catch (IOException e) {
+                        LOG.error(e);
+                    }
+                } else {
+                    assertTrue("should not reach here", false);
+                }
+            }
+        };
+        NodeClient clientSpy = spy(client);
+
+        method = RestRequest.Method.PUT;
+
+        handler = new IndexAnomalyDetectorActionHandler(
+            clusterService,
+            clientSpy,
+            clientUtil,
+            transportService,
+            anomalyDetectionIndices,
+            detectorId,
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            detector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            maxCategoricalFields,
+            RestRequest.Method.PUT,
+            xContentRegistry(),
+            null,
+            adTaskManager,
+            searchFeatureDao,
+            Settings.EMPTY
+        );
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            assertTrue("should not reach here", false);
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue("actual: " + e, e instanceof OpenSearchStatusException);
+            OpenSearchStatusException statusException = (OpenSearchStatusException) e;
+            assertTrue(statusException.getMessage().contains(CommonMessages.CAN_NOT_CHANGE_CUSTOM_RESULT_INDEX));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(10, TimeUnit.SECONDS));
+        verify(clientSpy, times(1)).execute(eq(GetFieldMappingsAction.INSTANCE), any(), any());
+        verify(clientSpy, times(1)).execute(eq(GetAction.INSTANCE), any(), any());
     }
 }

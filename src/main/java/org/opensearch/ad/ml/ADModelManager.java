@@ -33,7 +33,9 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.ImputedFeatureResult;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -47,13 +49,17 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.Features;
 import org.opensearch.timeseries.ml.MemoryAwareConcurrentHashmap;
+import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DateUtils;
+import org.opensearch.timeseries.util.ModelUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
+import com.amazon.randomcutforest.config.ForestMode;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
@@ -137,7 +143,11 @@ public class ADModelManager extends
         this.initialAcceptFraction = rcfNumMinSamples * 1.0d / rcfNumSamplesInTree;
     }
 
+    @Deprecated
     /**
+     * used in RCFResultTransportAction to handle request from old node request.
+     * In the new logic, we switch to SingleStreamResultAction.
+     *
      * Returns to listener the RCF anomaly result using the specified model.
      *
      * @param detectorId ID of the detector
@@ -194,7 +204,9 @@ public class ADModelManager extends
                         result.getExpectedValuesList(),
                         result.getLikelihoodOfValues(),
                         result.getThreshold(),
-                        result.getNumberOfTrees()
+                        result.getNumberOfTrees(),
+                        point,
+                        null
                     )
                 );
         } catch (Exception e) {
@@ -513,11 +525,10 @@ public class ADModelManager extends
      * Returns computed anomaly results for preview data points.
      *
      * @param features features of preview data points
-     * @param shingleSize model shingle size
-     * @return rcfTimeDecay rcf time decay
+     * @param detector Anomaly detector
      * @throws IllegalArgumentException when preview data points are not valid
      */
-    public List<ThresholdingResult> getPreviewResults(Features features, int shingleSize, double rcfTimeDecay) {
+    public List<ThresholdingResult> getPreviewResults(Features features, AnomalyDetector detector) {
         double[][] dataPoints = features.getUnprocessedFeatures();
         if (dataPoints.length < minPreviewSize) {
             throw new IllegalArgumentException("Insufficient data for preview results. Minimum required: " + minPreviewSize);
@@ -528,11 +539,15 @@ public class ADModelManager extends
                 String.format(Locale.ROOT, "time range size %d does not match data points size %d", timeRanges.size(), dataPoints.length)
             );
         }
+
+        int shingleSize = detector.getShingleSize();
+        double rcfTimeDecay = detector.getTimeDecay();
+
         // Train RCF models and collect non-zero scores
         int baseDimension = dataPoints[0].length;
         // speed is important in preview. We don't want cx to wait too long.
         // thus use the default value of boundingBoxCacheFraction = 1
-        ThresholdedRandomCutForest trcf = ThresholdedRandomCutForest
+        ThresholdedRandomCutForest.Builder trcfBuilder = ThresholdedRandomCutForest
             .builder()
             .randomSeed(0L)
             .dimensions(baseDimension * shingleSize)
@@ -550,27 +565,32 @@ public class ADModelManager extends
             .transformMethod(TransformMethod.NORMALIZE)
             .alertOnce(true)
             .autoAdjust(true)
-            .internalShinglingEnabled(true)
-            .build();
+            .internalShinglingEnabled(true);
+
+        if (shingleSize > 1) {
+            trcfBuilder.forestMode(ForestMode.STREAMING_IMPUTE);
+            trcfBuilder = ModelColdStart.applyImputationMethod(detector, trcfBuilder);
+        } else {
+            // imputation with shingle size 1 is not meaningful
+            trcfBuilder.forestMode(ForestMode.STANDARD);
+        }
+
+        ADColdStart.applyRule(trcfBuilder, detector);
+
+        ThresholdedRandomCutForest trcf = trcfBuilder.build();
 
         return IntStream.range(0, dataPoints.length).mapToObj(i -> {
+            // we don't have missing values in preview data. We have already filtered them out.
             double[] point = dataPoints[i];
             // Get the data end epoch milliseconds corresponding to this index and convert it to seconds
             long timestampSecs = timeRanges.get(i).getValue() / 1000;
             AnomalyDescriptor descriptor = trcf.process(point, timestampSecs); // Use the timestamp here
-            return new ThresholdingResult(
-                descriptor.getAnomalyGrade(),
-                descriptor.getDataConfidence(),
-                descriptor.getRCFScore(),
-                descriptor.getTotalUpdates(),
-                descriptor.getRelativeIndex(),
-                normalizeAttribution(trcf.getForest(), descriptor.getRelevantAttribution()),
-                descriptor.getPastValues(),
-                descriptor.getExpectedValuesList(),
-                descriptor.getLikelihoodOfValues(),
-                descriptor.getThreshold(),
-                rcfNumTrees
-            );
+
+            if (descriptor != null) {
+                return toResult(trcf.getForest(), descriptor, point, false, detector);
+            }
+
+            return null;
         }).collect(Collectors.toList());
     }
 
@@ -623,7 +643,15 @@ public class ADModelManager extends
     }
 
     @Override
-    protected ThresholdingResult toResult(RandomCutForest rcf, AnomalyDescriptor anomalyDescriptor) {
+    protected ThresholdingResult toResult(
+        RandomCutForest rcf,
+        AnomalyDescriptor anomalyDescriptor,
+        double[] point,
+        boolean isImputed,
+        Config config
+    ) {
+        ImputedFeatureResult result = ModelUtil.calculateImputedFeatures(anomalyDescriptor, point, isImputed, config);
+
         return new ThresholdingResult(
             anomalyDescriptor.getAnomalyGrade(),
             anomalyDescriptor.getDataConfidence(),
@@ -635,7 +663,9 @@ public class ADModelManager extends
             anomalyDescriptor.getExpectedValuesList(),
             anomalyDescriptor.getLikelihoodOfValues(),
             anomalyDescriptor.getThreshold(),
-            rcfNumTrees
+            rcfNumTrees,
+            result.getActual(),
+            result.getIsFeatureImputed()
         );
     }
 }

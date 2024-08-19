@@ -296,7 +296,7 @@ public class CompositeRetriever extends AbstractRetriever {
              }
              */
             for (Bucket bucket : composite.getBuckets()) {
-                Optional<double[]> featureValues = parseBucket(bucket, config.getEnabledFeatureIds());
+                Optional<double[]> featureValues = parseBucket(bucket, config.getEnabledFeatureIds(), true);
                 // bucket.getKey() returns a map of categorical field like "host" and its value like "server_1"
                 if (featureValues.isPresent() && bucket.getKey() != null) {
                     results.put(Entity.createEntityByReordering(bucket.getKey()), featureValues.get());

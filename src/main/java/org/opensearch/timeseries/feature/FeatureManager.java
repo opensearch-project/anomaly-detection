@@ -116,7 +116,7 @@ public class FeatureManager {
     ) {
         List<Entry<Long, Long>> missingRanges = Collections.singletonList(new SimpleImmutableEntry<>(startTime, endTime));
         try {
-            searchFeatureDao.getFeatureSamplesForPeriods(config, missingRanges, context, ActionListener.wrap(points -> {
+            searchFeatureDao.getFeatureSamplesForPeriods(config, missingRanges, context, true, ActionListener.wrap(points -> {
                 // we only have one point
                 if (points.size() == 1) {
                     Optional<double[]> point = points.get(0);
@@ -169,6 +169,7 @@ public class FeatureManager {
                         config,
                         sampleRanges,
                         context,
+                        false,
                         new ThreadedActionListener<>(
                             logger,
                             threadPool,
@@ -342,7 +343,7 @@ public class FeatureManager {
         int stride = sampleRangeResults.getValue();
         int shingleSize = detector.getShingleSize();
 
-        getSamplesForRanges(detector, sampleRanges, getFeatureSamplesListener(stride, shingleSize, listener));
+        getSamplesForPreview(detector, sampleRanges, getFeatureSamplesListener(stride, shingleSize, listener));
     }
 
     /**
@@ -417,13 +418,13 @@ public class FeatureManager {
      * @param listener handle search results map: key is time ranges, value is corresponding search results
      * @throws IOException if a user gives wrong query input when defining a detector
      */
-    void getSamplesForRanges(
+    void getSamplesForPreview(
         AnomalyDetector detector,
         List<Entry<Long, Long>> sampleRanges,
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
         searchFeatureDao
-            .getFeatureSamplesForPeriods(detector, sampleRanges, AnalysisType.AD, getSamplesRangesListener(sampleRanges, listener));
+            .getFeatureSamplesForPeriods(detector, sampleRanges, AnalysisType.AD, false, getSamplesRangesListener(sampleRanges, listener));
     }
 
     /**

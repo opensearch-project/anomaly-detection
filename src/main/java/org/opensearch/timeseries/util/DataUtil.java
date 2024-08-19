@@ -5,7 +5,11 @@
 
 package org.opensearch.timeseries.util;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class DataUtil {
     /**
@@ -45,4 +49,43 @@ public class DataUtil {
         return Arrays.copyOfRange(arr, startIndex, arr.length);
     }
 
+    public static int[] generateMissingIndicesArray(double[] point) {
+        List<Integer> intArray = new ArrayList<>();
+        for (int i = 0; i < point.length; i++) {
+            if (Double.isNaN(point[i])) {
+                intArray.add(i);
+            }
+        }
+        // Return null if the array is empty
+        if (intArray.size() == 0) {
+            return null;
+        }
+        return intArray.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    public static boolean areAnyElementsNaN(double[] array) {
+        return Arrays.stream(array).anyMatch(Double::isNaN);
+    }
+
+    /**
+     * Rounds the given double value to the specified number of decimal places.
+     *
+     * This method uses BigDecimal for precise rounding. It rounds using the
+     * HALF_UP rounding mode, which means it rounds towards the "nearest neighbor"
+     * unless both neighbors are equidistant, in which case it rounds up.
+     *
+     * @param value the double value to be rounded
+     * @param places the number of decimal places to round to
+     * @return the rounded double value
+     * @throws IllegalArgumentException if the specified number of decimal places is negative
+     */
+    public static double roundDouble(double value, int places) {
+        if (places < 0) {
+            throw new IllegalArgumentException();
+        }
+
+        BigDecimal bd = new BigDecimal(Double.toString(value));
+        bd = bd.setScale(places, RoundingMode.HALF_UP);
+        return bd.doubleValue();
+    }
 }

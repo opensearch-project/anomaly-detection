@@ -3,14 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.timeseries.transport;
+package org.opensearch.forecast.transport;
 
 import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.forecast.transport.ForecastRunOnceProfileRequest;
 
 public class ForecastRunOnceProfileNodeRequest extends BaseNodeRequest {
     private final ForecastRunOnceProfileRequest request;

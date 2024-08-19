@@ -351,10 +351,10 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         averageAccuracyTemplate(10, 0.4f, 0.1f, 4, true);
 
         // 10 minute interval, 2 features
-        averageAccuracyTemplate(10, 0.6f, 0.3f, 2, true);
+        averageAccuracyTemplate(10, 0.6f, 0.4f, 2, true);
 
         // 10 minute interval, 1 features
-        averageAccuracyTemplate(10, 0.3f, 0.4f, 1, true);
+        averageAccuracyTemplate(10, 0.5f, 0.3f, 1, true);
 
         // 5 minute interval, 4 features
         averageAccuracyTemplate(5, 0.2f, 0.1f, 4, true);
@@ -363,6 +363,6 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         averageAccuracyTemplate(5, 0.5f, 0.3f, 2, true);
 
         // 5 minute interval, 1 features
-        averageAccuracyTemplate(5, 0.3f, 0.4f, 1, true);
+        averageAccuracyTemplate(5, 0.3f, 0.3f, 1, true);
     }
 }

@@ -55,6 +55,7 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.HybridThresholdingModel;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -99,6 +100,8 @@ import org.opensearch.ad.transport.ADCancelTaskAction;
 import org.opensearch.ad.transport.ADCancelTaskTransportAction;
 import org.opensearch.ad.transport.ADEntityProfileAction;
 import org.opensearch.ad.transport.ADEntityProfileTransportAction;
+import org.opensearch.ad.transport.ADHCImputeAction;
+import org.opensearch.ad.transport.ADHCImputeTransportAction;
 import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.ADProfileTransportAction;
 import org.opensearch.ad.transport.ADResultBulkAction;
@@ -182,6 +185,7 @@ import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.ml.ForecastCheckpointDao;
 import org.opensearch.forecast.ml.ForecastColdStart;
 import org.opensearch.forecast.ml.ForecastModelManager;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointMaintainWorker;
@@ -817,7 +821,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
+            .put(
+                StatNames.JOB_INDEX_STATUS.getName(),
+                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
+            )
             .put(
                 StatNames.MODEL_COUNT.getName(),
                 new TimeSeriesStat<>(false, new ADModelsOnNodeCountSupplier(adModelManager, adCacheProvider))
@@ -825,6 +832,16 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             .build();
 
         adStats = new ADStats(adStatsMap);
+
+        ADRealTimeInferencer adInferencer = new ADRealTimeInferencer(
+            adModelManager,
+            adStats,
+            adCheckpoint,
+            adColdstartQueue,
+            adSaveResultStrategy,
+            adCacheProvider,
+            threadPool
+        );
 
         ADCheckpointReadWorker adCheckpointReadQueue = new ADCheckpointReadWorker(
             heapSizeBytes,
@@ -845,12 +862,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adCheckpoint,
             adColdstartQueue,
             stateManager,
-            anomalyDetectionIndices,
             adCacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             adCheckpointWriteQueue,
-            adStats,
-            adSaveResultStrategy
+            adInferencer
         );
 
         ADColdEntityWorker adColdEntityQueue = new ADColdEntityWorker(
@@ -1199,11 +1214,24 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 StatNames.CONFIG_INDEX_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.CONFIG_INDEX))
             )
-            .put(StatNames.JOB_INDEX_STATUS.getName(), new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, JOB_INDEX)))
+            .put(
+                StatNames.JOB_INDEX_STATUS.getName(),
+                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, CommonName.JOB_INDEX))
+            )
             .put(StatNames.MODEL_COUNT.getName(), new TimeSeriesStat<>(false, new ForecastModelsOnNodeCountSupplier(forecastCacheProvider)))
             .build();
 
         forecastStats = new ForecastStats(forecastStatsMap);
+
+        ForecastRealTimeInferencer forecastInferencer = new ForecastRealTimeInferencer(
+            forecastModelManager,
+            forecastStats,
+            forecastCheckpoint,
+            forecastColdstartQueue,
+            forecastSaveResultStrategy,
+            forecastCacheProvider,
+            threadPool
+        );
 
         ForecastCheckpointReadWorker forecastCheckpointReadQueue = new ForecastCheckpointReadWorker(
             heapSizeBytes,
@@ -1224,12 +1252,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastCheckpoint,
             forecastColdstartQueue,
             stateManager,
-            forecastIndices,
             forecastCacheProvider,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             forecastCheckpointWriteQueue,
-            forecastStats,
-            forecastSaveResultStrategy
+            forecastInferencer
         );
 
         ForecastColdEntityWorker forecastColdEntityQueue = new ForecastColdEntityWorker(
@@ -1350,6 +1376,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 adIndexJobActionHandler,
                 adSaveResultStrategy,
                 new ADTaskProfileRunner(hashRing, client),
+                adInferencer,
                 // forecast components
                 forecastIndices,
                 forecastStats,
@@ -1368,12 +1395,13 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 forecastIndexJobActionHandler,
                 forecastTaskCacheManager,
                 forecastSaveResultStrategy,
-                new ForecastTaskProfileRunner()
+                new ForecastTaskProfileRunner(),
+                forecastInferencer
             );
     }
 
     /**
-     * createComponents doesn't work for Clock as ES process cannot start
+     * createComponents doesn't work for Clock as OS process cannot start
      * complaining it cannot find Clock instances for transport actions constructors.
      * @return a UTC clock
      */
@@ -1650,6 +1678,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 new ActionHandler<>(SearchTopAnomalyResultAction.INSTANCE, SearchTopAnomalyResultTransportAction.class),
                 new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADSingleStreamResultAction.INSTANCE, ADSingleStreamResultTransportAction.class),
+                new ActionHandler<>(ADHCImputeAction.INSTANCE, ADHCImputeTransportAction.class),
                 // forecast
                 new ActionHandler<>(IndexForecasterAction.INSTANCE, IndexForecasterTransportAction.class),
                 new ActionHandler<>(ForecastResultAction.INSTANCE, ForecastResultTransportAction.class),
@@ -1696,7 +1725,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
 
     @Override
     public String getJobIndex() {
-        return JOB_INDEX;
+        return CommonName.JOB_INDEX;
     }
 
     @Override

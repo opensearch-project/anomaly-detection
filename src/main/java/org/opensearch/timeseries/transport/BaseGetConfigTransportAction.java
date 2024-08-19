@@ -6,7 +6,7 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.forecast.constant.ForecastCommonMessages.FAIL_TO_GET_FORECASTER;
+import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -161,7 +161,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         GetConfigRequest getConfigRequest = GetConfigRequest.fromActionRequest(request);
         String configID = getConfigRequest.getConfigID();
         User user = ParseUtils.getUserContext(client);
-        ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_FORECASTER);
+        ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             resolveUserAndExecute(
                 user,

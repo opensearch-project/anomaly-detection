@@ -136,13 +136,13 @@ public class IntervalCalculation {
      * Bucket aggregation with different interval lengths are executed one by one to check if the data is dense enough
      * We only need to execute the next query if the previous one led to data that is too sparse.
      */
-    class IntervalRecommendationListener implements ActionListener<SearchResponse> {
+    public class IntervalRecommendationListener implements ActionListener<SearchResponse> {
         private final ActionListener<IntervalTimeConfiguration> intervalListener;
         IntervalTimeConfiguration currentIntervalToTry;
         private final long expirationEpochMs;
         private LongBounds currentTimeStampBounds;
 
-        IntervalRecommendationListener(
+        public IntervalRecommendationListener(
             ActionListener<IntervalTimeConfiguration> intervalListener,
             SearchSourceBuilder searchSourceBuilder,
             IntervalTimeConfiguration currentIntervalToTry,
