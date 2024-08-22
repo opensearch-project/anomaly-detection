@@ -106,7 +106,7 @@ public class HistoricalRuleModelPerfIT extends AbstractRuleModelPerfTestCase {
             Instant begin = Instant.ofEpochMilli(Long.parseLong(beginTimeStampAsString));
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
-                List<JsonObject> sourceList = getAnomalyResult(detectorId, end, entitySize, client, true, intervalMillis);
+                List<JsonObject> sourceList = getAnomalyResultByDataTime(detectorId, end, entitySize, client, true, intervalMillis);
                 analyzeResults(anomalies, res, foundWindow, beginTimeStampAsString, entitySize, begin, sourceList);
             } catch (Exception e) {
                 errors++;

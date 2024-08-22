@@ -1,0 +1,60 @@
+name: Run long running tests
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  Get-CI-Image-Tag:
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    with:
+      product: opensearch
+
+  Run-Tests:
+    needs: Get-CI-Image-Tag
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # each test scenario (rule, hc, single_stream) is treated as a separate job.
+        test: [smoke]
+      fail-fast: false
+    concurrency:
+      # The concurrency setting is used to limit the concurrency of each test scenario group to ensure they do not run concurrently on the same machine.
+      group: ${{ github.workflow }}-${{ matrix.test }}
+    name: Run long running tests
+
+    container:
+      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
+      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
+      options: --user root
+
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Checkout AD
+        uses: actions/checkout@v3
+
+      - name: Build and Run Tests
+        run: |
+          chown -R 1000:1000 `pwd`
+          case ${{ matrix.test }} in
+            smoke)
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.SingleStreamSmokeIT' \
+                -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
+                -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
+                -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dlong-running=true \
+                -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
+              ;;
+          esac

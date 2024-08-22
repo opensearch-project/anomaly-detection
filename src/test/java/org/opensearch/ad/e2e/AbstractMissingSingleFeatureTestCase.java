@@ -66,7 +66,7 @@ public abstract class AbstractMissingSingleFeatureTestCase extends MissingIT {
             case FIXED_VALUES:
                 sb
                     .append(
-                        "\"imputation_option\": { \"method\": \"fixed_values\", \"defaultFill\": [{ \"feature_name\" : \"feature 1\", \"data\": 1 }] },"
+                        "\"imputation_option\": { \"method\": \"fixed_values\", \"default_fill\": [{ \"feature_name\" : \"feature 1\", \"data\": 1 }] },"
                     );
                 break;
         }
@@ -212,7 +212,7 @@ public abstract class AbstractMissingSingleFeatureTestCase extends MissingIT {
                 if (realTime) {
                     sourceList = getRealTimeAnomalyResult(detectorId, end, numberOfEntities, client());
                 } else {
-                    sourceList = getAnomalyResult(detectorId, end, numberOfEntities, client(), true, intervalMillis);
+                    sourceList = getAnomalyResultByDataTime(detectorId, end, numberOfEntities, client(), true, intervalMillis);
                 }
 
                 assertTrue(

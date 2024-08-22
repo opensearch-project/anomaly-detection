@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -163,13 +164,59 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         return entityAsMap(response);
     }
 
+    protected List<JsonObject> getAnomalyResultByDataTime(
+        String detectorId,
+        Instant end,
+        int entitySize,
+        RestClient client,
+        boolean approximateEndTime,
+        long rangeDurationMillis
+    ) throws InterruptedException {
+        return getAnomalyResult(
+            detectorId,
+            end,
+            entitySize,
+            client,
+            approximateEndTime,
+            rangeDurationMillis,
+            "data_end_time",
+            (h, eSize) -> h.size() == eSize,
+            entitySize
+        );
+    }
+
+    protected List<JsonObject> getAnomalyResultByExecutionTime(
+        String detectorId,
+        Instant end,
+        int entitySize,
+        RestClient client,
+        boolean approximateEndTime,
+        long rangeDurationMillis,
+        int expectedResultSize
+    ) throws InterruptedException {
+        return getAnomalyResult(
+            detectorId,
+            end,
+            entitySize,
+            client,
+            approximateEndTime,
+            rangeDurationMillis,
+            "execution_end_time",
+            (h, eSize) -> h.size() >= eSize,
+            expectedResultSize
+        );
+    }
+
     protected List<JsonObject> getAnomalyResult(
         String detectorId,
         Instant end,
         int entitySize,
         RestClient client,
-        boolean approximateDataEndTime,
-        long intervalMillis
+        boolean approximateEndTime,
+        long rangeDurationMillis,
+        String endTimeField,
+        ConditionChecker checker,
+        int expectedResultSize
     ) throws InterruptedException {
         Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/results/_search");
 
@@ -191,12 +238,12 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
             + "                },\n"
             + "                {\n"
             + "                    \"range\": {\n"
-            + "                        \"data_end_time\": {\n";
+            + "                        \"%s\": {\n";
 
         StringBuilder jsonTemplate = new StringBuilder();
         jsonTemplate.append(jsonTemplatePrefix);
 
-        if (approximateDataEndTime) {
+        if (approximateEndTime) {
             // we may get two interval results if using gte
             jsonTemplate.append("                            \"gt\": %d,\n                            \"lte\": %d\n");
         } else {
@@ -217,10 +264,11 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         long dateEndTime = end.toEpochMilli();
         String formattedJson = null;
 
-        if (approximateDataEndTime) {
-            formattedJson = String.format(Locale.ROOT, jsonTemplate.toString(), detectorId, dateEndTime - intervalMillis, dateEndTime);
+        if (approximateEndTime) {
+            formattedJson = String
+                .format(Locale.ROOT, jsonTemplate.toString(), detectorId, endTimeField, dateEndTime - rangeDurationMillis, dateEndTime);
         } else {
-            formattedJson = String.format(Locale.ROOT, jsonTemplate.toString(), detectorId, dateEndTime, dateEndTime);
+            formattedJson = String.format(Locale.ROOT, jsonTemplate.toString(), detectorId, endTimeField, dateEndTime, dateEndTime);
         }
 
         request.setJsonEntity(formattedJson);
@@ -231,25 +279,16 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         do {
             try {
                 JsonArray hits = getHits(client, request);
-                if (hits != null && hits.size() == entitySize) {
-                    assertTrue("empty response", hits != null);
-                    assertTrue("returned more than " + hits.size() + " results.", hits.size() == entitySize);
+                if (hits != null && checker.checkCondition(hits, entitySize)) {
                     List<JsonObject> res = new ArrayList<>();
-                    for (int i = 0; i < entitySize; i++) {
+                    for (int i = 0; i < hits.size(); i++) {
                         JsonObject source = hits.get(i).getAsJsonObject().get("_source").getAsJsonObject();
                         res.add(source);
                     }
 
                     return res;
                 } else {
-                    LOG
-                        .info(
-                            "wait for result, previous result: {}, size: {}, eval result {}, expected {}",
-                            hits,
-                            hits.size(),
-                            hits != null && hits.size() == entitySize,
-                            entitySize
-                        );
+                    LOG.info("wait for result, previous result: {}, size: {}", hits, hits.size());
                     client.performRequest(new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", ".opendistro-anomaly-results*")));
                 }
                 Thread.sleep(2_000 * entitySize);
@@ -275,7 +314,7 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
 
     protected List<JsonObject> getRealTimeAnomalyResult(String detectorId, Instant end, int entitySize, RestClient client)
         throws InterruptedException {
-        return getAnomalyResult(detectorId, end, entitySize, client, false, 0);
+        return getAnomalyResultByDataTime(detectorId, end, entitySize, client, false, 0);
     }
 
     public double getAnomalyGrade(JsonObject source) {
@@ -462,7 +501,7 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
 
             Thread.sleep(1_000);
 
-            List<JsonObject> sourceList = getAnomalyResult(detectorId, end, entitySize, client, true, intervalMillis);
+            List<JsonObject> sourceList = getAnomalyResultByDataTime(detectorId, end, entitySize, client, true, intervalMillis);
             if (sourceList.size() > 0 && getAnomalyGrade(sourceList.get(0)) >= 0) {
                 return sourceList;
             }
@@ -624,7 +663,30 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         );
     }
 
+    protected long getWindowDelayMinutes(List<JsonObject> data, int trainTestSplit, String timestamp) {
+        // e.g., "2019-11-02T00:59:00Z"
+        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
+        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(trainTimeStr));
+        /*
+         * The {@code CompositeRetriever.PageIterator.hasNext()} method checks if a request is expired
+         * relative to the current system time. This method is designed to ensure that the execution time
+         * is set to either the current time or a future time to prevent premature expirations in our tests.
+         *
+         * Also, AD accepts windowDelay in the unit of minutes. Thus, we need to convert the delay in minutes. This will
+         * make it easier to search for results based on data end time. Otherwise, real data time and the converted
+         * data time from request time.
+         * Assume x = real data time. y= real window delay. y'= window delay in minutes. If y and y' are different,
+         * x + y - y' != x.
+         */
+        return Duration.between(trainTime, Instant.now()).toMinutes();
+    }
+
     public static boolean areDoublesEqual(double d1, double d2) {
         return Math.abs(d1 - d2) < EPSILON;
+    }
+
+    @FunctionalInterface
+    public interface ConditionChecker {
+        boolean checkCondition(JsonArray hits, int expectedSize);
     }
 }

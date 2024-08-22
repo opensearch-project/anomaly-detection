@@ -97,7 +97,6 @@ public class SingleStreamModelPerfIT extends AbstractADSyntheticDataTest {
             .from(DateTimeFormatter.ISO_INSTANT.parse(data.get(trainTestSplit - 1).get("timestamp").getAsString()));
         Instant dataEndTime = dataStartTime.plus(intervalMinutes, ChronoUnit.MINUTES);
         Instant trainTime = dataToExecutionTime(dataStartTime, windowDelay);
-        ;
         Instant executionStartTime = trainTime;
         Instant executionEndTime = executionStartTime.plus(intervalMinutes, ChronoUnit.MINUTES);
 
@@ -221,23 +220,5 @@ public class SingleStreamModelPerfIT extends AbstractADSyntheticDataTest {
             );
         Thread.sleep(1_000);
         waitAllSyncheticDataIngested(data.size(), datasetName, client);
-    }
-
-    protected long getWindowDelayMinutes(List<JsonObject> data, int trainTestSplit, String timestamp) {
-        // e.g., "2019-11-02T00:59:00Z"
-        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
-        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(trainTimeStr));
-        /*
-         * The {@code CompositeRetriever.PageIterator.hasNext()} method checks if a request is expired
-         * relative to the current system time. This method is designed to ensure that the execution time
-         * is set to either the current time or a future time to prevent premature expirations in our tests.
-         *
-         * Also, AD accepts windowDelay in the unit of minutes. Thus, we need to convert the delay in minutes. This will
-         * make it easier to search for results based on data end time. Otherwise, real data time and the converted
-         * data time from request time.
-         * Assume x = real data time. y= real window delay. y'= window delay in minutes. If y and y' are different,
-         * x + y - y' != x.
-         */
-        return Duration.between(trainTime, Instant.now()).toMinutes();
     }
 }

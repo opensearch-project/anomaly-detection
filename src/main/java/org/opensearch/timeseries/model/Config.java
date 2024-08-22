@@ -225,29 +225,36 @@ public abstract class Config implements Writeable, ToXContentObject {
                 : features.stream().filter(Feature::getEnabled).collect(Collectors.toList());
 
             Map<String, Double> defaultFill = imputationOption.getDefaultFill();
-            if (defaultFill.isEmpty() && enabledFeatures.size() > 0) {
+
+            // Case 1: enabledFeatures == null && defaultFill != null
+            if (enabledFeatures == null && defaultFill != null && !defaultFill.isEmpty()) {
                 issueType = ValidationIssueType.IMPUTATION;
-                errorMessage = "No given values for fixed value imputation";
+                errorMessage = "Enabled features list is null, but default fill values are provided.";
                 return;
             }
 
-            // Check if the length of the defaultFill array matches the number of expected features
-            if (enabledFeatures == null || defaultFill.size() != enabledFeatures.size()) {
+            // Case 2: enabledFeatures != null && defaultFill == null
+            if (enabledFeatures != null && (defaultFill == null || defaultFill.isEmpty())) {
+                issueType = ValidationIssueType.IMPUTATION;
+                errorMessage = "Enabled features are present, but no default fill values are provided.";
+                return;
+            }
+
+            // Case 3: enabledFeatures.size() != defaultFill.size()
+            if (enabledFeatures != null && defaultFill != null && defaultFill.size() != enabledFeatures.size()) {
                 issueType = ValidationIssueType.IMPUTATION;
                 errorMessage = String
                     .format(
                         Locale.ROOT,
-                        "Incorrect number of values to fill. Got: %d. Expected: %d.",
+                        "Mismatch between the number of enabled features and default fill values. Number of default fill values: %d. Number of enabled features: %d.",
                         defaultFill.size(),
-                        enabledFeatures == null ? 0 : enabledFeatures.size()
+                        enabledFeatures.size()
                     );
                 return;
             }
 
-            Map<String, Double> defaultFills = imputationOption.getDefaultFill();
-
             for (int i = 0; i < enabledFeatures.size(); i++) {
-                if (!defaultFills.containsKey(enabledFeatures.get(i).getName())) {
+                if (!defaultFill.containsKey(enabledFeatures.get(i).getName())) {
                     issueType = ValidationIssueType.IMPUTATION;
                     errorMessage = String.format(Locale.ROOT, "Missing feature name: %s.", enabledFeatures.get(i).getName());
                     return;
