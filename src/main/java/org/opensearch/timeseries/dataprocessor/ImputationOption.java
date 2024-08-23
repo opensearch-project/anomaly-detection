@@ -26,7 +26,7 @@ import org.opensearch.timeseries.model.Feature;
 public class ImputationOption implements Writeable, ToXContent {
     // field name in toXContent
     public static final String METHOD_FIELD = "method";
-    public static final String DEFAULT_FILL_FIELD = "defaultFill";
+    public static final String DEFAULT_FILL_FIELD = "default_fill";
 
     private final ImputationMethod method;
     private final Map<String, Double> defaultFill;
@@ -152,7 +152,7 @@ public class ImputationOption implements Writeable, ToXContent {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("method", method).append("defaultFill", defaultFill).toString();
+        return new ToStringBuilder(this).append("method", method).append("default_fill", defaultFill).toString();
     }
 
     public ImputationMethod getMethod() {
