@@ -43,9 +43,12 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.dataprocessor.ImputationMethod;
+import org.opensearch.timeseries.dataprocessor.ImputationOption;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -894,7 +897,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
             + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
             + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
-            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
             + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
             + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_min_size\":1500}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
@@ -921,7 +924,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
             + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
             + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
-            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
             + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
             + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_min_age\":7}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
@@ -936,7 +939,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
             + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
             + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
-            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
             + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
             + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"result_index_ttl\":30}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
@@ -951,8 +954,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
             + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
-            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
-            + ":[],\"integerSensitive\":false},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"ZERO\"},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
             + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"flatten_result_index_mapping\":true}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertEquals(true, (boolean) parsedDetector.getFlattenResultIndexMapping());
@@ -991,5 +993,41 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         AnomalyDetector deserializedDetector = new AnomalyDetector(input);
         Assert.assertEquals(deserializedDetector, detector);
         Assert.assertEquals(deserializedDetector.getSeasonIntervals(), detector.getSeasonIntervals());
+    }
+
+    public void testNullFixedValue() throws IOException {
+        org.opensearch.timeseries.common.exception.ValidationException e = assertThrows(
+            org.opensearch.timeseries.common.exception.ValidationException.class,
+            () -> new AnomalyDetector(
+                randomAlphaOfLength(5),
+                randomLong(),
+                randomAlphaOfLength(5),
+                randomAlphaOfLength(5),
+                randomAlphaOfLength(5),
+                ImmutableList.of(randomAlphaOfLength(5)),
+                ImmutableList.of(TestHelpers.randomFeature()),
+                TestHelpers.randomQuery(),
+                TestHelpers.randomIntervalTimeConfiguration(),
+                TestHelpers.randomIntervalTimeConfiguration(),
+                null,
+                null,
+                1,
+                Instant.now(),
+                null,
+                TestHelpers.randomUser(),
+                null,
+                new ImputationOption(ImputationMethod.FIXED_VALUES, null),
+                randomIntBetween(1, 10000),
+                randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
+                null,
+                null
+            )
+        );
+        assertEquals("Got: " + e.getMessage(), "Enabled features are present, but no default fill values are provided.", e.getMessage());
+        assertEquals("Got :" + e.getType(), ValidationIssueType.IMPUTATION, e.getType());
     }
 }

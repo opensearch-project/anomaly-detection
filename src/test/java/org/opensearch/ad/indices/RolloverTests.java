@@ -304,7 +304,7 @@ public class RolloverTests extends AbstractTimeSeriesTest {
             + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
             + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"customResultIndexOrAlias\":"
-            + "\"\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"defaultFill\""
+            + "\"\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
             + ":[],\"integerSensitive\":false},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
             + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[]}";
 

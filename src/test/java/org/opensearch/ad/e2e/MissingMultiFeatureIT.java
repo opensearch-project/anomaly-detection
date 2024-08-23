@@ -218,7 +218,7 @@ public class MissingMultiFeatureIT extends MissingIT {
             case FIXED_VALUES:
                 sb
                     .append(
-                        "\"imputation_option\": { \"method\": \"fixed_values\", \"defaultFill\": [{ \"feature_name\" : \"feature 1\", \"data\": 1 }, { \"feature_name\" : \"feature 2\", \"data\": 2 }] },"
+                        "\"imputation_option\": { \"method\": \"fixed_values\", \"default_fill\": [{ \"feature_name\" : \"feature 1\", \"data\": 1 }, { \"feature_name\" : \"feature 2\", \"data\": 2 }] },"
                     );
                 break;
         }
