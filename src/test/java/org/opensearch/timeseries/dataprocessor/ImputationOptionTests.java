@@ -41,7 +41,7 @@ public class ImputationOptionTests extends OpenSearchTestCase {
 
         xContent = "{"
             + "\"method\":\"FIXED_VALUES\","
-            + "\"defaultFill\":[{\"feature_name\":\"a\", \"data\":1.0},{\"feature_name\":\"b\", \"data\":2.0},{\"feature_name\":\"c\", \"data\":3.0}]}";
+            + "\"default_fill\":[{\"feature_name\":\"a\", \"data\":1.0},{\"feature_name\":\"b\", \"data\":2.0},{\"feature_name\":\"c\", \"data\":3.0}]}";
     }
 
     private Map<String, Double> randomMap(double[] defaultFill) {
