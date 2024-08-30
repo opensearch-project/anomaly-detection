@@ -605,7 +605,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null
             )
         );
-        assertEquals("recency emphasis has to be a positive integer", exception.getMessage());
+        assertEquals("Recency emphasis must be an integer greater than 1.", exception.getMessage());
     }
 
     public void testInvalidDetectionInterval() {

@@ -148,7 +148,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
         long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes();
 
         Duration windowDelay = Duration.ofMinutes(windowDelayMinutes);
-        return new TrainResult(null, data, rawDataTrainTestSplit, windowDelay, trainTime);
+        return new TrainResult(null, data, rawDataTrainTestSplit, windowDelay, trainTime, "timestamp");
     }
 
     public Map<String, List<Entry<Instant, Instant>>> getAnomalyWindowsMap(String labelFileName) throws Exception {
