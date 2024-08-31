@@ -193,9 +193,9 @@ public abstract class Config implements Writeable, ToXContentObject {
             return;
         }
 
-        if (recencyEmphasis != null && (recencyEmphasis <= 0)) {
+        if (recencyEmphasis != null && recencyEmphasis <= 1) {
             issueType = ValidationIssueType.RECENCY_EMPHASIS;
-            errorMessage = "recency emphasis has to be a positive integer";
+            errorMessage = "Recency emphasis must be an integer greater than 1.";
             return;
         }
 

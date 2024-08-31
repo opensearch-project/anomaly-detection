@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,20 +58,22 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         // last data time in data
         public Instant finalDataTime;
 
-        public TrainResult(String detectorId, List<JsonObject> data, int rawDataTrainTestSplit, Duration windowDelay, Instant trainTime) {
+        public TrainResult(
+            String detectorId,
+            List<JsonObject> data,
+            int rawDataTrainTestSplit,
+            Duration windowDelay,
+            Instant trainTime,
+            String timeStampField
+        ) {
             this.detectorId = detectorId;
             this.data = data;
             this.rawDataTrainTestSplit = rawDataTrainTestSplit;
             this.windowDelay = windowDelay;
             this.trainTime = trainTime;
 
-            this.firstDataTime = getDataTime(0);
-            this.finalDataTime = getDataTime(data.size() - 1);
-        }
-
-        private Instant getDataTime(int index) {
-            String finalTimeStr = data.get(index).get("timestamp").getAsString();
-            return Instant.ofEpochMilli(Long.parseLong(finalTimeStr));
+            this.firstDataTime = getDataTimeOfEpochMillis(timeStampField, data, 0);
+            this.finalDataTime = getDataTimeOfEpochMillis(timeStampField, data, data.size() - 1);
         }
     }
 
@@ -688,5 +692,88 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
     @FunctionalInterface
     public interface ConditionChecker {
         boolean checkCondition(JsonArray hits, int expectedSize);
+    }
+
+    protected static Instant getDataTimeOfEpochMillis(String timestampField, List<JsonObject> data, int index) {
+        String finalTimeStr = data.get(index).get(timestampField).getAsString();
+        return Instant.ofEpochMilli(Long.parseLong(finalTimeStr));
+    }
+
+    protected static Instant getDataTimeofISOFormat(String timestampField, List<JsonObject> data, int index) {
+        String finalTimeStr = data.get(index).get(timestampField).getAsString();
+
+        try {
+            // Attempt to parse as an ISO 8601 formatted string (e.g., "2019-11-01T00:00:00Z")
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(finalTimeStr, DateTimeFormatter.ISO_DATE_TIME);
+            return zonedDateTime.toInstant();
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("Invalid timestamp format: " + finalTimeStr, ex);
+        }
+    }
+
+    protected List<JsonObject> getTasks(String detectorId, int size, ConditionChecker checker, RestClient client)
+        throws InterruptedException {
+        Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/tasks/_search");
+
+        String jsonTemplate = "{\n"
+            + "  \"size\": %d,\n"
+            + "  \"query\": {\n"
+            + "    \"bool\": {\n"
+            + "      \"filter\": [\n"
+            + "        {\n"
+            + "          \"term\": {\n"
+            + "            \"detector_id\": \"%s\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+        // try to get size + 10 results if there are that many
+        String formattedJson = String.format(Locale.ROOT, jsonTemplate, size + 10, detectorId);
+
+        request.setJsonEntity(formattedJson);
+
+        // wait until results are available
+        // max wait for 60_000 milliseconds
+        int maxWaitCycles = 30;
+        do {
+            try {
+                JsonArray hits = getHits(client, request);
+                if (hits != null && checker.checkCondition(hits, size)) {
+                    List<JsonObject> res = new ArrayList<>();
+                    for (int i = 0; i < hits.size(); i++) {
+                        JsonObject source = hits.get(i).getAsJsonObject().get("_source").getAsJsonObject();
+                        res.add(source);
+                    }
+
+                    return res;
+                } else {
+                    LOG.info("wait for result, previous result: {}, size: {}", hits, hits.size());
+                }
+                Thread.sleep(2_000 * size);
+            } catch (Exception e) {
+                LOG.warn("Exception while waiting for result", e);
+                Thread.sleep(2_000 * size);
+            }
+        } while (maxWaitCycles-- >= 0);
+
+        // leave some debug information before returning empty
+        try {
+            String matchAll = "{\n" + "  \"size\": 1000,\n" + "  \"query\": {\n" + "    \"match_all\": {}\n" + "  }\n" + "}";
+            request.setJsonEntity(matchAll);
+            JsonArray hits = getHits(client, request);
+            LOG.info("Query: {}", formattedJson);
+            LOG.info("match all result: {}", hits);
+        } catch (Exception e) {
+            LOG.warn("Exception while waiting for match all result", e);
+        }
+
+        return new ArrayList<>();
+    }
+
+    protected static boolean getLatest(List<JsonObject> data, int index) {
+        return data.get(index).get("is_latest").getAsBoolean();
     }
 }

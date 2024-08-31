@@ -459,7 +459,7 @@ public class ForecastTaskManager extends
     }
 
     @Override
-    public List<ForecastTaskType> getTaskTypes(DateRange dateRange, boolean resetLatestTaskStateFlag, boolean runOnce) {
+    public List<ForecastTaskType> getTaskTypes(DateRange dateRange, boolean runOnce) {
         if (runOnce) {
             return ForecastTaskType.RUN_ONCE_TASK_TYPES;
         } else {

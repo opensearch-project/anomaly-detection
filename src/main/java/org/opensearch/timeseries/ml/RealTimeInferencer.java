@@ -5,7 +5,6 @@
 
 package org.opensearch.timeseries.ml;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
@@ -135,16 +134,6 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
     }
 
     private boolean tryProcess(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId, long curExecutionEnd) {
-        // execution end time (when job starts execution in this interval) >= last seen execution end time => the model state is updated in
-        // previous intervals
-        // This branch being true can happen while scheduled to waiting some other threads have already scored the same interval
-        // (e.g., during tests when everything happens fast)
-        // We cannot use last used time as it will be updated whenever we update its priority in CacheBuffer.update when there is a
-        // PriorityCache.get.
-        if (modelState.getLastSeenExecutionEndTime() != Instant.MIN
-            && curExecutionEnd < modelState.getLastSeenExecutionEndTime().toEpochMilli()) {
-            return false;
-        }
         String modelId = modelState.getModelId();
         try {
             RCFResultType result = modelManager.getResult(sample, modelState, modelId, config, taskId);

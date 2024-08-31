@@ -19,6 +19,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.ml.ADRealTimeInferencer;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -26,6 +27,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
@@ -69,6 +71,7 @@ public class ADHCImputeTransportAction extends
     private ADCacheProvider cache;
     private NodeStateManager nodeStateManager;
     private ADRealTimeInferencer adInferencer;
+    private HashRing hashRing;
 
     @Inject
     public ADHCImputeTransportAction(
@@ -78,7 +81,8 @@ public class ADHCImputeTransportAction extends
         ActionFilters actionFilters,
         ADCacheProvider priorityCache,
         NodeStateManager nodeStateManager,
-        ADRealTimeInferencer adInferencer
+        ADRealTimeInferencer adInferencer,
+        HashRing hashRing
     ) {
         super(
             ADHCImputeAction.NAME,
@@ -94,6 +98,7 @@ public class ADHCImputeTransportAction extends
         this.cache = priorityCache;
         this.nodeStateManager = nodeStateManager;
         this.adInferencer = adInferencer;
+        this.hashRing = hashRing;
     }
 
     @Override
@@ -131,9 +136,7 @@ public class ADHCImputeTransportAction extends
             long executionEndTime = dataEndMillis + windowDelayMillis;
             String taskId = nodeRequest.getRequest().getTaskId();
             for (ModelState<ThresholdedRandomCutForest> modelState : cache.get().getAllModels(configId)) {
-                // execution end time (when job starts execution in this interval) >= last used time => the model state is updated in
-                // previous intervals
-                if (executionEndTime >= modelState.getLastUsedTime().toEpochMilli()) {
+                if (shouldProcessModelState(modelState, executionEndTime, clusterService, hashRing)) {
                     double[] nanArray = new double[featureSize];
                     Arrays.fill(nanArray, Double.NaN);
                     adInferencer
@@ -154,6 +157,48 @@ public class ADHCImputeTransportAction extends
         } else {
             return new ADHCImputeNodeResponse(clusterService.localNode(), null);
         }
+    }
+
+    /**
+     * Determines whether the model state should be processed based on various conditions.
+     *
+     * Conditions checked:
+     * - The model's last seen execution end time is not the minimum Instant value.
+     * - The current execution end time is greater than or equal to the model's last seen execution end time,
+     *   indicating that the model state was updated in previous intervals.
+     * - The entity associated with the model state is present.
+     * - The owning node for real-time processing of the entity, with the same local version, is present in the hash ring.
+     * - The owning node for real-time processing matches the current local node.
+     *
+     * This method helps avoid processing model states that were already handled in previous intervals. The conditions
+     * ensure that only the relevant model states are processed while accounting for scenarios where processing can occur
+     * concurrently (e.g., during tests when multiple threads may operate quickly).
+     *
+     * @param modelState       The current state of the model.
+     * @param executionEndTime The end time of the current execution interval.
+     * @param clusterService   The service providing information about the current cluster node.
+     * @param hashRing         The hash ring used to determine the owning node for real-time processing of entities.
+     * @return true if the model state should be processed; otherwise, false.
+     */
+    private boolean shouldProcessModelState(
+        ModelState<ThresholdedRandomCutForest> modelState,
+        long executionEndTime,
+        ClusterService clusterService,
+        HashRing hashRing
+    ) {
+        // Get the owning node for the entity in real-time processing from the hash ring
+        Optional<DiscoveryNode> owningNode = modelState.getEntity().isPresent()
+            ? hashRing.getOwningNodeWithSameLocalVersionForRealtime(modelState.getEntity().get().toString())
+            : Optional.empty();
+
+        // Check if the model state conditions are met for processing
+        // We cannot use last used time as it will be updated whenever we update its priority in CacheBuffer.update when there is a
+        // PriorityCache.get.
+        return modelState.getLastSeenExecutionEndTime() != Instant.MIN
+            && executionEndTime >= modelState.getLastSeenExecutionEndTime().toEpochMilli()
+            && modelState.getEntity().isPresent()
+            && owningNode.isPresent()
+            && owningNode.get().getId().equals(clusterService.localNode().getId());
     }
 
 }

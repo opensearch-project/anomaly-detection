@@ -331,7 +331,9 @@ public class TestHelpers {
             user,
             null,
             TestHelpers.randomImputationOption(features),
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * 2),
             randomIntBetween(1, 1000),
             new ArrayList<Rule>(),
@@ -384,7 +386,9 @@ public class TestHelpers {
             null,
             resultIndex,
             TestHelpers.randomImputationOption(features),
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -448,7 +452,9 @@ public class TestHelpers {
             randomUser(),
             resultIndex,
             TestHelpers.randomImputationOption(features),
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -487,7 +493,9 @@ public class TestHelpers {
             randomUser(),
             null,
             TestHelpers.randomImputationOption(features),
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -518,7 +526,9 @@ public class TestHelpers {
             randomUser(),
             null,
             null,
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -556,7 +566,9 @@ public class TestHelpers {
             randomUser(),
             null,
             TestHelpers.randomImputationOption(featureList),
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -769,7 +781,9 @@ public class TestHelpers {
             randomUser(),
             null,
             TestHelpers.randomImputationOption(features),
-            randomIntBetween(1, 10000),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
