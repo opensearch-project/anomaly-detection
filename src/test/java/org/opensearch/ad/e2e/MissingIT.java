@@ -126,7 +126,7 @@ public abstract class MissingIT extends AbstractADSyntheticDataTest {
         String detectorId = createDetector(client, detector);
         LOG.info("Created detector {}", detectorId);
 
-        return new TrainResult(detectorId, data, trainTestSplit * numberOfEntities, windowDelay, trainTime);
+        return new TrainResult(detectorId, data, trainTestSplit * numberOfEntities, windowDelay, trainTime, "timestamp");
     }
 
     protected Duration getWindowDelay(long trainTimeMillis) {

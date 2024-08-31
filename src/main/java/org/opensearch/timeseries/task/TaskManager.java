@@ -349,7 +349,10 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         query.filter(new TermQueryBuilder(configIdFieldName, config.getId()));
         query.filter(new TermQueryBuilder(TimeSeriesTask.IS_LATEST_FIELD, true));
         // make sure we reset all latest task as false when user switch from single entity to HC, vice versa.
-        query.filter(new TermsQueryBuilder(TimeSeriesTask.TASK_TYPE_FIELD, taskTypeToString(getTaskTypes(dateRange, true, runOnce))));
+        // Ensures that only the latest flags of the same analysis type are reset:
+        // Real-time analysis will only reset the latest flag of previous real-time analyses.
+        // Historical analysis will only reset the latest flag of previous historical analyses.
+        query.filter(new TermsQueryBuilder(TimeSeriesTask.TASK_TYPE_FIELD, taskTypeToString(getTaskTypes(dateRange, runOnce))));
         updateByQueryRequest.setQuery(query);
         updateByQueryRequest.setRefresh(true);
         String script = String.format(Locale.ROOT, "ctx._source.%s=%s;", TimeSeriesTask.IS_LATEST_FIELD, false);
@@ -432,7 +435,7 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
     }
 
     public List<TaskTypeEnum> getTaskTypes(DateRange dateRange) {
-        return getTaskTypes(dateRange, false, false);
+        return getTaskTypes(dateRange, false);
     }
 
     /**
@@ -1081,5 +1084,5 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         ActionListener<TaskClass> listener
     );
 
-    public abstract List<TaskTypeEnum> getTaskTypes(DateRange dateRange, boolean resetLatestTaskStateFlag, boolean runOnce);
+    public abstract List<TaskTypeEnum> getTaskTypes(DateRange dateRange, boolean runOnce);
 }
