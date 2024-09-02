@@ -19,7 +19,6 @@ import static org.opensearch.ad.constant.ADCommonMessages.NO_ELIGIBLE_NODE_TO_RU
 import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
 import static org.opensearch.ad.model.ADTask.DETECTOR_ID_FIELD;
-import static org.opensearch.ad.model.ADTaskType.ALL_HISTORICAL_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES;
 import static org.opensearch.ad.model.ADTaskType.REALTIME_TASK_TYPES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
@@ -1881,21 +1880,6 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         }, TimeValue.timeValueSeconds(DEFAULT_MAINTAIN_INTERVAL_IN_SECONDS), AD_BATCH_TASK_THREAD_POOL_NAME);
     }
 
-    /**
-     * Get list of task types.
-     * 1. If date range is null, will return all realtime task types
-     * 2. If date range is not null, will return all historical detector level tasks types
-     *    if resetLatestTaskStateFlag is true; otherwise return all historical tasks types include
-     *    HC entity level task type.
-     * @param dateRange detection date range
-     * @param resetLatestTaskStateFlag reset latest task state or not
-     * @return list of AD task types
-     */
-    protected List<ADTaskType> getTaskTypes(DateRange dateRange, boolean resetLatestTaskStateFlag) {
-        // AD does not support run once
-        return getTaskTypes(dateRange, resetLatestTaskStateFlag, false);
-    }
-
     @Override
     protected BiCheckedFunction<XContentParser, String, ADTask, IOException> getTaskParser() {
         return ADTask::parse;
@@ -1912,17 +1896,20 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         throw new UnsupportedOperationException("AD has no run once yet");
     }
 
+    /**
+     * Get list of task types.
+     * 1. If date range is null, will return all realtime task types
+     * 2. If date range is not null, will return all historical detector level tasks types
+     *
+     * @param dateRange detection date range
+     * @return list of AD task types
+     */
     @Override
-    public List<ADTaskType> getTaskTypes(DateRange dateRange, boolean resetLatestTaskStateFlag, boolean runOnce) {
+    public List<ADTaskType> getTaskTypes(DateRange dateRange, boolean runOnce) {
         if (dateRange == null) {
             return REALTIME_TASK_TYPES;
         } else {
-            if (resetLatestTaskStateFlag) {
-                // return all task types include HC entity task to make sure we can reset all tasks latest flag
-                return ALL_HISTORICAL_TASK_TYPES;
-            } else {
-                return HISTORICAL_DETECTOR_TASK_TYPES;
-            }
+            return HISTORICAL_DETECTOR_TASK_TYPES;
         }
     }
 
