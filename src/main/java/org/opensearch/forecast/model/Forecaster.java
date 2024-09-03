@@ -134,8 +134,7 @@ public class Forecaster extends Config {
         Integer historyIntervals,
         Integer customResultIndexMinSize,
         Integer customResultIndexMinAge,
-        Integer customResultIndexTTL,
-        Boolean flattenResultIndexMapping
+        Integer customResultIndexTTL
     ) {
         super(
             forecasterId,
@@ -162,8 +161,7 @@ public class Forecaster extends Config {
             historyIntervals,
             customResultIndexMinSize,
             customResultIndexMinAge,
-            customResultIndexTTL,
-            flattenResultIndexMapping
+            customResultIndexTTL
         );
 
         checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
@@ -305,7 +303,6 @@ public class Forecaster extends Config {
         Integer customResultIndexMinSize = null;
         Integer customResultIndexMinAge = null;
         Integer customResultIndexTTL = null;
-        Boolean flattenResultIndexMapping = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -434,9 +431,6 @@ public class Forecaster extends Config {
                 case RESULT_INDEX_FIELD_TTL:
                     customResultIndexTTL = parser.intValue();
                     break;
-                case FLATTEN_RESULT_INDEX_MAPPING:
-                    flattenResultIndexMapping = parser.booleanValue();
-                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -467,8 +461,7 @@ public class Forecaster extends Config {
             historyIntervals,
             customResultIndexMinSize,
             customResultIndexMinAge,
-            customResultIndexTTL,
-            flattenResultIndexMapping
+            customResultIndexTTL
         );
         return forecaster;
     }

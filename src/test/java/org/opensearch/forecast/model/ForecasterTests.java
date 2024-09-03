@@ -59,7 +59,6 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
     Integer customResultIndexMinSize = null;
     Integer customResultIndexMinAge = null;
     Integer customResultIndexTTL = null;
-    Boolean flattenResultIndexMapping = null;
 
     public void testForecasterConstructor() {
         ImputationOption imputationOption = TestHelpers.randomImputationOption(features);
@@ -89,8 +88,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 1000),
             customResultIndexMinSize,
             customResultIndexMinAge,
-            customResultIndexTTL,
-            flattenResultIndexMapping
+            customResultIndexTTL
         );
 
         assertEquals(forecasterId, forecaster.getId());
@@ -143,8 +141,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
         });
 
@@ -182,8 +179,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
         });
 
@@ -221,8 +217,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
         });
 
@@ -260,8 +255,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
         });
 
@@ -299,8 +293,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
         });
 
@@ -337,8 +330,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 1000),
             customResultIndexMinSize,
             customResultIndexMinAge,
-            customResultIndexTTL,
-            flattenResultIndexMapping
+            customResultIndexTTL
         );
 
         assertEquals(resultIndex, forecaster.getCustomResultIndexOrAlias());
@@ -373,8 +365,7 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
         });
 
@@ -469,24 +460,6 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             .setCustomResultIndexMinAge(7)
             .setCustomResultIndexTTL(30)
             .build();
-        String forecasterString = TestHelpers
-            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        LOG.info(forecasterString);
-        Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
-        assertEquals(forecaster, parsedForecaster);
-    }
-
-    public void testParseNullCustomResultIndex_nullFlattenResultIndexMapping() throws IOException {
-        Forecaster forecaster = TestHelpers.ForecasterBuilder.newInstance().setFlattenResultIndexMapping(null).build();
-        String forecasterString = TestHelpers
-            .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
-        LOG.info(forecasterString);
-        Forecaster parsedForecaster = Forecaster.parse(TestHelpers.parser(forecasterString));
-        assertEquals(forecaster, parsedForecaster);
-    }
-
-    public void testValidCustomResultIndex_withFlattenResultIndexMapping() throws IOException {
-        Forecaster forecaster = TestHelpers.ForecasterBuilder.newInstance().setFlattenResultIndexMapping(true).build();
         String forecasterString = TestHelpers
             .xContentBuilderToString(forecaster.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         LOG.info(forecasterString);
