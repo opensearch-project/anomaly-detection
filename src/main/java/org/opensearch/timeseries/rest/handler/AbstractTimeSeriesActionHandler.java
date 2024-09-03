@@ -377,15 +377,11 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 }
 
                 multiGetMappingResponseListener
-                    .onResponse(
-                        new MergeableList<Optional<double[]>>(
-                            new ArrayList<Optional<double[]>>(Collections.singletonList(Optional.empty()))
-                        )
-                    );
+                    .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(Optional.empty()))));
             }, e -> {
                 String errorMessage = String.format(Locale.ROOT, "Fail to get the index mapping of %s", clusterIndicesEntry.getValue());
                 logger.error(errorMessage, e);
-                multiGetMappingResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
+                multiGetMappingResponseListener.onFailure(new IllegalArgumentException(errorMessage, e));
             });
             clientUtil
                 .executeWithInjectedSecurity(

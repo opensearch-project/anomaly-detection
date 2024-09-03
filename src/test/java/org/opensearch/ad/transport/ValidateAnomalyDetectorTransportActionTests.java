@@ -491,10 +491,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
         assertTrue(
-            response
-                .getIssue()
-                .getMessage()
-                .contains(String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, anomalyDetector.getTimeField()))
+            response.getIssue().getMessage().contains("Timestamp field: (" + anomalyDetector.getTimeField() + ") is not found in the")
         );
     }
 

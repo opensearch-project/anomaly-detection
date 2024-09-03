@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.client.Client;
@@ -39,9 +40,6 @@ public class CrossClusterConfigUtils {
      * @return The local {@link NodeClient} for the local cluster, or a remote client for a remote cluster.
      */
     public static Client getClientForCluster(String clusterName, Client client, ClusterService clusterService) {
-        logger.info("clusterName1: " + clusterName);
-        logger.info("clusterService.getClusterName().value(): " + clusterService.getClusterName().value());
-
         return getClientForCluster(clusterName, client, clusterService.getClusterName().value());
     }
 
@@ -65,8 +63,12 @@ public class CrossClusterConfigUtils {
     public static HashMap<String, List<String>> separateClusterIndexes(List<String> indexes, String localClusterName) {
         HashMap<String, List<String>> output = new HashMap<>();
         for (String index : indexes) {
-            String clusterName = parseClusterName(index);
-            String indexName = parseIndexName(index);
+            // Use the refactored method to get both cluster and index names in one call
+            Pair<String, String> clusterAndIndex = parseClusterAndIndexName(index);
+            String clusterName = clusterAndIndex.getKey();
+            String indexName = clusterAndIndex.getValue();
+            logger.info("clusterName: " + clusterName);
+            logger.info("indexName: " + indexName);
 
             // If the index entry does not have a cluster_name, it indicates the index is on the local cluster.
             if (clusterName.isEmpty()) {
@@ -78,25 +80,19 @@ public class CrossClusterConfigUtils {
     }
 
     /**
+     * Parses the cluster and index names from the given input string.
+     * The input can be in either "cluster_name:index_name" format or just "index_name".
      * @param index The name of the index to evaluate.
-     *      Can be in either cluster_name:index_name or index_name format.
-     * @return The index name.
+     * @return A Pair where the left is the cluster name (or empty if not present), and the right is the index name.
      */
-    public static String parseIndexName(String index) {
+    public static Pair<String, String> parseClusterAndIndexName(String index) {
         if (index.contains(":")) {
-            String[] parts = index.split(":");
-            return parts.length > 1 ? parts[1] : index;
+            String[] parts = index.split(":", 2);
+            String clusterName = parts[0];
+            String indexName = parts.length > 1 ? parts[1] : "";
+            return Pair.of(clusterName, indexName);
         } else {
-            return index;
+            return Pair.of("", index);
         }
-    }
-
-    /**
-     * @param index The name of the index to evaluate.
-     *      Can be in either cluster_name:index_name or index_name format.
-     * @return The index name.
-     */
-    public static String parseClusterName(String index) {
-        return index.contains(":") ? index.substring(0, index.indexOf(':')) : "";
     }
 }
