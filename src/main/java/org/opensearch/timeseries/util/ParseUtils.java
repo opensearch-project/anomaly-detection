@@ -699,7 +699,13 @@ public final class ParseUtils {
             .map(SearchResponse::getAggregations)
             .map(aggs -> aggs.asMap())
             .map(map -> (Max) map.get(CommonName.AGG_NAME_MAX_TIME))
-            .map(agg -> (long) agg.getValue());
+            // Explanation:
+            // - `agg != null`: Ensures the aggregation object is not null.
+            // - `agg.getValue() > 0`: Checks that the value is positive, as the aggregation might return a default negative value
+            // like -9223372036854775808 if the underlying data is null or invalid. This check prevents converting such invalid
+            // values to a timestamp, which would not make sense in the context of time-based data.
+            .filter(agg -> agg != null && agg.getValue() > 0) // Check if the value is valid and positive.
+            .map(agg -> (long) agg.getValue()); // Cast to long if valid
     }
 
     /**
