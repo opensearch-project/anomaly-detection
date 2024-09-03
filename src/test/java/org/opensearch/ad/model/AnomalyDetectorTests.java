@@ -994,7 +994,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                null,
                 null
             )
         );
