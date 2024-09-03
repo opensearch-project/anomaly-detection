@@ -342,8 +342,7 @@ public class ForecastTask extends TimeSeriesTask {
                 forecaster.getHistoryIntervals(),
                 forecaster.getCustomResultIndexMinSize(),
                 forecaster.getCustomResultIndexMinAge(),
-                forecaster.getCustomResultIndexTTL(),
-                forecaster.getFlattenResultIndexMapping()
+                forecaster.getCustomResultIndexTTL()
             );
         return new Builder()
             .taskId(parsedTaskId)

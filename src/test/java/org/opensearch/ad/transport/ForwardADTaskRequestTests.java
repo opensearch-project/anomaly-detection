@@ -85,7 +85,6 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             null,
             null,
             null,
-            null,
             null
         );
         ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_2_1_0);

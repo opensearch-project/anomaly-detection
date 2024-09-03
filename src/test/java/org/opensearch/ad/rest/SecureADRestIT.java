@@ -293,7 +293,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null,
             null
         );
         // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
@@ -345,7 +344,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
-            null,
             null,
             null,
             null,
