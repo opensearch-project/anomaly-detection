@@ -37,6 +37,7 @@ public class CommonMessages {
         "Result index name has invalid character. Valid characters are a-z, 0-9, -(hyphen) and _(underscore)";
     public static String FAIL_TO_VALIDATE = "failed to validate";
     public static String INVALID_TIMESTAMP = "Timestamp field: (%s) must be of type date";
+    public static String NON_EXISTENT_TIMESTAMP_IN_INDEX = "Timestamp field: (%s) is not found in the (%s) index mapping";
     public static String NON_EXISTENT_TIMESTAMP = "Timestamp field: (%s) is not found in index mapping";
     public static String INVALID_NAME = "Valid characters for name are a-z, A-Z, 0-9, -(hyphen), _(underscore) and .(period)";
     // change this error message to make it compatible with old version's integration(nexus) test
@@ -74,6 +75,9 @@ public class CommonMessages {
         + " characters.";
     public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String FAIL_TO_GET_MAPPING_MSG = "Fail to get the index mapping of %s";
+    public static final String FAIL_TO_GET_MAPPING = "Fail to get the index mapping";
+    public static final String TIMESTAMP_VALIDATION_FAILED = "Validation failed for timefield of %s ";
+
     public static final String FAIL_TO_GET_CONFIG_MSG = "Fail to get config";
 
     // ======================================
