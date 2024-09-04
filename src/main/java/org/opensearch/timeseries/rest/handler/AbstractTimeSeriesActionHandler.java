@@ -7,21 +7,14 @@ package org.opensearch.timeseries.rest.handler;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG;
+import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDATION_FAILED;
 import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
 import java.io.IOException;
 import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -76,10 +69,7 @@ import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
-import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
-import org.opensearch.timeseries.util.ParseUtils;
-import org.opensearch.timeseries.util.RestHandlerUtils;
-import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.timeseries.util.*;
 import org.opensearch.transport.TransportService;
 
 import com.google.common.collect.Sets;
@@ -241,7 +231,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             createOrUpdateConfig(listener);
             return;
         }
-
         if (this.isDryRun) {
             if (timeSeriesIndices.doesIndexExist(resultIndexOrAlias) || timeSeriesIndices.doesAliasExist(resultIndexOrAlias)) {
                 timeSeriesIndices
@@ -304,64 +293,106 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void validateTimeField(boolean indexingDryRun, ActionListener<T> listener) {
         String givenTimeField = config.getTimeField();
-        GetFieldMappingsRequest getMappingsRequest = new GetFieldMappingsRequest();
-        getMappingsRequest.indices(config.getIndices().toArray(new String[0])).fields(givenTimeField);
-        getMappingsRequest.indicesOptions(IndicesOptions.strictExpand());
+        HashMap<String, List<String>> clusterIndicesMap = CrossClusterConfigUtils
+            .separateClusterIndexes(config.getIndices(), clusterService);
 
-        // comments explaining fieldMappingResponse parsing can be found inside validateCategoricalField(String, boolean)
-        ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
-            boolean foundField = false;
-            Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByIndex = getMappingsResponse.mappings();
+        ActionListener<MergeableList<Optional<double[]>>> validateGetMappingForTimeFieldListener = ActionListener.wrap(response -> {
+            prepareConfigIndexing(indexingDryRun, listener);
+        }, exception -> { listener.onFailure(createValidationException(exception.getMessage(), ValidationIssueType.TIMEFIELD_FIELD)); });
+        MultiResponsesDelegateActionListener<MergeableList<Optional<double[]>>> multiGetMappingResponseListener =
+            new MultiResponsesDelegateActionListener<>(
+                validateGetMappingForTimeFieldListener,
+                clusterIndicesMap.entrySet().size(),
+                String.format(Locale.ROOT, TIMESTAMP_VALIDATION_FAILED, config.getName()),
+                false
+            );
 
-            for (Map<String, GetFieldMappingsResponse.FieldMappingMetadata> mappingsByField : mappingsByIndex.values()) {
-                for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField.entrySet()) {
-
-                    GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
-                    if (fieldMetadata != null) {
-                        // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
-                        Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
-                        if (fieldMap != null) {
-                            for (Object type : fieldMap.values()) {
-                                if (type instanceof Map) {
-                                    foundField = true;
-                                    Map<String, Object> metadataMap = (Map<String, Object>) type;
-                                    String typeName = (String) metadataMap.get(CommonName.TYPE);
-                                    if (!typeName.equals(CommonName.DATE_TYPE) && !typeName.equals(CommonName.DATE_NANOS_TYPE)) {
-                                        listener
-                                            .onFailure(
-                                                new ValidationException(
-                                                    String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, givenTimeField),
-                                                    ValidationIssueType.TIMEFIELD_FIELD,
-                                                    configValidationAspect
-                                                )
-                                            );
-                                        return;
+        for (Map.Entry<String, List<String>> clusterIndicesEntry : clusterIndicesMap.entrySet()) {
+            GetFieldMappingsRequest getMappingsRequestForIndex = new GetFieldMappingsRequest();
+            getMappingsRequestForIndex.indices((clusterIndicesEntry.getValue().toArray(new String[0]))).fields(givenTimeField);
+            getMappingsRequestForIndex.indicesOptions(IndicesOptions.strictExpand());
+            Client targetClusterClient = CrossClusterConfigUtils.getClientForCluster(clusterIndicesEntry.getKey(), client, clusterService);
+            ActionListener<GetFieldMappingsResponse> getMappingResponseListener = ActionListener.wrap(getMappingsResponse -> {
+                boolean foundField = false;
+                Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByIndex = getMappingsResponse.mappings();
+                for (Map.Entry<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappingsByField : mappingsByIndex
+                    .entrySet()) {
+                    if (mappingsByField.getValue().isEmpty()) {
+                        multiGetMappingResponseListener
+                            .onFailure(
+                                new ValidationException(
+                                    String
+                                        .format(
+                                            Locale.ROOT,
+                                            CommonMessages.NON_EXISTENT_TIMESTAMP_IN_INDEX,
+                                            givenTimeField,
+                                            mappingsByField.getKey()
+                                        ),
+                                    ValidationIssueType.TIMEFIELD_FIELD,
+                                    configValidationAspect
+                                )
+                            );
+                        return;
+                    }
+                    for (Map.Entry<String, GetFieldMappingsResponse.FieldMappingMetadata> field2Metadata : mappingsByField
+                        .getValue()
+                        .entrySet()) {
+                        GetFieldMappingsResponse.FieldMappingMetadata fieldMetadata = field2Metadata.getValue();
+                        if (fieldMetadata != null) {
+                            // sourceAsMap returns sth like {host2={type=keyword}} with host2 being a nested field
+                            Map<String, Object> fieldMap = fieldMetadata.sourceAsMap();
+                            if (fieldMap != null) {
+                                for (Object type : fieldMap.values()) {
+                                    if (type instanceof Map) {
+                                        foundField = true;
+                                        Map<String, Object> metadataMap = (Map<String, Object>) type;
+                                        String typeName = (String) metadataMap.get(CommonName.TYPE);
+                                        if (!typeName.equals(CommonName.DATE_TYPE) && !typeName.equals(CommonName.DATE_NANOS_TYPE)) {
+                                            multiGetMappingResponseListener
+                                                .onFailure(
+                                                    new ValidationException(
+                                                        String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, givenTimeField),
+                                                        ValidationIssueType.TIMEFIELD_FIELD,
+                                                        configValidationAspect
+                                                    )
+                                                );
+                                            return;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
-            if (!foundField) {
-                listener
-                    .onFailure(
-                        new ValidationException(
-                            String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, givenTimeField),
-                            ValidationIssueType.TIMEFIELD_FIELD,
-                            configValidationAspect
-                        )
-                    );
-                return;
-            }
-            prepareConfigIndexing(indexingDryRun, listener);
-        }, error -> {
-            String message = String.format(Locale.ROOT, "Fail to get the index mapping of %s", config.getIndices());
-            logger.error(message, error);
-            listener.onFailure(new IllegalArgumentException(message));
-        });
-        clientUtil
-            .executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, context, mappingsListener);
+                if (!foundField) {
+                    multiGetMappingResponseListener
+                        .onFailure(
+                            new ValidationException(
+                                String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, givenTimeField),
+                                ValidationIssueType.TIMEFIELD_FIELD,
+                                configValidationAspect
+                            )
+                        );
+                    return;
+                }
+
+                multiGetMappingResponseListener
+                    .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(Optional.empty()))));
+            }, e -> {
+                String errorMessage = String.format(Locale.ROOT, "Fail to get the index mapping of %s", clusterIndicesEntry.getValue());
+                logger.error(errorMessage, e);
+                multiGetMappingResponseListener.onFailure(new IllegalArgumentException(errorMessage, e));
+            });
+            clientUtil
+                .executeWithInjectedSecurity(
+                    GetFieldMappingsAction.INSTANCE,
+                    getMappingsRequestForIndex,
+                    user,
+                    targetClusterClient,
+                    context,
+                    getMappingResponseListener
+                );
+        }
     }
 
     /**
@@ -448,7 +479,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(Config.CATEGORY_FIELD));
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
-
             SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
             client
                 .search(
@@ -460,7 +490,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                         )
                 );
         } else {
-            validateCategoricalField(configId, indexingDryRun, listener);
+            validateCategoricalFieldsInAllIndices(configId, indexingDryRun, listener);
         }
 
     }
@@ -522,12 +552,33 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             }
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
-            validateCategoricalField(detectorId, indexingDryRun, listener);
+            validateCategoricalFieldsInAllIndices(detectorId, indexingDryRun, listener);
         }
     }
 
-    @SuppressWarnings("unchecked")
-    protected void validateCategoricalField(String configId, boolean indexingDryRun, ActionListener<T> listener) {
+    protected void validateCategoricalFieldsInAllIndices(String configId, boolean indexingDryRun, ActionListener<T> listener) {
+        HashMap<String, List<String>> clusterIndicesMap = CrossClusterConfigUtils
+            .separateClusterIndexes(config.getIndices(), clusterService);
+
+        Iterator<Map.Entry<String, List<String>>> iterator = clusterIndicesMap.entrySet().iterator();
+
+        validateCategoricalFieldRecursive(iterator, configId, indexingDryRun, listener);
+
+    }
+
+    protected void validateCategoricalFieldRecursive(
+        Iterator<Map.Entry<String, List<String>>> iterator,
+        String configId,
+        boolean indexingDryRun,
+        ActionListener<T> listener
+    ) {
+        if (!iterator.hasNext()) {
+            searchConfigInputIndices(configId, indexingDryRun, listener); // Call after all indices are validated
+            return;
+        }
+
+        // Get the next cluster indices entry
+        Map.Entry<String, List<String>> clusterIndicesEntry = iterator.next();
         List<String> categoryField = config.getCategoryFields();
 
         // categoryField should have at least 1 element. Otherwise, we won't reach here.
@@ -537,12 +588,16 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         // throws validation exception before reaching here
 
         String categoryField0 = categoryField.get(0);
+        Client targetClusterClient = CrossClusterConfigUtils.getClientForCluster(clusterIndicesEntry.getKey(), client, clusterService);
+        // Create the GetFieldMappingsRequest for each index
+        GetFieldMappingsRequest getMappingsRequestForIndex = new GetFieldMappingsRequest();
+        getMappingsRequestForIndex
+            .indices(clusterIndicesEntry.getValue().toArray(new String[0]))
+            .fields(categoryField.toArray(new String[0]));
+        getMappingsRequestForIndex.indicesOptions(IndicesOptions.strictExpand());
 
-        GetFieldMappingsRequest getMappingsRequest = new GetFieldMappingsRequest();
-        getMappingsRequest.indices(config.getIndices().toArray(new String[0])).fields(categoryField.toArray(new String[0]));
-        getMappingsRequest.indicesOptions(IndicesOptions.strictExpand());
-
-        ActionListener<GetFieldMappingsResponse> mappingsListener = ActionListener.wrap(getMappingsResponse -> {
+        // Define the listener for each getMapping request
+        ActionListener<GetFieldMappingsResponse> getMappingsListener = ActionListener.wrap(getMappingsResponse -> {
             // example getMappingsResponse:
             // GetFieldMappingsResponse{mappings={server-metrics={_doc={service=FieldMappingMetadata{fullName='service',
             // source=org.opensearch.core.common.bytes.BytesArray@7ba87dbd}}}}}
@@ -596,18 +651,25 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     );
                 return;
             }
+            validateCategoricalFieldRecursive(iterator, configId, indexingDryRun, listener);
 
-            searchConfigInputIndices(configId, indexingDryRun, listener);
         }, error -> {
             String message = String.format(Locale.ROOT, CommonMessages.FAIL_TO_GET_MAPPING_MSG, config.getIndices());
             logger.error(message, error);
             listener.onFailure(new IllegalArgumentException(message));
         });
-
         clientUtil
-            .executeWithInjectedSecurity(GetFieldMappingsAction.INSTANCE, getMappingsRequest, user, client, context, mappingsListener);
+            .executeWithInjectedSecurity(
+                GetFieldMappingsAction.INSTANCE,
+                getMappingsRequestForIndex,
+                user,
+                targetClusterClient,
+                context,
+                getMappingsListener
+            );
     }
 
+    @SuppressWarnings("unchecked")
     protected void searchConfigInputIndices(String configId, boolean indexingDryRun, ActionListener<T> listener) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(QueryBuilders.matchAllQuery())

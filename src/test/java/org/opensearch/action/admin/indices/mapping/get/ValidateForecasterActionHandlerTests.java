@@ -22,6 +22,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.forecast.rest.handler.ValidateForecasterActionHandler;
+import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.ValidationAspect;
 
 public class ValidateForecasterActionHandlerTests extends AbstractForecasterActionHandlerTestCase {
@@ -100,7 +101,7 @@ public class ValidateForecasterActionHandlerTests extends AbstractForecasterActi
             assertTrue("should not reach here", false);
             inProgressLatch.countDown();
         }, e -> {
-            assertTrue(e instanceof IllegalArgumentException);
+            assertTrue(e instanceof ValidationException);
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
