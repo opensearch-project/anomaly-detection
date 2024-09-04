@@ -43,6 +43,7 @@ import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.client.Client;
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -91,6 +92,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
     @Mock
     protected ThreadPool threadPool;
     protected ThreadContext threadContext;
+    protected ClusterName mockClusterName;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -106,7 +108,9 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
 
         anomalyDetectionIndices = mock(ADIndexManagement.class);
         when(anomalyDetectionIndices.doesConfigIndexExist()).thenReturn(true);
-
+        mockClusterName = mock(ClusterName.class);
+        when(clusterService.getClusterName()).thenReturn(mockClusterName);
+        when(mockClusterName.value()).thenReturn("test");
         detectorId = "123";
         seqNo = 0L;
         primaryTerm = 0L;

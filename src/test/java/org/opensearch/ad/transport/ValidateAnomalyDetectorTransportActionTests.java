@@ -488,9 +488,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertEquals(
-            String.format(Locale.ROOT, CommonMessages.NON_EXISTENT_TIMESTAMP, anomalyDetector.getTimeField()),
-            response.getIssue().getMessage()
+        assertTrue(
+            response.getIssue().getMessage().contains("Timestamp field: (" + anomalyDetector.getTimeField() + ") is not found in the")
         );
     }
 
@@ -511,9 +510,11 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
         assertEquals(ValidationIssueType.TIMEFIELD_FIELD, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertEquals(
-            String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, anomalyDetector.getTimeField()),
-            response.getIssue().getMessage()
+        assertTrue(
+            response
+                .getIssue()
+                .getMessage()
+                .contains(String.format(Locale.ROOT, CommonMessages.INVALID_TIMESTAMP, anomalyDetector.getTimeField()))
         );
     }
 
