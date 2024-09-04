@@ -8,10 +8,7 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 
 import java.time.Clock;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -205,7 +202,6 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         storedContext.restore();
         Config config = request.getConfig();
         ActionListener<ValidateConfigResponse> validateListener = ActionListener.wrap(response -> {
-            logger.debug("Result of validation process " + response);
             // forcing response to be empty
             listener.onResponse(new ValidateConfigResponse((ConfigValidationIssue) null));
         }, exception -> {

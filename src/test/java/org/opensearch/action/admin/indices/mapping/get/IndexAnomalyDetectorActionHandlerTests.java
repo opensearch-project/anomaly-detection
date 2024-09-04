@@ -100,6 +100,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
     private RestRequest.Method method;
     private ADTaskManager adTaskManager;
     private SearchFeatureDao searchFeatureDao;
+    private ClusterName clusterName;
 
     @BeforeClass
     public static void beforeClass() {
@@ -156,6 +157,10 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         adTaskManager = mock(ADTaskManager.class);
 
         searchFeatureDao = mock(SearchFeatureDao.class);
+
+        clusterName = mock(ClusterName.class);
+        when(clusterService.getClusterName()).thenReturn(clusterName);
+        when(clusterName.value()).thenReturn("test");
 
         handler = new IndexAnomalyDetectorActionHandler(
             clusterService,
