@@ -1377,6 +1377,73 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("time field missing", CommonMessages.NULL_TIME_FIELD, messageMap.get("time_field").get("message"));
     }
 
+    public void testValidateAnomalyDetectorWithMultipleIndicesOneNotFound() throws Exception {
+        TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\""
+                            + "test-detector"
+                            + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                            + "\"indices\":[\"test-index\", \"test-index-2\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                            + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                            + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                            + "{\"total_error\":"
+                            + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                            + "{\"field\":"
+                            + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                            + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},"
+                            + "\"shingle_size\": 8}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
+            .extractValue("detector", responseMap);
+        String errorMessage = "index does not exist";
+        assertEquals("index does not exist", errorMessage, messageMap.get("indices").get("message"));
+    }
+
+    public void testValidateAnomalyDetectorWithMultipleIndices() throws Exception {
+        TestHelpers.createIndexWithTimeField(client(), "test-index", TIME_FIELD);
+        TestHelpers.createIndexWithTimeField(client(), "test-index-2", TIME_FIELD);
+
+        Response resp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_validate",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"name\":\""
+                            + "test-detector"
+                            + "\",\"description\":\"Test detector\",\"time_field\":\"timestamp\","
+                            + "\"indices\":[\"test-index\", \"test-index-2\"],\"feature_attributes\":[{\"feature_name\":\"cpu-sum\",\""
+                            + "feature_enabled\":true,\"aggregation_query\":{\"total_cpu\":{\"sum\":{\"field\":\"cpu\"}}}},"
+                            + "{\"feature_name\":\"error-sum\",\"feature_enabled\":true,\"aggregation_query\":"
+                            + "{\"total_error\":"
+                            + "{\"sum\":{\"field\":\"error\"}}}}],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+                            + "{\"field\":"
+                            + "\"cpu\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"detection_interval\":"
+                            + "{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+                            + "\"window_delay\":{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},"
+                            + "\"shingle_size\": 8}"
+                    ),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(resp);
+        assertEquals("no issue, empty response body", new HashMap<String, Object>(), responseMap);
+    }
+
     public void testValidateAnomalyDetectorWithIncorrectShingleSize() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
         Response resp = TestHelpers

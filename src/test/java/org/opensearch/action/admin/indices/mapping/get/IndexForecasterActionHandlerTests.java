@@ -40,6 +40,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.action.support.replication.ReplicationResponse.ShardInfo;
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.routing.AllocationId;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
@@ -240,7 +241,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
         verify(clientSpy, times(1)).execute(eq(GetAction.INSTANCE), any(), any());
     }
 
-    public void testFaiToParse() throws InterruptedException {
+    public void testFailToParse() throws InterruptedException {
         NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
             @Override
             public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
@@ -273,6 +274,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             }
         };
         NodeClient clientSpy = spy(client);
+        clusterName = mock(ClusterName.class);
+        when(clusterService.getClusterName()).thenReturn(clusterName);
+        when(clusterName.value()).thenReturn("test");
 
         method = RestRequest.Method.PUT;
 
@@ -508,6 +512,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             }
         };
         NodeClient clientSpy = spy(client);
+        clusterName = mock(ClusterName.class);
+        when(clusterService.getClusterName()).thenReturn(clusterName);
+        when(clusterName.value()).thenReturn("test");
 
         method = RestRequest.Method.POST;
 

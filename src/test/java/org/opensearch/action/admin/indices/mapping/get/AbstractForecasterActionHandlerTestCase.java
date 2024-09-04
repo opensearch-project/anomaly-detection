@@ -73,6 +73,8 @@ public class AbstractForecasterActionHandlerTestCase extends AbstractTimeSeriesT
     protected ThreadContext threadContext;
     protected SecurityClientUtil clientUtil;
     protected String categoricalField;
+    // @Mock
+    protected ClusterName clusterName;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -85,6 +87,9 @@ public class AbstractForecasterActionHandlerTestCase extends AbstractTimeSeriesT
 
         clusterService = mock(ClusterService.class);
         ClusterName clusterName = new ClusterName("test");
+        clusterName = mock(ClusterName.class);
+        when(clusterService.getClusterName()).thenReturn(clusterName);
+        when(clusterName.value()).thenReturn("test");
         ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
