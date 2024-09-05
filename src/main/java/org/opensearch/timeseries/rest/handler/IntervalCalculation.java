@@ -243,7 +243,6 @@ public class IntervalCalculation {
      * interval can be a practical approach in scenarios where data arrival is irregular and there's
      * a need to balance between capturing data features and avoiding over-sampling.
      *
-     * @param topEntity top entity to use
      * @param timeStampBounds Used to determine start and end date range to search for data
      * @param listener returns minimum interval
      */
