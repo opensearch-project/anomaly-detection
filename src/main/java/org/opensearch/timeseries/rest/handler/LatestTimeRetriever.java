@@ -81,7 +81,7 @@ public class LatestTimeRetriever {
      * @param listener to return latest time and entity attributes if the config is HC
      */
     public void checkIfHC(ActionListener<Pair<Optional<Long>, Map<String, Object>>> listener) {
-        searchFeatureDao.getLatestDataTime(config, Optional.empty(), context, ActionListener.wrap(latestTime -> {
+        searchFeatureDao.getLatestDataTime(user, config, Optional.empty(), context, ActionListener.wrap(latestTime -> {
             if (latestTime.isEmpty()) {
                 listener.onResponse(Pair.of(Optional.empty(), Collections.emptyMap()));
             } else if (config.isHighCardinality()) {

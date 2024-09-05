@@ -105,7 +105,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     public static final String NAME_REGEX = "[a-zA-Z0-9._-]+";
     public static final Integer MAX_NAME_SIZE = 64;
-    public static final String CATEGORY_NOT_FOUND_ERR_MSG = "Can't find the categorical field %s";
+    public static final String CATEGORY_NOT_FOUND_ERR_MSG = "Can't find the categorical field %s in index %s";
 
     public static String INVALID_NAME_SIZE = "Name should be shortened. The maximum limit is "
         + AbstractTimeSeriesActionHandler.MAX_NAME_SIZE
@@ -562,11 +562,11 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
         Iterator<Map.Entry<String, List<String>>> iterator = clusterIndicesMap.entrySet().iterator();
 
-        validateCategoricalFieldRecursive(iterator, configId, indexingDryRun, listener);
+        validateCategoricalField(iterator, configId, indexingDryRun, listener);
 
     }
 
-    protected void validateCategoricalFieldRecursive(
+    protected void validateCategoricalField(
         Iterator<Map.Entry<String, List<String>>> iterator,
         String configId,
         boolean indexingDryRun,
@@ -645,13 +645,19 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 listener
                     .onFailure(
                         createValidationException(
-                            String.format(Locale.ROOT, CATEGORY_NOT_FOUND_ERR_MSG, categoryField0),
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    CATEGORY_NOT_FOUND_ERR_MSG,
+                                    categoryField0,
+                                    Arrays.toString(clusterIndicesEntry.getValue().toArray(new String[0]))
+                                ),
                             ValidationIssueType.CATEGORY
                         )
                     );
                 return;
             }
-            validateCategoricalFieldRecursive(iterator, configId, indexingDryRun, listener);
+            validateCategoricalField(iterator, configId, indexingDryRun, listener);
 
         }, error -> {
             String message = String.format(Locale.ROOT, CommonMessages.FAIL_TO_GET_MAPPING_MSG, config.getIndices());
