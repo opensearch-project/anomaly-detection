@@ -1709,7 +1709,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals("Validate forecaster model failed", RestStatus.OK, TestHelpers.restStatus(response));
         responseMap = entityAsMap(response);
         validations = (Map<String, Object>) ((Map<String, Object>) responseMap.get("forecaster")).get("category_field");
-        assertEquals("Can't find the categorical field 476465", validations.get("message"));
+        assertEquals("Can't find the categorical field 476465 in index [rule]", validations.get("message"));
 
         // case 3: validate data sparsity with one categorical field
         forecasterDef = "{\n"

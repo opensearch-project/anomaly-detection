@@ -67,8 +67,6 @@ public class CrossClusterConfigUtils {
             Pair<String, String> clusterAndIndex = parseClusterAndIndexName(index);
             String clusterName = clusterAndIndex.getKey();
             String indexName = clusterAndIndex.getValue();
-            logger.info("clusterName: " + clusterName);
-            logger.info("indexName: " + indexName);
 
             // If the index entry does not have a cluster_name, it indicates the index is on the local cluster.
             if (clusterName.isEmpty()) {
