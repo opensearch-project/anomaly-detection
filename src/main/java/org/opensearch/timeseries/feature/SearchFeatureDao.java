@@ -40,6 +40,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -155,14 +156,28 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener onResponse is called with the epoch time of the latest data under the detector
      */
     public void getLatestDataTime(Config config, Optional<Entity> entity, AnalysisType context, ActionListener<Optional<Long>> listener) {
-        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
+        getLatestDataTime(null, config, entity, context, listener);
+    }
 
+    /**
+     * Returns to listener the epoch time of the latest data under the detector.
+     *
+     * @param config info about the data
+     * @param listener onResponse is called with the epoch time of the latest data under the detector
+     */
+    public void getLatestDataTime(
+        User user,
+        Config config,
+        Optional<Entity> entity,
+        AnalysisType context,
+        ActionListener<Optional<Long>> listener
+    ) {
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
         if (entity.isPresent()) {
             for (TermQueryBuilder term : entity.get().getTermQueryForCustomerIndex()) {
                 internalFilterQuery.filter(term);
             }
         }
-
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(internalFilterQuery)
             .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(config.getTimeField()))
@@ -172,15 +187,27 @@ public class SearchFeatureDao extends AbstractRetriever {
             .wrap(response -> listener.onResponse(ParseUtils.getLatestDataTime(response)), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
         // checkpoint
-        clientUtil
-            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
-                searchRequest,
-                client::search,
-                config.getId(),
-                client,
-                context,
-                searchResponseListener
-            );
+        if (user != null) {
+            clientUtil
+                .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                    searchRequest,
+                    client::search,
+                    user,
+                    client,
+                    context,
+                    searchResponseListener
+                );
+        } else {
+            clientUtil
+                .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                    searchRequest,
+                    client::search,
+                    config.getId(),
+                    client,
+                    context,
+                    searchResponseListener
+                );
+        }
     }
 
     /**
