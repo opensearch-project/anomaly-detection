@@ -1636,7 +1636,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .extractValue("detector", responseMap);
         assertEquals(
             "non-existing category",
-            String.format(Locale.ROOT, AbstractTimeSeriesActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword"),
+            String.format(Locale.ROOT, AbstractTimeSeriesActionHandler.CATEGORY_NOT_FOUND_ERR_MSG, "host.keyword", "[index-test]"),
             messageMap.get("category_field").get("message")
         );
 

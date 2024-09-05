@@ -147,8 +147,8 @@ public class ModelValidationActionHandler {
                     latestEntityAttributes.getRight()
                 ),
                 exception -> {
-                    listener.onFailure(exception);
                     logger.error("Failed to create search request for last data point", exception);
+                    listener.onFailure(exception);
                 }
             );
         latestTimeRetriever.checkIfHC(latestTimeListener);
