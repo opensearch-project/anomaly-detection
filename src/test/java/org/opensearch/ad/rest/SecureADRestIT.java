@@ -61,6 +61,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient lionClient;
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
+    String oceanUser = "ocean";
+    RestClient oceanClient;
 
     /**
      * Create an unguessable password. Simple password are weak due to https://tinyurl.com/383em9zk
@@ -156,7 +158,13 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             .setSocketTimeout(60000)
             .build();
 
-        createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser)));
+        String oceanPassword = generatePassword(oceanUser);
+        createUser(oceanUser, elkPassword, new ArrayList<>(Arrays.asList("odfe")));
+        oceanClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), oceanUser, oceanPassword)
+            .setSocketTimeout(60000)
+            .build();
+
+        createRoleMapping("anomaly_read_access", new ArrayList<>(Arrays.asList(bobUser, oceanUser)));
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
@@ -172,6 +180,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         fishClient.close();
         goatClient.close();
         lionClient.close();
+        oceanClient.close();
         deleteUser(aliceUser);
         deleteUser(bobUser);
         deleteUser(catUser);
@@ -180,6 +189,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         deleteUser(fishUser);
         deleteUser(goatUser);
         deleteUser(lionUser);
+        deleteUser(oceanUser);
     }
 
     public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -414,8 +424,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector anomalyDetector = createRandomAnomalyDetector(false, false, aliceClient);
         // User elk has AD full access, but has no read permission of index
         String indexName = anomalyDetector.getIndices().get(0);
-        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, elkClient); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, oceanClient); });
+        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Unauthorized"));
     }
 
     public void testCreateAnomalyDetectorWithCustomResultIndex() throws IOException {
@@ -494,12 +504,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         );
         enableFilterBy();
         // User elk has no read permission of index
-        Exception exception = expectThrows(Exception.class, () -> { previewAnomalyDetector(aliceDetector.getId(), elkClient, input); });
-        Assert
-            .assertTrue(
-                "actual msg: " + exception.getMessage(),
-                exception.getMessage().contains("no permissions for [indices:data/read/search]")
-            );
+        Exception exception = expectThrows(Exception.class, () -> { previewAnomalyDetector(aliceDetector.getId(), oceanClient, input); });
+        Assert.assertTrue("actual msg: " + exception.getMessage(), exception.getMessage().contains("Unauthorized"));
     }
 
     public void testValidateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -528,8 +534,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
         enableFilterBy();
         // User elk has no read permission of index, can't validate detector
-        Exception exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, elkClient); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [indices:data/read/search]"));
+        Exception exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, oceanClient); });
+        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Unauthorized"));
     }
 
     public void testValidateAnomalyDetectorWithNoBackendRole() throws IOException {
