@@ -463,15 +463,16 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
         return Pair.of(hotEntities, coldEntities);
     }
 
-    private CacheBufferType computeBufferIfAbsent(Config config, String configId) {
+    public CacheBufferType computeBufferIfAbsent(Config config, String configId) {
         CacheBufferType buffer = activeEnities.get(configId);
         if (buffer == null) {
-            long requiredBytes = getRequiredMemory(config, config.isHighCardinality() ? hcDedicatedCacheSize : 1);
+            long bytesPerEntityModel = getRequiredMemoryPerEntity(config, memoryTracker, numberOfTrees);
+            long requiredBytes = bytesPerEntityModel * (config.isHighCardinality() ? hcDedicatedCacheSize : 1);
             if (memoryTracker.canAllocateReserved(requiredBytes)) {
                 memoryTracker.consumeMemory(requiredBytes, true, origin);
                 buffer = createEmptyCacheBuffer(
                     config,
-                    requiredBytes,
+                    bytesPerEntityModel,
                     priorityTrackerMap
                         .getOrDefault(
                             configId,
@@ -494,16 +495,6 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
 
         }
         return buffer;
-    }
-
-    /**
-     *
-     * @param config Detector config accessor
-     * @param numberOfEntity number of entities
-     * @return Memory in bytes required for hosting numberOfEntity entities
-     */
-    private long getRequiredMemory(Config config, int numberOfEntity) {
-        return numberOfEntity * getRequiredMemoryPerEntity(config, memoryTracker, numberOfTrees);
     }
 
     /**

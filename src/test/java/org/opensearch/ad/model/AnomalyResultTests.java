@@ -12,10 +12,15 @@
 package org.opensearch.ad.model;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.ToXContent;
@@ -24,6 +29,8 @@ import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.FeatureData;
 
 import com.google.common.base.Objects;
 
@@ -151,5 +158,65 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyResult parsedDetectResult = new AnomalyResult(input);
         assertTrue(parsedDetectResult.equals(detectResult));
+    }
+
+    public void testFromRawTRCFResultWithHighConfidence() {
+        // Set up test parameters
+        String detectorId = "test-detector-id";
+        long intervalMillis = 60000; // Example interval
+        String taskId = "test-task-id";
+        Double rcfScore = 0.5;
+        Double grade = 0.0; // Non-anomalous
+        Double confidence = 1.03; // Confidence greater than 1
+        List<FeatureData> featureData = Collections.emptyList(); // Assuming empty for simplicity
+        Instant dataStartTime = Instant.now();
+        Instant dataEndTime = dataStartTime.plusMillis(intervalMillis);
+        Instant executionStartTime = Instant.now();
+        Instant executionEndTime = executionStartTime.plusMillis(500);
+        String error = null;
+        Optional<Entity> entity = Optional.empty();
+        User user = null; // Replace with actual user if needed
+        Integer schemaVersion = 1;
+        String modelId = "test-model-id";
+        double[] relevantAttribution = null;
+        Integer relativeIndex = null;
+        double[] pastValues = null;
+        double[][] expectedValuesList = null;
+        double[] likelihoodOfValues = null;
+        Double threshold = null;
+        double[] currentData = null;
+        boolean[] featureImputed = null;
+
+        // Invoke the method under test
+        AnomalyResult result = AnomalyResult
+            .fromRawTRCFResult(
+                detectorId,
+                intervalMillis,
+                taskId,
+                rcfScore,
+                grade,
+                confidence,
+                featureData,
+                dataStartTime,
+                dataEndTime,
+                executionStartTime,
+                executionEndTime,
+                error,
+                entity,
+                user,
+                schemaVersion,
+                modelId,
+                relevantAttribution,
+                relativeIndex,
+                pastValues,
+                expectedValuesList,
+                likelihoodOfValues,
+                threshold,
+                currentData,
+                featureImputed
+            );
+
+        // Assert that the confidence is capped at 1.0
+        assertEquals("Confidence should be capped at 1.0", 1.0, result.getConfidence(), 0.00001);
     }
 }

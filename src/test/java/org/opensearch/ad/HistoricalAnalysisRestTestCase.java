@@ -269,6 +269,29 @@ public abstract class HistoricalAnalysisRestTestCase extends AnomalyDetectorRest
         return results;
     }
 
+    protected List<Object> waitUntilTaskReachNumberOfEntities(String detectorId, int categoricalValuesCount) throws InterruptedException {
+        List<Object> results = new ArrayList<>();
+        int i = 0;
+        ADTaskProfile adTaskProfile = null;
+        // Increase retryTimes if some task can't reach done state
+        while ((adTaskProfile == null
+            || adTaskProfile.getTotalEntitiesCount() == null
+            || adTaskProfile.getTotalEntitiesCount().intValue() != categoricalValuesCount) && i < MAX_RETRY_TIMES) {
+            try {
+                adTaskProfile = getADTaskProfile(detectorId);
+            } catch (Exception e) {
+                logger.error("failed to get ADTaskProfile", e);
+            } finally {
+                Thread.sleep(1000);
+            }
+            i++;
+        }
+        assertNotNull(adTaskProfile);
+        results.add(adTaskProfile);
+        results.add(i);
+        return results;
+    }
+
     protected List<Object> waitUntilEntityCountAvailable(String detectorId) throws InterruptedException {
         List<Object> results = new ArrayList<>();
         int i = 0;

@@ -35,7 +35,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.17.0"
+        bwcVersionShort = "2.18.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'
@@ -696,9 +696,8 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
+        'org.opensearch.ad.transport.ADHCImputeNodeResponse',
         'org.opensearch.ad.transport.GetAnomalyDetectorTransportAction',
-        'org.opensearch.ad.ml.ADColdStart',
-        'org.opensearch.ad.transport.ADHCImputeNodesResponse',
         'org.opensearch.timeseries.transport.BooleanNodeResponse',
         'org.opensearch.timeseries.ml.TimeSeriesSingleStreamCheckpointDao',
         'org.opensearch.timeseries.transport.JobRequest',
@@ -713,7 +712,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.timeseries.transport.ResultBulkTransportAction',
         'org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler',
         'org.opensearch.timeseries.transport.handler.ResultIndexingHandler',
-        'org.opensearch.ad.transport.ADHCImputeNodeResponse',
         'org.opensearch.timeseries.ml.Sample',
         'org.opensearch.timeseries.ratelimit.FeatureRequest',
         'org.opensearch.ad.transport.ADHCImputeNodeRequest',

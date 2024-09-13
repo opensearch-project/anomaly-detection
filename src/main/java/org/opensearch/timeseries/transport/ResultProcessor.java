@@ -229,8 +229,6 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 pageIterator.next(this);
             }
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
-                sentOutPages.incrementAndGet();
-
                 LOG
                     .info(
                         "Sending an HC request to process data from timestamp {} to {} for config {}",
@@ -285,6 +283,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                         final AtomicReference<Exception> failure = new AtomicReference<>();
 
                         node2Entities.stream().forEach(nodeEntity -> {
+                            sentOutPages.incrementAndGet();
                             DiscoveryNode node = nodeEntity.getKey();
                             transportService
                                 .sendRequest(
@@ -370,7 +369,15 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                             cancellable.get().cancel();
                         }
                     } else if (Instant.now().toEpochMilli() >= timeoutMillis) {
-                        LOG.warn("Scheduled impute HC task is cancelled due to timeout");
+                        LOG
+                            .warn(
+                                "Scheduled impute HC task is cancelled due to timeout, current epoch {}, timeout epoch {}, dataEndTime {}, sent out {}, receive {}",
+                                Instant.now().toEpochMilli(),
+                                timeoutMillis,
+                                dataEndTime,
+                                sentOutPages.get(),
+                                receivedPages.get()
+                            );
                         if (cancellable != null) {
                             cancellable.get().cancel();
                         }

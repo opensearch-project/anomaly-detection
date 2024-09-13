@@ -32,7 +32,7 @@ public class PreviewRuleIT extends AbstractRuleTestCase {
                 (trainTestSplit + 1) * numberOfEntities
             );
 
-            String detector = genDetector(datasetName, intervalMinutes, trainTestSplit, trainResult);
+            String detector = genDetector(datasetName, intervalMinutes, trainTestSplit, trainResult, true);
             Map<String, Object> result = preview(detector, trainResult.firstDataTime, trainResult.finalDataTime, client());
             List<Object> results = (List<Object>) XContentMapValues.extractValue(result, "anomaly_result");
             assertTrue(results.size() > 100);
