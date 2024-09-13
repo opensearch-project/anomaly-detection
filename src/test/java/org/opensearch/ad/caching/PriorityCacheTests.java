@@ -26,6 +26,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -62,6 +63,7 @@ import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.threadpool.Scheduler.ScheduledCancellable;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.MemoryTracker;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -787,5 +789,49 @@ public class PriorityCacheTests extends AbstractCacheTest {
 
         // Assert that the result is 0L
         assertEquals(0L, result);
+    }
+
+    public void testAllocation() throws IOException {
+        JvmService jvmService = mock(JvmService.class);
+        JvmInfo info = mock(JvmInfo.class);
+
+        when(jvmService.info()).thenReturn(info);
+
+        Mem mem = mock(Mem.class);
+        when(mem.getHeapMax()).thenReturn(new ByteSizeValue(800_000_000L));
+        when(info.getMem()).thenReturn(mem);
+
+        CircuitBreakerService circuitBreaker = mock(CircuitBreakerService.class);
+        when(circuitBreaker.isOpen()).thenReturn(false);
+        MemoryTracker tracker = new MemoryTracker(jvmService, 0.1, clusterService, circuitBreaker);
+
+        dedicatedCacheSize = 10;
+        ADPriorityCache cache = new ADPriorityCache(
+            checkpoint,
+            dedicatedCacheSize,
+            AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
+            AnomalyDetectorSettings.MAX_INACTIVE_ENTITIES,
+            tracker,
+            TimeSeriesSettings.NUM_TREES,
+            clock,
+            clusterService,
+            TimeSeriesSettings.HOURLY_MAINTENANCE,
+            threadPool,
+            TimeSeriesSettings.MAINTENANCE_FREQ_CONSTANT,
+            Settings.EMPTY,
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
+            checkpointWriteQueue,
+            checkpointMaintainQueue
+        );
+
+        List<String> categoryFields = Arrays.asList("category_field_1", "category_field_2");
+        AnomalyDetector anomalyDetector = TestHelpers.AnomalyDetectorBuilder
+            .newInstance(5)
+            .setShingleSize(8)
+            .setCategoryFields(categoryFields)
+            .build();
+        ADCacheBuffer buffer = cache.computeBufferIfAbsent(anomalyDetector, anomalyDetector.getId());
+        assertEquals(698336, buffer.getMemoryConsumptionPerModel());
+        assertEquals(698336 * dedicatedCacheSize, tracker.getTotalMemoryBytes());
     }
 }
