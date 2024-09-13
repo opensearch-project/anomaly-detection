@@ -188,7 +188,7 @@ public class ForecastResult extends IndexableResult {
                 new ForecastResult(
                     forecasterId,
                     taskId,
-                    dataQuality,
+                    Math.min(1, dataQuality),
                     featureData,
                     dataStartTime,
                     dataEndTime,
@@ -218,7 +218,7 @@ public class ForecastResult extends IndexableResult {
                         new ForecastResult(
                             forecasterId,
                             taskId,
-                            dataQuality,
+                            Math.min(1, dataQuality),
                             null,
                             dataStartTime,
                             dataEndTime,

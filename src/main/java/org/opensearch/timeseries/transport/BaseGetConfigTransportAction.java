@@ -180,7 +180,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         }
     }
 
-    protected void getConfigAndJob(
+    public void getConfigAndJob(
         String configID,
         boolean returnJob,
         boolean returnTask,
@@ -251,7 +251,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                             } else {
                                 // AD needs to provides custom behavior for bwc, while forecasting can inherit
                                 // the empty implementation
-                                fillInHistoricalTaskforBwc(tasks, historicalTask);
+                                historicalTask = fillInHistoricalTaskforBwc(tasks);
                             }
                         }
                         getConfigAndJob(configID, returnJob, returnTask, realtimeTask, historicalTask, listener);
@@ -357,7 +357,9 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         };
     }
 
-    protected void fillInHistoricalTaskforBwc(Map<String, TaskClass> tasks, Optional<TaskClass> historicalAdTask) {}
+    protected Optional<TaskClass> fillInHistoricalTaskforBwc(Map<String, TaskClass> tasks) {
+        return Optional.empty();
+    }
 
     protected void getExecuteProfile(
         GetConfigRequest request,

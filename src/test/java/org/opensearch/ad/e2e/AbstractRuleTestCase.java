@@ -47,7 +47,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
         int trainTestSplit,
         boolean useDateNanos
     ) throws Exception {
-        return ingestTrainDataAndCreateDetector(datasetName, intervalMinutes, numberOfEntities, trainTestSplit, useDateNanos, -1);
+        return ingestTrainDataAndCreateDetector(datasetName, intervalMinutes, numberOfEntities, trainTestSplit, useDateNanos, -1, true);
     }
 
     protected TrainResult ingestTrainDataAndCreateDetector(
@@ -56,7 +56,8 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
         int numberOfEntities,
         int trainTestSplit,
         boolean useDateNanos,
-        int ingestDataSize
+        int ingestDataSize,
+        boolean relative
     ) throws Exception {
         TrainResult trainResult = ingestTrainData(
             datasetName,
@@ -67,7 +68,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
             ingestDataSize
         );
 
-        String detector = genDetector(datasetName, intervalMinutes, trainTestSplit, trainResult);
+        String detector = genDetector(datasetName, intervalMinutes, trainTestSplit, trainResult, relative);
         String detectorId = createDetector(client(), detector);
         LOG.info("Created detector {}", detectorId);
         trainResult.detectorId = detectorId;
@@ -75,7 +76,22 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
         return trainResult;
     }
 
-    protected String genDetector(String datasetName, int intervalMinutes, int trainTestSplit, TrainResult trainResult) {
+    protected String genDetector(String datasetName, int intervalMinutes, int trainTestSplit, TrainResult trainResult, boolean relative) {
+        // Determine threshold types and values based on the 'relative' parameter
+        String thresholdType1;
+        String thresholdType2;
+        double value;
+        if (relative) {
+            thresholdType1 = "actual_over_expected_ratio";
+            thresholdType2 = "expected_over_actual_ratio";
+            value = 0.3;
+        } else {
+            thresholdType1 = "actual_over_expected_margin";
+            thresholdType2 = "expected_over_actual_margin";
+            value = 3000.0;
+        }
+
+        // Generate the detector JSON string with the appropriate threshold types and values
         String detector = String
             .format(
                 Locale.ROOT,
@@ -87,15 +103,20 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
                     + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
                     + "\"history\": %d,"
                     + "\"schema_version\": 0,"
-                    + "\"rules\": [{\"action\": \"ignore_anomaly\", \"conditions\": [{\"feature_name\": \"feature 1\", \"threshold_type\": \"actual_over_expected_ratio\", \"operator\": \"lte\", \"value\": 0.3}, "
-                    + "{\"feature_name\": \"feature 1\", \"threshold_type\": \"expected_over_actual_ratio\", \"operator\": \"lte\", \"value\": 0.3}"
+                    + "\"rules\": [{\"action\": \"ignore_anomaly\", \"conditions\": ["
+                    + "{ \"feature_name\": \"feature 1\", \"threshold_type\": \"%s\", \"operator\": \"lte\", \"value\": %f }, "
+                    + "{ \"feature_name\": \"feature 1\", \"threshold_type\": \"%s\", \"operator\": \"lte\", \"value\": %f }"
                     + "]}]"
                     + "}",
                 datasetName,
                 intervalMinutes,
                 categoricalField,
                 trainResult.windowDelay.toMinutes(),
-                trainTestSplit - 1
+                trainTestSplit - 1,
+                thresholdType1,
+                value,
+                thresholdType2,
+                value
             );
         return detector;
     }
