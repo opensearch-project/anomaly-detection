@@ -86,10 +86,11 @@ public class GetAnomalyDetectorTransportAction extends
     }
 
     @Override
-    protected void fillInHistoricalTaskforBwc(Map<String, ADTask> tasks, Optional<ADTask> historicalAdTask) {
+    protected Optional<ADTask> fillInHistoricalTaskforBwc(Map<String, ADTask> tasks) {
         if (tasks.containsKey(ADTaskType.HISTORICAL.name())) {
-            historicalAdTask = Optional.ofNullable(tasks.get(ADTaskType.HISTORICAL.name()));
+            return Optional.ofNullable(tasks.get(ADTaskType.HISTORICAL.name()));
         }
+        return Optional.empty();
     }
 
     @Override
