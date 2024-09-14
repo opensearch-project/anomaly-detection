@@ -104,14 +104,17 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
     }
 
     private void checkIfTaskCanFinishCorrectly(String detectorId, String taskId, Set<String> states) throws InterruptedException {
-        List<Object> results = waitUntilTaskDone(detectorId);
+        List<Object> results = waitUntilTaskReachState(detectorId, states);
         TaskProfile<ADTask> endTaskProfile = (TaskProfile<ADTask>) results.get(0);
         Integer retryCount = (Integer) results.get(1);
         ADTask stoppedAdTask = endTaskProfile.getTask();
         assertEquals(taskId, stoppedAdTask.getTaskId());
         if (retryCount < MAX_RETRY_TIMES) {
             // It's possible that historical analysis still running after max retry times
-            assertTrue(states.contains(stoppedAdTask.getState()));
+            assertTrue(
+                "expect: " + stoppedAdTask.getState() + ", but got " + stoppedAdTask.getState(),
+                states.contains(stoppedAdTask.getState())
+            );
         }
     }
 
@@ -132,6 +135,10 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
         if (categoryFieldSize > 0) {
             if (!TaskState.RUNNING.name().equals(adTaskProfile.getTask().getState())) {
                 adTaskProfile = (ADTaskProfile) waitUntilTaskReachState(detectorId, ImmutableSet.of(TaskState.RUNNING.name())).get(0);
+            }
+            if (adTaskProfile == null
+                || (int) Math.pow(categoryFieldDocCount, categoryFieldSize) != adTaskProfile.getTotalEntitiesCount().intValue()) {
+                adTaskProfile = (ADTaskProfile) waitUntilTaskReachNumberOfEntities(detectorId, categoryFieldDocCount).get(0);
             }
             assertEquals((int) Math.pow(categoryFieldDocCount, categoryFieldSize), adTaskProfile.getTotalEntitiesCount().intValue());
             assertTrue(adTaskProfile.getPendingEntitiesCount() > 0);
