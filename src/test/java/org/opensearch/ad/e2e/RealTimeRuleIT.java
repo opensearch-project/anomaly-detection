@@ -15,7 +15,7 @@ import java.util.TreeMap;
 import com.google.gson.JsonObject;
 
 public class RealTimeRuleIT extends AbstractRuleTestCase {
-    public void testRuleWithDateNanos() throws Exception {
+    private void template(boolean reltive) throws Exception {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
             disableResourceNotFoundFaultTolerence();
@@ -32,7 +32,8 @@ public class RealTimeRuleIT extends AbstractRuleTestCase {
                 trainTestSplit,
                 true,
                 // ingest just enough for finish the test
-                (trainTestSplit + 1) * numberOfEntities
+                (trainTestSplit + 1) * numberOfEntities,
+                reltive
             );
 
             startRealTimeDetector(trainResult, numberOfEntities, intervalMinutes, false);
@@ -89,5 +90,13 @@ public class RealTimeRuleIT extends AbstractRuleTestCase {
                 }
             }
         }
+    }
+
+    public void testRelativeRule() throws Exception {
+        template(true);
+    }
+
+    public void testAbsoluateRule() throws Exception {
+        template(false);
     }
 }

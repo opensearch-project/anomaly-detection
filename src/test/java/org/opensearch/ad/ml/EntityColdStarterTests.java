@@ -1275,4 +1275,25 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         checkSemaphoreRelease();
         assertTrue(modelState.getModel().isEmpty());
     }
+
+    public void testTrainModelFromInvalidSamplesNotEnoughSamples() {
+        Deque<Sample> samples = new ArrayDeque<>();
+        // we have at least numMinSamples samples before executing the null check of trainModelFromDataSegments
+        for (int i = 0; i < numMinSamples; i++) {
+            samples.add(new Sample());
+        }
+
+        modelState = new ModelState<ThresholdedRandomCutForest>(
+            null,
+            modelId,
+            detectorId,
+            ModelManager.ModelType.TRCF.getName(),
+            clock,
+            priority,
+            Optional.of(entity),
+            samples
+        );
+        entityColdStarter.trainModelFromExistingSamples(modelState, detector, "123");
+        assertTrue(modelState.getModel().isEmpty());
+    }
 }
