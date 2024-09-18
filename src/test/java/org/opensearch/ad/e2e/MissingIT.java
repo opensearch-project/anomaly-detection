@@ -29,7 +29,7 @@ public abstract class MissingIT extends AbstractADSyntheticDataTest {
 
     protected int intervalMinutes = 10;
     public long intervalMillis = intervalMinutes * 60000L;
-    protected String categoricalField = "componentName";
+    protected String categoricalField = "cityName";
     protected int maxError = 20;
     protected int trainTestSplit = 100;
 

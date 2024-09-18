@@ -71,7 +71,6 @@ public class RestGetForecasterAction extends BaseRestHandler {
                 all,
                 RestHandlerUtils.buildEntity(request, forecasterId)
             );
-
             return channel -> client.execute(GetForecasterAction.INSTANCE, getForecasterRequest, new RestToXContentListener<>(channel));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(Encode.forHtml(e.getMessage()));

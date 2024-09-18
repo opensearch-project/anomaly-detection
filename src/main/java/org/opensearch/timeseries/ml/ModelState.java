@@ -36,7 +36,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
     // time when the ML model was used last time
     protected Instant lastUsedTime;
     protected Instant lastCheckpointTime;
-    protected Instant lastSeenExecutionEndTime;
+    protected Instant lastSeenDataEndTime;
     protected Clock clock;
     protected float priority;
     protected Deque<Sample> samples;
@@ -75,7 +75,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
         this.priority = priority;
         this.entity = entity;
         this.samples = samples;
-        this.lastSeenExecutionEndTime = Instant.MIN;
+        this.lastSeenDataEndTime = Instant.MIN;
     }
 
     /**
@@ -252,11 +252,11 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
         };
     }
 
-    public Instant getLastSeenExecutionEndTime() {
-        return lastSeenExecutionEndTime;
+    public Instant getLastSeenDataEndTime() {
+        return lastSeenDataEndTime;
     }
 
-    public void setLastSeenExecutionEndTime(Instant lastSeenExecutionEndTime) {
-        this.lastSeenExecutionEndTime = lastSeenExecutionEndTime;
+    public void setLastSeenDataEndTime(Instant lastSeenExecutionEndTime) {
+        this.lastSeenDataEndTime = lastSeenExecutionEndTime;
     }
 }

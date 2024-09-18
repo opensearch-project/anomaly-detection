@@ -37,6 +37,7 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.timeseries.TestHelpers.createIndexBlockedState;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -365,7 +366,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             coldStartWorker,
             mock(ADSaveResultStrategy.class),
             cacheProvider,
-            threadPool
+            threadPool,
+            mock(Clock.class)
         );
     }
 
@@ -625,7 +627,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             coldStartWorker,
             mock(ADSaveResultStrategy.class),
             cacheProvider,
-            threadPool
+            threadPool,
+            mock(Clock.class)
         );
 
         ADPriorityCache adPriorityCache = mock(ADPriorityCache.class);

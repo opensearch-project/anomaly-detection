@@ -264,7 +264,16 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         adStats = new ADStats(statsMap);
         resultSaver = new ADSaveResultStrategy(1, resultWriteQueue);
 
-        inferencer = new ADRealTimeInferencer(manager, adStats, checkpointDao, entityColdStartQueue, resultSaver, provider, threadPool);
+        inferencer = new ADRealTimeInferencer(
+            manager,
+            adStats,
+            checkpointDao,
+            entityColdStartQueue,
+            resultSaver,
+            provider,
+            threadPool,
+            clock
+        );
 
         entityResult = new EntityADResultTransportAction(
             actionFilters,
@@ -397,7 +406,8 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             entityColdStartQueue,
             resultSaver,
             provider,
-            threadPool
+            threadPool,
+            clock
         );
         entityResult = new EntityADResultTransportAction(
             actionFilters,

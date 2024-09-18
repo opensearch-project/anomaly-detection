@@ -27,7 +27,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
-    String categoricalField = "componentName";
+    String categoricalField = "cityName";
 
     /**
      * Ingest all of the data in file datasetName and create detector
@@ -97,7 +97,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
                 Locale.ROOT,
                 "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
                     + ", \"indices\": [\"%s\"], \"feature_attributes\": [{ \"feature_name\": \"feature 1\", \"feature_enabled\": "
-                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"transform._doc_count\" } } } }"
+                    + "\"true\", \"aggregation_query\": { \"Feature1\": { \"sum\": { \"field\": \"visitCount\" } } } }"
                     + "], \"detection_interval\": { \"period\": { \"interval\": %d, \"unit\": \"Minutes\" } }, "
                     + "\"category_field\": [\"%s\"], "
                     + "\"window_delay\": { \"period\": {\"interval\": %d, \"unit\": \"MINUTES\"}},"
@@ -140,7 +140,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
                 "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\":"
                     + (useDateNanos ? "\"date_nanos\"" : "\"date\"")
                     + "},"
-                    + " \"transform._doc_count\": { \"type\": \"integer\" },"
+                    + " \"visitCount\": { \"type\": \"integer\" },"
                     + "\"%s\": { \"type\": \"keyword\"} } } }",
                 categoricalField
             );

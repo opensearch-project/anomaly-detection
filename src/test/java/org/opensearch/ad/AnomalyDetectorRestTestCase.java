@@ -48,7 +48,6 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.gson.JsonArray;
 
 public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public static final Logger LOG = (Logger) LogManager.getLogger(AnomalyDetectorRestTestCase.class);
@@ -390,52 +389,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public Response createUser(String name, String password, ArrayList<String> backendRoles) throws IOException {
-        JsonArray backendRolesString = new JsonArray();
-        for (int i = 0; i < backendRoles.size(); i++) {
-            backendRolesString.add(backendRoles.get(i));
-        }
-        return TestHelpers
-            .makeRequest(
-                client(),
-                "PUT",
-                "/_opendistro/_security/api/internalusers/" + name,
-                null,
-                TestHelpers
-                    .toHttpEntity(
-                        " {\n"
-                            + "\"password\": \""
-                            + password
-                            + "\",\n"
-                            + "\"backend_roles\": "
-                            + backendRolesString
-                            + ",\n"
-                            + "\"attributes\": {\n"
-                            + "}} "
-                    ),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-    }
-
-    public Response createRoleMapping(String role, ArrayList<String> users) throws IOException {
-        JsonArray usersString = new JsonArray();
-        for (int i = 0; i < users.size(); i++) {
-            usersString.add(users.get(i));
-        }
-        return TestHelpers
-            .makeRequest(
-                client(),
-                "PUT",
-                "/_opendistro/_security/api/rolesmapping/" + role,
-                null,
-                TestHelpers
-                    .toHttpEntity(
-                        "{\n" + "  \"backend_roles\" : [  ],\n" + "  \"hosts\" : [  ],\n" + "  \"users\" : " + usersString + "\n" + "}"
-                    ),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-    }
-
     public Response createIndexRole(String role, String index) throws IOException {
         return TestHelpers
             .makeRequest(
@@ -550,18 +503,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                             + "\"tenant_permissions\": []\n"
                             + "}"
                     ),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-    }
-
-    public Response deleteUser(String user) throws IOException {
-        return TestHelpers
-            .makeRequest(
-                client(),
-                "DELETE",
-                "/_opendistro/_security/api/internalusers/" + user,
-                null,
-                "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }

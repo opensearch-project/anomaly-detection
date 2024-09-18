@@ -339,12 +339,15 @@ integTest {
         filter {
             includeTestsMatching "org.opensearch.ad.rest.*IT"
             includeTestsMatching "org.opensearch.ad.e2e.*IT"
+            includeTestsMatching "org.opensearch.forecast.rest.*IT"
+            includeTestsMatching "org.opensearch.forecast.e2e.*IT"
         }
     }
 
     if (System.getProperty("https") == null || System.getProperty("https") == "false") {
         filter {
             excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
+            excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRestIT"
         }
     }
 
@@ -468,6 +471,7 @@ task integTestRemote(type: RestIntegTestTask) {
     if (System.getProperty("https") == null || System.getProperty("https") == "false") {
         filter {
             excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
+            excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRestIT"
         }
     }
 }
@@ -696,10 +700,7 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.ml.TimeSeriesSingleStreamCheckpointDao',
-        'org.opensearch.timeseries.transport.JobRequest',
         'org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler',
-        'org.opensearch.timeseries.ml.Inferencer',
         'org.opensearch.timeseries.transport.SingleStreamResultRequest',
         'org.opensearch.timeseries.rest.handler.IndexJobActionHandler.1',
         'org.opensearch.timeseries.transport.SuggestConfigParamResponse',
@@ -727,7 +728,6 @@ List<String> jacocoExclusions = [
         'org.opensearch.timeseries.ratelimit.RateLimitedRequestWorker',
         'org.opensearch.timeseries.util.TimeUtil',
         'org.opensearch.ad.transport.ADHCImputeTransportAction',
-        'org.opensearch.timeseries.ml.RealTimeInferencer',
 ]
 
 
