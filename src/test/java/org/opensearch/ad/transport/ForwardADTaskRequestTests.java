@@ -86,7 +86,8 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_2_1_0);
         ActionRequestValidationException validate = request.validate();

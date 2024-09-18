@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.hc.core5.http.HttpHeaders;
@@ -73,34 +74,66 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         String lowerCase = "abcdefghijklmnopqrstuvwxyz";
         String digits = "0123456789";
         String special = "_";
+
+        // Remove characters from username (case-insensitive)
+        String usernameLower = username.toLowerCase(Locale.ROOT);
+        for (char c : usernameLower.toCharArray()) {
+            upperCase = upperCase.replaceAll("(?i)" + c, "");
+            lowerCase = lowerCase.replaceAll("(?i)" + c, "");
+            digits = digits.replace(String.valueOf(c), "");
+            special = special.replace(String.valueOf(c), "");
+        }
+
+        // Combine all remaining characters
         String characters = upperCase + lowerCase + digits + special;
 
+        // Check if we have enough characters to proceed
+        if (characters.length() < 4) {
+            throw new IllegalArgumentException("Not enough characters to generate password without using username characters.");
+        }
+
         SecureRandom rng = new SecureRandom();
+        String password;
 
-        // Ensure password includes at least one character from each set
-        char[] password = new char[15];
-        password[0] = upperCase.charAt(rng.nextInt(upperCase.length()));
-        password[1] = lowerCase.charAt(rng.nextInt(lowerCase.length()));
-        password[2] = digits.charAt(rng.nextInt(digits.length()));
-        password[3] = special.charAt(rng.nextInt(special.length()));
+        do {
+            // Ensure password includes at least one character from each set, if available
+            StringBuilder passwordBuilder = new StringBuilder();
+            if (!upperCase.isEmpty()) {
+                passwordBuilder.append(upperCase.charAt(rng.nextInt(upperCase.length())));
+            }
+            if (!lowerCase.isEmpty()) {
+                passwordBuilder.append(lowerCase.charAt(rng.nextInt(lowerCase.length())));
+            }
+            if (!digits.isEmpty()) {
+                passwordBuilder.append(digits.charAt(rng.nextInt(digits.length())));
+            }
+            if (!special.isEmpty()) {
+                passwordBuilder.append(special.charAt(rng.nextInt(special.length())));
+            }
 
-        for (int i = 4; i < 15; i++) {
-            char nextChar;
-            do {
-                nextChar = characters.charAt(rng.nextInt(characters.length()));
-            } while (username.indexOf(nextChar) > -1);
-            password[i] = nextChar;
-        }
+            // Fill the rest of the password length with random characters
+            int remainingLength = 15 - passwordBuilder.length();
+            for (int i = 0; i < remainingLength; i++) {
+                passwordBuilder.append(characters.charAt(rng.nextInt(characters.length())));
+            }
 
-        // Shuffle the array to ensure the first 4 characters are not always in the same position
-        for (int i = password.length - 1; i > 0; i--) {
-            int index = rng.nextInt(i + 1);
-            char temp = password[index];
-            password[index] = password[i];
-            password[i] = temp;
-        }
+            // Convert to char array for shuffling
+            char[] passwordChars = passwordBuilder.toString().toCharArray();
 
-        return new String(password);
+            // Shuffle the password characters
+            for (int i = passwordChars.length - 1; i > 0; i--) {
+                int index = rng.nextInt(i + 1);
+                char temp = passwordChars[index];
+                passwordChars[index] = passwordChars[i];
+                passwordChars[i] = temp;
+            }
+
+            password = new String(passwordChars);
+
+            // Repeat if password contains the username as a substring (case-insensitive)
+        } while (password.toLowerCase(Locale.ROOT).contains(usernameLower.toLowerCase(Locale.ROOT)));
+
+        return password;
     }
 
     @Before
@@ -304,7 +337,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
         // But the detector's backend role should not be replaced as client's backend roles (all_access).
@@ -359,7 +393,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         enableFilterBy();
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so

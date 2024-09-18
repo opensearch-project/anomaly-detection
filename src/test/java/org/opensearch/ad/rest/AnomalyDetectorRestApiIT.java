@@ -54,6 +54,7 @@ import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.rest.handler.AbstractTimeSeriesActionHandler;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -159,6 +160,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -205,6 +207,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         int version = (int) responseMap.get("_version");
         assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("incorrect version", version > 0);
+
+        // users cannot specify detector id when creating a detector
+        AnomalyDetector detector2 = createIndexAndGetAnomalyDetector(INDEX_NAME);
+        String blahId = "__blah__";
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(RestHandlerUtils.DETECTOR_ID, blahId),
+                TestHelpers.toHttpEntity(detector2),
+                null
+            );
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        responseMap = entityAsMap(response);
+        id = (String) responseMap.get("_id");
+        assertNotEquals("response is missing Id", blahId, id);
     }
 
     public void testCreateAnomalyDetectorWithDateNanos() throws Exception {
@@ -271,7 +290,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            detector.getLastBreakingUIChangeTime()
         );
         Exception ex = expectThrows(
             ResponseException.class,
@@ -338,7 +358,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            detector.getLastBreakingUIChangeTime()
         );
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
@@ -410,7 +431,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            detector1.getLastBreakingUIChangeTime()
         );
 
         TestHelpers
@@ -459,7 +481,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
 
         TestHelpers
@@ -514,7 +537,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            detector.getLastBreakingUIChangeTime()
         );
 
         deleteIndexWithAdminClient(CommonName.CONFIG_INDEX);
@@ -886,7 +910,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            detector.getLastBreakingUIChangeTime()
         );
 
         TestHelpers

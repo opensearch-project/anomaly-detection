@@ -1,7 +1,7 @@
 {
   "dynamic": false,
   "_meta": {
-    "schema_version": 4
+    "schema_version": 5
   },
   "properties": {
     "schema_version": {

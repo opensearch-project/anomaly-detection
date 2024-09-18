@@ -80,6 +80,11 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
     public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
     public static final String FLATTEN_RESULT_INDEX_MAPPING = "flatten_result_index_mapping";
+    // Changing categorical field, feature attributes, interval, windowDelay, time field, horizon, indices,
+    // result index would force us to display results only from the most recent update. Otherwise,
+    // the UI appear cluttered and unclear.
+    // We cannot use last update time as it would change whenever other fields like name changes.
+    public static final String BREAKING_UI_CHANGE_TIME = "last_ui_breaking_change_time";
 
     protected String id;
     protected Long version;
@@ -120,6 +125,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected Integer customResultIndexMinAge;
     protected Integer customResultIndexTTL;
     protected Boolean flattenResultIndexMapping;
+    protected Instant lastUIBreakingChangeTime;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -151,7 +157,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         Integer customResultIndexMinSize,
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
-        Boolean flattenResultIndexMapping
+        Boolean flattenResultIndexMapping,
+        Instant lastBreakingUIChangeTime
     ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
@@ -291,6 +298,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexMinAge = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinAge;
         this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
         this.flattenResultIndexMapping = Strings.trimToNull(resultIndex) == null ? null : flattenResultIndexMapping;
+        this.lastUIBreakingChangeTime = lastBreakingUIChangeTime;
     }
 
     public int suggestHistory() {
@@ -335,6 +343,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexMinAge = input.readOptionalInt();
         this.customResultIndexTTL = input.readOptionalInt();
         this.flattenResultIndexMapping = input.readOptionalBoolean();
+        this.lastUIBreakingChangeTime = input.readOptionalInstant();
     }
 
     /*
@@ -388,6 +397,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeOptionalInt(customResultIndexMinAge);
         output.writeOptionalInt(customResultIndexTTL);
         output.writeOptionalBoolean(flattenResultIndexMapping);
+        output.writeOptionalInstant(lastUIBreakingChangeTime);
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -524,6 +534,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (flattenResultIndexMapping != null) {
             builder.field(FLATTEN_RESULT_INDEX_MAPPING, flattenResultIndexMapping);
+        }
+        if (lastUIBreakingChangeTime != null) {
+            builder.field(BREAKING_UI_CHANGE_TIME, lastUIBreakingChangeTime.toEpochMilli());
         }
         return builder;
     }
@@ -735,6 +748,10 @@ public abstract class Config implements Writeable, ToXContentObject {
 
     public Boolean getFlattenResultIndexMapping() {
         return flattenResultIndexMapping;
+    }
+
+    public Instant getLastBreakingUIChangeTime() {
+        return lastUIBreakingChangeTime;
     }
 
     /**
