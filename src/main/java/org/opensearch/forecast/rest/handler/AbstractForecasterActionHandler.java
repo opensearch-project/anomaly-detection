@@ -257,7 +257,8 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
             config.getHistoryIntervals(),
             config.getCustomResultIndexMinSize(),
             config.getCustomResultIndexMinAge(),
-            config.getCustomResultIndexTTL()
+            config.getCustomResultIndexTTL(),
+            config.getFlattenResultIndexMapping()
         );
     }
 
