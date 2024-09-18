@@ -340,7 +340,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            lastUpdateTime
         );
     }
 
@@ -395,7 +396,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
     }
 
@@ -461,7 +463,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
     }
 
@@ -502,7 +505,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
     }
 
@@ -535,7 +539,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 
@@ -575,7 +580,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 
@@ -753,7 +759,8 @@ public class TestHelpers {
                 null,
                 null,
                 null,
-                null
+                null,
+                lastUpdateTime
             );
         }
     }
@@ -790,7 +797,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 
@@ -1946,7 +1954,8 @@ public class TestHelpers {
                 customResultIndexMinSize,
                 customResultIndexMinAge,
                 customResultIndexTTL,
-                flattenResultIndexMapping
+                flattenResultIndexMapping,
+                lastUpdateTime
             );
         }
     }
@@ -1974,13 +1983,15 @@ public class TestHelpers {
             null,
             randomIntBetween(1, 20),
             randomImputationOption(featureList),
-            randomIntBetween(1, 1000),
+            // Recency emphasis must be an integer greater than 1
+            randomIntBetween(2, 1000),
             randomIntBetween(1, 128),
             randomIntBetween(1, 1000),
             null,
             null,
             null,
-            null
+            null,
+            Instant.now().truncatedTo(ChronoUnit.SECONDS)
         );
     }
 

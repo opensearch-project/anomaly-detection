@@ -344,7 +344,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -381,7 +382,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -418,7 +420,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -455,7 +458,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -492,7 +496,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -529,7 +534,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -566,7 +572,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    Instant.now()
                 )
             );
     }
@@ -602,7 +609,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                Instant.now()
             )
         );
         assertEquals("Recency emphasis must be an integer greater than 1.", exception.getMessage());
@@ -639,7 +647,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                Instant.now()
             )
         );
         assertEquals("Detection interval must be a positive integer", exception.getMessage());
@@ -676,7 +685,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                Instant.now()
             )
         );
         assertEquals("Interval -1 should be non-negative", exception.getMessage());
@@ -726,7 +736,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
@@ -761,7 +772,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         // seasonalityIntervals is not null and custom shingle size is null, use seasonalityIntervals to deterine shingle size
         assertEquals(seasonalityIntervals / TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO, (int) anomalyDetector.getShingleSize());
@@ -792,7 +804,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         // seasonalityIntervals is null and custom shingle size is null, use default shingle size
         assertEquals(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE, (int) anomalyDetector.getShingleSize());
@@ -825,7 +838,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
@@ -858,7 +872,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         String errorMessage = anomalyDetector.validateCustomResultIndex("abc");
         assertEquals(ADCommonMessages.INVALID_RESULT_INDEX_PREFIX, errorMessage);
@@ -1024,7 +1039,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                Instant.now()
             )
         );
         assertEquals("Got: " + e.getMessage(), "Enabled features are present, but no default fill values are provided.", e.getMessage());

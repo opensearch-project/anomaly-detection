@@ -14,8 +14,18 @@ public class ForecastTaskProfileRunner implements TaskProfileRunner<ForecastTask
 
     @Override
     public void getTaskProfile(ForecastTask configLevelTask, ActionListener<ForecastTaskProfile> listener) {
-        // return null since forecasting have no in-memory task profiles as AD
-        listener.onResponse(null);
+        // return null in other fields since forecasting have no in-memory task profiles as AD
+        listener
+            .onResponse(
+                new ForecastTaskProfile(
+                    configLevelTask,
+                    null,
+                    null,
+                    null,
+                    configLevelTask == null ? null : configLevelTask.getTaskId(),
+                    null
+                )
+            );
     }
 
 }

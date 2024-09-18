@@ -6,33 +6,49 @@
 package org.opensearch.forecast.rest;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.opensearch.timeseries.util.RestHandlerUtils.RUN_ONCE;
+import static org.opensearch.timeseries.util.RestHandlerUtils.START_JOB;
+import static org.opensearch.timeseries.util.RestHandlerUtils.STOP_JOB;
 import static org.opensearch.timeseries.util.RestHandlerUtils.SUGGEST;
 import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.AbstractForecastSyntheticDataTest;
+import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.model.ForecastTaskProfile;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.EntityTaskProfile;
+import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
 
 /**
@@ -40,14 +56,22 @@ import com.google.gson.JsonObject;
  *  - Suggest
  *  - Validate
  *  - Create
- *
+ *  - run once
+ *  - start
+ *  - stop
+ *  - update
  */
 public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
+    public static final int MAX_RETRY_TIMES = 200;
     private static final String SUGGEST_INTERVAL_URI;
     private static final String SUGGEST_INTERVAL_HORIZON_HISTORY_URI;
     private static final String VALIDATE_FORECASTER;
     private static final String VALIDATE_FORECASTER_MODEL;
     private static final String CREATE_FORECASTER;
+    private static final String RUN_ONCE_FORECASTER;
+    private static final String START_FORECASTER;
+    private static final String STOP_FORECASTER;
+    private static final String UPDATE_FORECASTER;
 
     static {
         SUGGEST_INTERVAL_URI = String
@@ -72,6 +96,10 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         VALIDATE_FORECASTER_MODEL = String
             .format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, VALIDATE, "model");
         CREATE_FORECASTER = TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI;
+        RUN_ONCE_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", RUN_ONCE);
+        START_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", START_JOB);
+        STOP_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", STOP_JOB);
+        UPDATE_FORECASTER = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s");
     }
 
     @Override
@@ -1947,7 +1975,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                 .makeRequest(
                     client(),
                     "POST",
-                    String.format(Locale.ROOT, CREATE_FORECASTER),// VALIDATE_FORECASTER_MODEL),
+                    String.format(Locale.ROOT, CREATE_FORECASTER),
                     ImmutableMap.of(),
                     TestHelpers.toHttpEntity(formattedForecaster),
                     null
@@ -2033,5 +2061,498 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         Map<String, Object> responseMap = entityAsMap(response);
         assertEquals("opensearch-forecast-result-b", ((Map<String, Object>) responseMap.get("forecaster")).get("result_index"));
+    }
+
+    public void testRunOnce() throws Exception {
+        Instant trainTime = loadRuleData(200);
+        // case 1: happy case
+        String forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    }\n"
+            + "}";
+
+        // +1 to make sure it is big enough
+        long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
+        final String formattedForecaster = String.format(Locale.ROOT, forecasterDef, RULE_DATASET_NAME, windowDelayMinutes);
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(response);
+        String forecasterId = (String) responseMap.get("_id");
+
+        // run once
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+
+        ForecastTaskProfile forecastTaskProfile = (ForecastTaskProfile) waitUntilTaskReachState(
+            forecasterId,
+            ImmutableSet.of(TaskState.TEST_COMPLETE.name())
+        ).get(0);
+        assertTrue(forecastTaskProfile != null);
+        assertTrue(forecastTaskProfile.getTask().isLatest());
+
+        responseMap = entityAsMap(response);
+        String taskId = (String) responseMap.get(EntityTaskProfile.TASK_ID_FIELD);
+        assertEquals(taskId, forecastTaskProfile.getTaskId());
+
+        response = searchTaskResult(taskId);
+        responseMap = entityAsMap(response);
+        int total = (int) (((Map<String, Object>) ((Map<String, Object>) responseMap.get("hits")).get("total")).get("value"));
+        assertTrue("actual: " + total, total > 40);
+
+        // case 2: cannot run once while forecaster is started
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, START_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(forecasterId, responseMap.get("_id"));
+
+        // starting another run once before finishing causes error
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+
+        String reason = ex.getMessage();
+        assertTrue("actual: " + reason, reason.contains("Cannot run once " + forecasterId + " when real time job is running."));
+
+        // case 3: stop forecaster
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, STOP_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(forecasterId, responseMap.get("_id"));
+    }
+
+    public ForecastTaskProfile getForecastTaskProfile(String forecasterId) throws IOException, ParseException {
+        Response profileResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI + "/" + forecasterId + "/_profile/" + ForecastCommonName.FORECAST_TASK,
+                ImmutableMap.of(),
+                "",
+                null
+            );
+        return parseForecastTaskProfile(profileResponse);
+    }
+
+    public Response searchTaskResult(String taskId) throws IOException {
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                "opensearch-forecast-result*/_search",
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"task_id\":\"" + taskId + "\"}}]}},\"track_total_hits\":true}"
+                    ),
+                null
+            );
+        return response;
+    }
+
+    public ForecastTaskProfile parseForecastTaskProfile(Response profileResponse) throws IOException, ParseException {
+        String profileResult = EntityUtils.toString(profileResponse.getEntity());
+        XContentParser parser = TestHelpers.parser(profileResult);
+        ForecastTaskProfile forecastTaskProfile = null;
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+            if ("forecast_task".equals(fieldName)) {
+                forecastTaskProfile = ForecastTaskProfile.parse(parser);
+            } else {
+                parser.skipChildren();
+            }
+        }
+        return forecastTaskProfile;
+    }
+
+    protected List<Object> waitUntilTaskReachState(String forecasterId, Set<String> targetStates) throws InterruptedException {
+        List<Object> results = new ArrayList<>();
+        int i = 0;
+        ForecastTaskProfile forecastTaskProfile = null;
+        // Increase retryTimes if some task can't reach done state
+        while ((forecastTaskProfile == null || !targetStates.contains(forecastTaskProfile.getTask().getState())) && i < MAX_RETRY_TIMES) {
+            try {
+                forecastTaskProfile = getForecastTaskProfile(forecasterId);
+            } catch (Exception e) {
+                logger.error("failed to get ForecastTaskProfile", e);
+            } finally {
+                Thread.sleep(1000);
+            }
+            i++;
+        }
+        assertNotNull(forecastTaskProfile);
+        results.add(forecastTaskProfile);
+        results.add(i);
+        return results;
+    }
+
+    public void testCreateDetector() throws Exception {
+        // Case 1: users cannot specify forecaster id when creating a forecaster
+        Instant trainTime = loadRuleData(200);
+        String forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    }\n"
+            + "}";
+
+        // +1 to make sure it is big enough
+        long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
+        final String formattedForecaster = String.format(Locale.ROOT, forecasterDef, RULE_DATASET_NAME, windowDelayMinutes);
+        String blahId = "__blah__";
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(RestHandlerUtils.FORECASTER_ID, blahId),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(response);
+        String forecasterId = (String) responseMap.get("_id");
+        assertNotEquals("response is missing Id", blahId, forecasterId);
+    }
+
+    public void testUpdateDetector() throws Exception {
+        // Case 1: update non-impactful fields like name or description won't change last breaking change UI time
+        Instant trainTime = loadRuleData(200);
+        String forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    }\n"
+            + "}";
+
+        // +1 to make sure it is big enough
+        long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
+        final String formattedForecaster = String.format(Locale.ROOT, forecasterDef, RULE_DATASET_NAME, windowDelayMinutes);
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(response);
+        String forecasterId = (String) responseMap.get("_id");
+        assertEquals(null, responseMap.get("last_ui_breaking_change_time"));
+
+        // changing description won't change last_breaking_change_ui_time
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate1\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    }\n"
+            + "}";
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(null, responseMap.get("last_ui_breaking_change_time"));
+
+        // changing categorical fields changes last_ui_breaking_change_time
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate1\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"category_field\": [\"componentName\"]"
+            + "}";
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(responseMap.get("last_update_time"), responseMap.get("last_ui_breaking_change_time"));
+
+        // changing custom result index changes last_ui_breaking_change_time
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate1\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"category_field\": [\"componentName\"],"
+            + "    \"result_index\": \"opensearch-forecast-result-b\""
+            + "}";
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(responseMap.get("last_update_time"), responseMap.get("last_ui_breaking_change_time"));
     }
 }

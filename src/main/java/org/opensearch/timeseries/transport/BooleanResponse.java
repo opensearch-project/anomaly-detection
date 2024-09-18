@@ -37,6 +37,7 @@ public class BooleanResponse extends BaseNodesResponse<BooleanNodeResponse> impl
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
         out.writeBoolean(answer);
     }
 

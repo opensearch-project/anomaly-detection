@@ -92,4 +92,58 @@ public class GetAnomalyDetectorTransportActionTests extends AbstractTimeSeriesTe
         // For this example, we'll verify that the correct task is passed to getConfigAndJob
         verify(getForecaster).getConfigAndJob(eq(configID), anyBoolean(), anyBoolean(), any(), eq(Optional.of(adTask)), eq(listener));
     }
+
+    @SuppressWarnings("unchecked")
+    public void testInvalidTaskName() throws Exception {
+        // Arrange
+        String configID = "test-config-id";
+
+        // Create a task with singleStreamRealTimeTaskName
+        Map<String, ADTask> tasks = new HashMap<>();
+        String invalidTaskName = "blah";
+        ADTask adTask = ADTask.builder().taskType(invalidTaskName).build();
+        tasks.put(invalidTaskName, adTask);
+
+        // Mock taskManager to return the tasks
+        ADTaskManager taskManager = mock(ADTaskManager.class);
+        doAnswer(invocation -> {
+            List<ADTask> taskList = new ArrayList<>(tasks.values());
+            ((Consumer<List<ADTask>>) invocation.getArguments()[4]).accept(taskList);
+            return null;
+        }).when(taskManager).getAndExecuteOnLatestTasks(anyString(), any(), any(), any(), any(), any(), anyBoolean(), anyInt(), any());
+
+        // Mock listener
+        ActionListener<GetAnomalyDetectorResponse> listener = mock(ActionListener.class);
+
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings settings = new ClusterSettings(
+            Settings.EMPTY,
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES)))
+        );
+        when(clusterService.getClusterSettings()).thenReturn(settings);
+        GetAnomalyDetectorTransportAction getForecaster = spy(
+            new GetAnomalyDetectorTransportAction(
+                mock(TransportService.class),
+                null,
+                mock(ActionFilters.class),
+                clusterService,
+                null,
+                null,
+                Settings.EMPTY,
+                null,
+                taskManager,
+                null
+            )
+        );
+
+        // Act
+        GetConfigRequest request = new GetConfigRequest(configID, 0L, true, true, "", "", true, null);
+        getForecaster.getExecute(request, listener);
+
+        // Assert
+        // Verify that realtimeTask is assigned using singleStreamRealTimeTaskName
+        // This can be checked by verifying interactions or internal state
+        // For this example, we'll verify that the correct task is passed to getConfigAndJob
+        verify(getForecaster).getConfigAndJob(eq(configID), anyBoolean(), anyBoolean(), any(), eq(Optional.empty()), eq(listener));
+    }
 }
