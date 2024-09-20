@@ -348,7 +348,8 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             null,
             detector.getCustomResultIndexMinSize(),
             detector.getCustomResultIndexMinAge(),
-            detector.getCustomResultIndexTTL()
+            detector.getCustomResultIndexTTL(),
+            detector.getFlattenResultIndexMapping()
         );
     }
 
