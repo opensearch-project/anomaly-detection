@@ -145,6 +145,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     protected final Clock clock;
     protected final Settings settings;
     protected final ValidationAspect configValidationAspect;
+    protected boolean breakingUIChange;
 
     public AbstractTimeSeriesActionHandler(
         Config config,
@@ -203,6 +204,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         this.settings = settings;
         this.handler = new ConfigUpdateConfirmer<>(taskManager, transportService);
         this.configValidationAspect = configValidationAspect;
+        this.breakingUIChange = false;
     }
 
     /**
@@ -456,6 +458,11 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                         );
                     return;
                 }
+            } else {
+                if (!ParseUtils.listEqualsWithoutConsideringOrder(existingConfig.getCategoryFields(), config.getCategoryFields())
+                    || !Objects.equals(existingConfig.getCustomResultIndexOrAlias(), config.getCustomResultIndexOrAlias())) {
+                    breakingUIChange = true;
+                }
             }
 
             ActionListener<Void> confirmBatchRunningListener = ActionListener
@@ -675,7 +682,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             );
     }
 
-    @SuppressWarnings("unchecked")
     protected void searchConfigInputIndices(String configId, boolean indexingDryRun, ActionListener<T> listener) {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(QueryBuilders.matchAllQuery())

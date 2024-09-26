@@ -7,6 +7,8 @@ package org.opensearch.forecast.ml;
 
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME;
 
+import java.time.Clock;
+
 import org.opensearch.forecast.caching.ForecastCacheProvider;
 import org.opensearch.forecast.caching.ForecastPriorityCache;
 import org.opensearch.forecast.indices.ForecastIndex;
@@ -32,7 +34,8 @@ public class ForecastRealTimeInferencer extends
         ForecastColdStartWorker coldStartWorker,
         ForecastSaveResultStrategy resultWriteWorker,
         ForecastCacheProvider cache,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        Clock clock
     ) {
         super(
             modelManager,
@@ -43,7 +46,8 @@ public class ForecastRealTimeInferencer extends
             resultWriteWorker,
             cache,
             threadPool,
-            FORECAST_THREAD_POOL_NAME
+            FORECAST_THREAD_POOL_NAME,
+            clock
         );
     }
 

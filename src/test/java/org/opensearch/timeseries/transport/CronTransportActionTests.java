@@ -28,6 +28,7 @@ import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
 import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -40,6 +41,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.forecast.caching.ForecastCacheProvider;
 import org.opensearch.forecast.caching.ForecastPriorityCache;
 import org.opensearch.forecast.ml.ForecastColdStart;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
@@ -83,6 +85,9 @@ public class CronTransportActionTests extends AbstractTimeSeriesTest {
         when(forecastCacheProvider.get()).thenReturn(forecastCache);
         ForecastTaskManager forecastTaskManager = mock(ForecastTaskManager.class);
 
+        ADRealTimeInferencer adRealTimeInferencer = mock(ADRealTimeInferencer.class);
+        ForecastRealTimeInferencer forecastRealTimeInferencer = mock(ForecastRealTimeInferencer.class);
+
         action = new CronTransportAction(
             threadPool,
             clusterService,
@@ -95,7 +100,9 @@ public class CronTransportActionTests extends AbstractTimeSeriesTest {
             entityColdStarter,
             forecastColdStarter,
             adTaskManager,
-            forecastTaskManager
+            forecastTaskManager,
+            adRealTimeInferencer,
+            forecastRealTimeInferencer
         );
     }
 

@@ -84,6 +84,11 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             : WriteRequest.RefreshPolicy.IMMEDIATE;
         RestRequest.Method method = request.getHttpRequest().method();
 
+        if (method == RestRequest.Method.POST && detectorId != AnomalyDetector.NO_ID) {
+            // reset detector to empty string detectorId is only meant for updating detector
+            detectorId = AnomalyDetector.NO_ID;
+        }
+
         IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
             detectorId,
             seqNo,

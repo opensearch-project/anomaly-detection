@@ -1,7 +1,7 @@
 {
     "dynamic": false,
     "_meta": {
-        "schema_version": 6
+        "schema_version": 7
     },
     "properties": {
         "schema_version": {
@@ -232,6 +232,10 @@
         },
         "flatten_result_index_mapping": {
             "type": "boolean"
+        },
+        "last_ui_breaking_change_time" : {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
         }
     }
 }

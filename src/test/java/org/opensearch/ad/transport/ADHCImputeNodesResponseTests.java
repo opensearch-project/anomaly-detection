@@ -115,4 +115,29 @@ public class ADHCImputeNodesResponseTests extends OpenSearchTestCase {
         assertNotNull(deserializedNodeResponse.getPreviousException());
         assertEquals("exception: " + previousException.getMessage(), deserializedNodeResponse.getPreviousException().getMessage());
     }
+
+    public void testNoExceptionSerialization() throws IOException {
+        // Arrange
+        DiscoveryNode node = new DiscoveryNode(
+            "nodeId",
+            buildNewFakeTransportAddress(),
+            Collections.emptyMap(),
+            Collections.emptySet(),
+            Version.CURRENT
+        );
+
+        ADHCImputeNodeResponse nodeResponse = new ADHCImputeNodeResponse(node, null);
+
+        // Act: Serialize the node response
+        BytesStreamOutput output = new BytesStreamOutput();
+        nodeResponse.writeTo(output);
+
+        // Deserialize the node response
+        StreamInput input = output.bytes().streamInput();
+        ADHCImputeNodeResponse deserializedNodeResponse = new ADHCImputeNodeResponse(input);
+
+        // Assert
+        assertEquals(node, deserializedNodeResponse.getNode());
+        assertNull(deserializedNodeResponse.getPreviousException());
+    }
 }

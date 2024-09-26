@@ -343,7 +343,8 @@ public class ForecastTask extends TimeSeriesTask {
                 forecaster.getCustomResultIndexMinSize(),
                 forecaster.getCustomResultIndexMinAge(),
                 forecaster.getCustomResultIndexTTL(),
-                forecaster.getFlattenResultIndexMapping()
+                forecaster.getFlattenResultIndexMapping(),
+                forecaster.getLastBreakingUIChangeTime()
             );
         return new Builder()
             .taskId(parsedTaskId)
@@ -375,10 +376,12 @@ public class ForecastTask extends TimeSeriesTask {
     @Generated
     @Override
     public boolean equals(Object other) {
-        if (this == other)
+        if (this == other) {
             return true;
-        if (other == null || getClass() != other.getClass())
+        }
+        if (other == null || getClass() != other.getClass()) {
             return false;
+        }
         ForecastTask that = (ForecastTask) other;
         return super.equals(that)
             && Objects.equal(getForecaster(), that.getForecaster())

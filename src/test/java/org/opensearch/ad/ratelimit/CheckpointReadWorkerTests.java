@@ -24,6 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -159,7 +160,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             coldstartQueue,
             resultWriteStrategy,
             cacheProvider,
-            threadPool
+            threadPool,
+            mock(Clock.class)
         );
 
         // Integer.MAX_VALUE makes a huge heap

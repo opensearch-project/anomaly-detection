@@ -245,7 +245,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             config.getCustomResultIndexMinSize(),
             config.getCustomResultIndexMinAge(),
             config.getCustomResultIndexTTL(),
-            config.getFlattenResultIndexMapping()
+            config.getFlattenResultIndexMapping(),
+            breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime()
         );
     }
 
