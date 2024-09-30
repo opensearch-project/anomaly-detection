@@ -169,7 +169,7 @@ public abstract class ModelManager<RCFModelType extends ThresholdedRandomCutFore
             throw e;
         } finally {
             modelState.setLastUsedTime(clock.instant());
-            modelState.setLastSeenExecutionEndTime(clock.instant());
+            modelState.setLastSeenDataEndTime(sample.getDataEndTime());
         }
         return createEmptyResult();
     }

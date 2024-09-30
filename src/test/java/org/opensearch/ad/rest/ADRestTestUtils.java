@@ -226,7 +226,8 @@ public class ADRestTestUtils {
             null,
             null,
             null,
-            null
+            null,
+            now
         );
 
         if (historical) {
@@ -316,7 +317,6 @@ public class ADRestTestUtils {
                 TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI + "/results/_search",
                 ImmutableMap.of(),
                 TestHelpers.toHttpEntity(query),
-
                 null
             );
         Map<String, Object> responseMap = entityAsMap(searchAdTaskResponse);
@@ -342,7 +342,6 @@ public class ADRestTestUtils {
                 TestHelpers.LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI + "/_search",
                 ImmutableMap.of(),
                 TestHelpers.toHttpEntity(query),
-
                 null
             );
         Map<String, Object> responseMap = entityAsMap(searchAdTaskResponse);

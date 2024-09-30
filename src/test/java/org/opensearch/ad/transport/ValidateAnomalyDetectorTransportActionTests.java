@@ -405,7 +405,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         ValidateConfigRequest request = new ValidateConfigRequest(
@@ -454,7 +455,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             null,
             null,
-            null
+            null,
+            Instant.now()
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         ValidateConfigRequest request = new ValidateConfigRequest(

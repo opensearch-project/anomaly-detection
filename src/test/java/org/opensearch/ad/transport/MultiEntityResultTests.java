@@ -330,7 +330,8 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             entityColdStartQueue,
             resultSaver,
             provider,
-            threadPool
+            threadPool,
+            clock
         );
     }
 

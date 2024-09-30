@@ -87,6 +87,11 @@ public class RestIndexForecasterAction extends AbstractForecasterAction {
                 : WriteRequest.RefreshPolicy.IMMEDIATE;
             RestRequest.Method method = request.getHttpRequest().method();
 
+            if (method == RestRequest.Method.POST && forecasterId != Config.NO_ID) {
+                // reset detector to empty string detectorId is only meant for updating detector
+                forecasterId = Config.NO_ID;
+            }
+
             IndexForecasterRequest indexAnomalyDetectorRequest = new IndexForecasterRequest(
                 forecasterId,
                 seqNo,

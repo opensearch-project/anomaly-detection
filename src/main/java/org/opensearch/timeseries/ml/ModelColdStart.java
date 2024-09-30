@@ -241,7 +241,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                 // reset every 60 intervals
                 return new DoorKeeper(
                     TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
-                    config.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                    config.getIntervalDuration().multipliedBy(TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ),
                     clock,
                     TimeSeriesSettings.COLD_START_DOOR_KEEPER_COUNT_THRESHOLD
                 );
@@ -251,7 +251,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                 logger
                     .info(
                         "Won't retry real-time cold start within {} intervals for model {}",
-                        TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ,
+                        TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ,
                         modelId
                     );
                 return;
