@@ -9,6 +9,6 @@ Compatible with OpenSearch 2.17.0
 ### Enhancements
 * Fix inference logic and standardize config index mapping ([#1284](https://github.com/opensearch-project/anomaly-detection/pull/1284))
 
-### Big Fixes
+### Bug Fixes
 * Prevent resetting the latest flag of real-time when starting historical analysis ([#1287](https://github.com/opensearch-project/anomaly-detection/pull/1287))
 * Correct handling of null max aggregation values in SearchResponse ([#1292](https://github.com/opensearch-project/anomaly-detection/pull/1292))
