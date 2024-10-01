@@ -120,7 +120,7 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
         return processWithTimeout(modelState, config, taskId, sample);
     }
 
-    private boolean processWithTimeout(ModelState<RCFModelType> modelState, Config config, String taskId, Sample sample) {
+    public boolean processWithTimeout(ModelState<RCFModelType> modelState, Config config, String taskId, Sample sample) {
         String modelId = modelState.getModelId();
         ReentrantLock lock = (ReentrantLock) modelLocks
             .computeIfAbsent(
@@ -175,7 +175,7 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
         return success;
     }
 
-    private boolean tryProcess(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId, long curExecutionEnd) {
+    public boolean tryProcess(Sample sample, ModelState<RCFModelType> modelState, Config config, String taskId, long curExecutionEnd) {
         String modelId = modelState.getModelId();
         try {
             RCFResultType result = modelManager.getResult(sample, modelState, modelId, config, taskId);
@@ -215,7 +215,7 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
         return true;
     }
 
-    private void reColdStart(Config config, String modelId, Exception e, Sample sample, String taskId) {
+    public void reColdStart(Config config, String modelId, Exception e, Sample sample, String taskId) {
         // fail to score likely due to model corruption. Re-cold start to recover.
         LOG.error(new ParameterizedMessage("Likely model corruption for [{}]", modelId), e);
         stats.getStat(modelCorruptionStat).increment();
@@ -255,6 +255,13 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
             // will be thrown to transport broadcast handler
             throw new TimeSeriesException("Fail to maintain RealTimeInferencer", e);
         }
+    }
 
+    public Map<String, ExpiringValue<Lock>> getModelLocks() {
+        return modelLocks;
+    }
+
+    public Map<String, ExpiringValue<PriorityQueue<Sample>>> getSampleQueues() {
+        return sampleQueues;
     }
 }

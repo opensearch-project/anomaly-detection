@@ -79,8 +79,8 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
     public static final String RULE_DATA_MAPPING = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\":"
         + "\"date\""
         + "},"
-        + " \"transform._doc_count\": { \"type\": \"integer\" },"
-        + "\"componentName\": { \"type\": \"keyword\"} } } }";
+        + " \"visitCount\": { \"type\": \"integer\" },"
+        + "\"cityName\": { \"type\": \"keyword\"} } } }";
     public static final String SYNTHETIC_DATASET_NAME = "synthetic";
     public static final String RULE_DATASET_NAME = "rule";
     public static final String UNIFORM_DATASET_NAME = "uniform";

@@ -467,7 +467,6 @@ public class SearchTopForecastResultTransportAction extends
      */
     private RangeQueryBuilder generateDateFilter(SearchTopForecastResultRequest request, Forecaster forecaster) {
         // forecast from is data end time for forecast
-        // return QueryBuilders.termQuery(CommonName.DATA_END_TIME_FIELD, request.getForecastFrom().toEpochMilli());
         long startInclusive = request.getForecastFrom().toEpochMilli();
         long endExclusive = startInclusive + forecaster.getIntervalInMilliseconds();
         return QueryBuilders.rangeQuery(CommonName.DATA_END_TIME_FIELD).gte(startInclusive).lt(endExclusive);
