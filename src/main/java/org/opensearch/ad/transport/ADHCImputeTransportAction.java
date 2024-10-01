@@ -31,7 +31,6 @@ import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
-import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.util.ActionListenerExecutor;
 import org.opensearch.transport.TransportService;
 
@@ -129,14 +128,12 @@ public class ADHCImputeTransportAction extends
                 return;
             }
             Config config = configOptional.get();
-            long windowDelayMillis = ((IntervalTimeConfiguration) config.getWindowDelay()).toDuration().toMillis();
             int featureSize = config.getEnabledFeatureIds().size();
             long dataEndMillis = nodeRequest.getRequest().getDataEndMillis();
             long dataStartMillis = nodeRequest.getRequest().getDataStartMillis();
-            long executionEndTime = dataEndMillis + windowDelayMillis;
             String taskId = nodeRequest.getRequest().getTaskId();
             for (ModelState<ThresholdedRandomCutForest> modelState : cache.get().getAllModels(configId)) {
-                if (shouldProcessModelState(modelState, executionEndTime, clusterService, hashRing)) {
+                if (shouldProcessModelState(modelState, dataEndMillis, clusterService, hashRing)) {
                     double[] nanArray = new double[featureSize];
                     Arrays.fill(nanArray, Double.NaN);
                     adInferencer
@@ -163,8 +160,8 @@ public class ADHCImputeTransportAction extends
      * Determines whether the model state should be processed based on various conditions.
      *
      * Conditions checked:
-     * - The model's last seen execution end time is not the minimum Instant value.
-     * - The current execution end time is greater than or equal to the model's last seen execution end time,
+     * - The model's last seen data end time is not the minimum Instant value. This means the model hasn't been initialized yet.
+     * - The current data end time is greater than the model's last seen data end time,
      *   indicating that the model state was updated in previous intervals.
      * - The entity associated with the model state is present.
      * - The owning node for real-time processing of the entity, with the same local version, is present in the hash ring.
@@ -175,14 +172,14 @@ public class ADHCImputeTransportAction extends
      * concurrently (e.g., during tests when multiple threads may operate quickly).
      *
      * @param modelState       The current state of the model.
-     * @param executionEndTime The end time of the current execution interval.
+     * @param dataEndTime      The data end time of current interval.
      * @param clusterService   The service providing information about the current cluster node.
      * @param hashRing         The hash ring used to determine the owning node for real-time processing of entities.
      * @return true if the model state should be processed; otherwise, false.
      */
     private boolean shouldProcessModelState(
         ModelState<ThresholdedRandomCutForest> modelState,
-        long executionEndTime,
+        long dataEndTime,
         ClusterService clusterService,
         HashRing hashRing
     ) {
@@ -194,8 +191,8 @@ public class ADHCImputeTransportAction extends
         // Check if the model state conditions are met for processing
         // We cannot use last used time as it will be updated whenever we update its priority in CacheBuffer.update when there is a
         // PriorityCache.get.
-        return modelState.getLastSeenExecutionEndTime() != Instant.MIN
-            && executionEndTime >= modelState.getLastSeenExecutionEndTime().toEpochMilli()
+        return modelState.getLastSeenDataEndTime() != Instant.MIN
+            && dataEndTime > modelState.getLastSeenDataEndTime().toEpochMilli()
             && modelState.getEntity().isPresent()
             && owningNode.isPresent()
             && owningNode.get().getId().equals(clusterService.localNode().getId());

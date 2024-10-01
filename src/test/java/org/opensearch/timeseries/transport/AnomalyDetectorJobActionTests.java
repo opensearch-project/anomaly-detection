@@ -131,10 +131,12 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     @Test
     public void testAdJobRequest_NullDetectionDateRange() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
+        request = new JobRequest("1234", "_start");
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
         JobRequest newRequest = new JobRequest(input);
         Assert.assertEquals(request.getConfigID(), newRequest.getConfigID());
+        Assert.assertTrue(!request.isHistorical());
     }
 
     @Test

@@ -57,7 +57,7 @@ public class TimeSeriesSettings {
     public static final int DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION = 100_000;
 
     // clean up door keeper every 60 intervals
-    public static final int DOOR_KEEPER_MAINTENANCE_FREQ = 60;
+    public static final int EXPIRING_VALUE_MAINTENANCE_FREQ = 60;
 
     // 1 million insertion costs roughly 1 MB.
     public static final int DOOR_KEEPER_FOR_CACHE_MAX_INSERTION = 1_000_000;

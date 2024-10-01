@@ -22,6 +22,7 @@ import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.CronAction;
 import org.opensearch.cluster.service.ClusterService;
@@ -30,6 +31,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.forecast.caching.ForecastCacheProvider;
 import org.opensearch.forecast.ml.ForecastColdStart;
+import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
@@ -45,6 +47,8 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
     private ForecastColdStart forecastColdStarter;
     private ADTaskManager adTaskManager;
     private ForecastTaskManager forecastTaskManager;
+    private ADRealTimeInferencer adRealTimeInferencer;
+    private ForecastRealTimeInferencer forecastRealTimeInferencer;
 
     @Inject
     public CronTransportAction(
@@ -59,7 +63,9 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         ADColdStart adEntityColdStarter,
         ForecastColdStart forecastColdStarter,
         ADTaskManager adTaskManager,
-        ForecastTaskManager forecastTaskManager
+        ForecastTaskManager forecastTaskManager,
+        ADRealTimeInferencer adRealTimeInferencer,
+        ForecastRealTimeInferencer forecastRealTimeInferencer
     ) {
         super(
             CronAction.NAME,
@@ -80,6 +86,9 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         this.forecastColdStarter = forecastColdStarter;
         this.adTaskManager = adTaskManager;
         this.forecastTaskManager = forecastTaskManager;
+        this.adRealTimeInferencer = adRealTimeInferencer;
+        this.forecastRealTimeInferencer = forecastRealTimeInferencer;
+
     }
 
     @Override
@@ -131,6 +140,9 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         // maintain running realtime tasks: clean stale running realtime task cache
         adTaskManager.maintainRunningRealtimeTasks();
 
+        // clean locks and sample queue
+        adRealTimeInferencer.maintenance();
+
         // ======================
         // Forecast
         // ======================
@@ -140,6 +152,7 @@ public class CronTransportAction extends TransportNodesAction<CronRequest, CronR
         forecastTaskManager.cleanChildTasksAndResultsOfDeletedTask();
         forecastTaskManager.cleanResultOfDeletedConfig();
         forecastTaskManager.maintainRunningRealtimeTasks();
+        forecastRealTimeInferencer.maintenance();
 
         // ======================
         // Common

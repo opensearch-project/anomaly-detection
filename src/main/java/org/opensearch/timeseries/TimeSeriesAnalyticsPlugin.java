@@ -840,7 +840,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adColdstartQueue,
             adSaveResultStrategy,
             adCacheProvider,
-            threadPool
+            threadPool,
+            getClock()
         );
 
         ADCheckpointReadWorker adCheckpointReadQueue = new ADCheckpointReadWorker(
@@ -1230,7 +1231,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastColdstartQueue,
             forecastSaveResultStrategy,
             forecastCacheProvider,
-            threadPool
+            threadPool,
+            getClock()
         );
 
         ForecastCheckpointReadWorker forecastCheckpointReadQueue = new ForecastCheckpointReadWorker(

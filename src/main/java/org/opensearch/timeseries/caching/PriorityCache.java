@@ -174,7 +174,7 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
                     // reset every 60 intervals
                     return new DoorKeeper(
                         TimeSeriesSettings.DOOR_KEEPER_FOR_CACHE_MAX_INSERTION,
-                        config.getIntervalDuration().multipliedBy(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ),
+                        config.getIntervalDuration().multipliedBy(TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ),
                         clock,
                         TimeSeriesSettings.CACHE_DOOR_KEEPER_COUNT_THRESHOLD
                     );

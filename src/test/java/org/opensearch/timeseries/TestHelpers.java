@@ -1948,7 +1948,8 @@ public class TestHelpers {
                 resultIndex,
                 horizon,
                 imputationOption,
-                randomIntBetween(1, 1000),
+                // Recency emphasis must be an integer greater than 1
+                randomIntBetween(2, 1000),
                 randomIntBetween(1, 128),
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,

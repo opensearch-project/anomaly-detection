@@ -7,6 +7,8 @@ package org.opensearch.ad.ml;
 
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME;
 
+import java.time.Clock;
+
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.indices.ADIndex;
@@ -32,7 +34,8 @@ public class ADRealTimeInferencer extends
         ADColdStartWorker coldStartWorker,
         ADSaveResultStrategy resultWriteWorker,
         ADCacheProvider cache,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        Clock clock
     ) {
         super(
             modelManager,
@@ -43,7 +46,8 @@ public class ADRealTimeInferencer extends
             resultWriteWorker,
             cache,
             threadPool,
-            AD_THREAD_POOL_NAME
+            AD_THREAD_POOL_NAME,
+            clock
         );
     }
 

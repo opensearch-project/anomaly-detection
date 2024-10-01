@@ -1144,7 +1144,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
 
         // make sure when the next maintenance coming, current door keeper gets reset
         // note our detector interval is 1 minute and the door keeper will expire in 60 intervals, which are 60 minutes
-        when(clock.instant()).thenReturn(Instant.now().plus(TimeSeriesSettings.DOOR_KEEPER_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
+        when(clock.instant()).thenReturn(Instant.now().plus(TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ + 1, ChronoUnit.MINUTES));
         entityColdStarter.maintenance();
 
         modelState = createStateForCacheRelease();
