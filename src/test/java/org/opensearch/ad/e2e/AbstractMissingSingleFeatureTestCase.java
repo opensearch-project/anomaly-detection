@@ -259,7 +259,11 @@ public abstract class AbstractMissingSingleFeatureTestCase extends MissingIT {
                         verifyConfidence(testIndex, confidence, lastConfidence.get(entity));
                         lastConfidence.put(entity, confidence);
                     } else {
-                        assertEquals(null, imputed0);
+                        assertEquals(
+                            String.format(Locale.ROOT, "dataStartTime: %d, missingTimestamps: %s", dataStartTime, missingTimestamps),
+                            null,
+                            imputed0
+                        );
                     }
 
                     lastSeen.put(entity, dataValue);

@@ -12,12 +12,10 @@
 package org.opensearch.ad.rest;
 
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Map;
 
 import org.apache.http.HttpHeaders;
@@ -64,77 +62,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     private String indexSearchAccessRole = "index_all_search";
     String oceanUser = "ocean";
     RestClient oceanClient;
-
-    /**
-     * Create an unguessable password. Simple password are weak due to https://tinyurl.com/383em9zk
-     * @return a random password.
-     */
-    public static String generatePassword(String username) {
-        String upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        String lowerCase = "abcdefghijklmnopqrstuvwxyz";
-        String digits = "0123456789";
-        String special = "_";
-
-        // Remove characters from username (case-insensitive)
-        String usernameLower = username.toLowerCase(Locale.ROOT);
-        for (char c : usernameLower.toCharArray()) {
-            upperCase = upperCase.replaceAll("(?i)" + c, "");
-            lowerCase = lowerCase.replaceAll("(?i)" + c, "");
-            digits = digits.replace(String.valueOf(c), "");
-            special = special.replace(String.valueOf(c), "");
-        }
-
-        // Combine all remaining characters
-        String characters = upperCase + lowerCase + digits + special;
-
-        // Check if we have enough characters to proceed
-        if (characters.length() < 4) {
-            throw new IllegalArgumentException("Not enough characters to generate password without using username characters.");
-        }
-
-        SecureRandom rng = new SecureRandom();
-        String password;
-
-        do {
-            // Ensure password includes at least one character from each set, if available
-            StringBuilder passwordBuilder = new StringBuilder();
-            if (!upperCase.isEmpty()) {
-                passwordBuilder.append(upperCase.charAt(rng.nextInt(upperCase.length())));
-            }
-            if (!lowerCase.isEmpty()) {
-                passwordBuilder.append(lowerCase.charAt(rng.nextInt(lowerCase.length())));
-            }
-            if (!digits.isEmpty()) {
-                passwordBuilder.append(digits.charAt(rng.nextInt(digits.length())));
-            }
-            if (!special.isEmpty()) {
-                passwordBuilder.append(special.charAt(rng.nextInt(special.length())));
-            }
-
-            // Fill the rest of the password length with random characters
-            int remainingLength = 15 - passwordBuilder.length();
-            for (int i = 0; i < remainingLength; i++) {
-                passwordBuilder.append(characters.charAt(rng.nextInt(characters.length())));
-            }
-
-            // Convert to char array for shuffling
-            char[] passwordChars = passwordBuilder.toString().toCharArray();
-
-            // Shuffle the password characters
-            for (int i = passwordChars.length - 1; i > 0; i--) {
-                int index = rng.nextInt(i + 1);
-                char temp = passwordChars[index];
-                passwordChars[index] = passwordChars[i];
-                passwordChars[i] = temp;
-            }
-
-            password = new String(passwordChars);
-
-            // Repeat if password contains the username as a substring (case-insensitive)
-        } while (password.toLowerCase(Locale.ROOT).contains(usernameLower.toLowerCase(Locale.ROOT)));
-
-        return password;
-    }
 
     @Before
     public void setupSecureTests() throws IOException {
@@ -192,7 +119,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             .build();
 
         String oceanPassword = generatePassword(oceanUser);
-        createUser(oceanUser, elkPassword, new ArrayList<>(Arrays.asList("odfe")));
+        createUser(oceanUser, oceanPassword, new ArrayList<>(Arrays.asList("odfe")));
         oceanClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), oceanUser, oceanPassword)
             .setSocketTimeout(60000)
             .build();
@@ -462,7 +389,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User elk has AD full access, but has no read permission of index
         String indexName = anomalyDetector.getIndices().get(0);
         Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, oceanClient); });
-        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Unauthorized"));
+        Assert
+            .assertTrue(
+                "actual: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]")
+            );
     }
 
     public void testCreateAnomalyDetectorWithCustomResultIndex() throws IOException {
@@ -542,7 +473,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         enableFilterBy();
         // User elk has no read permission of index
         Exception exception = expectThrows(Exception.class, () -> { previewAnomalyDetector(aliceDetector.getId(), oceanClient, input); });
-        Assert.assertTrue("actual msg: " + exception.getMessage(), exception.getMessage().contains("Unauthorized"));
+        Assert
+            .assertTrue(
+                "actual msg: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/preview]")
+            );
     }
 
     public void testValidateAnomalyDetectorWithWriteAccess() throws IOException {
@@ -572,7 +507,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         enableFilterBy();
         // User elk has no read permission of index, can't validate detector
         Exception exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, oceanClient); });
-        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Unauthorized"));
+        Assert
+            .assertTrue(
+                "actual: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [indices:data/read/search]")
+            );
     }
 
     public void testValidateAnomalyDetectorWithNoBackendRole() throws IOException {

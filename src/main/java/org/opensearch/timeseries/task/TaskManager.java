@@ -44,6 +44,7 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
@@ -595,6 +596,9 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
             }
         }, e -> {
             if (e instanceof IndexNotFoundException) {
+                function.accept(new ArrayList<>());
+            } else if (e instanceof SearchPhaseExecutionException && e.getMessage().contains("No mapping found for")) {
+                // state index hasn't finished initialization
                 function.accept(new ArrayList<>());
             } else {
                 logger.error("Failed to search task for config " + configId, e);

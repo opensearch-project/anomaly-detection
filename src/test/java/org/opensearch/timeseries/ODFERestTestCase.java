@@ -22,8 +22,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,6 +40,8 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -66,6 +71,9 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
+
+import com.google.common.collect.ImmutableList;
+import com.google.gson.JsonArray;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
@@ -282,5 +290,146 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         void dump(boolean reset);
 
         void reset();
+    }
+
+    public Response getRole(String role) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                "/_plugins/_security/api/roles/" + role,
+                null,
+                (HttpEntity) null,
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    /**
+     * Create an unguessable password. Simple password are weak due to https://tinyurl.com/383em9zk
+     * @return a random password.
+     */
+    public static String generatePassword(String username) {
+        String upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowerCase = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String special = "_";
+
+        // Remove characters from username (case-insensitive)
+        String usernameLower = username.toLowerCase(Locale.ROOT);
+        for (char c : usernameLower.toCharArray()) {
+            upperCase = upperCase.replaceAll("(?i)" + c, "");
+            lowerCase = lowerCase.replaceAll("(?i)" + c, "");
+            digits = digits.replace(String.valueOf(c), "");
+            special = special.replace(String.valueOf(c), "");
+        }
+
+        // Combine all remaining characters
+        String characters = upperCase + lowerCase + digits + special;
+
+        // Check if we have enough characters to proceed
+        if (characters.length() < 4) {
+            throw new IllegalArgumentException("Not enough characters to generate password without using username characters.");
+        }
+
+        SecureRandom rng = new SecureRandom();
+        String password;
+
+        do {
+            // Ensure password includes at least one character from each set, if available
+            StringBuilder passwordBuilder = new StringBuilder();
+            if (!upperCase.isEmpty()) {
+                passwordBuilder.append(upperCase.charAt(rng.nextInt(upperCase.length())));
+            }
+            if (!lowerCase.isEmpty()) {
+                passwordBuilder.append(lowerCase.charAt(rng.nextInt(lowerCase.length())));
+            }
+            if (!digits.isEmpty()) {
+                passwordBuilder.append(digits.charAt(rng.nextInt(digits.length())));
+            }
+            if (!special.isEmpty()) {
+                passwordBuilder.append(special.charAt(rng.nextInt(special.length())));
+            }
+
+            // Fill the rest of the password length with random characters
+            int remainingLength = 15 - passwordBuilder.length();
+            for (int i = 0; i < remainingLength; i++) {
+                passwordBuilder.append(characters.charAt(rng.nextInt(characters.length())));
+            }
+
+            // Convert to char array for shuffling
+            char[] passwordChars = passwordBuilder.toString().toCharArray();
+
+            // Shuffle the password characters
+            for (int i = passwordChars.length - 1; i > 0; i--) {
+                int index = rng.nextInt(i + 1);
+                char temp = passwordChars[index];
+                passwordChars[index] = passwordChars[i];
+                passwordChars[i] = temp;
+            }
+
+            password = new String(passwordChars);
+
+            // Repeat if password contains the username as a substring (case-insensitive)
+        } while (password.toLowerCase(Locale.ROOT).contains(usernameLower.toLowerCase(Locale.ROOT)));
+
+        return password;
+    }
+
+    public Response createUser(String name, String password, ArrayList<String> backendRoles) throws IOException {
+        JsonArray backendRolesString = new JsonArray();
+        for (int i = 0; i < backendRoles.size(); i++) {
+            backendRolesString.add(backendRoles.get(i));
+        }
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/internalusers/" + name,
+                null,
+                TestHelpers
+                    .toHttpEntity(
+                        " {\n"
+                            + "\"password\": \""
+                            + password
+                            + "\",\n"
+                            + "\"backend_roles\": "
+                            + backendRolesString
+                            + ",\n"
+                            + "\"attributes\": {\n"
+                            + "}} "
+                    ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response createRoleMapping(String role, ArrayList<String> users) throws IOException {
+        JsonArray usersString = new JsonArray();
+        for (int i = 0; i < users.size(); i++) {
+            usersString.add(users.get(i));
+        }
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/rolesmapping/" + role,
+                null,
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n" + "  \"backend_roles\" : [  ],\n" + "  \"hosts\" : [  ],\n" + "  \"users\" : " + usersString + "\n" + "}"
+                    ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    public Response deleteUser(String user) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client(),
+                "DELETE",
+                "/_opendistro/_security/api/internalusers/" + user,
+                null,
+                "",
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
     }
 }

@@ -6,43 +6,29 @@
 package org.opensearch.forecast.rest;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.opensearch.timeseries.util.RestHandlerUtils.RUN_ONCE;
-import static org.opensearch.timeseries.util.RestHandlerUtils.START_JOB;
-import static org.opensearch.timeseries.util.RestHandlerUtils.STOP_JOB;
-import static org.opensearch.timeseries.util.RestHandlerUtils.SUGGEST;
-import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.http.HttpEntity;
-import org.apache.http.ParseException;
-import org.apache.http.util.EntityUtils;
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.AbstractForecastSyntheticDataTest;
-import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastTaskProfile;
-import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.timeseries.TestHelpers;
-import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.EntityTaskProfile;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.util.RestHandlerUtils;
@@ -63,44 +49,6 @@ import com.google.gson.JsonObject;
  */
 public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     public static final int MAX_RETRY_TIMES = 200;
-    private static final String SUGGEST_INTERVAL_URI;
-    private static final String SUGGEST_INTERVAL_HORIZON_HISTORY_URI;
-    private static final String VALIDATE_FORECASTER;
-    private static final String VALIDATE_FORECASTER_MODEL;
-    private static final String CREATE_FORECASTER;
-    private static final String RUN_ONCE_FORECASTER;
-    private static final String START_FORECASTER;
-    private static final String STOP_FORECASTER;
-    private static final String UPDATE_FORECASTER;
-
-    static {
-        SUGGEST_INTERVAL_URI = String
-            .format(
-                Locale.ROOT,
-                "%s/%s/%s",
-                TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI,
-                SUGGEST,
-                Forecaster.FORECAST_INTERVAL_FIELD
-            );
-        SUGGEST_INTERVAL_HORIZON_HISTORY_URI = String
-            .format(
-                Locale.ROOT,
-                "%s/%s/%s,%s,%s",
-                TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI,
-                SUGGEST,
-                Forecaster.FORECAST_INTERVAL_FIELD,
-                Forecaster.HORIZON_FIELD,
-                Config.HISTORY_INTERVAL_FIELD
-            );
-        VALIDATE_FORECASTER = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, VALIDATE);
-        VALIDATE_FORECASTER_MODEL = String
-            .format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, VALIDATE, "model");
-        CREATE_FORECASTER = TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI;
-        RUN_ONCE_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", RUN_ONCE);
-        START_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", START_JOB);
-        STOP_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", STOP_JOB);
-        UPDATE_FORECASTER = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s");
-    }
 
     @Override
     @Before
@@ -127,7 +75,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         String mapping = "{ \"mappings\": { \"properties\": { \"timestamp\": { \"type\":"
             + "\"date\""
             + "},"
-            + " \"transform._doc_count\": { \"type\": \"integer\" },"
+            + " \"visitCount\": { \"type\": \"integer\" },"
             + "\"component1Name\": { \"type\": \"keyword\"},"
             + "\"component2Name\": { \"type\": \"keyword\"}"
             + "} } }";
@@ -136,13 +84,13 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         for (int i = 0; i < trainTestSplit; i++) {
             JsonObject row = data.get(i);
 
-            // Get the value of the "componentName" field
-            String componentName = row.get("componentName").getAsString();
+            // Get the value of the "cityName" field
+            String cityName = row.get("cityName").getAsString();
 
-            // Replace the field based on the value of "componentName"
-            row.remove("componentName");  // Remove the original "componentName" field
+            // Replace the field based on the value of "cityName"
+            row.remove("cityName");  // Remove the original "cityName" field
 
-            if ("Phoenix".equals(componentName)) {
+            if ("Phoenix".equals(cityName)) {
                 if (phonenixIndex % 2 == 0) {
                     row.addProperty("component1Name", "server1");
                     row.addProperty("component2Name", "app1");
@@ -151,7 +99,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     row.addProperty("component2Name", "app1");
                 }
                 phonenixIndex++;
-            } else if ("Scottsdale".equals(componentName)) {
+            } else if ("Scottsdale".equals(cityName)) {
                 if (scottsdaleIndex % 2 == 0) {
                     row.addProperty("component1Name", "server3");
                     row.addProperty("component2Name", "app2");
@@ -418,7 +366,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -489,7 +437,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -591,7 +539,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
      */
     public void testFailToSuggest() throws Exception {
         int trainTestSplit = 100;
-        String categoricalField = "componentName";
+        String categoricalField = "cityName";
         GenData dataGenerated = genUniformSingleFeatureData(
             70,
             trainTestSplit,
@@ -987,7 +935,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1057,7 +1005,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1132,7 +1080,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1220,7 +1168,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "        \"aggregations\": {\n"
             + "            \"sum1\": {\n"
             + "                \"sum\": {\n"
-            + "                    \"field\": \"transform._doc_count\"\n"
+            + "                    \"field\": \"visitCount\"\n"
             + "                }\n"
             + "            }\n"
             + "        }\n"
@@ -1296,7 +1244,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -1360,7 +1308,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"max1\": {\n"
             + "                    \"max\": {\n"
-            + "                        \"field\": \"transform._doc_count2\"\n"
+            + "                        \"field\": \"visitCount2\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1436,7 +1384,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -1530,7 +1478,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -1560,7 +1508,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max2\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -1633,7 +1581,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1695,7 +1643,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1756,7 +1704,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1820,7 +1768,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                \"sum1\": {\n"
             + "                    \"sum\": {\n"
-            + "                        \"field\": \"transform._doc_count\"\n"
+            + "                        \"field\": \"visitCount\"\n"
             + "                    }\n"
             + "                }\n"
             + "            }\n"
@@ -1903,7 +1851,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -1933,7 +1881,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max2\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -2015,7 +1963,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "                    \"aggregations\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "                    }\n"
@@ -2082,7 +2030,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "            }\n"
@@ -2137,7 +2085,8 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
 
         ForecastTaskProfile forecastTaskProfile = (ForecastTaskProfile) waitUntilTaskReachState(
             forecasterId,
-            ImmutableSet.of(TaskState.TEST_COMPLETE.name())
+            ImmutableSet.of(TaskState.TEST_COMPLETE.name()),
+            client()
         ).get(0);
         assertTrue(forecastTaskProfile != null);
         assertTrue(forecastTaskProfile.getTask().isLatest());
@@ -2195,25 +2144,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(forecasterId, responseMap.get("_id"));
     }
 
-    public ForecastTaskProfile getForecastTaskProfile(String forecasterId) throws IOException, ParseException {
-        Response profileResponse = TestHelpers
-            .makeRequest(
-                client(),
-                "GET",
-                TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI + "/" + forecasterId + "/_profile/" + ForecastCommonName.FORECAST_TASK,
-                ImmutableMap.of(),
-                "",
-                null
-            );
-        return parseForecastTaskProfile(profileResponse);
-    }
-
     public Response searchTaskResult(String taskId) throws IOException {
         Response response = TestHelpers
             .makeRequest(
                 client(),
                 "GET",
-                "opensearch-forecast-result*/_search",
+                SEARCH_RESULTS,
                 ImmutableMap.of(),
                 TestHelpers
                     .toHttpEntity(
@@ -2222,43 +2158,6 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                 null
             );
         return response;
-    }
-
-    public ForecastTaskProfile parseForecastTaskProfile(Response profileResponse) throws IOException, ParseException {
-        String profileResult = EntityUtils.toString(profileResponse.getEntity());
-        XContentParser parser = TestHelpers.parser(profileResult);
-        ForecastTaskProfile forecastTaskProfile = null;
-        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-            String fieldName = parser.currentName();
-            parser.nextToken();
-            if ("forecast_task".equals(fieldName)) {
-                forecastTaskProfile = ForecastTaskProfile.parse(parser);
-            } else {
-                parser.skipChildren();
-            }
-        }
-        return forecastTaskProfile;
-    }
-
-    protected List<Object> waitUntilTaskReachState(String forecasterId, Set<String> targetStates) throws InterruptedException {
-        List<Object> results = new ArrayList<>();
-        int i = 0;
-        ForecastTaskProfile forecastTaskProfile = null;
-        // Increase retryTimes if some task can't reach done state
-        while ((forecastTaskProfile == null || !targetStates.contains(forecastTaskProfile.getTask().getState())) && i < MAX_RETRY_TIMES) {
-            try {
-                forecastTaskProfile = getForecastTaskProfile(forecasterId);
-            } catch (Exception e) {
-                logger.error("failed to get ForecastTaskProfile", e);
-            } finally {
-                Thread.sleep(1000);
-            }
-            i++;
-        }
-        assertNotNull(forecastTaskProfile);
-        results.add(forecastTaskProfile);
-        results.add(i);
-        return results;
     }
 
     public void testCreateDetector() throws Exception {
@@ -2280,7 +2179,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "            }\n"
@@ -2344,7 +2243,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "            }\n"
@@ -2404,7 +2303,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "            }\n"
@@ -2459,7 +2358,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "            }\n"
@@ -2484,7 +2383,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"unit\": \"MINUTES\"\n"
             + "        }\n"
             + "    },\n"
-            + "    \"category_field\": [\"componentName\"]"
+            + "    \"category_field\": [\"cityName\"]"
             + "}";
         response = TestHelpers
             .makeRequest(
@@ -2515,7 +2414,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"aggregation_query\": {\n"
             + "                        \"max1\": {\n"
             + "                            \"max\": {\n"
-            + "                                \"field\": \"transform._doc_count\"\n"
+            + "                                \"field\": \"visitCount\"\n"
             + "                            }\n"
             + "                        }\n"
             + "            }\n"
@@ -2540,7 +2439,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "            \"unit\": \"MINUTES\"\n"
             + "        }\n"
             + "    },\n"
-            + "    \"category_field\": [\"componentName\"],"
+            + "    \"category_field\": [\"cityName\"],"
             + "    \"result_index\": \"opensearch-forecast-result-b\""
             + "}";
         response = TestHelpers
