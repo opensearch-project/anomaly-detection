@@ -84,7 +84,7 @@ public abstract class AbstractRuleTestCase extends AbstractADSyntheticDataTest {
         if (relative) {
             thresholdType1 = "actual_over_expected_ratio";
             thresholdType2 = "expected_over_actual_ratio";
-            value = 0.3;
+            value = 0.2;
         } else {
             thresholdType1 = "actual_over_expected_margin";
             thresholdType2 = "expected_over_actual_margin";
