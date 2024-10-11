@@ -145,7 +145,7 @@ public class ResultBulkIndexingHandler<ResultType extends IndexableResult, Index
         } catch (Exception e) {
             String error = "Failed to bulk index result";
             LOG.error(error, e);
-            listener.onFailure(new TimeSeriesException(error, e));
+            listener.onFailure(new TimeSeriesException(configId, error, e));
         }
     }
 

@@ -755,7 +755,7 @@ public class TestHelpers {
                 // as ModelColdStart.selectNumberOfSamples will select the smaller of
                 // 32 and historical intervals.
                 randomIntBetween(TimeSeriesSettings.NUM_MIN_SAMPLES, 1000),
-                null,
+                rules,
                 null,
                 null,
                 null,

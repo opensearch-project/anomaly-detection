@@ -126,9 +126,9 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'commons-lang', name: 'commons-lang', version: '2.6'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.12.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.1.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.1.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.1.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.2.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.2.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.2.0'
 
     // we inherit jackson-core from opensearch core
     implementation "com.fasterxml.jackson.core:jackson-databind:2.16.1"
@@ -700,9 +700,6 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler',
-        'org.opensearch.timeseries.transport.SingleStreamResultRequest',
-        'org.opensearch.timeseries.rest.handler.IndexJobActionHandler.1',
         'org.opensearch.timeseries.transport.SuggestConfigParamResponse',
         'org.opensearch.timeseries.transport.SuggestConfigParamRequest',
         'org.opensearch.timeseries.ml.MemoryAwareConcurrentHashmap',

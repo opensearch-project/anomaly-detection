@@ -233,7 +233,7 @@ public class AnomalyDetector extends Config {
 
         this.detectorType = isHC(categoryFields) ? MULTI_ENTITY.name() : SINGLE_ENTITY.name();
 
-        this.rules = rules == null ? getDefaultRule() : rules;
+        this.rules = rules == null || rules.isEmpty() ? getDefaultRule() : rules;
     }
 
     /*
