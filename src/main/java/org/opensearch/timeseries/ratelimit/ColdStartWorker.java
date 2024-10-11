@@ -163,19 +163,18 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
                         );
                         IntermediateResultType result = modelManager.getResult(currentSample, modelState, modelId, config, taskId);
                         resultSaver.saveResult(result, config, coldStartRequest, modelId);
-                    }
 
-                    // only load model to memory for real time analysis that has no task id
-                    if (null == coldStartRequest.getTaskId()) {
-                        boolean hosted = cacheProvider.hostIfPossible(configOptional.get(), modelState);
-                        LOG
-                            .debug(
-                                hosted
-                                    ? new ParameterizedMessage("Loaded model {}.", modelState.getModelId())
-                                    : new ParameterizedMessage("Failed to load model {}.", modelState.getModelId())
-                            );
+                        // only load model to memory for real time analysis that has no task id
+                        if (null == coldStartRequest.getTaskId()) {
+                            boolean hosted = cacheProvider.hostIfPossible(configOptional.get(), modelState);
+                            LOG
+                                .debug(
+                                    hosted
+                                        ? new ParameterizedMessage("Loaded model {}.", modelState.getModelId())
+                                        : new ParameterizedMessage("Failed to load model {}.", modelState.getModelId())
+                                );
+                        }
                     }
-
                 } finally {
                     listener.onResponse(null);
                 }
