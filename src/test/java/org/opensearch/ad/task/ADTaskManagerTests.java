@@ -61,6 +61,7 @@ import java.util.function.Consumer;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.Version;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.DocWriteResponse;
@@ -104,6 +105,7 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.index.Index;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.IndexNotFoundException;
@@ -136,6 +138,7 @@ import org.opensearch.timeseries.task.RealtimeTaskCache;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.StatsNodeResponse;
 import org.opensearch.timeseries.transport.StatsNodesResponse;
+import org.opensearch.timeseries.transport.StopConfigResponse;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
@@ -1543,5 +1546,31 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
         adTaskManager.deleteTaskDocs(detectorId, searchRequest, function, listener);
         verify(adTaskCacheManager, times(1)).addDeletedTask(anyString());
         verify(function, times(1)).execute();
+    }
+
+    public void testStopConfigListener_onResponse_failure() {
+        // Arrange
+        String configId = randomAlphaOfLength(5);
+        TransportService transportService = mock(TransportService.class);
+        @SuppressWarnings("unchecked")
+        ActionListener<JobResponse> listener = mock(ActionListener.class);
+
+        // Act
+        ActionListener<StopConfigResponse> stopConfigListener = indexAnomalyDetectorJobActionHandler
+            .stopConfigListener(configId, transportService, listener);
+        StopConfigResponse stopConfigResponse = mock(StopConfigResponse.class);
+        when(stopConfigResponse.success()).thenReturn(false);
+
+        stopConfigListener.onResponse(stopConfigResponse);
+
+        // Assert
+        ArgumentCaptor<OpenSearchStatusException> exceptionCaptor = ArgumentCaptor.forClass(OpenSearchStatusException.class);
+
+        verify(adTaskManager, times(1))
+            .stopLatestRealtimeTask(eq(configId), eq(TaskState.FAILED), exceptionCaptor.capture(), eq(transportService), eq(listener));
+
+        OpenSearchStatusException capturedException = exceptionCaptor.getValue();
+        assertEquals("Failed to delete model", capturedException.getMessage());
+        assertEquals(RestStatus.INTERNAL_SERVER_ERROR, capturedException.status());
     }
 }

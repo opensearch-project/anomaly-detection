@@ -200,7 +200,7 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
      * @param executionStartTime analysis start time
      * @param executionEndTime analysis end time
      * @param recorder utility to record job execution result
-     * @param detector associated detector accessor
+     * @param config associated config accessor
      */
     public void runJob(
         Job jobParameter,
@@ -209,7 +209,7 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
         Instant executionStartTime,
         Instant executionEndTime,
         ExecuteResultResponseRecorderType recorder,
-        Config detector
+        Config config
     ) {
         String configId = jobParameter.getName();
         if (lock == null) {
@@ -222,7 +222,7 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
                 "Can't run job due to null lock",
                 false,
                 recorder,
-                detector
+                config
             );
             return;
         }
@@ -243,7 +243,7 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
             user,
             roles,
             recorder,
-            detector
+            config
         );
     }
 

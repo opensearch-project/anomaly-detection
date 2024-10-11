@@ -607,6 +607,19 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .makeRequest(client(), "GET", TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE + "/stats", ImmutableMap.of(), "", null);
 
         assertEquals("Get stats failed", RestStatus.OK, TestHelpers.restStatus(statsResponse));
+
+        statsResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                TimeSeriesAnalyticsPlugin.LEGACY_AD_BASE
+                    + "/_local/stats/ad_execute_request_count,anomaly_detectors_index_status,ad_hc_execute_request_count,ad_hc_execute_failure_count,ad_execute_failure_count,models_checkpoint_index_status,anomaly_results_index_status",
+                ImmutableMap.of(),
+                "",
+                null
+            );
+
+        assertEquals("Get stats failed", RestStatus.OK, TestHelpers.restStatus(statsResponse));
     }
 
     public void testPreviewAnomalyDetector() throws Exception {

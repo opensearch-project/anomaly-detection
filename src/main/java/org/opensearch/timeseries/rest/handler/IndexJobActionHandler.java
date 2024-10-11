@@ -462,7 +462,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
         }));
     }
 
-    private ActionListener<StopConfigResponse> stopConfigListener(
+    public ActionListener<StopConfigResponse> stopConfigListener(
         String configId,
         TransportService transportService,
         ActionListener<JobResponse> listener
