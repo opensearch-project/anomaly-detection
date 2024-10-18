@@ -110,6 +110,7 @@ public class AnomalyDetector extends Config {
     @Deprecated
     public static final String DETECTION_DATE_RANGE_FIELD = "detection_date_range";
     public static final String RULES_FIELD = "rules";
+    private static final String SUPPRESSION_RULE_ISSUE_PREFIX = "Suppression Rule Error: ";
 
     protected String detectorType;
 
@@ -741,9 +742,9 @@ public class AnomalyDetector extends Config {
         }
 
         // Null check for features
-        if (features == null) {
+        if (features == null || features.isEmpty()) {
             // Cannot proceed with validation if features are null but rules are not null
-            this.errorMessage = "Suppression Rule Error: Features are not defined while suppression rules are provided.";
+            this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX + "Features are not defined while suppression rules are provided.";
             this.issueType = ValidationIssueType.RULE;
             return;
         }
@@ -760,7 +761,7 @@ public class AnomalyDetector extends Config {
         for (Rule rule : rules) {
             if (rule == null || rule.getConditions() == null) {
                 // Invalid rule or conditions list is null
-                this.errorMessage = "Suppression Rule Error: A suppression rule or its conditions are not properly defined.";
+                this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX + "A suppression rule or its conditions are not properly defined.";
                 this.issueType = ValidationIssueType.RULE;
                 return;
             }
@@ -769,7 +770,7 @@ public class AnomalyDetector extends Config {
             for (Condition condition : rule.getConditions()) {
                 if (condition == null) {
                     // Invalid condition
-                    this.errorMessage = "Suppression Rule Error: A condition within a suppression rule is not properly defined.";
+                    this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX + "A condition within a suppression rule is not properly defined.";
                     this.issueType = ValidationIssueType.RULE;
                     return;
                 }
@@ -779,7 +780,7 @@ public class AnomalyDetector extends Config {
                 // Check if the feature name is null
                 if (featureName == null) {
                     // Feature name is required
-                    this.errorMessage = "Suppression Rule Error: A condition is missing the feature name.";
+                    this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX + "A condition is missing the feature name.";
                     this.issueType = ValidationIssueType.RULE;
                     return;
                 }
@@ -787,7 +788,8 @@ public class AnomalyDetector extends Config {
                 // Check if the feature exists
                 if (!featureEnabledMap.containsKey(featureName)) {
                     // Feature does not exist
-                    this.errorMessage = "Suppression Rule Error: Feature \""
+                    this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX
+                        + "Feature \""
                         + featureName
                         + "\" specified in a suppression rule does not exist.";
                     this.issueType = ValidationIssueType.RULE;
@@ -797,7 +799,8 @@ public class AnomalyDetector extends Config {
                 // Check if the feature is enabled
                 if (!featureEnabledMap.get(featureName)) {
                     // Feature is not enabled
-                    this.errorMessage = "Suppression Rule Error: Feature \""
+                    this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX
+                        + "Feature \""
                         + featureName
                         + "\" specified in a suppression rule is not enabled.";
                     this.issueType = ValidationIssueType.RULE;
@@ -814,7 +817,8 @@ public class AnomalyDetector extends Config {
                     double value = condition.getValue();
                     if (Double.isNaN(value)) {
                         // Value is NaN
-                        this.errorMessage = "Suppression Rule Error: The threshold value for feature \""
+                        this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX
+                            + "The threshold value for feature \""
                             + featureName
                             + "\" is not a valid number.";
                         this.issueType = ValidationIssueType.RULE;
@@ -824,7 +828,8 @@ public class AnomalyDetector extends Config {
                     // Check if the value is positive
                     if (value <= 0) {
                         // Value is not positive
-                        this.errorMessage = "Suppression Rule Error: The threshold value for feature \""
+                        this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX
+                            + "The threshold value for feature \""
                             + featureName
                             + "\" must be a positive number.";
                         this.issueType = ValidationIssueType.RULE;
