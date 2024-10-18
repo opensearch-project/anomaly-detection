@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -1046,5 +1047,240 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         );
         assertEquals("Got: " + e.getMessage(), "Enabled features are present, but no default fill values are provided.", e.getMessage());
         assertEquals("Got :" + e.getType(), ValidationIssueType.IMPUTATION, e.getType());
+    }
+
+    /**
+     * Test that validation passes when rules are null.
+     */
+    public void testValidateRulesWithNullRules() throws IOException {
+        AnomalyDetector detector = TestHelpers.AnomalyDetectorBuilder.newInstance(1).setRules(null).build();
+
+        // Should pass validation; no exception should be thrown
+        assertNotNull(detector);
+    }
+
+    /**
+     * Test that validation fails when features are null but rules are provided.
+     */
+    public void testValidateRulesWithNullFeatures() throws IOException {
+        List<Rule> rules = Arrays.asList(createValidRule());
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(0).setFeatureAttributes(null).setRules(rules).build();
+            fail("Expected ValidationException due to features being null while rules are provided");
+        } catch (ValidationException e) {
+            assertEquals("Suppression Rule Error: Features are not defined while suppression rules are provided.", e.getMessage());
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a rule is null.
+     */
+    public void testValidateRulesWithNullRule() throws IOException {
+        List<Rule> rules = Arrays.asList((Rule) null);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setRules(rules).build();
+            fail("Expected ValidationException due to null rule");
+        } catch (ValidationException e) {
+            assertEquals("Suppression Rule Error: A suppression rule or its conditions are not properly defined.", e.getMessage());
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a rule's conditions are null.
+     */
+    public void testValidateRulesWithNullConditions() throws IOException {
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, null);
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setRules(rules).build();
+            fail("Expected ValidationException due to rule with null conditions");
+        } catch (ValidationException e) {
+            assertEquals("Suppression Rule Error: A suppression rule or its conditions are not properly defined.", e.getMessage());
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a condition is null.
+     */
+    public void testValidateRulesWithNullCondition() throws IOException {
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList((Condition) null));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setRules(rules).build();
+            fail("Expected ValidationException due to null condition in rule");
+        } catch (ValidationException e) {
+            assertEquals("Suppression Rule Error: A condition within a suppression rule is not properly defined.", e.getMessage());
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a condition's featureName is null.
+     */
+    public void testValidateRulesWithNullFeatureName() throws IOException {
+        Condition condition = new Condition(
+            null, // featureName is null
+            ThresholdType.ACTUAL_OVER_EXPECTED_RATIO,
+            Operator.LTE,
+            0.5
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setRules(rules).build();
+            fail("Expected ValidationException due to condition with null feature name");
+        } catch (ValidationException e) {
+            assertEquals("Suppression Rule Error: A condition is missing the feature name.", e.getMessage());
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a condition's featureName does not exist in features.
+     */
+    public void testValidateRulesWithNonexistentFeatureName() throws IOException {
+        Condition condition = new Condition(
+            "nonexistentFeature", // featureName not in features
+            ThresholdType.ACTUAL_OVER_EXPECTED_RATIO,
+            Operator.LTE,
+            0.5
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setRules(rules).build();
+            fail("Expected ValidationException due to condition with nonexistent feature name");
+        } catch (ValidationException e) {
+            assertEquals(
+                "Suppression Rule Error: Feature \"nonexistentFeature\" specified in a suppression rule does not exist.",
+                e.getMessage()
+            );
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when the feature in condition is disabled.
+     */
+    public void testValidateRulesWithDisabledFeature() throws IOException {
+        String featureName = "testFeature";
+        Feature disabledFeature = TestHelpers.randomFeature(featureName, "agg", false);
+
+        Condition condition = new Condition(featureName, ThresholdType.ACTUAL_OVER_EXPECTED_RATIO, Operator.LTE, 0.5);
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setFeatureAttributes(Arrays.asList(disabledFeature)).setRules(rules).build();
+            fail("Expected ValidationException due to condition with disabled feature");
+        } catch (ValidationException e) {
+            assertEquals(
+                "Suppression Rule Error: Feature \"" + featureName + "\" specified in a suppression rule is not enabled.",
+                e.getMessage()
+            );
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when the value in condition is NaN for specific threshold types.
+     */
+    public void testValidateRulesWithNaNValue() throws IOException {
+        String featureName = "testFeature";
+        Feature enabledFeature = TestHelpers.randomFeature(featureName, "agg", true);
+
+        Condition condition = new Condition(
+            featureName,
+            ThresholdType.ACTUAL_OVER_EXPECTED_RATIO,
+            Operator.LTE,
+            Double.NaN // Value is NaN
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setFeatureAttributes(Arrays.asList(enabledFeature)).setRules(rules).build();
+            fail("Expected ValidationException due to NaN value in condition");
+        } catch (ValidationException e) {
+            assertEquals(
+                "Suppression Rule Error: The threshold value for feature \"" + featureName + "\" is not a valid number.",
+                e.getMessage()
+            );
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when the value in condition is not positive for specific threshold types.
+     */
+    public void testValidateRulesWithNonPositiveValue() throws IOException {
+        String featureName = "testFeature";
+        Feature enabledFeature = TestHelpers.randomFeature(featureName, "agg", true);
+
+        Condition condition = new Condition(
+            featureName,
+            ThresholdType.ACTUAL_OVER_EXPECTED_RATIO,
+            Operator.LTE,
+            -0.5 // Value is negative
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setFeatureAttributes(Arrays.asList(enabledFeature)).setRules(rules).build();
+            fail("Expected ValidationException due to non-positive value in condition");
+        } catch (ValidationException e) {
+            assertEquals(
+                "Suppression Rule Error: The threshold value for feature \"" + featureName + "\" must be a positive number.",
+                e.getMessage()
+            );
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation passes when the threshold type is not one of the specified types and value is NaN.
+     */
+    public void testValidateRulesWithOtherThresholdTypeAndNaNValue() throws IOException {
+        String featureName = "testFeature";
+        Feature enabledFeature = TestHelpers.randomFeature(featureName, "agg", true);
+
+        Condition condition = new Condition(
+            featureName,
+            null, // ThresholdType is null or another type not specified
+            Operator.LTE,
+            Double.NaN // Value is NaN, but should not be checked
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        AnomalyDetector detector = TestHelpers.AnomalyDetectorBuilder
+            .newInstance(1)
+            .setFeatureAttributes(Arrays.asList(enabledFeature))
+            .setRules(rules)
+            .build();
+
+        // Should pass validation; no exception should be thrown
+        assertNotNull(detector);
+    }
+
+    /**
+     * Helper method to create a valid rule for testing.
+     *
+     * @return A valid Rule instance
+     */
+    private Rule createValidRule() {
+        String featureName = "testFeature";
+        Condition condition = new Condition(featureName, ThresholdType.ACTUAL_OVER_EXPECTED_RATIO, Operator.LTE, 0.5);
+        return new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
     }
 }
