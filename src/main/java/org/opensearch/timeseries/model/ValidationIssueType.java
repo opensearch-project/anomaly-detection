@@ -38,7 +38,8 @@ public enum ValidationIssueType implements Name {
     SUBAGGREGATION(SearchTopForecastResultRequest.SUBAGGREGATIONS_FIELD),
     RECENCY_EMPHASIS(Config.RECENCY_EMPHASIS_FIELD),
     DESCRIPTION(Config.DESCRIPTION_FIELD),
-    HISTORY(Config.HISTORY_INTERVAL_FIELD);
+    HISTORY(Config.HISTORY_INTERVAL_FIELD),
+    RULE(AnomalyDetector.RULES_FIELD);
 
     private String name;
 
