@@ -33,9 +33,9 @@ public class SuggestConfigParamRequest extends ActionRequest {
     public SuggestConfigParamRequest(StreamInput in) throws IOException {
         super(in);
         context = in.readEnum(AnalysisType.class);
-        if (context.isAD()) {
+        if (getContext().isAD()) {
             config = new AnomalyDetector(in);
-        } else if (context.isForecast()) {
+        } else if (getContext().isForecast()) {
             config = new Forecaster(in);
         } else {
             throw new UnsupportedOperationException("This method is not supported");
@@ -55,7 +55,7 @@ public class SuggestConfigParamRequest extends ActionRequest {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeEnum(context);
+        out.writeEnum(getContext());
         config.writeTo(out);
         out.writeString(param);
         out.writeTimeValue(requestTimeout);
@@ -76,5 +76,9 @@ public class SuggestConfigParamRequest extends ActionRequest {
 
     public TimeValue getRequestTimeout() {
         return requestTimeout;
+    }
+
+    public AnalysisType getContext() {
+        return context;
     }
 }

@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -228,6 +229,8 @@ public class AnomalyDetector extends Config {
             errorMessage = CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields);
             issueType = ValidationIssueType.CATEGORY;
         }
+
+        validateRules(features, rules);
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
 
@@ -719,5 +722,118 @@ public class AnomalyDetector extends Config {
             return parser.booleanValue();
         }
         return null;
+    }
+
+    /**
+     * Validates each condition in the list of rules against the list of features.
+     * Checks that:
+     * - The feature name exists in the list of features.
+     * - The related feature is enabled.
+     * - The value is not NaN and is positive.
+     *
+     * @param features The list of available features. Must not be null.
+     * @param rules The list of rules containing conditions to validate. Can be null.
+     */
+    private void validateRules(List<Feature> features, List<Rule> rules) {
+        // Null check for rules
+        if (rules == null || rules.isEmpty()) {
+            return; // No suppression rules to validate; consider as valid
+        }
+
+        // Null check for features
+        if (features == null) {
+            // Cannot proceed with validation if features are null but rules are not null
+            this.errorMessage = "Suppression Rule Error: Features are not defined while suppression rules are provided.";
+            this.issueType = ValidationIssueType.RULE;
+            return;
+        }
+
+        // Create a map of feature names to their enabled status for quick lookup
+        Map<String, Boolean> featureEnabledMap = new HashMap<>();
+        for (Feature feature : features) {
+            if (feature != null && feature.getName() != null) {
+                featureEnabledMap.put(feature.getName(), feature.getEnabled());
+            }
+        }
+
+        // Iterate over each rule
+        for (Rule rule : rules) {
+            if (rule == null || rule.getConditions() == null) {
+                // Invalid rule or conditions list is null
+                this.errorMessage = "Suppression Rule Error: A suppression rule or its conditions are not properly defined.";
+                this.issueType = ValidationIssueType.RULE;
+                return;
+            }
+
+            // Iterate over each condition in the rule
+            for (Condition condition : rule.getConditions()) {
+                if (condition == null) {
+                    // Invalid condition
+                    this.errorMessage = "Suppression Rule Error: A condition within a suppression rule is not properly defined.";
+                    this.issueType = ValidationIssueType.RULE;
+                    return;
+                }
+
+                String featureName = condition.getFeatureName();
+
+                // Check if the feature name is null
+                if (featureName == null) {
+                    // Feature name is required
+                    this.errorMessage = "Suppression Rule Error: A condition is missing the feature name.";
+                    this.issueType = ValidationIssueType.RULE;
+                    return;
+                }
+
+                // Check if the feature exists
+                if (!featureEnabledMap.containsKey(featureName)) {
+                    // Feature does not exist
+                    this.errorMessage = "Suppression Rule Error: Feature \""
+                        + featureName
+                        + "\" specified in a suppression rule does not exist.";
+                    this.issueType = ValidationIssueType.RULE;
+                    return;
+                }
+
+                // Check if the feature is enabled
+                if (!featureEnabledMap.get(featureName)) {
+                    // Feature is not enabled
+                    this.errorMessage = "Suppression Rule Error: Feature \""
+                        + featureName
+                        + "\" specified in a suppression rule is not enabled.";
+                    this.issueType = ValidationIssueType.RULE;
+                    return;
+                }
+
+                // other threshold types may not have value operand
+                ThresholdType thresholdType = condition.getThresholdType();
+                if (thresholdType == ThresholdType.ACTUAL_OVER_EXPECTED_MARGIN
+                    || thresholdType == ThresholdType.EXPECTED_OVER_ACTUAL_MARGIN
+                    || thresholdType == ThresholdType.ACTUAL_OVER_EXPECTED_RATIO
+                    || thresholdType == ThresholdType.EXPECTED_OVER_ACTUAL_RATIO) {
+                    // Check if the value is not NaN
+                    double value = condition.getValue();
+                    if (Double.isNaN(value)) {
+                        // Value is NaN
+                        this.errorMessage = "Suppression Rule Error: The threshold value for feature \""
+                            + featureName
+                            + "\" is not a valid number.";
+                        this.issueType = ValidationIssueType.RULE;
+                        return;
+                    }
+
+                    // Check if the value is positive
+                    if (value <= 0) {
+                        // Value is not positive
+                        this.errorMessage = "Suppression Rule Error: The threshold value for feature \""
+                            + featureName
+                            + "\" must be a positive number.";
+                        this.issueType = ValidationIssueType.RULE;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // All checks passed
     }
 }

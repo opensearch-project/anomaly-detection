@@ -15,7 +15,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -42,7 +41,6 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.timeseries.AnalysisModelSize;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -52,7 +50,6 @@ import org.opensearch.timeseries.ml.MemoryAwareConcurrentHashmap;
 import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
-import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DateUtils;
@@ -69,9 +66,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * A facade managing ML operations and models.
  */
 public class ADModelManager extends
-    ModelManager<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart>
-    implements
-        AnalysisModelSize {
+    ModelManager<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart> {
     protected static final String ENTITY_SAMPLE = "sp";
     protected static final String ENTITY_RCF = "rcf";
     protected static final String ENTITY_THRESHOLD = "th";
@@ -592,25 +587,6 @@ public class ADModelManager extends
 
             return null;
         }).collect(Collectors.toList());
-    }
-
-    /**
-     * Get all RCF partition's size corresponding to a detector.  Thresholding models' size is a constant since they are small in size (KB).
-     * @param detectorId detector id
-     * @return a map of model id to its memory size
-     */
-    @Override
-    public Map<String, Long> getModelSize(String detectorId) {
-        Map<String, Long> res = new HashMap<>();
-        res.putAll(forests.getModelSize(detectorId));
-        thresholds
-            .entrySet()
-            .stream()
-            .filter(entry -> SingleStreamModelIdMapper.getConfigIdForModelId(entry.getKey()).equals(detectorId))
-            .forEach(entry -> {
-                res.put(entry.getKey(), (long) memoryTracker.getThresholdModelBytes());
-            });
-        return res;
     }
 
     /**

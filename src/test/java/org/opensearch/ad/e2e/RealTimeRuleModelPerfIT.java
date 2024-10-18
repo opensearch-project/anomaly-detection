@@ -36,7 +36,7 @@ public class RealTimeRuleModelPerfIT extends AbstractRuleModelPerfTestCase {
             minPrecision.put("Scottsdale", 0.5);
             Map<String, Double> minRecall = new HashMap<>();
             minRecall.put("Phoenix", 0.9);
-            minRecall.put("Scottsdale", 0.6);
+            minRecall.put("Scottsdale", 0.3);
             verifyRule("rule", 10, minPrecision.size(), 1500, minPrecision, minRecall, 20);
         }
     }

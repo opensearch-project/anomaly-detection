@@ -11,9 +11,6 @@
 
 package org.opensearch.timeseries.ml;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.opensearch.timeseries.MemoryTracker;
@@ -54,49 +51,5 @@ public class MemoryAwareConcurrentHashmap<RCFModelType extends ThresholdedRandom
             memoryTracker.consumeMemory(memoryToConsume, true, Origin.REAL_TIME_DETECTOR);
         }
         return previousAssociatedState;
-    }
-
-    /**
-     * Gets all of a config's model sizes hosted on a node
-     *
-     * @param configId config Id
-     * @return a map of model id to its memory size
-     */
-    public Map<String, Long> getModelSize(String configId) {
-        Map<String, Long> res = new HashMap<>();
-        super.entrySet()
-            .stream()
-            .filter(entry -> SingleStreamModelIdMapper.getConfigIdForModelId(entry.getKey()).equals(configId))
-            .forEach(entry -> {
-                Optional<RCFModelType> modelOptional = entry.getValue().getModel();
-                if (modelOptional.isPresent()) {
-                    res.put(entry.getKey(), memoryTracker.estimateTRCFModelSize(modelOptional.get()));
-                }
-            });
-        return res;
-    }
-
-    /**
-    * Checks if a model exists for the given config.
-    * @param configId Config Id
-    * @return `true` if the model exists, `false` otherwise.
-    */
-    public boolean doesModelExist(String configId) {
-        return super.entrySet()
-            .stream()
-            .filter(entry -> SingleStreamModelIdMapper.getConfigIdForModelId(entry.getKey()).equals(configId))
-            .anyMatch(n -> true);
-    }
-
-    public boolean hostIfPossible(String modelId, ModelState<RCFModelType> toUpdate) {
-        return Optional
-            .ofNullable(toUpdate)
-            .filter(state -> state.getModel().isPresent())
-            .filter(state -> memoryTracker.isHostingAllowed(modelId, state.getModel().get()))
-            .map(state -> {
-                super.put(modelId, toUpdate);
-                return true;
-            })
-            .orElse(false);
     }
 }
