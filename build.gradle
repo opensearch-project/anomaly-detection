@@ -142,7 +142,7 @@ dependencies {
 
 
     implementation "org.jacoco:org.jacoco.agent:0.8.12"
-    implementation ("org.jacoco:org.jacoco.ant:0.8.11") {
+    implementation ("org.jacoco:org.jacoco.ant:0.8.12") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'
         exclude group: 'org.ow2.asm', module: 'asm'
         exclude group: 'org.ow2.asm', module: 'asm-tree'
