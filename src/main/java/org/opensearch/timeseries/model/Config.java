@@ -79,7 +79,6 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String RESULT_INDEX_FIELD_MIN_SIZE = "result_index_min_size";
     public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
     public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
-    public static final String FLATTEN_RESULT_INDEX_MAPPING = "flatten_result_index_mapping";
     // Changing categorical field, feature attributes, interval, windowDelay, time field, horizon, indices,
     // result index would force us to display results only from the most recent update. Otherwise,
     // the UI appear cluttered and unclear.
@@ -124,7 +123,6 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected Integer customResultIndexMinSize;
     protected Integer customResultIndexMinAge;
     protected Integer customResultIndexTTL;
-    protected Boolean flattenResultIndexMapping;
     protected Instant lastUIBreakingChangeTime;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
@@ -157,7 +155,6 @@ public abstract class Config implements Writeable, ToXContentObject {
         Integer customResultIndexMinSize,
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
-        Boolean flattenResultIndexMapping,
         Instant lastBreakingUIChangeTime
     ) {
         if (Strings.isBlank(name)) {
@@ -297,7 +294,6 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexMinSize = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinSize;
         this.customResultIndexMinAge = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinAge;
         this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
-        this.flattenResultIndexMapping = Strings.trimToNull(resultIndex) == null ? null : flattenResultIndexMapping;
         this.lastUIBreakingChangeTime = lastBreakingUIChangeTime;
     }
 
@@ -342,7 +338,6 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexMinSize = input.readOptionalInt();
         this.customResultIndexMinAge = input.readOptionalInt();
         this.customResultIndexTTL = input.readOptionalInt();
-        this.flattenResultIndexMapping = input.readOptionalBoolean();
         this.lastUIBreakingChangeTime = input.readOptionalInstant();
     }
 
@@ -396,7 +391,6 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeOptionalInt(customResultIndexMinSize);
         output.writeOptionalInt(customResultIndexMinAge);
         output.writeOptionalInt(customResultIndexTTL);
-        output.writeOptionalBoolean(flattenResultIndexMapping);
         output.writeOptionalInstant(lastUIBreakingChangeTime);
     }
 
@@ -454,8 +448,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(historyIntervals, config.historyIntervals)
             && Objects.equal(customResultIndexMinSize, config.customResultIndexMinSize)
             && Objects.equal(customResultIndexMinAge, config.customResultIndexMinAge)
-            && Objects.equal(customResultIndexTTL, config.customResultIndexTTL)
-            && Objects.equal(flattenResultIndexMapping, config.flattenResultIndexMapping);
+            && Objects.equal(customResultIndexTTL, config.customResultIndexTTL);
     }
 
     @Generated
@@ -482,8 +475,7 @@ public abstract class Config implements Writeable, ToXContentObject {
                 historyIntervals,
                 customResultIndexMinSize,
                 customResultIndexMinAge,
-                customResultIndexTTL,
-                flattenResultIndexMapping
+                customResultIndexTTL
             );
     }
 
@@ -531,9 +523,6 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (customResultIndexTTL != null) {
             builder.field(RESULT_INDEX_FIELD_TTL, customResultIndexTTL);
-        }
-        if (flattenResultIndexMapping != null) {
-            builder.field(FLATTEN_RESULT_INDEX_MAPPING, flattenResultIndexMapping);
         }
         if (lastUIBreakingChangeTime != null) {
             builder.field(BREAKING_UI_CHANGE_TIME, lastUIBreakingChangeTime.toEpochMilli());
@@ -746,10 +735,6 @@ public abstract class Config implements Writeable, ToXContentObject {
         return customResultIndexTTL;
     }
 
-    public Boolean getFlattenResultIndexMapping() {
-        return flattenResultIndexMapping;
-    }
-
     public Instant getLastBreakingUIChangeTime() {
         return lastUIBreakingChangeTime;
     }
@@ -806,7 +791,6 @@ public abstract class Config implements Writeable, ToXContentObject {
             .append("customResultIndexMinSize", customResultIndexMinSize)
             .append("customResultIndexMinAge", customResultIndexMinAge)
             .append("customResultIndexTTL", customResultIndexTTL)
-            .append("flattenResultIndexMapping", flattenResultIndexMapping)
             .toString();
     }
 }

@@ -135,7 +135,6 @@ public class Forecaster extends Config {
         Integer customResultIndexMinSize,
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
-        Boolean flattenResultIndexMapping,
         Instant lastBreakingUIChangeTime
     ) {
         super(
@@ -164,7 +163,6 @@ public class Forecaster extends Config {
             customResultIndexMinSize,
             customResultIndexMinAge,
             customResultIndexTTL,
-            flattenResultIndexMapping,
             lastBreakingUIChangeTime
         );
 
@@ -307,7 +305,6 @@ public class Forecaster extends Config {
         Integer customResultIndexMinSize = null;
         Integer customResultIndexMinAge = null;
         Integer customResultIndexTTL = null;
-        Boolean flattenResultIndexMapping = null;
         Instant lastBreakingUIChangeTime = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -437,9 +434,6 @@ public class Forecaster extends Config {
                 case RESULT_INDEX_FIELD_TTL:
                     customResultIndexTTL = parser.intValue();
                     break;
-                case FLATTEN_RESULT_INDEX_MAPPING:
-                    flattenResultIndexMapping = parser.booleanValue();
-                    break;
                 case BREAKING_UI_CHANGE_TIME:
                     lastBreakingUIChangeTime = ParseUtils.toInstant(parser);
                     break;
@@ -474,7 +468,6 @@ public class Forecaster extends Config {
             customResultIndexMinSize,
             customResultIndexMinAge,
             customResultIndexTTL,
-            flattenResultIndexMapping,
             lastBreakingUIChangeTime
         );
         return forecaster;

@@ -345,7 +345,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null,
                     Instant.now()
                 )
             );
@@ -379,7 +378,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
-                    null,
                     null,
                     null,
                     null,
@@ -421,7 +419,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null,
                     Instant.now()
                 )
             );
@@ -455,7 +452,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
-                    null,
                     null,
                     null,
                     null,
@@ -497,7 +493,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null,
                     Instant.now()
                 )
             );
@@ -531,7 +526,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     randomIntBetween(1, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
-                    null,
                     null,
                     null,
                     null,
@@ -573,7 +567,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     null,
-                    null,
                     Instant.now()
                 )
             );
@@ -606,7 +599,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 -1,
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
-                null,
                 null,
                 null,
                 null,
@@ -648,7 +640,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 null,
-                null,
                 Instant.now()
             )
         );
@@ -682,7 +673,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null, // emphasis is not customized
                 randomIntBetween(1, 256),
                 randomIntBetween(1, 1000),
-                null,
                 null,
                 null,
                 null,
@@ -737,7 +727,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null,
             Instant.now()
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
@@ -773,7 +762,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null,
             Instant.now()
         );
         // seasonalityIntervals is not null and custom shingle size is null, use seasonalityIntervals to deterine shingle size
@@ -801,7 +789,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             randomIntBetween(1, 1000),
-            null,
             null,
             null,
             null,
@@ -839,7 +826,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             null,
-            null,
             Instant.now()
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
@@ -869,7 +855,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             randomIntBetween(1, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO),
             randomIntBetween(1, 1000),
-            null,
             null,
             null,
             null,
@@ -962,21 +947,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         assertEquals(30, (int) parsedDetector.getCustomResultIndexTTL());
     }
 
-    public void testParseAnomalyDetector_withCustomIndex_withFlattenResultIndexMapping() throws IOException {
-        String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
-            + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
-            + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
-            + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
-            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
-            + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
-            + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
-            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
-            + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
-            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"flatten_result_index_mapping\":true}";
-        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
-        assertEquals(true, (boolean) parsedDetector.getFlattenResultIndexMapping());
-    }
-
     public void testSerializeAndDeserializeAnomalyDetector() throws IOException {
         // register writer and reader for type Feature
         Writeable.WriteableRegistry.registerWriter(Feature.class, (o, v) -> {
@@ -1037,7 +1007,6 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 randomIntBetween(1, 10000),
                 randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                 randomIntBetween(1, 1000),
-                null,
                 null,
                 null,
                 null,

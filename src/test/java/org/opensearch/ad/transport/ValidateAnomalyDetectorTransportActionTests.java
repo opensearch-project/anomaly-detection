@@ -405,7 +405,6 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             null,
             null,
-            null,
             Instant.now()
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
@@ -451,7 +450,6 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             randomIntBetween(1, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
-            null,
             null,
             null,
             null,
