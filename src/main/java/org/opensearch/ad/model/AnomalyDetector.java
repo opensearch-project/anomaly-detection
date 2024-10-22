@@ -152,7 +152,6 @@ public class AnomalyDetector extends Config {
      * @param customResultIndexMinSize custom result index lifecycle management min size condition
      * @param customResultIndexMinAge custom result index lifecycle management min age condition
      * @param customResultIndexTTL custom result index lifecycle management ttl
-     * @param flattenResultIndexMapping flag to indicate whether to flatten result index mapping or not
      * @param lastBreakingUIChangeTime last update time to configuration that can break UI and we have
      *  to display updates from the changed time
      */
@@ -182,7 +181,6 @@ public class AnomalyDetector extends Config {
         Integer customResultIndexMinSize,
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
-        Boolean flattenResultIndexMapping,
         Instant lastBreakingUIChangeTime
     ) {
         super(
@@ -211,7 +209,6 @@ public class AnomalyDetector extends Config {
             customResultIndexMinSize,
             customResultIndexMinAge,
             customResultIndexTTL,
-            flattenResultIndexMapping,
             lastBreakingUIChangeTime
         );
 
@@ -291,7 +288,6 @@ public class AnomalyDetector extends Config {
         this.customResultIndexMinSize = input.readOptionalInt();
         this.customResultIndexMinAge = input.readOptionalInt();
         this.customResultIndexTTL = input.readOptionalInt();
-        this.flattenResultIndexMapping = input.readOptionalBoolean();
         this.lastUIBreakingChangeTime = input.readOptionalInstant();
     }
 
@@ -358,7 +354,6 @@ public class AnomalyDetector extends Config {
         output.writeOptionalInt(customResultIndexMinSize);
         output.writeOptionalInt(customResultIndexMinAge);
         output.writeOptionalInt(customResultIndexTTL);
-        output.writeOptionalBoolean(flattenResultIndexMapping);
         output.writeOptionalInstant(lastUIBreakingChangeTime);
     }
 
@@ -456,7 +451,6 @@ public class AnomalyDetector extends Config {
         Integer customResultIndexMinSize = null;
         Integer customResultIndexMinAge = null;
         Integer customResultIndexTTL = null;
-        Boolean flattenResultIndexMapping = null;
         Instant lastBreakingUIChangeTime = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
@@ -592,9 +586,6 @@ public class AnomalyDetector extends Config {
                 case RESULT_INDEX_FIELD_TTL:
                     customResultIndexTTL = onlyParseNumberValue(parser);
                     break;
-                case FLATTEN_RESULT_INDEX_MAPPING:
-                    flattenResultIndexMapping = onlyParseBooleanValue(parser);
-                    break;
                 case BREAKING_UI_CHANGE_TIME:
                     lastBreakingUIChangeTime = ParseUtils.toInstant(parser);
                     break;
@@ -629,7 +620,6 @@ public class AnomalyDetector extends Config {
             customResultIndexMinSize,
             customResultIndexMinAge,
             customResultIndexTTL,
-            flattenResultIndexMapping,
             lastBreakingUIChangeTime
         );
         detector.setDetectionDateRange(detectionDateRange);
@@ -714,13 +704,6 @@ public class AnomalyDetector extends Config {
     private static Integer onlyParseNumberValue(XContentParser parser) throws IOException {
         if (parser.currentToken() == XContentParser.Token.VALUE_NUMBER) {
             return parser.intValue();
-        }
-        return null;
-    }
-
-    private static Boolean onlyParseBooleanValue(XContentParser parser) throws IOException {
-        if (parser.currentToken() == XContentParser.Token.VALUE_BOOLEAN) {
-            return parser.booleanValue();
         }
         return null;
     }

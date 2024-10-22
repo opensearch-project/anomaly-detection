@@ -859,7 +859,6 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                         detector.getCustomResultIndexMinSize(),
                         detector.getCustomResultIndexMinAge(),
                         detector.getCustomResultIndexTTL(),
-                        detector.getFlattenResultIndexMapping(),
                         Instant.now()
                     );
                     try {
