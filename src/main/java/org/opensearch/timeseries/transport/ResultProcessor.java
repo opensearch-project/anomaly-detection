@@ -210,6 +210,10 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
         private String taskId;
         private AtomicInteger receivedPages;
         private AtomicInteger sentOutPages;
+        // By introducing pagesInFlight and incrementing it in the main thread before asynchronous processing begins,
+        // we ensure that the count of in-flight pages is accurate at all times. This allows us to reliably determine
+        // when all pages have been processed.
+        private AtomicInteger pagesInFlight;
 
         PageListener(PageIterator pageIterator, Config config, long dataStartTime, long dataEndTime, String taskId) {
             this.pageIterator = pageIterator;
@@ -220,6 +224,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             this.taskId = taskId;
             this.receivedPages = new AtomicInteger();
             this.sentOutPages = new AtomicInteger();
+            this.pagesInFlight = new AtomicInteger();
         }
 
         @Override
@@ -227,7 +232,13 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             // start processing next page after sending out features for previous page
             if (pageIterator.hasNext()) {
                 pageIterator.next(this);
+            } else if (config.getImputationOption() != null) {
+                scheduleImputeHCTask();
             }
+
+            // Increment pagesInFlight to track the processing of this page
+            pagesInFlight.incrementAndGet();
+
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 LOG
                     .info(
@@ -309,19 +320,15 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                     } catch (Exception e) {
                         LOG.error("Unexpected exception", e);
                         handleException(e);
+                    } finally {
+                        // Decrement pagesInFlight after processing is complete
+                        pagesInFlight.decrementAndGet();
                     }
                 });
-            }
-
-            if (!pageIterator.hasNext() && config.getImputationOption() != null) {
-                if (sentOutPages.get() > 0) {
-                    // at least 1 page sent out. Wait until all responses are back.
-                    scheduleImputeHCTask();
-                } else {
-                    // no data in current interval. Send out impute request right away.
-                    imputeHC(dataStartTime, dataEndTime, configId, taskId);
-                }
-
+            } else {
+                // No entity features to process
+                // Decrement pagesInFlight immediately
+                pagesInFlight.decrementAndGet();
             }
         }
 
@@ -358,7 +365,10 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
 
                 @Override
                 public void run() {
-                    if (sentOutPages.get() == receivedPages.get()) {
+                    // By using pagesInFlight in the condition within scheduleImputeHCTask, we ensure that imputeHC
+                    // is executed only after all pages have been processed (pagesInFlight.get() == 0) and all
+                    // responses have been received (sentOutPages.get() == receivedPages.get()).
+                    if (pagesInFlight.get() == 0 && sentOutPages.get() == receivedPages.get()) {
                         if (!sent.get()) {
                             // since we don't know when cancel will succeed, need sent to ensure imputeHC is only called once
                             sent.set(true);
