@@ -239,9 +239,6 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 scheduleImputeHCTask();
             }
 
-            // Increment pagesInFlight to track the processing of this page
-            pagesInFlight.incrementAndGet();
-
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 LOG
                     .info(

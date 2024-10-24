@@ -279,6 +279,43 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         return loadData(RULE_DATASET_NAME, trainTestSplit, RULE_DATA_MAPPING);
     }
 
+    // convert 1 categorical field (cityName) rule data with two categorical field (account and region) rule data
+    protected static Instant loadTwoCategoricalFieldData(int trainTestSplit) throws Exception {
+        RestClient client = client();
+
+        String dataFileName = String.format(Locale.ROOT, "org/opensearch/ad/e2e/data/%s.data", RULE_DATASET_NAME);
+
+        List<JsonObject> data = readJsonArrayWithLimit(dataFileName, trainTestSplit);
+
+        for (int i = 0; i < trainTestSplit && i < data.size(); i++) {
+            JsonObject jsonObject = data.get(i);
+            String city = jsonObject.get("cityName").getAsString();
+            if (city.equals("Phoenix")) {
+                jsonObject.addProperty("account", "1234");
+                jsonObject.addProperty("region", "iad");
+            } else if (city.equals("Scottsdale")) {
+                jsonObject.addProperty("account", "5678");
+                jsonObject.addProperty("region", "pdx");
+            }
+        }
+
+        String mapping = "{ \"mappings\": { \"properties\": { "
+            + "\"timestamp\": { \"type\": \"date\" }, "
+            + "\"visitCount\": { \"type\": \"integer\" }, "
+            + "\"cityName\": { \"type\": \"keyword\" }, "
+            + "\"account\": { \"type\": \"keyword\" }, "
+            + "\"region\": { \"type\": \"keyword\" } "
+            + "} } }";
+
+        bulkIndexTrainData(RULE_DATASET_NAME, data, trainTestSplit, client, mapping);
+        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
+        if (canBeParsedAsLong(trainTimeStr)) {
+            return Instant.ofEpochMilli(Long.parseLong(trainTimeStr));
+        } else {
+            return Instant.parse(trainTimeStr);
+        }
+    }
+
     public static boolean canBeParsedAsLong(String str) {
         if (str == null || str.isEmpty()) {
             return false; // Handle null or empty strings as not parsable
