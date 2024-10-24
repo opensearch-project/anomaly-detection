@@ -78,13 +78,25 @@ public abstract class MissingIT extends AbstractADSyntheticDataTest {
         List<JsonObject> data,
         ImputationMethod imputation,
         boolean hc,
-        long trainTimeMillis
+        long trainTimeMillis,
+        String name
     ) throws Exception {
-        TrainResult trainResult = createDetector(numberOfEntities, trainTestSplit, data, imputation, hc, trainTimeMillis);
+        TrainResult trainResult = createDetector(numberOfEntities, trainTestSplit, data, imputation, hc, trainTimeMillis, name);
         List<JsonObject> result = startRealTimeDetector(trainResult, numberOfEntities, intervalMinutes, true);
         recordLastSeenFromResult(result);
 
         return trainResult;
+    }
+
+    protected TrainResult createAndStartRealTimeDetector(
+        int numberOfEntities,
+        int trainTestSplit,
+        List<JsonObject> data,
+        ImputationMethod imputation,
+        boolean hc,
+        long trainTimeMillis
+    ) throws Exception {
+        return createAndStartRealTimeDetector(numberOfEntities, trainTestSplit, data, imputation, hc, trainTimeMillis, "test");
     }
 
     protected TrainResult createAndStartHistoricalDetector(
@@ -115,18 +127,30 @@ public abstract class MissingIT extends AbstractADSyntheticDataTest {
         List<JsonObject> data,
         ImputationMethod imputation,
         boolean hc,
-        long trainTimeMillis
+        long trainTimeMillis,
+        String name
     ) throws Exception {
         Instant trainTime = Instant.ofEpochMilli(trainTimeMillis);
 
         Duration windowDelay = getWindowDelay(trainTimeMillis);
-        String detector = genDetector(trainTestSplit, windowDelay.toMinutes(), hc, imputation, trainTimeMillis);
+        String detector = genDetector(trainTestSplit, windowDelay.toMinutes(), hc, imputation, trainTimeMillis, name);
 
         RestClient client = client();
         String detectorId = createDetector(client, detector);
         LOG.info("Created detector {}", detectorId);
 
         return new TrainResult(detectorId, data, trainTestSplit * numberOfEntities, windowDelay, trainTime, "timestamp");
+    }
+
+    protected TrainResult createDetector(
+        int numberOfEntities,
+        int trainTestSplit,
+        List<JsonObject> data,
+        ImputationMethod imputation,
+        boolean hc,
+        long trainTimeMillis
+    ) throws Exception {
+        return createDetector(numberOfEntities, trainTestSplit, data, imputation, hc, trainTimeMillis, "test");
     }
 
     protected Duration getWindowDelay(long trainTimeMillis) {
@@ -156,7 +180,8 @@ public abstract class MissingIT extends AbstractADSyntheticDataTest {
         long windowDelayMinutes,
         boolean hc,
         ImputationMethod imputation,
-        long trainTimeMillis
+        long trainTimeMillis,
+        String name
     );
 
     protected abstract AbstractSyntheticDataTest.GenData genData(

@@ -28,7 +28,8 @@ public abstract class AbstractMissingSingleFeatureTestCase extends MissingIT {
         long windowDelayMinutes,
         boolean hc,
         ImputationMethod imputation,
-        long trainTimeMillis
+        long trainTimeMillis,
+        String name
     ) {
         StringBuilder sb = new StringBuilder();
         // common part
