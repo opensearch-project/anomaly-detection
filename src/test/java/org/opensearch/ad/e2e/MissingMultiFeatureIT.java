@@ -135,13 +135,80 @@ public class MissingMultiFeatureIT extends MissingIT {
         );
     }
 
+    /**
+     * test we start two HC detector with zero imputation consecutively.
+     * We expect there is no out of order error from RCF.
+     * @throws Exception
+     */
+    public void testDoubleHCZero() throws Exception {
+        lastSeen.clear();
+        int numberOfEntities = 2;
+
+        AbstractSyntheticDataTest.MISSING_MODE mode = AbstractSyntheticDataTest.MISSING_MODE.NO_MISSING_DATA;
+        ImputationMethod method = ImputationMethod.ZERO;
+
+        AbstractSyntheticDataTest.GenData dataGenerated = genData(trainTestSplit, numberOfEntities, mode);
+
+        // only ingest train data to avoid validation error as we use latest data time as starting point.
+        // otherwise, we will have too many missing points.
+        ingestUniformSingleFeatureData(
+            trainTestSplit + numberOfEntities * 6, // we only need a few to verify and trigger train.
+            dataGenerated.data
+        );
+
+        TrainResult trainResult1 = createAndStartRealTimeDetector(
+            numberOfEntities,
+            trainTestSplit,
+            dataGenerated.data,
+            method,
+            true,
+            dataGenerated.testStartTime,
+            "test1"
+        );
+
+        TrainResult trainResult2 = createAndStartRealTimeDetector(
+            numberOfEntities,
+            trainTestSplit,
+            dataGenerated.data,
+            method,
+            true,
+            dataGenerated.testStartTime,
+            "test2"
+        );
+
+        runTest(
+            dataGenerated.testStartTime,
+            dataGenerated,
+            trainResult1.windowDelay,
+            trainResult1.detectorId,
+            numberOfEntities,
+            mode,
+            method,
+            3,
+            true
+        );
+
+        runTest(
+            dataGenerated.testStartTime,
+            dataGenerated,
+            trainResult2.windowDelay,
+            trainResult2.detectorId,
+            numberOfEntities,
+            mode,
+            method,
+            3,
+            true
+        );
+    }
+
     @Override
     protected String genDetector(
         int trainTestSplit,
         long windowDelayMinutes,
         boolean hc,
         ImputationMethod imputation,
-        long trainTimeMillis
+        long trainTimeMillis,
+        String name
     ) {
         StringBuilder sb = new StringBuilder();
 
@@ -185,7 +252,7 @@ public class MissingMultiFeatureIT extends MissingIT {
         // common part
         sb
             .append(
-                "{ \"name\": \"test\", \"description\": \"test\", \"time_field\": \"timestamp\""
+                "{ \"name\": \"%s\", \"description\": \"test\", \"time_field\": \"timestamp\""
                     + ", \"indices\": [\"%s\"], \"feature_attributes\": [{  \"feature_id\": \"feature2\", \"feature_name\": \"feature 2\", \"feature_enabled\": "
                     + "\"true\", \"aggregation_query\": { \"Feature2\": { \"avg\": { \"field\": \"data\" } } } },"
                     + featureWithFilter
@@ -226,9 +293,9 @@ public class MissingMultiFeatureIT extends MissingIT {
         sb.append("\"schema_version\": 0}");
 
         if (hc) {
-            return String.format(Locale.ROOT, sb.toString(), datasetName, intervalMinutes, trainTestSplit - 1, categoricalField);
+            return String.format(Locale.ROOT, sb.toString(), name, datasetName, intervalMinutes, trainTestSplit - 1, categoricalField);
         } else {
-            return String.format(Locale.ROOT, sb.toString(), datasetName, intervalMinutes, trainTestSplit - 1);
+            return String.format(Locale.ROOT, sb.toString(), name, datasetName, intervalMinutes, trainTestSplit - 1);
         }
     }
 
