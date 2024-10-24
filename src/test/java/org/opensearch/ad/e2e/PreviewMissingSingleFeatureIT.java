@@ -35,7 +35,7 @@ public class PreviewMissingSingleFeatureIT extends AbstractMissingSingleFeatureT
         );
 
         Duration windowDelay = getWindowDelay(dataGenerated.testStartTime);
-        String detector = genDetector(trainTestSplit, windowDelay.toMinutes(), false, method, dataGenerated.testStartTime);
+        String detector = genDetector(trainTestSplit, windowDelay.toMinutes(), false, method, dataGenerated.testStartTime, "test");
 
         Instant begin = Instant.ofEpochMilli(dataGenerated.data.get(0).get("timestamp").getAsLong());
         Instant end = Instant.ofEpochMilli(dataGenerated.data.get(dataGenerated.data.size() - 1).get("timestamp").getAsLong());
@@ -63,7 +63,7 @@ public class PreviewMissingSingleFeatureIT extends AbstractMissingSingleFeatureT
         );
 
         Duration windowDelay = getWindowDelay(dataGenerated.testStartTime);
-        String detector = genDetector(trainTestSplit, windowDelay.toMinutes(), true, method, dataGenerated.testStartTime);
+        String detector = genDetector(trainTestSplit, windowDelay.toMinutes(), true, method, dataGenerated.testStartTime, "test");
 
         Instant begin = Instant.ofEpochMilli(dataGenerated.data.get(0).get("timestamp").getAsLong());
         Instant end = Instant.ofEpochMilli(dataGenerated.data.get(dataGenerated.data.size() - 1).get("timestamp").getAsLong());
