@@ -229,15 +229,15 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
 
         @Override
         public void onResponse(CompositeRetriever.Page entityFeatures) {
+            // Increment pagesInFlight to track the processing of this page
+            pagesInFlight.incrementAndGet();
+
             // start processing next page after sending out features for previous page
             if (pageIterator.hasNext()) {
                 pageIterator.next(this);
             } else if (config.getImputationOption() != null) {
                 scheduleImputeHCTask();
             }
-
-            // Increment pagesInFlight to track the processing of this page
-            pagesInFlight.incrementAndGet();
 
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 LOG
