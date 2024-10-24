@@ -85,7 +85,6 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
         // all non-zero anomaly grade index requests and index zero anomaly grade index requests with probability (1 - index pressure).
         long totalBytes = indexingPressure.getCurrentCombinedCoordinatingAndPrimaryBytes() + indexingPressure.getCurrentReplicaBytes();
         float indexingPressurePercent = (float) totalBytes / primaryAndCoordinatingLimits;
-        @SuppressWarnings("rawtypes")
         List<? extends ResultWriteRequest> results = request.getResults();
 
         if (results == null || results.size() < 1) {
