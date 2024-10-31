@@ -25,6 +25,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.transport.ResultResponse;
 
@@ -169,7 +170,7 @@ public class ForecastResultResponse extends ResultResponse<ForecastResult> {
     *
     * Convert ForecastResultResponse to ForecastResult
     *
-    * @param forecastId Forecaster Id
+    * @param config config
     * @param dataStartInstant data start time
     * @param dataEndInstant data end time
     * @param executionStartInstant  execution start time
@@ -181,7 +182,7 @@ public class ForecastResultResponse extends ResultResponse<ForecastResult> {
     */
     @Override
     public List<ForecastResult> toIndexableResults(
-        String forecastId,
+        Config config,
         Instant dataStartInstant,
         Instant dataEndInstant,
         Instant executionStartInstant,
@@ -194,7 +195,7 @@ public class ForecastResultResponse extends ResultResponse<ForecastResult> {
         long forecasterIntervalMilli = Duration.between(dataStartInstant, dataEndInstant).toMillis();
         return ForecastResult
             .fromRawRCFCasterResult(
-                forecastId,
+                config.getId(),
                 forecasterIntervalMilli,
                 dataQuality,
                 features,

@@ -19,6 +19,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContentObject;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IndexableResult;
 
@@ -89,7 +90,7 @@ public abstract class ResultResponse<IndexableResultType extends IndexableResult
     }
 
     public abstract List<IndexableResultType> toIndexableResults(
-        String configId,
+        Config configId,
         Instant dataStartInstant,
         Instant dataEndInstant,
         Instant executionStartInstant,
