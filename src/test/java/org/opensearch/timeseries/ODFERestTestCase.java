@@ -147,7 +147,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             if (Objects.nonNull(keystore)) {
                 URI uri = null;
                 try {
-                    uri = this.getClass().getClassLoader().getResource("security/sample.pem").toURI();
+                    uri = this.getClass().getClassLoader().getResource("sample.pem").toURI();
                 } catch (URISyntaxException e) {
                     throw new RuntimeException(e);
                 }
