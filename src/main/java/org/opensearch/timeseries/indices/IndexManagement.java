@@ -103,6 +103,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     public static final String META = "_meta";
     public static final String SCHEMA_VERSION = "schema_version";
 
+    public static final String customResultIndexAutoExpandReplica = "0-2";
     protected ClusterService clusterService;
     protected final Client client;
     protected final AdminClient adminClient;
@@ -1349,6 +1350,13 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         if (defaultResultIndex) {
             adminClient.indices().create(request, markMappingUpToDate(resultIndex, actionListener));
         } else {
+            request
+                .settings(
+                    Settings
+                        .builder()
+                        // Support up to 2 replicas at least
+                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, customResultIndexAutoExpandReplica)
+                );
             adminClient.indices().create(request, actionListener);
         }
     }
