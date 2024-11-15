@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
@@ -151,7 +152,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
         NodeClient client = IndexAnomalyDetectorActionHandlerTests
-            .getCustomNodeClient(detectorResponse, userIndexResponse, singleEntityDetector, threadPool);
+            .getCustomNodeClient(detectorResponse, userIndexResponse, null, false, singleEntityDetector, threadPool);
 
         NodeClient clientSpy = spy(client);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
@@ -209,7 +210,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
         NodeClient client = IndexAnomalyDetectorActionHandlerTests
-            .getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
+            .getCustomNodeClient(detectorResponse, userIndexResponse, null, false, detector, threadPool);
         NodeClient clientSpy = spy(client);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, settings);
@@ -262,8 +263,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         SearchResponse detectorResponse = mock(SearchResponse.class);
         when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
         SearchResponse userIndexResponse = mock(SearchResponse.class);
-        int userIndexHits = 0;
-        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(0));
         AnomalyDetector singleEntityDetector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true);
 
         SearchResponse configInputIndicesResponse = mock(SearchResponse.class);
@@ -272,7 +272,7 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
         NodeClient client = IndexAnomalyDetectorActionHandlerTests
-            .getCustomNodeClient(detectorResponse, userIndexResponse, configInputIndicesResponse, singleEntityDetector, threadPool);
+            .getCustomNodeClient(detectorResponse, userIndexResponse, configInputIndicesResponse, true, singleEntityDetector, threadPool);
 
         NodeClient clientSpy = spy(client);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
@@ -297,17 +297,15 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             clock,
             settings
         );
-
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        handler.start(ActionListener.wrap(r -> {
-            fail("Should not reach here.");
-            inProgressLatch.countDown();
-        }, e -> {
+        PlainActionFuture<ValidateConfigResponse> future = PlainActionFuture.newFuture();
+        handler.start(future);
+        try {
+            future.actionGet(100, TimeUnit.SECONDS);
+            fail("should not reach here");
+        } catch (Exception e) {
             assertTrue(e instanceof TimeSeriesException);
             assertTrue(e.getMessage().contains("Cannot create anomaly detector with name"));
-            inProgressLatch.countDown();
-        }));
-        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        }
         verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
     }
 }

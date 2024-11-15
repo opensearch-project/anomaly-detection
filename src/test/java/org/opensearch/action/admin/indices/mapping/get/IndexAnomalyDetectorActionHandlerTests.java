@@ -208,7 +208,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
 
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
+        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, null, false, detector, threadPool);
         NodeClient clientSpy = spy(client);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
@@ -547,42 +547,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
     public static NodeClient getCustomNodeClient(
         SearchResponse detectorResponse,
         SearchResponse userIndexResponse,
-        AnomalyDetector detector,
-        ThreadPool pool
-    ) {
-        return new NodeClient(Settings.EMPTY, pool) {
-            @Override
-            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
-                ActionType<Response> action,
-                Request request,
-                ActionListener<Response> listener
-            ) {
-                try {
-                    if (action.equals(SearchAction.INSTANCE)) {
-                        assertTrue(request instanceof SearchRequest);
-                        SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
-                            listener.onResponse((Response) detectorResponse);
-                        } else {
-                            listener.onResponse((Response) userIndexResponse);
-                        }
-                    } else {
-                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
-                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
-                        );
-                        listener.onResponse((Response) response);
-                    }
-                } catch (IOException e) {
-                    logger.error("Create field mapping threw an exception", e);
-                }
-            }
-        };
-    }
-
-    public static NodeClient getCustomNodeClient(
-        SearchResponse detectorResponse,
-        SearchResponse userIndexResponse,
         SearchResponse configInputIndicesResponse,
+        boolean useConfigInputIndicesResponse,
         AnomalyDetector detector,
         ThreadPool pool
     ) {
@@ -602,11 +568,13 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                         searchCallCount++;
                         if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
                             listener.onResponse((Response) detectorResponse);
-                        } else if (Arrays.equals(searchRequest.indices(), detector.getIndices().toArray(new String[0]))
+                        } else if (useConfigInputIndicesResponse
+                            && Arrays.equals(searchRequest.indices(), detector.getIndices().toArray(new String[0]))
                             && searchRequest.source().aggregations() == null) {
                             listener.onResponse((Response) configInputIndicesResponse);
-                            // Call for feature validation occurs on the 3rd call.
-                        } else if (searchCallCount == 3) {
+                            // Call for feature validation occurs on the 3rd call and we want to make sure we supplied a response to the
+                            // previous call.
+                        } else if (searchCallCount == 3 && useConfigInputIndicesResponse) {
                             // This is the third search call, which should be for featureConfig and we want to replicate something like a
                             // timeout exception
                             listener.onFailure(new OpenSearchStatusException("timeout", RestStatus.BAD_REQUEST));
@@ -638,7 +606,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
         // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
         // we can also use spy to overstep the final methods
-        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, detector, threadPool);
+        NodeClient client = getCustomNodeClient(detectorResponse, userIndexResponse, null, false, detector, threadPool);
         NodeClient clientSpy = spy(client);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
