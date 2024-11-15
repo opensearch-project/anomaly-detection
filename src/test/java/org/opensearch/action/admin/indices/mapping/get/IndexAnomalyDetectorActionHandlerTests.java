@@ -56,6 +56,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
@@ -562,6 +563,53 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                         SearchRequest searchRequest = (SearchRequest) request;
                         if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
                             listener.onResponse((Response) detectorResponse);
+                        } else {
+                            listener.onResponse((Response) userIndexResponse);
+                        }
+                    } else {
+                        GetFieldMappingsResponse response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(detector.getIndices().get(0), "timestamp", "date")
+                        );
+                        listener.onResponse((Response) response);
+                    }
+                } catch (IOException e) {
+                    logger.error("Create field mapping threw an exception", e);
+                }
+            }
+        };
+    }
+
+    public static NodeClient getCustomNodeClient(
+        SearchResponse detectorResponse,
+        SearchResponse userIndexResponse,
+        SearchResponse configInputIndicesResponse,
+        AnomalyDetector detector,
+        ThreadPool pool
+    ) {
+        return new NodeClient(Settings.EMPTY, pool) {
+            private int searchCallCount = 0;
+
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                try {
+                    if (action.equals(SearchAction.INSTANCE)) {
+                        assertTrue(request instanceof SearchRequest);
+                        SearchRequest searchRequest = (SearchRequest) request;
+                        searchCallCount++;
+                        if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                            listener.onResponse((Response) detectorResponse);
+                        } else if (Arrays.equals(searchRequest.indices(), detector.getIndices().toArray(new String[0]))
+                            && searchRequest.source().aggregations() == null) {
+                            listener.onResponse((Response) configInputIndicesResponse);
+                            // Call for feature validation occurs on the 3rd call.
+                        } else if (searchCallCount == 3) {
+                            // This is the third search call, which should be for featureConfig and we want to replicate something like a
+                            // timeout exception
+                            listener.onFailure(new OpenSearchStatusException("timeout", RestStatus.BAD_REQUEST));
                         } else {
                             listener.onResponse((Response) userIndexResponse);
                         }

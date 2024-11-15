@@ -54,6 +54,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.ValidationAspect;
@@ -245,6 +246,65 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
                     maxMultiEntityAnomalyDetectors
                 );
             assertTrue(e.getMessage().contains(errorMsg));
+            inProgressLatch.countDown();
+        }));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+        verify(clientSpy, never()).execute(eq(GetMappingsAction.INSTANCE), any(), any());
+    }
+
+    // This test also validates that if we get a non timeseries exception or not an invalid query that we will not completely block
+    // detector creation, this is applicable like things when we get timeout not cause of AD configuration errors but because cluster
+    // is momentarily under utilized.
+    public void testValidateMoreThanTenMultiEntityDetectorsLimitDuplicateNameFailure() throws IOException, InterruptedException {
+        SearchResponse mockResponse = mock(SearchResponse.class);
+        int totalHits = 1;
+        when(mockResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+        SearchResponse detectorResponse = mock(SearchResponse.class);
+        when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
+        SearchResponse userIndexResponse = mock(SearchResponse.class);
+        int userIndexHits = 0;
+        when(userIndexResponse.getHits()).thenReturn(TestHelpers.createSearchHits(userIndexHits));
+        AnomalyDetector singleEntityDetector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null, true);
+
+        SearchResponse configInputIndicesResponse = mock(SearchResponse.class);
+        when(configInputIndicesResponse.getHits()).thenReturn(TestHelpers.createSearchHits(2));
+
+        // extend NodeClient since its execute method is final and mockito does not allow to mock final methods
+        // we can also use spy to overstep the final methods
+        NodeClient client = IndexAnomalyDetectorActionHandlerTests
+            .getCustomNodeClient(detectorResponse, userIndexResponse, configInputIndicesResponse, singleEntityDetector, threadPool);
+
+        NodeClient clientSpy = spy(client);
+        NodeStateManager nodeStateManager = mock(NodeStateManager.class);
+        SecurityClientUtil clientUtil = new SecurityClientUtil(nodeStateManager, settings);
+
+        handler = new ValidateAnomalyDetectorActionHandler(
+            clusterService,
+            clientSpy,
+            clientUtil,
+            anomalyDetectionIndices,
+            singleEntityDetector,
+            requestTimeout,
+            maxSingleEntityAnomalyDetectors,
+            maxMultiEntityAnomalyDetectors,
+            maxAnomalyFeatures,
+            maxCategoricalFields,
+            method,
+            xContentRegistry(),
+            null,
+            searchFeatureDao,
+            ValidationAspect.DETECTOR.getName(),
+            clock,
+            settings
+        );
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        handler.start(ActionListener.wrap(r -> {
+            fail("Should not reach here.");
+            inProgressLatch.countDown();
+        }, e -> {
+            assertTrue(e instanceof TimeSeriesException);
+            assertTrue(e.getMessage().contains("Cannot create anomaly detector with name"));
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));

@@ -906,7 +906,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 }
             }, e -> {
                 String errorMessage;
-                if (isExceptionCausedByInvalidQuery(e)) {
+                if (isExceptionCausedByInvalidQuery(e) || e instanceof TimeSeriesException) {
                     errorMessage = CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
                     logger.error(errorMessage, e);
                     multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
@@ -917,7 +917,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     // we don't want to block detector creation as this is unlikely an error due to wrong configs
                     // but we want to record what error was seen
                     multiFeatureQueriesResponseListener
-                        .onResponse(new MergeableList<>(new ArrayList<>(List.of(Optional.of(new double[] { 1.0 })))));
+                        .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(Optional.empty()))));
                 }
             });
             clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, context, searchResponseListener);
