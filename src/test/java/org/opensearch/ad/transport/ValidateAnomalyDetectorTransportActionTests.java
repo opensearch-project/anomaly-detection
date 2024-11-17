@@ -222,7 +222,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     }
 
     @Test
-    public void testValidateAnomalyDetectorWithUnknownFeatureField() throws IOException {
+    public void testValidateAnomalyDetectorWithInvalidFeatureDueToTimeSeriesException() throws IOException {
         AggregationBuilder aggregationBuilder = TestHelpers.parseAggregation("{\"test\":{\"terms\":{\"field\":\"type\"}}}");
         AnomalyDetector anomalyDetector = TestHelpers
             .randomAnomalyDetector(
@@ -245,7 +245,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNotNull(response.getIssue());
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, response.getIssue().getType());
         assertEquals(ValidationAspect.DETECTOR, response.getIssue().getAspect());
-        assertTrue(response.getIssue().getMessage().contains(CommonMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG));
+        assertTrue(response.getIssue().getMessage().contains(CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG));
         assertTrue(response.getIssue().getSubIssues().containsKey(nameField));
     }
 
