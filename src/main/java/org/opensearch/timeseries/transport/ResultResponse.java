@@ -90,7 +90,7 @@ public abstract class ResultResponse<IndexableResultType extends IndexableResult
     }
 
     public abstract List<IndexableResultType> toIndexableResults(
-        Config configId,
+        Config config,
         Instant dataStartInstant,
         Instant dataEndInstant,
         Instant executionStartInstant,

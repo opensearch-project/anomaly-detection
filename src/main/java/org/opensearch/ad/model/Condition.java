@@ -70,7 +70,7 @@ public class Condition implements Writeable, ToXContentObject {
                 case THRESHOLD_TYPE_FIELD:
                     thresholdType = ThresholdType.valueOf(parser.text().toUpperCase(Locale.ROOT));
                     break;
-                case "operator":
+                case OPERATOR_FIELD:
                     if (parser.currentToken() == XContentParser.Token.VALUE_NULL) {
                         operator = null; // Set operator to null if the field is missing
                     } else {
@@ -79,7 +79,7 @@ public class Condition implements Writeable, ToXContentObject {
                     break;
                 case VALUE_FIELD:
                     if (parser.currentToken() == XContentParser.Token.VALUE_NULL) {
-                        value = null;
+                        value = null; // Set value to null if the field is missing
                     } else {
                         value = parser.doubleValue();
                     }

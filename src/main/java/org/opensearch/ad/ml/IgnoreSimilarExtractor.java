@@ -54,7 +54,7 @@ public class IgnoreSimilarExtractor {
             for (Rule rule : rules) {
                 for (Condition condition : rule.getConditions()) {
                     if (condition.getThresholdType() != ThresholdType.ACTUAL_IS_BELOW_EXPECTED
-                        || condition.getThresholdType() != ThresholdType.ACTUAL_IS_OVER_EXPECTED) {
+                        && condition.getThresholdType() != ThresholdType.ACTUAL_IS_OVER_EXPECTED) {
                         processCondition(
                             condition,
                             featureNames,
