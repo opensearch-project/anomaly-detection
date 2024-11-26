@@ -21,7 +21,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.Rule;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
@@ -30,6 +32,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.transport.ResultResponse;
 
@@ -304,7 +307,7 @@ public class AnomalyResultResponse extends ResultResponse<AnomalyResult> {
     *
     * Convert AnomalyResultResponse to AnomalyResult
     *
-    * @param configId Detector Id
+    * @param config config
     * @param dataStartInstant data start time
     * @param dataEndInstant data end time
     * @param executionStartInstant  execution start time
@@ -316,7 +319,7 @@ public class AnomalyResultResponse extends ResultResponse<AnomalyResult> {
     */
     @Override
     public List<AnomalyResult> toIndexableResults(
-        String configId,
+        Config config,
         Instant dataStartInstant,
         Instant dataEndInstant,
         Instant executionStartInstant,
@@ -325,13 +328,19 @@ public class AnomalyResultResponse extends ResultResponse<AnomalyResult> {
         User user,
         String error
     ) {
+        List<Rule> rules = new ArrayList<>();
+        if (config instanceof AnomalyDetector) {
+            AnomalyDetector detectorConfig = (AnomalyDetector) config;
+            rules = detectorConfig.getRules();
+        }
+
         // Detector interval in milliseconds
         long detectorIntervalMilli = Duration.between(dataStartInstant, dataEndInstant).toMillis();
         return Collections
             .singletonList(
                 AnomalyResult
                     .fromRawTRCFResult(
-                        configId,
+                        config.getId(),
                         detectorIntervalMilli,
                         taskId, // real time results have no task id
                         anomalyScore,
@@ -357,7 +366,8 @@ public class AnomalyResultResponse extends ResultResponse<AnomalyResult> {
                         // as the single stream has been changed to async mode. The job no longer waits for results before returning.
                         // Therefore, we set the following two fields to null, as we will not record any imputed fields.
                         null,
-                        null
+                        null,
+                        rules
                     )
             );
     }

@@ -17,6 +17,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -312,6 +313,7 @@ public class AnomalyResult extends IndexableResult {
      * @param threshold Current threshold
      * @param currentData imputed data if any
      * @param featureImputed whether feature is imputed or not
+     * @param rules rules we apply on anomaly grade based on condition
      * @return the converted AnomalyResult instance
      */
     public static AnomalyResult fromRawTRCFResult(
@@ -338,15 +340,20 @@ public class AnomalyResult extends IndexableResult {
         double[] likelihoodOfValues,
         Double threshold,
         double[] currentData,
-        boolean[] featureImputed
+        boolean[] featureImputed,
+        List<Rule> rules
     ) {
         List<DataByFeatureId> convertedRelevantAttribution = null;
         List<DataByFeatureId> convertedPastValuesList = null;
         List<ExpectedValueList> convertedExpectedValues = null;
+        List<FeatureData> featuresForComparison = null;
 
         int featureSize = featureData == null ? 0 : featureData.size();
 
         if (grade > 0) {
+            // Get the top feature names based on the relevant attribution criteria
+            featuresForComparison = getTopFeatureNames(featureData, relevantAttribution);
+
             if (relevantAttribution != null) {
                 if (relevantAttribution.length == featureSize) {
                     convertedRelevantAttribution = new ArrayList<>(featureSize);
@@ -425,6 +432,28 @@ public class AnomalyResult extends IndexableResult {
                         );
                 }
             }
+
+            for (FeatureData feature : featuresForComparison) {
+                Double valueToCompare = getValueToCompare(feature, convertedPastValuesList, featureData);
+                Double expectedValue = getExpectedValue(feature, convertedExpectedValues);
+                if (valueToCompare == null || expectedValue == null) {
+                    continue; // Skip if either valueToCompare or expectedValue is missing
+                }
+                for (Rule rule : rules) {
+                    for (Condition condition : rule.getConditions()) {
+                        if (condition.getFeatureName().equals(feature.getFeatureName())) {
+                            ThresholdType thresholdType = condition.getThresholdType();
+                            if (thresholdType == ThresholdType.ACTUAL_IS_BELOW_EXPECTED && valueToCompare < expectedValue) {
+                                LOG.info("changed anomaly grade from: " + grade + " to 0d for detector: " + detectorId);
+                                grade = 0d;
+                            } else if (thresholdType == ThresholdType.ACTUAL_IS_OVER_EXPECTED && valueToCompare > expectedValue) {
+                                LOG.info("changed anomaly grade from: " + grade + " to 0d for detector: " + detectorId);
+                                grade = 0d;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         List<FeatureImputed> featureImputedList = new ArrayList<>();
@@ -466,6 +495,69 @@ public class AnomalyResult extends IndexableResult {
             threshold,
             featureImputedList
         );
+    }
+
+    private static Double getValueToCompare(
+        FeatureData feature,
+        List<DataByFeatureId> convertedPastValuesList,
+        List<FeatureData> featureData
+    ) {
+        String featureId = feature.getFeatureId();
+        if (convertedPastValuesList != null) {
+            for (DataByFeatureId data : convertedPastValuesList) {
+                if (data.getFeatureId().equals(featureId)) {
+                    return data.getData();
+                }
+            }
+        } else {
+            for (FeatureData data : featureData) {
+                if (data.getFeatureId().equals(featureId)) {
+                    return data.getData();
+                }
+            }
+        }
+        return 0d;
+    }
+
+    private static Double getExpectedValue(FeatureData feature, List<ExpectedValueList> convertedExpectedValues) {
+        Double expectedValue = 0d;
+        if (convertedExpectedValues != null) {
+            for (ExpectedValueList expectedValueList : convertedExpectedValues) {
+                if (expectedValueList != null && expectedValueList.getValueList() != null) {
+                    for (var data : expectedValueList.getValueList()) {
+                        if (data.getFeatureId().equals(feature.getFeatureId())) {
+                            expectedValue = data.getData();
+                        }
+                    }
+                }
+            }
+        }
+        return expectedValue;
+    }
+
+    private static List<FeatureData> getTopFeatureNames(List<FeatureData> featureData, double[] relevantAttribution) {
+        List<FeatureData> topFeatureNames = new ArrayList<>();
+
+        if (relevantAttribution == null || relevantAttribution.length == 0 || (relevantAttribution.length != featureData.size())) {
+            topFeatureNames.addAll(featureData);
+            return topFeatureNames;
+        }
+
+        // Find the maximum rounded value in a single pass and add corresponding feature names
+        double maxRoundedAttribution = Arrays
+            .stream(relevantAttribution)
+            .map(value -> Math.round(value * 100.0) / 100.0)
+            .max()
+            .orElse(Double.NaN);
+
+        // Collect feature names with values that match the max rounded value
+        for (int i = 0; i < relevantAttribution.length; i++) {
+            if (Math.round(relevantAttribution[i] * 100.0) / 100.0 == maxRoundedAttribution) {
+                topFeatureNames.add(featureData.get(i));
+            }
+        }
+
+        return topFeatureNames;
     }
 
     public AnomalyResult(StreamInput input) throws IOException {

@@ -15,6 +15,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 
 import java.io.IOException;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.common.UUIDs;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -169,4 +170,15 @@ public class Feature implements Writeable, ToXContentObject {
     public AggregationBuilder getAggregation() {
         return aggregation;
     }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+            .append("id", id)
+            .append("name", name)
+            .append("enabled", enabled)
+            .append("aggregation", aggregation)
+            .toString();
+    }
+
 }
