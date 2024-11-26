@@ -13,6 +13,7 @@ package org.opensearch.ad.model;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -213,7 +214,78 @@ public class AnomalyResultTests extends OpenSearchSingleNodeTestCase {
                 likelihoodOfValues,
                 threshold,
                 currentData,
-                featureImputed
+                featureImputed,
+                Collections.emptyList()
+            );
+
+        // Assert that the confidence is capped at 1.0
+        assertEquals("Confidence should be capped at 1.0", 1.0, result.getConfidence(), 0.00001);
+    }
+
+    public void testFromRawTRCFResultWithRules() {
+        // Set up test parameters
+        String detectorId = "test-detector-id";
+        long intervalMillis = 60000; // Example interval
+        String taskId = "test-task-id";
+        Double rcfScore = 0.5;
+        Double grade = 0.0; // Non-anomalous
+        Double confidence = 1.03; // Confidence greater than 1
+        List<FeatureData> featureData = Collections.emptyList(); // Assuming empty for simplicity
+        Instant dataStartTime = Instant.now();
+        Instant dataEndTime = dataStartTime.plusMillis(intervalMillis);
+        Instant executionStartTime = Instant.now();
+        Instant executionEndTime = executionStartTime.plusMillis(500);
+        String error = null;
+        Optional<Entity> entity = Optional.empty();
+        User user = null; // Replace with actual user if needed
+        Integer schemaVersion = 1;
+        String modelId = "test-model-id";
+        double[] relevantAttribution = null;
+        Integer relativeIndex = null;
+        double[] pastValues = null;
+        double[][] expectedValuesList = null;
+        double[] likelihoodOfValues = null;
+        Double threshold = null;
+        double[] currentData = null;
+        boolean[] featureImputed = null;
+
+        Condition condition = new Condition(
+            "testFeature", // featureName not in features
+            ThresholdType.ACTUAL_IS_BELOW_EXPECTED,
+            null,
+            null
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        // Invoke the method under test
+        AnomalyResult result = AnomalyResult
+            .fromRawTRCFResult(
+                detectorId,
+                intervalMillis,
+                taskId,
+                rcfScore,
+                grade,
+                confidence,
+                featureData,
+                dataStartTime,
+                dataEndTime,
+                executionStartTime,
+                executionEndTime,
+                error,
+                entity,
+                user,
+                schemaVersion,
+                modelId,
+                relevantAttribution,
+                relativeIndex,
+                pastValues,
+                expectedValuesList,
+                likelihoodOfValues,
+                threshold,
+                currentData,
+                featureImputed,
+                rules
             );
 
         // Assert that the confidence is capped at 1.0

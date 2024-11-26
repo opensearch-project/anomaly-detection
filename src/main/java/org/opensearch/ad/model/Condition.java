@@ -29,9 +29,9 @@ public class Condition implements Writeable, ToXContentObject {
     private String featureName;
     private ThresholdType thresholdType;
     private Operator operator;
-    private double value;
+    private Double value;
 
-    public Condition(String featureName, ThresholdType thresholdType, Operator operator, double value) {
+    public Condition(String featureName, ThresholdType thresholdType, Operator operator, Double value) {
         this.featureName = featureName;
         this.thresholdType = thresholdType;
         this.operator = operator;
@@ -42,7 +42,7 @@ public class Condition implements Writeable, ToXContentObject {
         this.featureName = input.readString();
         this.thresholdType = input.readEnum(ThresholdType.class);
         this.operator = input.readEnum(Operator.class);
-        this.value = input.readDouble();
+        this.value = input.readBoolean() ? input.readDouble() : null;
     }
 
     /**
@@ -56,7 +56,7 @@ public class Condition implements Writeable, ToXContentObject {
         String featureName = null;
         ThresholdType thresholdType = null;
         Operator operator = null;
-        Double value = 0d;
+        Double value = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -71,10 +71,18 @@ public class Condition implements Writeable, ToXContentObject {
                     thresholdType = ThresholdType.valueOf(parser.text().toUpperCase(Locale.ROOT));
                     break;
                 case OPERATOR_FIELD:
-                    operator = Operator.valueOf(parser.text().toUpperCase(Locale.ROOT));
+                    if (parser.currentToken() == XContentParser.Token.VALUE_NULL) {
+                        operator = null; // Set operator to null if the field is missing
+                    } else {
+                        operator = Operator.valueOf(parser.text().toUpperCase(Locale.ROOT));
+                    }
                     break;
                 case VALUE_FIELD:
-                    value = parser.doubleValue();
+                    if (parser.currentToken() == XContentParser.Token.VALUE_NULL) {
+                        value = null; // Set value to null if the field is missing
+                    } else {
+                        value = parser.doubleValue();
+                    }
                     break;
                 default:
                     break;
@@ -89,8 +97,10 @@ public class Condition implements Writeable, ToXContentObject {
             .startObject()
             .field(FEATURE_NAME_FIELD, featureName)
             .field(THRESHOLD_TYPE_FIELD, thresholdType)
-            .field(OPERATOR_FIELD, operator)
-            .field(VALUE_FIELD, value);
+            .field(OPERATOR_FIELD, operator);
+        if (value != null) {
+            builder.field("value", value);
+        }
         return xContentBuilder.endObject();
     }
 
@@ -99,7 +109,10 @@ public class Condition implements Writeable, ToXContentObject {
         out.writeString(featureName);
         out.writeEnum(thresholdType);
         out.writeEnum(operator);
-        out.writeDouble(value);
+        out.writeBoolean(value != null);
+        if (value != null) {
+            out.writeDouble(value);
+        }
     }
 
     public String getFeatureName() {
@@ -114,7 +127,7 @@ public class Condition implements Writeable, ToXContentObject {
         return operator;
     }
 
-    public double getValue() {
+    public Double getValue() {
         return value;
     }
 

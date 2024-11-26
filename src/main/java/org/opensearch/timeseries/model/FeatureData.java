@@ -15,6 +15,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 
 import java.io.IOException;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -106,5 +107,10 @@ public class FeatureData extends DataByFeatureId {
         out.writeString(featureId);
         out.writeString(featureName);
         out.writeDouble(data);
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this).append("featureId", featureId).append("featureName", featureName).append("data", data).toString();
     }
 }

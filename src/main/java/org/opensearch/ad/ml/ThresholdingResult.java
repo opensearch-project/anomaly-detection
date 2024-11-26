@@ -12,6 +12,7 @@
 package org.opensearch.ad.ml;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -19,7 +20,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.model.Rule;
 import org.opensearch.timeseries.ml.IntermediateResult;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
@@ -331,6 +334,12 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
         String taskId,
         String error
     ) {
+        List<Rule> rules = new ArrayList<>();
+        if (detector instanceof AnomalyDetector) {
+            AnomalyDetector detectorConfig = (AnomalyDetector) detector;
+            rules = detectorConfig.getRules();
+        }
+
         return Collections
             .singletonList(
                 AnomalyResult
@@ -358,7 +367,8 @@ public class ThresholdingResult extends IntermediateResult<AnomalyResult> {
                         likelihoodOfValues,
                         threshold,
                         currentData,
-                        featureImputed
+                        featureImputed,
+                        rules
                     )
             );
     }

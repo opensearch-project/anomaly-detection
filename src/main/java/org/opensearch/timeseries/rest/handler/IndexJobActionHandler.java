@@ -161,23 +161,20 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                     executionStartTime.toEpochMilli(),
                     executionEndTime.toEpochMilli()
                 );
-                client
-                    .execute(
-                        resultAction,
-                        getRequest,
-                        ActionListener
-                            .wrap(response -> recorder.indexResult(executionStartTime, executionEndTime, response, config), exception -> {
+                client.execute(resultAction, getRequest, ActionListener.wrap(response -> {
 
-                                recorder
-                                    .indexResultException(
-                                        executionStartTime,
-                                        executionEndTime,
-                                        Throwables.getStackTraceAsString(exception),
-                                        null,
-                                        config
-                                    );
-                            })
-                    );
+                    recorder.indexResult(executionStartTime, executionEndTime, response, config);
+                }, exception -> {
+
+                    recorder
+                        .indexResultException(
+                            executionStartTime,
+                            executionEndTime,
+                            Throwables.getStackTraceAsString(exception),
+                            null,
+                            config
+                        );
+                }));
             } catch (Exception ex) {
                 listener.onFailure(ex);
                 return;

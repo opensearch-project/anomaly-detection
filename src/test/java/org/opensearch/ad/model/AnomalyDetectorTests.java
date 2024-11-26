@@ -905,6 +905,42 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         assertEquals(parsedDetector.getDescription(), "");
     }
 
+    public void testParseAnomalyDetectorWithRuleWithNullValue() throws IOException {
+        String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
+            + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+            + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
+            + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
+            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
+            + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
+            + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[{\"action\":\"IGNORE_ANOMALY\","
+            + "\"conditions\":[{\"feature_name\":\"eYYCM\",\"threshold_type\":\"ACTUAL_IS_OVER_EXPECTED\","
+            + "\"value\":null,\"operator\":null}]}],\"result_index_min_size\":1500}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
+        assertEquals(parsedDetector.getRules().get(0).getConditions().get(0).getValue(), null);
+        assertEquals(parsedDetector.getRules().get(0).getConditions().get(0).getOperator(), null);
+    }
+
+    public void testParseAnomalyDetectorWithRuleWithNoValue() throws IOException {
+        String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
+            + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
+            + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
+            + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
+            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
+            + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
+            + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[{\"action\":\"IGNORE_ANOMALY\","
+            + "\"conditions\":[{\"feature_name\":\"eYYCM\",\"threshold_type\":\"ACTUAL_IS_OVER_EXPECTED\""
+            + "}]}],\"result_index_min_size\":1500}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
+        assertEquals(parsedDetector.getRules().get(0).getConditions().get(0).getValue(), null);
+        assertEquals(parsedDetector.getRules().get(0).getConditions().get(0).getOperator(), null);
+    }
+
     public void testParseAnomalyDetector_withCustomIndex_withCustomResultIndexMinSize() throws IOException {
         String detectorString = "{\"name\":\"AhtYYGWTgqkzairTchcs\",\"description\":\"iIiAVPMyFgnFlEniLbMyfJxyoGvJAl\","
             + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
@@ -1166,6 +1202,64 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             );
             assertEquals(ValidationIssueType.RULE, e.getType());
         }
+    }
+
+    /**
+     * Test that validation fails when a ACTUAL_IS_BELOW_EXPECTED plus non-null or empty operator and value are given
+     */
+    public void testValidateRulesWithValueAndAbsoluteThresholdType() throws IOException {
+        String featureName = "testFeature";
+        Feature feature = TestHelpers.randomFeature(featureName, "agg", true);
+
+        Condition condition = new Condition(
+            featureName, // featureName not in features
+            ThresholdType.ACTUAL_IS_BELOW_EXPECTED,
+            Operator.LTE,
+            0.5
+        );
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setFeatureAttributes(Arrays.asList(feature)).setRules(rules).build();
+            fail("both operator and value must be empty or null");
+        } catch (ValidationException e) {
+            assertTrue(e.getMessage().contains("both operator and value must be empty or null"));
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a ACTUAL_IS_BELOW_EXPECTED plus non-null operator given
+     */
+    public void testValidateRulesWithOperatorAndAbsoluteThresholdType() throws IOException {
+        String featureName = "testFeature";
+        Feature feature = TestHelpers.randomFeature(featureName, "agg", true);
+
+        Condition condition = new Condition(featureName, ThresholdType.ACTUAL_IS_BELOW_EXPECTED, Operator.LTE, null);
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+
+        try {
+            TestHelpers.AnomalyDetectorBuilder.newInstance(1).setFeatureAttributes(Arrays.asList(feature)).setRules(rules).build();
+            fail("both operator and value must be empty or null");
+        } catch (ValidationException e) {
+            assertTrue(e.getMessage().contains("both operator and value must be empty or null"));
+            assertEquals(ValidationIssueType.RULE, e.getType());
+        }
+    }
+
+    /**
+     * Test that validation fails when a ACTUAL_IS_BELOW_EXPECTED with null value and operator
+     */
+    public void testValidateRulesWithNullValueAndOperatorAndAbsoluteThresholdType() throws IOException {
+        String featureName = "testFeature";
+        Feature feature = TestHelpers.randomFeature(featureName, "agg", true);
+
+        Condition condition = new Condition(featureName, ThresholdType.ACTUAL_IS_BELOW_EXPECTED, null, null);
+        Rule rule = new Rule(Action.IGNORE_ANOMALY, Arrays.asList(condition));
+        List<Rule> rules = Arrays.asList(rule);
+        TestHelpers.AnomalyDetectorBuilder.newInstance(1).setFeatureAttributes(Arrays.asList(feature)).setRules(rules).build();
     }
 
     /**
