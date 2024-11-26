@@ -408,7 +408,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert
             .assertTrue(
                 "got " + exception.getMessage(),
-                exception.getMessage().contains("no permissions for [indices:admin/aliases, indices:admin/create]")
+                exception.getMessage().contains("indices:admin/aliases")
+                    && exception.getMessage().contains("indices:admin/create")
+                    && exception.getMessage().contains("no permissions for")
             );
 
         // User cat has permission to create index

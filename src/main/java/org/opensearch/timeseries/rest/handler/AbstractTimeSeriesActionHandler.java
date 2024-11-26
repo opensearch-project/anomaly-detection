@@ -890,6 +890,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 feature.getId()
             );
             ssb.aggregation(internalAgg.getAggregatorFactories().iterator().next());
+            ssb.trackTotalHits(false);
             SearchRequest searchRequest = new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(ssb);
             ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
                 Optional<double[]> aggFeatureResult = searchFeatureDao.parseResponse(response, Arrays.asList(feature.getId()), false);
@@ -905,13 +906,19 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 }
             }, e -> {
                 String errorMessage;
-                if (isExceptionCausedByInvalidQuery(e)) {
+                if (isExceptionCausedByInvalidQuery(e) || e instanceof TimeSeriesException) {
                     errorMessage = CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + feature.getName();
+                    logger.error(errorMessage, e);
+                    multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
                 } else {
                     errorMessage = CommonMessages.UNKNOWN_SEARCH_QUERY_EXCEPTION_MSG + feature.getName();
+                    logger.error(errorMessage, e);
+                    // If we see an unexpected error such as timeout or some task cancellation cause of search backpressure
+                    // we don't want to block detector creation as this is unlikely an error due to wrong configs
+                    // but we want to record what error was seen
+                    multiFeatureQueriesResponseListener
+                        .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(Optional.empty()))));
                 }
-                logger.error(errorMessage, e);
-                multiFeatureQueriesResponseListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.BAD_REQUEST, e));
             });
             clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, context, searchResponseListener);
         }
