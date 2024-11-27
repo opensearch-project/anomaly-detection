@@ -53,15 +53,18 @@ public class IgnoreSimilarExtractor {
         if (rules != null) {
             for (Rule rule : rules) {
                 for (Condition condition : rule.getConditions()) {
-                    processCondition(
-                        condition,
-                        featureNames,
-                        baseDimension,
-                        ignoreSimilarFromAbove,
-                        ignoreSimilarFromBelow,
-                        ignoreSimilarFromAboveByRatio,
-                        ignoreSimilarFromBelowByRatio
-                    );
+                    if (condition.getThresholdType() != ThresholdType.ACTUAL_IS_BELOW_EXPECTED
+                        && condition.getThresholdType() != ThresholdType.ACTUAL_IS_OVER_EXPECTED) {
+                        processCondition(
+                            condition,
+                            featureNames,
+                            baseDimension,
+                            ignoreSimilarFromAbove,
+                            ignoreSimilarFromBelow,
+                            ignoreSimilarFromAboveByRatio,
+                            ignoreSimilarFromBelowByRatio
+                        );
+                    }
                 }
             }
         }
@@ -100,7 +103,10 @@ public class IgnoreSimilarExtractor {
         int featureIndex = featureNames.indexOf(featureName);
 
         ThresholdType thresholdType = condition.getThresholdType();
-        double value = condition.getValue();
+        Double value = condition.getValue();
+        if (value == null) {
+            value = 0d;
+        }
 
         switch (thresholdType) {
             case ACTUAL_OVER_EXPECTED_MARGIN:

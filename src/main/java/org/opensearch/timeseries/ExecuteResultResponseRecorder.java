@@ -119,7 +119,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
 
             List<IndexableResultType> analysisResults = response
                 .toIndexableResults(
-                    configId,
+                    config,
                     dataStartTime,
                     dataEndTime,
                     executionStartTime,

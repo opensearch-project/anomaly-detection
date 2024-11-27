@@ -835,6 +835,17 @@ public class AnomalyDetector extends Config {
                         this.issueType = ValidationIssueType.RULE;
                         return;
                     }
+                } else if (thresholdType == ThresholdType.ACTUAL_IS_BELOW_EXPECTED
+                    || thresholdType == ThresholdType.ACTUAL_IS_OVER_EXPECTED) {
+                    // Check if both operator and value are null
+                    if (condition.getOperator() != null || condition.getValue() != null) {
+                        this.errorMessage = SUPPRESSION_RULE_ISSUE_PREFIX
+                            + "For threshold type \""
+                            + thresholdType
+                            + "\", both operator and value must be empty or null, as this rule compares actual to expected values directly";
+                        this.issueType = ValidationIssueType.RULE;
+                        return;
+                    }
                 }
             }
         }

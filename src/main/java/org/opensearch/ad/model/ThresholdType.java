@@ -57,7 +57,19 @@ public enum ThresholdType {
      * should be ignored if the ratio of the deviation from the expected to the actual
      * (b-a)/|a| is less than or equal to ignoreNearExpectedFromBelowByRatio.
      */
-    EXPECTED_OVER_ACTUAL_RATIO("the ratio of the expected value over the actual value");
+    EXPECTED_OVER_ACTUAL_RATIO("the ratio of the expected value over the actual value"),
+
+    /**
+      * Specifies a threshold for ignoring anomalies based on whether the actual value
+      * is over the expected value returned from the model.
+      */
+    ACTUAL_IS_OVER_EXPECTED("the actual value is over the expected value"),
+
+    /**
+    * Specifies a threshold for ignoring anomalies based on whether the actual value
+    * is below the expected value returned from the model.
+     * */
+    ACTUAL_IS_BELOW_EXPECTED("the actual value is below the expected value");
 
     private final String description;
 
