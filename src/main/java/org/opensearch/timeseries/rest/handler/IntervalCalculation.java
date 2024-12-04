@@ -252,8 +252,9 @@ public class IntervalCalculation {
                 .createSearchRequest(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES), timeStampBounds, topEntity);
             final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
                 List<Long> timestamps = aggregationPrep.getTimestamps(response);
-                if (timestamps.isEmpty()) {
-                    logger.warn("empty data, return one minute by default");
+                if (timestamps.size() < 2) {
+                    // to calculate the difference we need at least 2 timestamps
+                    logger.warn("not enough data, return one minute by default");
                     listener.onResponse(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES));
                     return;
                 }

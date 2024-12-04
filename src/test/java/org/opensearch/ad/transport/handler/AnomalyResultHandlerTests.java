@@ -12,11 +12,14 @@
 package org.opensearch.ad.transport.handler;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -31,6 +34,8 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
+import org.opensearch.ResourceAlreadyExistsException;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
@@ -44,7 +49,6 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
-import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.transport.handler.ResultIndexingHandler;
 
 public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
@@ -181,9 +185,6 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
 
     @Test
     public void testAdResultIndexOtherException() throws IOException {
-        expectedEx.expect(TimeSeriesException.class);
-        expectedEx.expectMessage("Error in saving .opendistro-anomaly-results for detector " + detectorId);
-
         setUpSavingAnomalyResultIndex(false, IndexCreation.RUNTIME_EXCEPTION);
         ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
             client,
@@ -199,6 +200,7 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
         );
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
         verify(client, never()).index(any(), any());
+        assertTrue(testAppender.containsMessage(String.format(Locale.ROOT, "Unexpected error creating index .opendistro-anomaly-results")));
     }
 
     /**
@@ -212,7 +214,6 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
      * @throws InterruptedException if thread execution is interrupted
      * @throws IOException          if IO failures
      */
-    @SuppressWarnings("unchecked")
     private void savingFailureTemplate(boolean throwOpenSearchRejectedExecutionException, int latchCount, boolean adResultIndexExists)
         throws InterruptedException,
         IOException {
@@ -261,5 +262,219 @@ public class AnomalyResultHandlerTests extends AbstractIndexHandlerTest {
         handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, null);
 
         backoffLatch.await(1, TimeUnit.MINUTES);
+    }
+
+    @Test
+    public void testCustomIndexCreate() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(false);
+        doAnswer(invocation -> {
+            ActionListener<CreateIndexResponse> listener = invocation.getArgument(1);
+            listener.onResponse(new CreateIndexResponse(true, true, testIndex));
+            return null;
+        }).when(anomalyDetectionIndices).initCustomResultIndexDirectly(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+        verify(client, times(1)).index(any(), any());
+    }
+
+    @Test
+    public void testCustomIndexCreateNotAcked() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(false);
+        doAnswer(invocation -> {
+            ActionListener<CreateIndexResponse> listener = invocation.getArgument(1);
+            listener.onResponse(new CreateIndexResponse(false, false, testIndex));
+            return null;
+        }).when(anomalyDetectionIndices).initCustomResultIndexDirectly(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+
+        assertTrue(
+            testAppender
+                .containsMessage(
+                    String.format(Locale.ROOT, "Creating custom result index %s with mappings call not acknowledged", testIndex)
+                )
+        );
+    }
+
+    @Test
+    public void testCustomIndexCreateExists() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(false);
+        doAnswer(invocation -> {
+            ActionListener<CreateIndexResponse> listener = invocation.getArgument(1);
+            listener.onFailure(new ResourceAlreadyExistsException("index already exists"));
+            return null;
+        }).when(anomalyDetectionIndices).initCustomResultIndexDirectly(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+        verify(client, times(1)).index(any(), any());
+    }
+
+    @Test
+    public void testCustomIndexOtherException() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(false);
+
+        Exception testException = new OpenSearchRejectedExecutionException("Test exception");
+
+        doAnswer(invocation -> {
+            ActionListener<CreateIndexResponse> listener = invocation.getArgument(1);
+            listener.onFailure(testException);
+            return null;
+        }).when(anomalyDetectionIndices).initCustomResultIndexDirectly(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+
+        assertTrue(testAppender.containsMessage(String.format(Locale.ROOT, "cannot create result index %s", testIndex)));
+    }
+
+    @Test
+    public void testInvalid() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(true);
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(false);
+            return null;
+        }).when(anomalyDetectionIndices).validateResultIndexMapping(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+
+        assertTrue(testAppender.containsMessage("wrong index mapping of custom result index", false));
+    }
+
+    @Test
+    public void testValid() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(true);
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(true);
+            return null;
+        }).when(anomalyDetectionIndices).validateResultIndexMapping(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+        verify(client, times(1)).index(any(), any());
+    }
+
+    @Test
+    public void testValidationException() {
+        String testIndex = "test";
+        setWriteBlockAdResultIndex(false);
+        when(anomalyDetectionIndices.doesIndexExist(anyString())).thenReturn(false);
+        when(anomalyDetectionIndices.doesAliasExist(anyString())).thenReturn(true);
+
+        Exception testException = new OpenSearchRejectedExecutionException("Test exception");
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onFailure(testException);
+            return null;
+        }).when(anomalyDetectionIndices).validateResultIndexMapping(eq(testIndex), any());
+
+        ResultIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> handler = new ResultIndexingHandler<>(
+            client,
+            settings,
+            threadPool,
+            ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
+            anomalyDetectionIndices,
+            clientUtil,
+            indexUtil,
+            clusterService,
+            AnomalyDetectorSettings.AD_BACKOFF_INITIAL_DELAY,
+            AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
+        );
+
+        handler.index(TestHelpers.randomAnomalyDetectResult(), detectorId, testIndex);
+        assertTrue(testAppender.containsMessage(String.format(Locale.ROOT, "cannot validate result index %s", testIndex), false));
     }
 }

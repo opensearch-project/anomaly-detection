@@ -21,18 +21,22 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastTaskProfile;
 import org.opensearch.forecast.model.Forecaster;
+import org.opensearch.search.SearchHit;
 import org.opensearch.timeseries.AbstractSyntheticDataTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
@@ -156,6 +160,16 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
         results.add(forecastTaskProfile);
         results.add(i);
         return results;
+    }
+
+    protected List<SearchHit> toHits(Response response) throws UnsupportedOperationException, IOException {
+        SearchResponse searchResponse = SearchResponse
+            .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+        long total = searchResponse.getHits().getTotalHits().value;
+        if (total == 0) {
+            return new ArrayList<>();
+        }
+        return Arrays.asList(searchResponse.getHits().getHits());
     }
 
 }
