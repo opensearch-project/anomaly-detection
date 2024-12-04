@@ -118,6 +118,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.ForecastTask;
 import org.opensearch.forecast.model.Forecaster;
+import org.opensearch.forecast.ratelimit.ForecastResultWriteRequest;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -1585,6 +1586,16 @@ public class TestHelpers {
         return entity;
     }
 
+    private static Entity randomEntity() {
+        String name = randomAlphaOfLength(10);
+        List<String> values = new ArrayList<>();
+        int size = random.nextInt(3) + 1; // At least one value
+        for (int i = 0; i < size; i++) {
+            values.add(randomAlphaOfLength(10));
+        }
+        return Entity.createEntityByReordering(ImmutableMap.of(name, values));
+    }
+
     public static HttpEntity toHttpEntity(ToXContentObject object) throws IOException {
         return new StringEntity(toJsonString(object), APPLICATION_JSON);
     }
@@ -2224,4 +2235,57 @@ public class TestHelpers {
         }
     }
 
+    public static ForecastResultWriteRequest randomForecastResultWriteRequest() {
+        // Generate random values for required fields
+        long expirationEpochMs = Instant.now().plusSeconds(random.nextInt(3600)).toEpochMilli(); // Expire within the next hour
+        String forecasterId = randomAlphaOfLength(10);
+        RequestPriority priority = RequestPriority.MEDIUM; // Use NORMAL priority for testing
+        ForecastResult result = randomForecastResult(forecasterId);
+        String resultIndex = random.nextBoolean() ? randomAlphaOfLength(10) : null; // Randomly decide to set resultIndex or not
+
+        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex);
+    }
+
+    public static ForecastResult randomForecastResult(String forecasterId) {
+        String taskId = randomAlphaOfLength(10);
+        Double dataQuality = random.nextDouble();
+        List<FeatureData> featureData = ImmutableList.of(randomFeatureData());
+        Instant dataStartTime = Instant.now().minusSeconds(random.nextInt(3600));
+        Instant dataEndTime = Instant.now();
+        Instant executionStartTime = Instant.now().minusSeconds(random.nextInt(3600));
+        Instant executionEndTime = Instant.now();
+        String error = random.nextBoolean() ? randomAlphaOfLength(20) : null;
+        Optional<Entity> entity = random.nextBoolean() ? Optional.of(randomEntity()) : Optional.empty();
+        User user = random.nextBoolean() ? randomUser() : null;
+        Integer schemaVersion = random.nextInt(10);
+        String featureId = randomAlphaOfLength(10);
+        Float forecastValue = random.nextFloat();
+        Float lowerBound = forecastValue - random.nextFloat();
+        Float upperBound = forecastValue + random.nextFloat();
+        Instant forecastDataStartTime = dataEndTime.plusSeconds(random.nextInt(3600));
+        Instant forecastDataEndTime = forecastDataStartTime.plusSeconds(random.nextInt(3600));
+        Integer horizonIndex = random.nextInt(100);
+
+        return new ForecastResult(
+            forecasterId,
+            taskId,
+            dataQuality,
+            featureData,
+            dataStartTime,
+            dataEndTime,
+            executionStartTime,
+            executionEndTime,
+            error,
+            entity,
+            user,
+            schemaVersion,
+            featureId,
+            forecastValue,
+            lowerBound,
+            upperBound,
+            forecastDataStartTime,
+            forecastDataEndTime,
+            horizonIndex
+        );
+    }
 }

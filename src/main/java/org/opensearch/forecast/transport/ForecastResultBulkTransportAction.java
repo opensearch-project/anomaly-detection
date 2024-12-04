@@ -58,7 +58,7 @@ public class ForecastResultBulkTransportAction extends
     }
 
     @Override
-    protected BulkRequest prepareBulkRequest(float indexingPressurePercent, ForecastResultBulkRequest request) {
+    public BulkRequest prepareBulkRequest(float indexingPressurePercent, ForecastResultBulkRequest request) {
         BulkRequest bulkRequest = new BulkRequest();
         List<ForecastResultWriteRequest> results = request.getResults();
 
