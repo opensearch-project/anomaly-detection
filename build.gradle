@@ -45,7 +45,7 @@ buildscript {
         bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
         bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
         bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
-        jacksonVersion = "2.18.0"
+        jacksonVersion = "2.18.2"
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests. 
