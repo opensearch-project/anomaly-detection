@@ -34,7 +34,6 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
@@ -109,22 +108,28 @@ public class ResultIndexingHandler<ResultType extends IndexableResult, IndexType
     }
 
     // TODO: check if user has permission to index.
-    public void index(ResultType toSave, String detectorId, String indexOrAliasName) {
-        try {
-            if (indexOrAliasName != null) {
-                if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, indexOrAliasName)) {
-                    LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
-                    return;
-                }
-                // We create custom result index when creating a detector. Custom result index can be rolled over and thus we may need to
-                // create a new one.
-                if (!timeSeriesIndices.doesIndexExist(indexOrAliasName) && !timeSeriesIndices.doesAliasExist(indexOrAliasName)) {
-                    timeSeriesIndices.initCustomResultIndexDirectly(indexOrAliasName, ActionListener.wrap(response -> {
-                        if (response.isAcknowledged()) {
-                            save(toSave, detectorId, indexOrAliasName);
-                        } else {
-                            throw new TimeSeriesException(
-                                detectorId,
+    /**
+     * Run async index operation. Cannot guarantee index is done after finishing executing the function as several calls
+     * in the method are asynchronous.
+     * @param toSave Result to save
+     * @param configId config id
+     * @param indexOrAliasName custom index or alias name
+     */
+    public void index(ResultType toSave, String configId, String indexOrAliasName) {
+        if (indexOrAliasName != null) {
+            if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, indexOrAliasName)) {
+                LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, configId));
+                return;
+            }
+            // We create custom result index when creating a detector. Custom result index can be rolled over and thus we may need to
+            // create a new one.
+            if (!timeSeriesIndices.doesIndexExist(indexOrAliasName) && !timeSeriesIndices.doesAliasExist(indexOrAliasName)) {
+                timeSeriesIndices.initCustomResultIndexDirectly(indexOrAliasName, ActionListener.wrap(response -> {
+                    if (response.isAcknowledged()) {
+                        save(toSave, configId, indexOrAliasName);
+                    } else {
+                        LOG
+                            .error(
                                 String
                                     .format(
                                         Locale.ROOT,
@@ -132,65 +137,49 @@ public class ResultIndexingHandler<ResultType extends IndexableResult, IndexType
                                         indexOrAliasName
                                     )
                             );
-                        }
-                    }, exception -> {
-                        if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                            // It is possible the index has been created while we sending the create request
-                            save(toSave, detectorId, indexOrAliasName);
-                        } else {
-                            throw new TimeSeriesException(
-                                detectorId,
-                                String.format(Locale.ROOT, "cannot create result index %s", indexOrAliasName),
-                                exception
-                            );
-                        }
-                    }));
-                } else {
-                    timeSeriesIndices.validateResultIndexMapping(indexOrAliasName, ActionListener.wrap(valid -> {
-                        if (!valid) {
-                            throw new EndRunException(detectorId, "wrong index mapping of custom AD result index", true);
-                        } else {
-                            save(toSave, detectorId, indexOrAliasName);
-                        }
-                    }, exception -> {
-                        throw new TimeSeriesException(
-                            detectorId,
-                            String.format(Locale.ROOT, "cannot validate result index %s", indexOrAliasName),
-                            exception
-                        );
-                    }));
-                }
+                    }
+                }, exception -> {
+                    if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                        // It is possible the index has been created while we sending the create request
+                        save(toSave, configId, indexOrAliasName);
+                    } else {
+                        LOG.error(String.format(Locale.ROOT, "cannot create result index %s", indexOrAliasName), exception);
+                    }
+                }));
             } else {
-                if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.defaultResultIndexName)) {
-                    LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, detectorId));
-                    return;
-                }
-                if (!timeSeriesIndices.doesDefaultResultIndexExist()) {
-                    timeSeriesIndices
-                        .initDefaultResultIndexDirectly(
-                            ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, detectorId), exception -> {
-                                if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
-                                    // It is possible the index has been created while we sending the create request
-                                    save(toSave, detectorId);
-                                } else {
-                                    throw new TimeSeriesException(
-                                        detectorId,
+                timeSeriesIndices.validateResultIndexMapping(indexOrAliasName, ActionListener.wrap(valid -> {
+                    if (!valid) {
+                        LOG.error("wrong index mapping of custom result index");
+                    } else {
+                        save(toSave, configId, indexOrAliasName);
+                    }
+                }, exception -> { LOG.error(String.format(Locale.ROOT, "cannot validate result index %s", indexOrAliasName), exception); })
+                );
+            }
+        } else {
+            if (indexUtils.checkIndicesBlocked(clusterService.state(), ClusterBlockLevel.WRITE, this.defaultResultIndexName)) {
+                LOG.warn(String.format(Locale.ROOT, CANNOT_SAVE_ERR_MSG, configId));
+                return;
+            }
+            if (!timeSeriesIndices.doesDefaultResultIndexExist()) {
+                timeSeriesIndices
+                    .initDefaultResultIndexDirectly(
+                        ActionListener.wrap(initResponse -> onCreateIndexResponse(initResponse, toSave, configId), exception -> {
+                            if (ExceptionsHelper.unwrapCause(exception) instanceof ResourceAlreadyExistsException) {
+                                // It is possible the index has been created while we sending the create request
+                                save(toSave, configId);
+                            } else {
+                                LOG
+                                    .error(
                                         String.format(Locale.ROOT, "Unexpected error creating index %s", defaultResultIndexName),
                                         exception
                                     );
-                                }
-                            })
-                        );
-                } else {
-                    save(toSave, detectorId);
-                }
+                            }
+                        })
+                    );
+            } else {
+                save(toSave, configId);
             }
-        } catch (Exception e) {
-            throw new TimeSeriesException(
-                detectorId,
-                String.format(Locale.ROOT, "Error in saving %s for detector %s", defaultResultIndexName, detectorId),
-                e
-            );
         }
     }
 

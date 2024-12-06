@@ -699,9 +699,6 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.transport.ResultBulkTransportAction',
-        'org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler',
-        'org.opensearch.timeseries.transport.handler.ResultIndexingHandler',
         'org.opensearch.timeseries.ml.Sample',
         'org.opensearch.timeseries.ratelimit.FeatureRequest',
         'org.opensearch.ad.transport.ADHCImputeNodeRequest',

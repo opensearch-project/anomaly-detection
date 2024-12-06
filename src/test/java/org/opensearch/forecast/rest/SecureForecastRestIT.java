@@ -588,16 +588,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         return hits;
     }
 
-    private List<SearchHit> toHits(Response response) throws UnsupportedOperationException, IOException {
-        SearchResponse searchResponse = SearchResponse
-            .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-        long total = searchResponse.getHits().getTotalHits().value;
-        if (total == 0) {
-            return new ArrayList<>();
-        }
-        return Arrays.asList(searchResponse.getHits().getHits());
-    }
-
     private Response enableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
