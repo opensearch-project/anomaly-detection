@@ -1,0 +1,173 @@
+{
+  "dynamic": true,
+  "_meta": {
+    "schema_version": 7
+  },
+  "properties": {
+    "detector_id": {
+      "type": "keyword"
+    },
+    "is_anomaly": {
+      "type": "boolean"
+    },
+    "anomaly_score": {
+      "type": "double"
+    },
+    "anomaly_grade": {
+      "type": "double"
+    },
+    "confidence": {
+      "type": "double"
+    },
+    "feature_data": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "feature_name": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "data_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "data_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "execution_end_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "error": {
+      "type": "text"
+    },
+    "user": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "backend_roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "custom_attribute_names": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "entity": {
+      "type": "nested",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "value": {
+          "type": "keyword"
+        }
+      }
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "task_id": {
+      "type": "keyword"
+    },
+    "model_id": {
+      "type": "keyword"
+    },
+    "approx_anomaly_start_time": {
+      "type": "date",
+      "format": "strict_date_time||epoch_millis"
+    },
+    "relevant_attribution": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "past_values": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "data": {
+          "type": "double"
+        }
+      }
+    },
+    "expected_values": {
+      "type": "nested",
+      "properties": {
+        "likelihood": {
+          "type": "double"
+        },
+        "value_list": {
+          "type": "nested",
+          "properties": {
+            "feature_id": {
+              "type": "keyword"
+            },
+            "data": {
+              "type": "double"
+            }
+          }
+        }
+      }
+    },
+    "threshold": {
+      "type": "double"
+    },
+    "feature_imputed": {
+      "type": "nested",
+      "properties": {
+        "feature_id": {
+          "type": "keyword"
+        },
+        "imputed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

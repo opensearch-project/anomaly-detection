@@ -190,6 +190,7 @@ public final class AnomalyDetectorSettings {
         );
 
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";
+    public static final String FLATTENED_ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results-flattened.json";
     public static final String ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE = "mappings/anomaly-detection-state.json";
     public static final String CHECKPOINT_INDEX_MAPPING_FILE = "mappings/anomaly-checkpoint.json";
 
