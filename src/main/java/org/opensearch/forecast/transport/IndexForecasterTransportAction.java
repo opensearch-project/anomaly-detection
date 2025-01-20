@@ -28,6 +28,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -63,6 +64,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
     private final SearchFeatureDao searchFeatureDao;
     private final ForecastTaskManager taskManager;
     private final Settings settings;
+    private final boolean resourceSharingEnabled;
 
     @Inject
     public IndexForecasterTransportAction(
@@ -89,6 +91,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         this.searchFeatureDao = searchFeatureDao;
         this.taskManager = taskManager;
         this.settings = settings;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
     }
 
     @Override
@@ -125,9 +129,10 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
             // this case, so we can keep current forecaster's user data.
             boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
 
-            // Check if user has backend roles
-            // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
-            if (filterByEnabled) {
+            // If resource sharing flag is enabled then access evaluation will be performed at DLS level
+            if (!resourceSharingEnabled && filterByEnabled) {
+                // Check if user has backend roles
+                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {
                     listener.onFailure(new IllegalArgumentException(error));
@@ -146,7 +151,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
                     clusterService,
                     xContentRegistry,
                     filterByBackendRole,
-                    Forecaster.class
+                    Forecaster.class,
+                    resourceSharingEnabled
                 );
             } else {
                 // Create Detector. No need to get current detector.

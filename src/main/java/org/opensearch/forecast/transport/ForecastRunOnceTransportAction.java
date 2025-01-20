@@ -25,6 +25,7 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -97,6 +98,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     private final FeatureManager featureManager;
     private final ForecastStats forecastStats;
     private volatile Boolean filterByEnabled;
+    private final boolean resourceSharingEnabled;
 
     protected volatile Integer maxSingleStreamForecasters;
     protected volatile Integer maxHCForecasters;
@@ -147,6 +149,8 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         this.maxHCForecasters = MAX_HC_FORECASTERS.get(settings);
         this.maxForecastFeatures = MAX_FORECAST_FEATURES;
         this.maxCategoricalFields = ForecastNumericSetting.maxCategoricalFields();
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SINGLE_STREAM_FORECASTERS, it -> maxSingleStreamForecasters = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_HC_FORECASTERS, it -> maxHCForecasters = it);
     }
@@ -166,7 +170,8 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                 client,
                 clusterService,
                 xContentRegistry,
-                Forecaster.class
+                Forecaster.class,
+                resourceSharingEnabled
             );
         } catch (Exception e) {
             LOG.error(e);

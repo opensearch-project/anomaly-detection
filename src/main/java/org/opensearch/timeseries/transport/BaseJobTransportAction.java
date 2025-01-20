@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -53,6 +54,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final String failtoStopMsg;
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
+    private final boolean resourceSharingEnabled;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -82,6 +84,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.failtoStopMsg = failtoStopMsg;
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
     }
 
     @Override
@@ -106,7 +110,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
                 client,
                 clusterService,
                 xContentRegistry,
-                configClass
+                configClass,
+                resourceSharingEnabled
             );
         } catch (Exception e) {
             logger.error(e);

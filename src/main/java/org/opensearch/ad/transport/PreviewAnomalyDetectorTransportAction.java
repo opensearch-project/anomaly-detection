@@ -34,6 +34,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -70,6 +71,7 @@ public class PreviewAnomalyDetectorTransportAction extends
     private volatile Boolean filterByEnabled;
     private final CircuitBreakerService adCircuitBreakerService;
     private Semaphore lock;
+    private final boolean resourceSharingEnabled;
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
@@ -93,6 +95,8 @@ public class PreviewAnomalyDetectorTransportAction extends
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.lock = new Semaphore(MAX_CONCURRENT_PREVIEW.get(settings), true);
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CONCURRENT_PREVIEW, it -> { lock = new Semaphore(it); });
     }
 
@@ -115,7 +119,8 @@ public class PreviewAnomalyDetectorTransportAction extends
                 client,
                 clusterService,
                 xContentRegistry,
-                AnomalyDetector.class
+                AnomalyDetector.class,
+                resourceSharingEnabled
             );
         } catch (Exception e) {
             logger.error(e);

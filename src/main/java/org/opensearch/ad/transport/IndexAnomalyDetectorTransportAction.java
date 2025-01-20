@@ -27,6 +27,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -64,6 +65,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
     private final Settings settings;
+    private final boolean resourceSharingEnabled;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -90,6 +92,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.settings = settings;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
     }
 
     @Override
@@ -115,9 +119,10 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Consumer<AnomalyDetector> function
     ) {
         try {
-            // Check if user has backend roles
-            // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
-            if (filterByEnabled) {
+            // If resource sharing flag is enabled then access evaluation will be performed at DLS level
+            if (!resourceSharingEnabled && filterByEnabled) {
+                // Check if user has backend roles
+                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {
                     listener.onFailure(new TimeSeriesException(error));
@@ -140,7 +145,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     clusterService,
                     xContentRegistry,
                     filterByBackendRole,
-                    AnomalyDetector.class
+                    AnomalyDetector.class,
+                    resourceSharingEnabled
                 );
             } else {
                 // Create Detector. No need to get current detector.
@@ -175,6 +181,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         checkIndicesAndExecute(detector.getIndices(), () -> {
             // Don't replace detector's user when update detector
             // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
+            // TODO this and similar code should be updated to remove reference to a user
+
             User detectorUser = currentDetector == null ? user : currentDetector.getUser();
             IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                 clusterService,
