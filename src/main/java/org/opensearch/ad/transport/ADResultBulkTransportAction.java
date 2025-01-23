@@ -17,6 +17,7 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -135,7 +136,7 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
     }
 
     private void addToFlattenedIndexIfExists(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {
-        String flattenedResultIndexName = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase();
+        String flattenedResultIndexName = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
         if (clusterService.state().metadata().hasIndex(flattenedResultIndexName)) {
             addResult(bulkRequest, result, flattenedResultIndexName);
         }

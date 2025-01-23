@@ -417,7 +417,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
      *                       If {@code true}, the operation performs validation without creating/updating the configuration.
      *                       If {@code false}, the configuration is created or updated.
      * @param listener       the {@link ActionListener} to handle the response or failure of the operation.
-     * @throws IOException if an I/O error occurs during the operation.
      *
      * <p><b>Behavior:</b></p>
      * <ul>
@@ -467,8 +466,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             if (shouldHandleFlattening(indexingDryRun, createConfigResponse)) {
                 IndexAnomalyDetectorResponse response = (IndexAnomalyDetectorResponse) createConfigResponse;
                 String detectorId = response.getId();
-                String indexName = config.getCustomResultIndexOrAlias() + "_flattened_" + detectorId.toLowerCase();
-                String pipelineId = "anomaly_detection_ingest_pipeline_" + detectorId.toLowerCase();
+                String indexName = config.getCustomResultIndexOrAlias() + "_flattened_" + detectorId.toLowerCase(Locale.ROOT);
+                String pipelineId = "anomaly_detection_ingest_pipeline_" + detectorId.toLowerCase(Locale.ROOT);
 
                 timeSeriesIndices
                     .initFlattenedResultIndex(
@@ -495,8 +494,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     protected void setupIngestPipeline(String detectorId, ActionListener<T> listener) {
-        String indexName = config.getCustomResultIndexOrAlias() + "_flattened_" + detectorId.toLowerCase();
-        String pipelineId = "anomaly_detection_ingest_pipeline_" + detectorId.toLowerCase();
+        String indexName = config.getCustomResultIndexOrAlias() + "_flattened_" + detectorId.toLowerCase(Locale.ROOT);
+        String pipelineId = "anomaly_detection_ingest_pipeline_" + detectorId.toLowerCase(Locale.ROOT);
 
         try {
             BytesReference pipelineSource = createPipelineDefinition(indexName);

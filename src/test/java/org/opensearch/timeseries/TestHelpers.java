@@ -511,6 +511,40 @@ public class TestHelpers {
         );
     }
 
+    public static AnomalyDetector randomAnomalyDetectorWithFlattenResultIndex(String timefield, String indexName, List<Feature> features) throws IOException {
+        return new AnomalyDetector(
+                randomAlphaOfLength(10),
+                randomLong(),
+                randomAlphaOfLength(20),
+                randomAlphaOfLength(30),
+                timefield,
+                ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
+                features,
+                randomQuery(),
+                randomIntervalTimeConfiguration(),
+                randomIntervalTimeConfiguration(),
+                randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
+                null,
+                randomInt(),
+                Instant.now(),
+                null,
+                randomUser(),
+                ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test",
+                TestHelpers.randomImputationOption(features),
+                // timeDecay (reverse of recencyEmphasis) should be less than 1.
+                // so we start with 2.
+                randomIntBetween(2, 10000),
+                randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+                randomIntBetween(1, 1000),
+                null,
+                null,
+                null,
+                null,
+                true,
+                Instant.now()
+        );
+    }
+
     public static AnomalyDetector randomAnomalyDetectorWithEmptyFeature() throws IOException {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
