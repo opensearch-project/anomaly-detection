@@ -122,19 +122,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features, boolean useDateNanos)
-            throws IOException {
+        throws IOException {
         return createIndexAndGetAnomalyDetector(indexName, features, useDateNanos, false);
     }
 
-    private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features, boolean useDateNanos,
-                                                             boolean useFlattenResultIndex) throws IOException {
+    private AnomalyDetector createIndexAndGetAnomalyDetector(
+        String indexName,
+        List<Feature> features,
+        boolean useDateNanos,
+        boolean useFlattenResultIndex
+    ) throws IOException {
         TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD, useDateNanos);
         String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
         TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
 
         AnomalyDetector detector = useFlattenResultIndex
-                ? TestHelpers.randomAnomalyDetectorWithFlattenResultIndex(TIME_FIELD, indexName, features)
-                : TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
+            ? TestHelpers.randomAnomalyDetectorWithFlattenResultIndex(TIME_FIELD, indexName, features)
+            : TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
 
         return detector;
     }
@@ -190,29 +194,33 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testCreateAnomalyDetectorWithFlattenedResultIndex() throws Exception {
-        AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME,
-                ImmutableList.of(TestHelpers.randomFeature(true)), false, true);
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(
+            INDEX_NAME,
+            ImmutableList.of(TestHelpers.randomFeature(true)),
+            false,
+            true
+        );
 
         // test behavior when AD is disabled
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
         Exception ex = expectThrows(
-                ResponseException.class,
-                () -> TestHelpers
-                        .makeRequest(
-                                client(),
-                                "POST",
-                                TestHelpers.AD_BASE_DETECTORS_URI,
-                                ImmutableMap.of(),
-                                TestHelpers.toHttpEntity(detector),
-                                null
-                        )
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(detector),
+                    null
+                )
         );
         assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
 
         // test behavior when AD is enabled
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
         Response response = TestHelpers
-                .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
         assertEquals("Create anomaly detector with flattened result index failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
@@ -220,10 +228,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("incorrect version", version > 0);
         // ensure the flattened result index was created
-        String expectedFlattenedIndex = String.format(
-                "opensearch-ad-plugin-result-test_flattened_%s",
-                id.toLowerCase(Locale.ROOT)
-        );
+        String expectedFlattenedIndex = String
+            .format(Locale.ROOT, "opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
         boolean indexExists = indexExists(expectedFlattenedIndex);
         assertTrue(indexExists);
     }
