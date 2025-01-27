@@ -1052,6 +1052,14 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }));
     }
 
+    public String getFlattenedResultIndexAlias(String indexOrAliasName, String configId) {
+        return indexOrAliasName + "_flattened_" + configId.toLowerCase(Locale.ROOT);
+    }
+
+    public String getFlattenResultIndexIngestPipelineId(String configId) {
+        return "flatten_result_index_ingest_pipeline" + configId.toLowerCase(Locale.ROOT);
+    }
+
     public <T> void validateCustomIndexForBackendJob(
         String resultIndexOrAlias,
         String securityLogId,
