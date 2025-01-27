@@ -495,9 +495,11 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     private boolean shouldHandleFlattening(boolean indexingDryRun, Object createConfigResponse) {
+        Boolean flattenResultIndexMapping = config.getFlattenResultIndexMapping();
+
         return !indexingDryRun
             && config.getCustomResultIndexOrAlias() != null
-            && config.getFlattenResultIndexMapping()
+            && Boolean.TRUE.equals(flattenResultIndexMapping)
             && createConfigResponse instanceof IndexAnomalyDetectorResponse;
     }
 

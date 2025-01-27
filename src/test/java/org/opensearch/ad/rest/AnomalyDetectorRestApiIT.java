@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
@@ -235,16 +236,26 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         // ensure that the flattened field "feature_data_feature_bytes" exists in the mappings
         String startDetectorEndpoint = String.format(Locale.ROOT, TestHelpers.AD_BASE_START_DETECTOR_URL, id);
         Response startDetectorResponse = TestHelpers
-            .makeRequest(client(), "POST", startDetectorEndpoint, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+            .makeRequest(client(), "POST", startDetectorEndpoint, ImmutableMap.of(), (HttpEntity) null, null);
         String getFlattenedResultIndexEndpoint = String
             .format(Locale.ROOT, "/opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
+        // wait for the detector starts writing result
+        try {
+            Thread.sleep(60 * 1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Thread was interrupted while waiting", e);
+        }
         Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", getFlattenedResultIndexEndpoint, ImmutableMap.of(), "", null);
         Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
-        Map<String, Object> mappings = (Map<String, Object>) flattenedResultIndex
-            .get("opensearch-ad-plugin-result-test_flattened_" + id.toLowerCase(Locale.ROOT));
-        Map<String, Object> properties = (Map<String, Object>) ((Map<String, Object>) mappings.get("mappings")).get("properties");
-        assertTrue("Flattened field 'feature_data_feature_bytes' does not exist", properties.containsKey("feature_data_feature_bytes"));
 
+        String indexKey = flattenedResultIndex.keySet().stream().findFirst().orElse(null);
+        Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
+        Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+        Object dynamicValue = mappings.get("dynamic");
+        assertEquals("Dynamic field is not set to true", "true", dynamicValue.toString());
+        Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+        assertTrue("Flattened field 'feature_data_feature_bytes' does not exist", properties.containsKey("feature_data_feature_bytes"));
     }
 
     public void testCreateAnomalyDetector() throws Exception {
