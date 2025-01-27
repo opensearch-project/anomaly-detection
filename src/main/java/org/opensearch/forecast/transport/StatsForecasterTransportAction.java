@@ -18,6 +18,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.stats.ForecastStats;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
@@ -26,7 +27,6 @@ import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.SingleBucketAggregation;
 import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.BaseStatsTransportAction;
@@ -67,7 +67,7 @@ public class StatsForecasterTransportAction extends BaseStatsTransportAction {
         if ((statsRequest.getStatsToBeRetrieved().contains(StatNames.FORECASTER_COUNT.getName())
             || statsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_STREAM_FORECASTER_COUNT.getName())
             || statsRequest.getStatsToBeRetrieved().contains(StatNames.HC_FORECASTER_COUNT.getName()))
-            && clusterService.state().getRoutingTable().hasIndex(CommonName.CONFIG_INDEX)) {
+            && clusterService.state().getRoutingTable().hasIndex(ForecastCommonName.CONFIG_INDEX)) {
 
             // Create the query
             ExistsQueryBuilder existsQuery = QueryBuilders.existsQuery(Config.CATEGORY_FIELD);
@@ -82,7 +82,7 @@ public class StatsForecasterTransportAction extends BaseStatsTransportAction {
             searchSourceBuilder.aggregation(withFieldAgg);
             searchSourceBuilder.aggregation(withoutFieldAgg);
 
-            SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX);
+            SearchRequest searchRequest = new SearchRequest(ForecastCommonName.CONFIG_INDEX);
             searchRequest.source(searchSourceBuilder);
 
             // Execute the query

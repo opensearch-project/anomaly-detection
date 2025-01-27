@@ -6,6 +6,7 @@
 package org.opensearch.forecast;
 
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.ForecastTask;
@@ -53,7 +54,8 @@ public class ForecastProfileRunner extends
             ProfileName.FORECAST_TASK,
             ForecastProfileAction.INSTANCE,
             Forecaster::parse,
-            taskProfileRunner
+            taskProfileRunner,
+            ForecastCommonName.CONFIG_INDEX
         );
     }
 

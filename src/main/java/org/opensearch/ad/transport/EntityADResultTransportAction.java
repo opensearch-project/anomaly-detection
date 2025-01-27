@@ -27,12 +27,16 @@ import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.ADColdEntityWorker;
 import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
+import org.opensearch.ad.task.ADTaskCacheManager;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.tasks.Task;
@@ -77,7 +81,7 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
     private CacheProvider<ThresholdedRandomCutForest, ADPriorityCache> cache;
     private final NodeStateManager stateManager;
     private ThreadPool threadPool;
-    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
+    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
 
     private final ADCacheProvider entityCache;
     private final ADCheckpointReadWorker checkpointReadQueue;
@@ -152,6 +156,7 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
                 .getConfig(
                     detectorId,
                     request.getAnalysisType(),
+                    true,
                     intervalDataProcessor.onGetConfig(listener, detectorId, request, previousException, request.getAnalysisType())
                 );
         } catch (Exception exception) {

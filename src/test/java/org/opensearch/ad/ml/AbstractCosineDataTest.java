@@ -31,7 +31,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -46,13 +48,11 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.dataprocessor.Imputer;
 import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.ModelState;
-import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -80,7 +80,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
     ThreadPool threadPool;
     AtomicBoolean released;
     Runnable releaseSemaphore;
-    ActionListener<List<Sample>> listener;
+    ActionListener<List<AnomalyResult>> listener;
     CountDownLatch inProgressLatch;
     ADCheckpointWriteWorker checkpointWriteQueue;
     Entity entity;
@@ -126,7 +126,7 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, ADCommonName.CONFIG_INDEX));
 
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
@@ -208,7 +208,8 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
 
         detectorId = "123";

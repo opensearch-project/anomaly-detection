@@ -13,6 +13,7 @@ package org.opensearch.timeseries.ratelimit;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -110,6 +111,12 @@ public abstract class BatchWorker<RequestType extends QueuedRequest, BatchReques
 
         // it is possible other concurrent threads have drained the queue
         if (false == toProcess.isEmpty()) {
+            final List<String> inflights = new ArrayList<>();
+            for (RequestType request : toProcess) {
+                inflightConfigs.add(request.getConfigId());
+                inflights.add(request.getConfigId());
+            }
+
             BatchRequestType batchRequest = toBatchRequest(toProcess);
 
             ThreadedActionListener<BatchResponseType> listener = new ThreadedActionListener<>(
@@ -121,7 +128,11 @@ public abstract class BatchWorker<RequestType extends QueuedRequest, BatchReques
             );
 
             final ActionListener<BatchResponseType> listenerWithRelease = ActionListener.runAfter(listener, afterProcessCallback);
-            executeBatchRequest(batchRequest, listenerWithRelease);
+            executeBatchRequest(batchRequest, ActionListener.runAfter(listenerWithRelease, () -> {
+                if (!inflights.isEmpty()) {
+                    inflightConfigs.removeAll(inflights);
+                }
+            }));
         } else {
             emptyQueueCallback.run();
         }

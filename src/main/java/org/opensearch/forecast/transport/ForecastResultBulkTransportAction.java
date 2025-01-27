@@ -65,6 +65,9 @@ public class ForecastResultBulkTransportAction extends
         if (indexingPressurePercent <= softLimit) {
             for (ForecastResultWriteRequest resultWriteRequest : results) {
                 addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getResultIndex());
+                if (resultWriteRequest.getFlattenResultIndex() != null) {
+                    addResult(bulkRequest, resultWriteRequest.getResult(), resultWriteRequest.getFlattenResultIndex());
+                }
             }
         } else if (indexingPressurePercent <= hardLimit) {
             // exceed soft limit (60%) but smaller than hard limit (90%)
@@ -73,6 +76,9 @@ public class ForecastResultBulkTransportAction extends
                 ForecastResult result = resultWriteRequest.getResult();
                 if (random.nextFloat() < acceptProbability) {
                     addResult(bulkRequest, result, resultWriteRequest.getResultIndex());
+                    if (resultWriteRequest.getFlattenResultIndex() != null) {
+                        addResult(bulkRequest, result, resultWriteRequest.getFlattenResultIndex());
+                    }
                 }
             }
         } else {
@@ -81,6 +87,9 @@ public class ForecastResultBulkTransportAction extends
                 ForecastResult result = resultWriteRequest.getResult();
                 if (result.isHighPriority()) {
                     addResult(bulkRequest, result, resultWriteRequest.getResultIndex());
+                    if (resultWriteRequest.getFlattenResultIndex() != null) {
+                        addResult(bulkRequest, result, resultWriteRequest.getFlattenResultIndex());
+                    }
                 }
             }
         }

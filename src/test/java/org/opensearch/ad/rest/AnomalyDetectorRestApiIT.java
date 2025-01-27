@@ -49,7 +49,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
@@ -827,7 +826,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getLastBreakingUIChangeTime()
         );
 
-        deleteIndexWithAdminClient(CommonName.CONFIG_INDEX);
+        deleteIndexWithAdminClient(ADCommonName.CONFIG_INDEX);
 
         TestHelpers
             .assertFailWith(
@@ -1798,9 +1797,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
-        String errorMessage = "Shingle size must be a positive integer no larger than "
-            + TimeSeriesSettings.MAX_SHINGLE_SIZE
-            + ". Got 2000";
+        String errorMessage = "Suggested shingle size must be between 1 and " + TimeSeriesSettings.MAX_SHINGLE_SIZE + ". Got 2000.";
         assertEquals("shingle size error message", errorMessage, messageMap.get("shingle_size").get("message"));
     }
 

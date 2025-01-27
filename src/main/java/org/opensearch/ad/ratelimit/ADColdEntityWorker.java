@@ -26,7 +26,11 @@ import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.ad.ml.ThresholdingResult;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.ad.task.ADTaskCacheManager;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -55,7 +59,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  *
  */
 public class ADColdEntityWorker extends
-    ColdEntityWorker<ThresholdedRandomCutForest, AnomalyResult, ADIndex, ADIndexManagement, ADCheckpointDao, ThresholdingResult, ADModelManager, ADCheckpointWriteWorker, ADColdStart, ADPriorityCache, ADSaveResultStrategy, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker> {
+    ColdEntityWorker<ThresholdedRandomCutForest, AnomalyResult, ADIndex, ADIndexManagement, ADCheckpointDao, ThresholdingResult, ADModelManager, ADCheckpointWriteWorker, ADColdStart, ADPriorityCache, ADSaveResultStrategy, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker> {
     public static final String WORKER_NAME = "ad-cold-entity";
 
     public ADColdEntityWorker(

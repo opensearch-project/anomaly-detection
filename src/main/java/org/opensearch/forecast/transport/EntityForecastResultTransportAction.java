@@ -29,12 +29,15 @@ import org.opensearch.forecast.ml.ForecastModelManager;
 import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.ForecastTask;
+import org.opensearch.forecast.model.ForecastTaskType;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointReadWorker;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdEntityWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
+import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
@@ -44,6 +47,7 @@ import org.opensearch.timeseries.caching.CacheProvider;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.EntityResultProcessor;
 import org.opensearch.timeseries.transport.EntityResultRequest;
 import org.opensearch.timeseries.util.ExceptionUtil;
@@ -77,7 +81,7 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
     private CacheProvider<RCFCaster, ForecastPriorityCache> cache;
     private final NodeStateManager stateManager;
     private ThreadPool threadPool;
-    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
+    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
 
     private final ForecastCacheProvider entityCache;
     private final ForecastCheckpointReadWorker checkpointReadQueue;
@@ -152,6 +156,8 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
                 .getConfig(
                     forecasterId,
                     request.getAnalysisType(),
+                    // task id equals to null means it is real time and we want to cache
+                    request.getTaskId() == null,
                     intervalDataProcessor.onGetConfig(listener, forecasterId, request, previousException, request.getAnalysisType())
                 );
         } catch (Exception exception) {

@@ -233,7 +233,7 @@ public class ADDataMigrator {
     }
 
     private void createRealtimeADTask(Job job, String error, ConcurrentLinkedQueue<Job> detectorJobs, boolean migrateAll) {
-        client.get(new GetRequest(CommonName.CONFIG_INDEX, job.getName()), ActionListener.wrap(r -> {
+        client.get(new GetRequest(ADCommonName.CONFIG_INDEX, job.getName()), ActionListener.wrap(r -> {
             if (r != null && r.isExists()) {
                 try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
                     ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);

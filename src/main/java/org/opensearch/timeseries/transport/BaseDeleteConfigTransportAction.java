@@ -72,7 +72,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private final String stateIndex;
     private final Class<ConfigType> configTypeClass;
     private final List<TaskTypeEnum> batchTaskTypes;
-    private final String configIndexName;
+    protected final String configIndexName;
 
     public BaseDeleteConfigTransportAction(
         TransportService transportService,
@@ -211,9 +211,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
 
     private void deleteConfigDoc(String configId, ActionListener<DeleteResponse> listener) {
         LOG.info("Delete config {}", configId);
-        DeleteRequest deleteRequest = new DeleteRequest(CommonName.CONFIG_INDEX, configId)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-        client.delete(deleteRequest, new ActionListener<>() {
+        DeleteRequest deleteRequest = new DeleteRequest(configIndexName, configId).setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
             @Override
             public void onResponse(DeleteResponse deleteResponse) {
                 listener.onResponse(deleteResponse);

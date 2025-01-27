@@ -56,10 +56,10 @@ public class AbstractRateLimitingTest extends AbstractTimeSeriesTest {
 
         nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         entity = Entity.createSingleAttributeEntity(categoryField, "value");
         entity2 = Entity.createSingleAttributeEntity(categoryField, "value2");

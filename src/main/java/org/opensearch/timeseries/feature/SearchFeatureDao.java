@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
@@ -54,14 +55,18 @@ import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.bucket.composite.InternalComposite;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange;
 import org.opensearch.search.aggregations.bucket.range.InternalDateRange.Bucket;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.InternalMax;
+import org.opensearch.search.aggregations.metrics.InternalMin;
 import org.opensearch.search.aggregations.metrics.Min;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Config;
@@ -160,10 +165,10 @@ public class SearchFeatureDao extends AbstractRetriever {
     }
 
     /**
-     * Returns to listener the epoch time of the latest data under the detector.
+     * Returns to listener the epoch time of the latest data under the config.
      *
      * @param config info about the data
-     * @param listener onResponse is called with the epoch time of the latest data under the detector
+     * @param listener onResponse is called with the epoch time of the latest data under the config
      */
     public void getLatestDataTime(
         User user,
@@ -208,6 +213,48 @@ public class SearchFeatureDao extends AbstractRetriever {
                     searchResponseListener
                 );
         }
+    }
+
+    public void getDateRangeOfSourceData(
+        Config config,
+        User user,
+        Map<String, Object> topEntity,
+        ActionListener<Pair<Long, Long>> internalListener
+    ) {
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+            .aggregation(AggregationBuilders.min(CommonName.AGG_NAME_MIN_TIME).field(config.getTimeField()))
+            .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(config.getTimeField()))
+            .size(0);
+        BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery().must(config.getFilterQuery());
+        topEntity.entrySet().forEach(entity -> internalFilterQuery.must(new TermQueryBuilder(entity.getKey(), entity.getValue())));
+
+        searchSourceBuilder.query(internalFilterQuery);
+
+        SearchRequest request = new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
+            InternalMin minAgg = r.getAggregations().get(CommonName.AGG_NAME_MIN_TIME);
+            InternalMax maxAgg = r.getAggregations().get(CommonName.AGG_NAME_MAX_TIME);
+            double minValue = minAgg.getValue();
+            double maxValue = maxAgg.getValue();
+            // If time field not exist or there is no value, will return infinity value
+            if (minValue == Double.POSITIVE_INFINITY) {
+                internalListener.onFailure(new ResourceNotFoundException(config.getId(), "There is no data in the time field"));
+                return;
+            }
+            internalListener.onResponse(Pair.of((long) minValue, (long) maxValue));
+        }, e -> { internalListener.onFailure(e); });
+
+        // inject user role while searching.
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                request,
+                client::search,
+                // user is the one who triggered the caller of this function
+                user,
+                client,
+                AnalysisType.AD,
+                searchResponseListener
+            );
     }
 
     /**
@@ -844,15 +891,221 @@ public class SearchFeatureDao extends AbstractRetriever {
             .collect(Collectors.toList());
     }
 
-    public SearchRequest createColdStartFeatureSearchRequest(Config detector, List<Entry<Long, Long>> ranges, Optional<Entity> entity) {
+    /**
+     * Counts how many *continuous shingles* of length {@code shingleSize} are present
+     * in the date-range aggregation returned by an OpenSearch query.
+     * <p>
+     * A **shingle** is defined as a run of {@code shingleSize} consecutive buckets whose
+     * {@code doc_count} is strictly greater than a configurable threshold.  The windows
+     * slide by one bucket at a time, so they *overlap* just like the classic time-series
+     * shingle used by Random Cut Forest.
+     *
+     * Why “just count non-empty buckets” is insufficient?
+     *
+     * <pre>
+     *   • Documents arrive every 70 min   →  0, 70, 140, 210, 280 …
+     *   • Query buckets are 58 min wide   →  0–58, 58–116, 116–174 …
+     *
+     *   0        58        116        174        232        290        348        406
+     *   │────────│─────────│─────────│─────────│─────────│─────────│─────────│────────
+     *   bucket 0   bucket 1   bucket 2   bucket 3   bucket 4   bucket 5   bucket 6 …
+     *                  ▲70          ▲140         ▲210         ▲280                 ▲350
+     * </pre>
+     *
+     * <ul>
+     *   <li>The first point (70 min) lands 12 min inside <em>bucket&nbsp;1</em>; bucket 0 is empty.</li>
+     *   <li>Every new point is 70 min after the previous one, i.e. 12 min deeper into the grid
+     *       (70 − 58 = 12).  Offsets therefore walk 0 → 12 → 24 → 36 → 48 → 60 min.  When the
+     *       offset reaches 60 min it “overflows” the 58-min bucket and the point jumps into
+     *       the next bucket, leaving a gap behind.</li>
+     *   <li>The result is a perfectly regular pattern: five buckets full, one empty, repeating.</li>
+     * </ul>
+     *
+     * Merely summing all non-empty buckets would say “34 out of 40 buckets contain data”,
+     * suggesting good coverage, yet <em>any</em> shingle that spans six or more buckets
+     * is broken.  The correct metric is therefore:
+     *
+     * <blockquote>“How many sliding windows of length {@code shingleSize}
+     *  are <strong>fully</strong> populated?”</blockquote>
+     *
+     * Examples with the above pattern:
+     * <ul>
+     *   <li>{@code shingleSize = 4} → one valid shingle (buckets 1-4).</li>
+     *   <li>{@code shingleSize = 3} → two valid shingles (1-3 and 2-4).</li>
+     *   <li>{@code shingleSize = 6} → zero valid shingles (every 6-bucket window crosses a gap).</li>
+     * </ul>
+     *
+     * Algorithm
+     * <ol>
+     *   <li>Extract and time-sort the buckets from the aggregation.</li>
+     *   <li>Turn the list into a boolean array where {@code true == doc_count > threshold}.</li>
+     *   <li>Slide a window of length {@code shingleSize}; keep a running count of how many
+     *       {@code true}s are inside the window.  Each time the window is “full size” and
+     *       the running count equals {@code shingleSize}, increment the shingle counter.</li>
+     * </ol>
+     *
+     * The implementation is O(<i>N</i>) time with O(<i>N</i>) temporary booleans
+     * (easily reducible to O(1) if memory is tight).
+     *
+     * @param response            the {@link SearchResponse} returned by OpenSearch
+     * @param config              configuration
+     * @param includesEmptyBucket if {@code true}, a bucket with {@code doc_count == 0}
+     *                            is treated as valid (useful when you have already
+     *                            filled empty buckets with zeros upstream); if
+     *                            {@code false}, an empty bucket breaks continuity
+     * @return the number of overlapping shingles whose buckets are all
+     *         above the document-count threshold
+     */
+    public int countContinuousShinglesFromDateRangeSearch(SearchResponse response, Config config, boolean includesEmptyBucket) {
+        /*
+         Example response when feature has no filter:
+        {
+            "hits": {
+                "total": {
+                    "value": 0,
+                    "relation": "eq"
+                },
+                "max_score": null,
+                "hits": []
+            },
+            "aggregations": {
+                "date_range": {
+                    "buckets": [
+                        {
+                            "key": "1714578600000-1714578660000",
+                            "from": 1714578600000,
+                            "from_as_string": "1714578600000",
+                            "to": 1714578660000,
+                            "to_as_string": "1714578660000",
+                            "doc_count": 0,
+                            "sum1": {
+                                "value": 0
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        Example response when feature has filter:
+        {
+                    "key": "1714558800000-1714559400000",
+                    "from": 1714558800000,
+                    "from_as_string": "1714558800000",
+                    "to": 1714559400000,
+                    "to_as_string": "1714559400000",
+                    "doc_count": 2,
+                    "max1": {
+                        "doc_count": 0,
+                        "max1": {
+                            "value": null
+                        }
+                    }
+                },
+        */
+        Aggregations aggs = response.getAggregations();
+        if (aggs == null) {
+            logger.warn("Unexpected empty response");
+            return 0;
+        }
+
+        // Pull the buckets out of the aggregation and order them by 'from'
+        List<Bucket> orderedBuckets = aggs
+            .asList()
+            .stream()
+            .filter(InternalDateRange.class::isInstance)
+            .flatMap(agg -> ((InternalDateRange) agg).getBuckets().stream())
+            .filter(bucket -> bucket.getFrom() != null && bucket.getFrom() instanceof ZonedDateTime)
+            .sorted(Comparator.comparing(bucket -> (ZonedDateTime) bucket.getFrom()))
+            .collect(Collectors.toList());
+
+        // Convert to a Boolean array: true == non-empty bucket
+        boolean[] nonEmpty = new boolean[orderedBuckets.size()];
+        for (int i = 0; i < orderedBuckets.size(); i++) {
+            Bucket bucket = orderedBuckets.get(i);
+            nonEmpty[i] = extractFeatureDocCounts(bucket, config.getEnabledFeatureIds()).isPresent();
+        }
+
+        return countShingles(config, nonEmpty);
+    }
+
+    private int countShingles(Config config, boolean[] nonEmpty) {
+        // Slide a window of length 'shingleSize' and count windows where every entry is true
+        int shingles = 0;
+        int windowNonEmpty = 0;        // running count of TRUEs inside the current window
+
+        int shingleSize = config.getShingleSize();
+        for (int i = 0; i < nonEmpty.length; i++) {
+            // Add the new bucket that just entered the window
+            if (nonEmpty[i]) {
+                windowNonEmpty++;
+            }
+
+            // Remove the bucket that just left the window
+            if (i >= shingleSize && nonEmpty[i - shingleSize]) {
+                windowNonEmpty--;
+            }
+
+            // When the window is “full-size” check if it is all TRUE
+            if (i >= shingleSize - 1 && windowNonEmpty == shingleSize) {
+                shingles++;
+            }
+        }
+
+        return shingles;
+    }
+
+    public int countContinuousShinglesFromHistogramSearch(SearchResponse response, Config config, boolean includesEmptyBucket) {
+        Aggregations aggs = response.getAggregations();
+        if (aggs == null) {
+            logger.warn("Unexpected empty response");
+            return 0;
+        }
+
+        /* -----------------------------------------------------------------
+         * Collect **histogram** buckets and order them by numeric key
+         * ----------------------------------------------------------------- */
+        List<Histogram.Bucket> orderedBuckets = aggs
+            .asList()
+            .stream()
+            // accept both InternalHistogram and InternalDateHistogram
+            .filter(Histogram.class::isInstance)
+            .map(a -> (Histogram) a)
+            .flatMap(h -> h.getBuckets().stream())
+            /* --------------------------------------------------------------
+             *  key can be Number  → numeric histogram
+             *             or ZonedDateTime → date_histogram
+             * -------------------------------------------------------------- */
+            .sorted(Comparator.comparingLong(b -> {
+                Object k = b.getKey();
+                if (k instanceof Number) {
+                    return ((Number) k).longValue();                 // numeric histogram
+                } else if (k instanceof ZonedDateTime) {
+                    return ((ZonedDateTime) k).toInstant().toEpochMilli(); // date_histogram
+                } else {
+                    throw new IllegalStateException("Unexpected bucket key type: " + k.getClass());
+                }
+            }))
+            .collect(Collectors.toList());
+
+        // Convert to a Boolean array: true == non-empty bucket
+        boolean[] nonEmpty = new boolean[orderedBuckets.size()];
+        for (int i = 0; i < orderedBuckets.size(); i++) {
+            nonEmpty[i] = orderedBuckets.get(i).getDocCount() > 0;
+        }
+
+        return countShingles(config, nonEmpty);
+    }
+
+    public SearchRequest createColdStartFeatureSearchRequest(Config config, List<Entry<Long, Long>> ranges, Optional<Entity> entity) {
         try {
-            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateColdStartQuery(detector, ranges, entity, xContent);
-            return new SearchRequest(detector.getIndices().toArray(new String[0]), searchSourceBuilder);
+            SearchSourceBuilder searchSourceBuilder = ParseUtils.generateColdStartQuery(config, ranges, entity, xContent);
+            return new SearchRequest(config.getIndices().toArray(new String[0]), searchSourceBuilder);
         } catch (IOException e) {
             logger
                 .warn(
                     "Failed to create cold start feature search request for "
-                        + detector.getId()
+                        + config.getId()
                         + " from "
                         + ranges.get(0).getKey()
                         + " to "

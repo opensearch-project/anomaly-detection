@@ -14,7 +14,6 @@ package org.opensearch.ad.ml;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -34,7 +33,6 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.model.ImputedFeatureResult;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -185,7 +183,7 @@ public class ADModelManager extends
         }
         try {
             AnomalyDescriptor result = trcfOptional.get().process(point, 0);
-            double[] attribution = normalizeAttribution(trcfOptional.get().getForest(), result.getRelevantAttribution());
+            double[] attribution = ModelUtil.normalizeAttribution(trcfOptional.get().getForest(), result.getRelevantAttribution());
             listener
                 .onResponse(
                     new ThresholdingResult(
@@ -207,59 +205,6 @@ public class ADModelManager extends
         } catch (Exception e) {
             listener.onFailure(e);
         }
-    }
-
-    /**
-     * normalize total attribution to 1
-     *
-     * @param forest rcf accessor
-     * @param rawAttribution raw attribution scores.  Can be null when
-     * 1) the anomaly grade is 0;
-     * 2) there are missing values and we are using differenced transforms.
-     * Read RCF's ImputePreprocessor.postProcess.
-     *
-     * @return normalized attribution
-     */
-    public double[] normalizeAttribution(RandomCutForest forest, double[] rawAttribution) {
-        if (forest == null) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Empty forest"));
-        }
-        // rawAttribution is null when anomaly grade is less than or equals to 0
-        // need to create an empty array for bwc because the old node expects an non-empty array
-        double[] attribution = createEmptyAttribution(forest);
-        if (rawAttribution != null && rawAttribution.length > 0) {
-            double sum = Arrays.stream(rawAttribution).sum();
-            // avoid dividing by zero error
-            if (sum > 0) {
-                if (rawAttribution.length != attribution.length) {
-                    throw new IllegalArgumentException(
-                        String
-                            .format(
-                                Locale.ROOT,
-                                "Unexpected attribution array length: expected %d but is %d",
-                                attribution.length,
-                                rawAttribution.length
-                            )
-                    );
-                }
-                int numFeatures = rawAttribution.length;
-                attribution = new double[numFeatures];
-                for (int i = 0; i < numFeatures; i++) {
-                    attribution[i] = rawAttribution[i] / sum;
-                }
-            }
-        }
-
-        return attribution;
-    }
-
-    private double[] createEmptyAttribution(RandomCutForest forest) {
-        int shingleSize = forest.getShingleSize();
-        if (shingleSize <= 0) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "zero shingle size"));
-        }
-        int baseDimensions = forest.getDimensions() / shingleSize;
-        return new double[baseDimensions];
     }
 
     Optional<ModelState<ThresholdedRandomCutForest>> restoreModelState(
@@ -626,22 +571,6 @@ public class ADModelManager extends
         boolean isImputed,
         Config config
     ) {
-        ImputedFeatureResult result = ModelUtil.calculateImputedFeatures(anomalyDescriptor, point, isImputed, config);
-
-        return new ThresholdingResult(
-            anomalyDescriptor.getAnomalyGrade(),
-            anomalyDescriptor.getDataConfidence(),
-            anomalyDescriptor.getRCFScore(),
-            anomalyDescriptor.getTotalUpdates(),
-            anomalyDescriptor.getRelativeIndex(),
-            normalizeAttribution(rcf, anomalyDescriptor.getRelevantAttribution()),
-            anomalyDescriptor.getPastValues(),
-            anomalyDescriptor.getExpectedValuesList(),
-            anomalyDescriptor.getLikelihoodOfValues(),
-            anomalyDescriptor.getThreshold(),
-            rcfNumTrees,
-            result.getActual(),
-            result.getIsFeatureImputed()
-        );
+        return ModelUtil.toResult(rcf, anomalyDescriptor, point, isImputed, config);
     }
 }

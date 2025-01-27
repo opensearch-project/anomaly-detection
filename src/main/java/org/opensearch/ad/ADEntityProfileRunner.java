@@ -40,7 +40,8 @@ public class ADEntityProfileRunner extends EntityProfileRunner<ADEntityProfileAc
             AnalysisType.AD,
             ADEntityProfileAction.INSTANCE,
             ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            AnomalyResult.DETECTOR_ID_FIELD
+            AnomalyResult.DETECTOR_ID_FIELD,
+            ADCommonName.CONFIG_INDEX
         );
     }
 }

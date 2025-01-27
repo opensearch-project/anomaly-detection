@@ -233,6 +233,12 @@ public class Forecaster extends Config {
             && (horizonToTest < 1 || horizonToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO);
     }
 
+    @Override
+    public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
+        return shingleSizeToTest != null
+            && (shingleSizeToTest < ForecastSettings.MINIMUM_SHINLE_SIZE || shingleSizeToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE);
+    }
+
     /**
      * Parse raw json content into forecaster instance.
      *
@@ -429,13 +435,13 @@ public class Forecaster extends Config {
                     historyIntervals = parser.intValue();
                     break;
                 case RESULT_INDEX_FIELD_MIN_SIZE:
-                    customResultIndexMinSize = parser.intValue();
+                    customResultIndexMinSize = onlyParseNumberValue(parser);
                     break;
                 case RESULT_INDEX_FIELD_MIN_AGE:
-                    customResultIndexMinAge = parser.intValue();
+                    customResultIndexMinAge = onlyParseNumberValue(parser);
                     break;
                 case RESULT_INDEX_FIELD_TTL:
-                    customResultIndexTTL = parser.intValue();
+                    customResultIndexTTL = onlyParseNumberValue(parser);
                     break;
                 case FLATTEN_CUSTOM_RESULT_INDEX:
                     flattenResultIndexMapping = parser.booleanValue();
@@ -527,5 +533,10 @@ public class Forecaster extends Config {
 
     public Integer suggestHorizon() {
         return this.shingleSize * DEFAULT_HORIZON_SHINGLE_RATIO;
+    }
+
+    @Override
+    protected int getMinimumShingle() {
+        return ForecastSettings.MINIMUM_SHINLE_SIZE;
     }
 }

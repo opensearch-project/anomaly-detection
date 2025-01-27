@@ -129,6 +129,7 @@ public class CommonMessages {
     // ======================================
     public static final String CONFIG_ID_MISSING_MSG = "config ID is missing";
     public static final String MODEL_ID_MISSING_MSG = "model ID is missing";
+    public static final String NO_DATA_MSG = "No data in current window between";
 
     // ======================================
     // task
@@ -158,5 +159,11 @@ public class CommonMessages {
     // ======================================
     // Suggest API
     // ======================================
-    public static String FAIL_SUGGEST_ERR_MSG = "Fail to suggest parameters for ";
+    public static String FAIL_SUGGEST_ERR_MSG = "Fail to suggest parameters";
+
+    // ======================================
+    // Cold start
+    // ======================================
+    public static String COLD_START_EXCEPTION = "Cold start exception";
+    public static String NOT_ENOUGH_DATA = "not enough data";
 }

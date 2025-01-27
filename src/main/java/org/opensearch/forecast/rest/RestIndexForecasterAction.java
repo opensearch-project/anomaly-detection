@@ -92,7 +92,7 @@ public class RestIndexForecasterAction extends AbstractForecasterAction {
                 forecasterId = Config.NO_ID;
             }
 
-            IndexForecasterRequest indexAnomalyDetectorRequest = new IndexForecasterRequest(
+            IndexForecasterRequest indexForecasterRequest = new IndexForecasterRequest(
                 forecasterId,
                 seqNo,
                 primaryTerm,
@@ -107,10 +107,12 @@ public class RestIndexForecasterAction extends AbstractForecasterAction {
             );
 
             return channel -> client
-                .execute(IndexForecasterAction.INSTANCE, indexAnomalyDetectorRequest, indexForecasterResponse(channel, method));
+                .execute(IndexForecasterAction.INSTANCE, indexForecasterRequest, indexForecasterResponse(channel, method));
         } catch (IllegalArgumentException e) {
+            logger.error("illegal argument", e);
             throw new IllegalArgumentException(Encode.forHtml(e.getMessage()));
         } catch (ValidationException e) {
+            logger.error("validation error", e);
             // convert 500 to 400 errors for validation failures
             throw new OpenSearchStatusException(e.getMessage(), RestStatus.BAD_REQUEST);
         }

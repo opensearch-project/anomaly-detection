@@ -22,6 +22,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.MaintenanceState;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.caching.CacheProvider;
 import org.opensearch.timeseries.caching.TimeSeriesCache;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -30,6 +31,8 @@ import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.TaskType;
+import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
 import org.opensearch.timeseries.ratelimit.ColdStartWorker;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
@@ -37,6 +40,8 @@ import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.ratelimit.SaveResultStrategy;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.Stats;
+import org.opensearch.timeseries.task.TaskCacheManager;
+import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.ExpiringValue;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -45,7 +50,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * Since we assume model state's last access time is current time and compare it with incoming data's execution time,
  * this class is only meant to be used by real time analysis.
  */
-public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriterType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, CacheType extends TimeSeriesCache<RCFModelType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>>
+public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriterType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ResultType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, CacheType extends TimeSeriesCache<RCFModelType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType>>
     implements
         MaintenanceState {
 
@@ -69,6 +74,7 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
     private Map<String, ExpiringValue<PriorityQueue<Sample>>> sampleQueues;
     private Comparator<Sample> sampleComparator;
     private Clock clock;
+    private NodeStateManager stateManager;
 
     public RealTimeInferencer(
         ModelManagerType modelManager,
@@ -80,7 +86,8 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
         CacheProvider<RCFModelType, CacheType> cache,
         ThreadPool threadPool,
         String threadPoolName,
-        Clock clock
+        Clock clock,
+        NodeStateManager stateManager
     ) {
         this.modelManager = modelManager;
         this.stats = stats;
@@ -95,6 +102,7 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
         this.sampleQueues = new ConcurrentHashMap<>();
         this.sampleComparator = Comparator.comparing(Sample::getDataEndTime);
         this.clock = clock;
+        this.stateManager = stateManager;
     }
 
     /**
@@ -207,10 +215,12 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
             } else {
                 reColdStart(config, modelId, e, sample, taskId);
             }
+            stateManager.setException(config.getId(), e);
             return false;
         } catch (Exception e) {
             // e.g., null pointer exception when there is a bug in RCF
             reColdStart(config, modelId, e, sample, taskId);
+            stateManager.setException(config.getId(), e);
         }
         return true;
     }

@@ -73,6 +73,7 @@ public class EntityProfileRunner<EntityProfileActionType extends ActionType<Enti
     private EntityProfileActionType entityProfileAction;
     private String resultIndexAlias;
     private String configIdField;
+    private String configIndexName;
 
     public EntityProfileRunner(
         Client client,
@@ -84,7 +85,8 @@ public class EntityProfileRunner<EntityProfileActionType extends ActionType<Enti
         AnalysisType analysisType,
         EntityProfileActionType entityProfileAction,
         String resultIndexAlias,
-        String configIdField
+        String configIdField,
+        String configIndexName
     ) {
         super(requiredSamples);
         this.client = client;
@@ -96,6 +98,7 @@ public class EntityProfileRunner<EntityProfileActionType extends ActionType<Enti
         this.entityProfileAction = entityProfileAction;
         this.resultIndexAlias = resultIndexAlias;
         this.configIdField = configIdField;
+        this.configIndexName = configIndexName;
     }
 
     /**
@@ -116,7 +119,7 @@ public class EntityProfileRunner<EntityProfileActionType extends ActionType<Enti
             listener.onFailure(new IllegalArgumentException(CommonMessages.EMPTY_PROFILES_COLLECT));
             return;
         }
-        GetRequest getDetectorRequest = new GetRequest(CommonName.CONFIG_INDEX, configId);
+        GetRequest getDetectorRequest = new GetRequest(configIndexName, configId);
 
         client.get(getDetectorRequest, ActionListener.wrap(getResponse -> {
             if (getResponse != null && getResponse.isExists()) {

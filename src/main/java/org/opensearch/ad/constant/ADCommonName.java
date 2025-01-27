@@ -19,6 +19,8 @@ public class ADCommonName {
     public static final String CHECKPOINT_INDEX_NAME = ".opendistro-anomaly-checkpoints";
     // index name for anomaly detection state. Will store AD task in this index as well.
     public static final String DETECTION_STATE_INDEX = ".opendistro-anomaly-detection-state";
+    // config index. We are reusing ad detector index.
+    public static final String CONFIG_INDEX = ".opendistro-anomaly-detectors";
 
     // The alias of the index in which to write AD result history
     public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";

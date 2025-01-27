@@ -34,7 +34,8 @@ public class ForecastEntityProfileRunner extends EntityProfileRunner<ForecastEnt
             AnalysisType.FORECAST,
             ForecastEntityProfileAction.INSTANCE,
             ForecastIndex.RESULT.getIndexName(),
-            ForecastCommonName.FORECASTER_ID_KEY
+            ForecastCommonName.FORECASTER_ID_KEY,
+            ForecastCommonName.CONFIG_INDEX
         );
     }
 }

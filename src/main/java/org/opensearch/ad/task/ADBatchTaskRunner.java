@@ -1342,7 +1342,7 @@ public class ADBatchTaskRunner {
                 function.execute();
             }
         } else if (!adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId)) {
-            adTaskManager.getADTask(detectorTaskId, ActionListener.wrap(task -> {
+            adTaskManager.getTask(detectorTaskId, ActionListener.wrap(task -> {
                 if (task.isPresent()) {
                     if (!Objects.equals(task.get().getState(), newState)) {
                         function.execute();

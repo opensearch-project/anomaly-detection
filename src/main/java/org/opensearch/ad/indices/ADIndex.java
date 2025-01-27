@@ -30,7 +30,7 @@ public enum ADIndex implements TimeSeriesIndex {
         true,
         ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getResultMappings)
     ),
-    CONFIG(CommonName.CONFIG_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getConfigMappings)),
+    CONFIG(ADCommonName.CONFIG_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getConfigMappings)),
     JOB(CommonName.JOB_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getJobMappings)),
     CHECKPOINT(
         ADCommonName.CHECKPOINT_INDEX_NAME,
@@ -64,5 +64,10 @@ public enum ADIndex implements TimeSeriesIndex {
     @Override
     public String getMapping() {
         return mapping;
+    }
+
+    @Override
+    public boolean isConfigIndex() {
+        return ADCommonName.CONFIG_INDEX.equals(getIndexName());
     }
 }

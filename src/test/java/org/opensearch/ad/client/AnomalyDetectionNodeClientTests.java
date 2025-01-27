@@ -43,7 +43,6 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.ConfigState;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.transport.GetConfigRequest;
@@ -145,7 +144,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
 
     @Test
     public void testGetDetectorProfile_NoIndices() throws ExecutionException, InterruptedException {
-        deleteIndexIfExists(CommonName.CONFIG_INDEX);
+        deleteIndexIfExists(ADCommonName.CONFIG_INDEX);
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
 

@@ -1829,6 +1829,7 @@ public class TestHelpers {
         Integer customResultIndexMinAge;
         Integer customResultIndexTTL;
         Boolean flattenResultIndexMapping;
+        Integer seasonality;
 
         ForecasterBuilder() throws IOException {
             forecasterId = randomAlphaOfLength(10);
@@ -1854,6 +1855,8 @@ public class TestHelpers {
             customResultIndexMinAge = null;
             customResultIndexTTL = null;
             flattenResultIndexMapping = null;
+            // Forecaster.invalidShingleSizeRange requires shingle to be at least 4. So seasonality has to be at least 8.
+            seasonality = randomIntBetween(8, 128);
         }
 
         public static ForecasterBuilder newInstance() throws IOException {
@@ -1975,6 +1978,11 @@ public class TestHelpers {
             return this;
         }
 
+        public ForecasterBuilder setSeasonality(Integer seasonality) {
+            this.seasonality = seasonality;
+            return this;
+        }
+
         public Forecaster build() {
             return new Forecaster(
                 forecasterId,
@@ -1998,7 +2006,7 @@ public class TestHelpers {
                 imputationOption,
                 // Recency emphasis must be an integer greater than 1
                 randomIntBetween(2, 1000),
-                randomIntBetween(1, 128),
+                seasonality,
                 randomIntBetween(1, 1000),
                 customResultIndexMinSize,
                 customResultIndexMinAge,
@@ -2034,7 +2042,8 @@ public class TestHelpers {
             randomImputationOption(featureList),
             // Recency emphasis must be an integer greater than 1
             randomIntBetween(2, 1000),
-            randomIntBetween(1, 128),
+            // seasonality must be between 8 and 256 as shingle is between 4 and 128
+            randomIntBetween(8, 256),
             randomIntBetween(1, 1000),
             null,
             null,

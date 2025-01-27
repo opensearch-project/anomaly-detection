@@ -21,6 +21,7 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
 import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
+import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.cluster.service.ClusterService;
@@ -28,7 +29,6 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
-import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.transport.BaseDeleteModelTransportAction;
 import org.opensearch.timeseries.transport.DeleteModelNodeRequest;
 import org.opensearch.timeseries.transport.DeleteModelNodeResponse;
@@ -37,10 +37,9 @@ import org.opensearch.transport.TransportService;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class DeleteADModelTransportAction extends
-    BaseDeleteModelTransportAction<ThresholdedRandomCutForest, ADPriorityCache, ADCacheProvider, ADTaskCacheManager, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart> {
+    BaseDeleteModelTransportAction<ThresholdedRandomCutForest, ADPriorityCache, ADCacheProvider, ADTaskCacheManager, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, AnomalyResult, ADColdStart> {
     private static final Logger LOG = LogManager.getLogger(DeleteADModelTransportAction.class);
     private ADModelManager modelManager;
-    private FeatureManager featureManager;
 
     @Inject
     public DeleteADModelTransportAction(
@@ -50,7 +49,6 @@ public class DeleteADModelTransportAction extends
         ActionFilters actionFilters,
         NodeStateManager nodeStateManager,
         ADModelManager modelManager,
-        FeatureManager featureManager,
         ADCacheProvider cache,
         ADTaskCacheManager adTaskCacheManager,
         ADColdStart coldStarter
@@ -67,7 +65,6 @@ public class DeleteADModelTransportAction extends
             DeleteADModelAction.NAME
         );
         this.modelManager = modelManager;
-        this.featureManager = featureManager;
     }
 
     /**

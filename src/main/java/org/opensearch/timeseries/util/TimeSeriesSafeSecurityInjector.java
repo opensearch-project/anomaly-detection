@@ -71,7 +71,8 @@ public class TimeSeriesSafeSecurityInjector extends SafeSecurityInjector {
         // Since we are gonna read user from config, make sure the config exists and fetched from disk or cached memory
         // We don't accept a passed-in Config because the caller might mistakenly not insert any user info in the
         // constructed Config and thus poses risks. In the case, if the user is null, we will give admin role.
-        nodeStateManager.getConfig(id, context, getConfigListener);
+        // maybe used by run once. Don't cache to be safe
+        nodeStateManager.getConfig(id, context, false, getConfigListener);
     }
 
     public void injectUserRoles(User user) {

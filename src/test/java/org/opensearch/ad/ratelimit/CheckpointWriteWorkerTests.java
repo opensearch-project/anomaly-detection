@@ -380,10 +380,10 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testDetectorNotAvailableSingleWrite() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         worker.write(state, true, RequestPriority.MEDIUM);
         verify(checkpoint, never()).batchWrite(any(), any());
@@ -392,10 +392,10 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testDetectorNotAvailableWriteAll() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         List<ModelState<ThresholdedRandomCutForest>> states = new ArrayList<>();
         states.add(state);
@@ -406,10 +406,10 @@ public class CheckpointWriteWorkerTests extends AbstractRateLimitingTest {
     @SuppressWarnings("unchecked")
     public void testDetectorFetchException() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onFailure(new RuntimeException());
             return null;
-        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         worker.write(state, true, RequestPriority.MEDIUM);
         verify(checkpoint, never()).batchWrite(any(), any());

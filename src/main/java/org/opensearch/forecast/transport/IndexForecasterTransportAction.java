@@ -197,7 +197,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
 
         storedContext.restore();
         checkIndicesAndExecute(forecaster.getIndices(), () -> {
-            // Don't replace forecaster's user when update detector
+            // Don't replace forecaster's user when update config
             // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
             User forecastUser = currentForecaster == null ? user : currentForecaster.getUser();
             IndexForecasterActionHandler indexForecasterActionHandler = new IndexForecasterActionHandler(

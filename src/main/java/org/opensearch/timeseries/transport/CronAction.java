@@ -9,11 +9,10 @@
  * GitHub history for details.
  */
 
-package org.opensearch.ad.transport;
+package org.opensearch.timeseries.transport;
 
 import org.opensearch.action.ActionType;
 import org.opensearch.ad.constant.ADCommonValue;
-import org.opensearch.timeseries.transport.CronResponse;
 
 public class CronAction extends ActionType<CronResponse> {
     // Internal Action which is not used for public facing RestAPIs.

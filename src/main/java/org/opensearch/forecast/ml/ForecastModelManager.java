@@ -12,7 +12,6 @@
 package org.opensearch.forecast.ml;
 
 import java.time.Clock;
-import java.util.Locale;
 
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
@@ -22,6 +21,7 @@ import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.util.ModelUtil;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
@@ -57,17 +57,6 @@ public class ForecastModelManager extends
         boolean isImputed,
         Config config
     ) {
-        if (castDescriptor instanceof ForecastDescriptor) {
-            ForecastDescriptor forecastDescriptor = (ForecastDescriptor) castDescriptor;
-            // Use forecastDescriptor in the rest of your method
-            return new RCFCasterResult(
-                forecastDescriptor.getTimedForecast().rangeVector,
-                forecastDescriptor.getDataConfidence(),
-                forecast.getTotalUpdates(),
-                forecastDescriptor.getRCFScore()
-            );
-        } else {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported type of AnomalyDescriptor : %s", castDescriptor));
-        }
+        return ModelUtil.toResult(forecast, (ForecastDescriptor) castDescriptor, point, isImputed);
     }
 }

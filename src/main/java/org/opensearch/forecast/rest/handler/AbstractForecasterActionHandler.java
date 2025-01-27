@@ -31,6 +31,7 @@ import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.ForecastTask;
@@ -196,7 +197,8 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
             maxHCForecasters,
             clock,
             settings,
-            ValidationAspect.FORECASTER
+            ValidationAspect.FORECASTER,
+            ForecastCommonName.CONFIG_INDEX
         );
     }
 

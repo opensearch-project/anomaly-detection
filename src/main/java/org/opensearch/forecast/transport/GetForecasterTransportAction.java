@@ -33,6 +33,7 @@ import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.timeseries.model.EntityProfile;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.BaseGetConfigTransportAction;
@@ -147,5 +148,20 @@ public class GetForecasterTransportAction extends
             taskManager,
             taskProfileRunner
         );
+    }
+
+    @Override
+    protected void adjustState(Optional<ForecastTask> taskOptional, Job job) {
+        if (taskOptional.isPresent()) {
+            ForecastTask task = taskOptional.get();
+            String state = task.getState();
+            if (TaskState.INACTIVE.name().equals(state) || TaskState.STOPPED.name().equals(state)) {
+                if (job == null) {
+                    task.setState(TaskState.INACTIVE_NOT_STARTED.name());
+                } else {
+                    task.setState(TaskState.INACTIVE_STOPPED.name());
+                }
+            }
+        }
     }
 }

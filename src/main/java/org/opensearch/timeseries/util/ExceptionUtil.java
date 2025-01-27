@@ -106,7 +106,7 @@ public class ExceptionUtil {
      * @return readable error message or full stack trace
      */
     public static String getErrorMessage(Exception e) {
-        if (e instanceof IllegalArgumentException || e instanceof TimeSeriesException) {
+        if (e.getMessage() != null && (e instanceof IllegalArgumentException || e instanceof TimeSeriesException)) {
             return e.getMessage();
         } else if (e instanceof OpenSearchException) {
             return ((OpenSearchException) e).getDetailedMessage();
