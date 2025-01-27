@@ -79,7 +79,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String RESULT_INDEX_FIELD_MIN_SIZE = "result_index_min_size";
     public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
     public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
-    public static final String FLATTEN_RESULT_INDEX_MAPPING = "flatten_result_index_mapping";
+    public static final String FLATTEN_RESULT_INDEX_MAPPING = "flatten_custom_result_index";
     // Changing categorical field, feature attributes, interval, windowDelay, time field, horizon, indices,
     // result index would force us to display results only from the most recent update. Otherwise,
     // the UI appear cluttered and unclear.

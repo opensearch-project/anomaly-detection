@@ -454,6 +454,14 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
+    private String getFlattenedResultIndexAlias(String configId) {
+        return config.getCustomResultIndexOrAlias() + "_flattened_" + configId.toLowerCase(Locale.ROOT);
+    }
+
+    private String getFlattenResultIndexIngestPipelineId(String configId) {
+        return "flatten_result_index_ingest_pipeline" + configId.toLowerCase(Locale.ROOT);
+    }
+
     private void handlePutRequest(boolean indexingDryRun, ActionListener<T> listener) {
         handler.confirmJobRunning(clusterService, client, id, listener, () -> {
             handleFlattenResultIndexMappingUpdate(listener);
@@ -465,17 +473,17 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         createConfig(indexingDryRun, ActionListener.wrap(createConfigResponse -> {
             if (shouldHandleFlattening(indexingDryRun, createConfigResponse)) {
                 IndexAnomalyDetectorResponse response = (IndexAnomalyDetectorResponse) createConfigResponse;
-                String detectorId = response.getId();
-                String indexName = config.getCustomResultIndexOrAlias() + "_flattened_" + detectorId.toLowerCase(Locale.ROOT);
-                String pipelineId = "anomaly_detection_ingest_pipeline_" + detectorId.toLowerCase(Locale.ROOT);
+                String configId = response.getId();
+                String flattenedResultIndexAlias = getFlattenedResultIndexAlias(configId);
+                String pipelineId = getFlattenResultIndexIngestPipelineId(configId);
 
                 timeSeriesIndices
                     .initFlattenedResultIndex(
-                        indexName,
-                        ActionListener.wrap(initResponse -> setupIngestPipeline(detectorId, ActionListener.wrap(pipelineResponse -> {
+                        flattenedResultIndexAlias,
+                        ActionListener.wrap(initResponse -> setupIngestPipeline(configId, ActionListener.wrap(pipelineResponse -> {
                             updateResultIndexSetting(
                                 pipelineId,
-                                indexName,
+                                flattenedResultIndexAlias,
                                 ActionListener.wrap(updateResponse -> listener.onResponse(createConfigResponse), listener::onFailure)
                             );
                         }, listener::onFailure)), listener::onFailure)
@@ -493,12 +501,12 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             && createConfigResponse instanceof IndexAnomalyDetectorResponse;
     }
 
-    protected void setupIngestPipeline(String detectorId, ActionListener<T> listener) {
-        String indexName = config.getCustomResultIndexOrAlias() + "_flattened_" + detectorId.toLowerCase(Locale.ROOT);
-        String pipelineId = "anomaly_detection_ingest_pipeline_" + detectorId.toLowerCase(Locale.ROOT);
+    protected void setupIngestPipeline(String configId, ActionListener<T> listener) {
+        String flattenedResultIndexAlias = getFlattenedResultIndexAlias(configId);
+        String pipelineId = getFlattenResultIndexIngestPipelineId(configId);
 
         try {
-            BytesReference pipelineSource = createPipelineDefinition(indexName);
+            BytesReference pipelineSource = createPipelineDefinition(flattenedResultIndexAlias);
 
             PutPipelineRequest putPipelineRequest = new PutPipelineRequest(pipelineId, pipelineSource, XContentType.JSON);
 
@@ -576,10 +584,9 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             return;
         }
         if (config.getFlattenResultIndexMapping() != null && config.getFlattenResultIndexMapping()) {
-            // if field value is true, create the pipeline. No need to get and compare with previous value
             setupIngestPipeline(id, listener);
         } else {
-            String pipelineId = "anomaly_detection_ingest_pipeline_" + config.getId();
+            String pipelineId = getFlattenResultIndexIngestPipelineId(config.getId());
             client.admin().cluster().deletePipeline(new DeletePipelineRequest(pipelineId), new ActionListener<AcknowledgedResponse>() {
 
                 @Override

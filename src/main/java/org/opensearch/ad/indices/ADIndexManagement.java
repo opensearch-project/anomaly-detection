@@ -22,6 +22,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDE
 
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,6 +46,8 @@ import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * This class provides utility methods for various anomaly detection indices.
  */
@@ -56,6 +59,8 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
 
     // The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
+
+    // private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Constructor function
@@ -120,6 +125,22 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
      */
     public static String getResultMappings() throws IOException {
         return getMappings(ANOMALY_RESULTS_INDEX_MAPPING_FILE);
+    }
+
+    /**
+     * Retrieves the JSON mapping for the flattened result index with the "dynamic" field set to true
+     * @return JSON mapping for the flattened result index.
+     * @throws IOException if the mapping file cannot be read.
+     */
+    public static String getFlattenedResultMappings() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        Map<String, Object> mapping = objectMapper
+            .readValue(ADIndexManagement.class.getClassLoader().getResourceAsStream(ANOMALY_RESULTS_INDEX_MAPPING_FILE), Map.class);
+
+        mapping.put("dynamic", true);
+
+        return objectMapper.writeValueAsString(mapping);
     }
 
     /**

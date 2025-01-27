@@ -11,7 +11,7 @@
 
 package org.opensearch.timeseries.indices;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.FLATTENED_ANOMALY_RESULTS_INDEX_MAPPING_FILE;
+import static org.opensearch.ad.indices.ADIndexManagement.getFlattenedResultMappings;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
@@ -90,6 +90,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -137,6 +138,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     private NamedXContentRegistry xContentRegistry;
     protected BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser;
     protected String customResultIndexPrefix;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     protected class IndexState {
         // keep track of whether the mapping version is up-to-date
@@ -1016,21 +1018,28 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
     /**
      * creates flattened result index
-     * @param indexName the index name
+     * @param flattenedResultIndexAlias the flattened result index alias
      * @param actionListener the action listener
      * @throws IOException
      */
-    public void initFlattenedResultIndex(String indexName, ActionListener<CreateIndexResponse> actionListener) throws IOException {
+    public void initFlattenedResultIndex(String flattenedResultIndexAlias, ActionListener<CreateIndexResponse> actionListener)
+        throws IOException {
+        String indexName = getCustomResultIndexPattern(flattenedResultIndexAlias);
         logger.info("Initializing flattened result index: {}", indexName);
 
         CreateIndexRequest request = new CreateIndexRequest(indexName)
-            .mapping(getFlattenedResultIndexMappings(), XContentType.JSON)
+            .mapping(getFlattenedResultMappings(), XContentType.JSON)
             .settings(settings);
+
+        if (flattenedResultIndexAlias != null) {
+            request.alias(new Alias(flattenedResultIndexAlias));
+        }
+
         choosePrimaryShards(request, false);
 
         adminClient.indices().create(request, ActionListener.wrap(response -> {
             if (response.isAcknowledged()) {
-                logger.info("Successfully created flattened result index: {}", indexName);
+                logger.info("Successfully created flattened result index: {} with alias: {}", indexName, flattenedResultIndexAlias);
                 actionListener.onResponse(response);
             } else {
                 String errorMsg = "Index creation not acknowledged for index: " + indexName;
@@ -1041,15 +1050,6 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             logger.error("Failed to create flattened result index: {}", indexName, exception);
             actionListener.onFailure(exception);
         }));
-    }
-
-    /**
-     * Get flattened result index mapping json content
-     * @return flattened result index mapping
-     * @throws IOException
-     */
-    public String getFlattenedResultIndexMappings() throws IOException {
-        return getMappings(FLATTENED_ANOMALY_RESULTS_INDEX_MAPPING_FILE);
     }
 
     public <T> void validateCustomIndexForBackendJob(

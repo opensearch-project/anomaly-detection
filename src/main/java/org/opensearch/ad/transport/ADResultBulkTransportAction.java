@@ -136,9 +136,9 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
     }
 
     private void addToFlattenedIndexIfExists(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {
-        String flattenedResultIndexName = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
-        if (clusterService.state().metadata().hasIndex(flattenedResultIndexName)) {
-            addResult(bulkRequest, result, flattenedResultIndexName);
+        String flattenedResultIndexAlias = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
+        if (clusterService.state().metadata().hasAlias(flattenedResultIndexAlias)) {
+            addResult(bulkRequest, result, flattenedResultIndexAlias);
         }
     }
 
