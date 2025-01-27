@@ -171,6 +171,7 @@ public class TestHelpers {
     public static final String AD_BASE_RESULT_URI = AD_BASE_DETECTORS_URI + "/results";
     public static final String AD_BASE_PREVIEW_URI = AD_BASE_DETECTORS_URI + "/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
+    public static final String AD_BASE_START_DETECTOR_URL = AD_BASE_DETECTORS_URI + "/%s/_start";
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name());
     // Task may fail if memory circuit breaker triggered.

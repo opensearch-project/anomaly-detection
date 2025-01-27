@@ -196,7 +196,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testCreateAnomalyDetectorWithFlattenedResultIndex() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(
             INDEX_NAME,
-            ImmutableList.of(TestHelpers.randomFeature(true)),
+            ImmutableList.of(TestHelpers.randomFeature("feature_bytes", "agg", true)),
             false,
             true
         );
@@ -230,8 +230,21 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         // ensure the flattened result index was created
         String expectedFlattenedIndex = String
             .format(Locale.ROOT, "opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
-        boolean indexExists = indexExists(expectedFlattenedIndex);
-        assertTrue(indexExists);
+        boolean aliasExists = aliasExists(expectedFlattenedIndex);
+        assertTrue(aliasExists);
+        // ensure that the flattened field "feature_data_feature_bytes" exists in the mappings
+        String startDetectorEndpoint = String.format(Locale.ROOT, TestHelpers.AD_BASE_START_DETECTOR_URL, id);
+        Response startDetectorResponse = TestHelpers
+            .makeRequest(client(), "POST", startDetectorEndpoint, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        String getFlattenedResultIndexEndpoint = String
+            .format(Locale.ROOT, "/opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
+        Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", getFlattenedResultIndexEndpoint, ImmutableMap.of(), "", null);
+        Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
+        Map<String, Object> mappings = (Map<String, Object>) flattenedResultIndex
+            .get("opensearch-ad-plugin-result-test_flattened_" + id.toLowerCase(Locale.ROOT));
+        Map<String, Object> properties = (Map<String, Object>) ((Map<String, Object>) mappings.get("mappings")).get("properties");
+        assertTrue("Flattened field 'feature_data_feature_bytes' does not exist", properties.containsKey("feature_data_feature_bytes"));
+
     }
 
     public void testCreateAnomalyDetector() throws Exception {
