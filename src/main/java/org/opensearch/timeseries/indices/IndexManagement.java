@@ -1318,10 +1318,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     }
 
     private void handleResultIndexRolloverAndDelete(String indexAlias, Config config, IndexType resultIndex) {
-        RolloverRequest rolloverRequest = buildRolloverRequest(
-            indexAlias,
-            getCustomResultIndexPattern(indexAlias)
-        );
+        RolloverRequest rolloverRequest = buildRolloverRequest(indexAlias, getCustomResultIndexPattern(indexAlias));
 
         // add rollover conditions if found in config
         if (config.getCustomResultIndexMinAge() != null) {
