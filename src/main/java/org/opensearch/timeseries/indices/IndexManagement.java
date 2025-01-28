@@ -1020,36 +1020,39 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
      * creates flattened result index
      * @param flattenedResultIndexAlias the flattened result index alias
      * @param actionListener the action listener
-     * @throws IOException
      */
-    public void initFlattenedResultIndex(String flattenedResultIndexAlias, ActionListener<CreateIndexResponse> actionListener)
-        throws IOException {
-        String indexName = getCustomResultIndexPattern(flattenedResultIndexAlias);
-        logger.info("Initializing flattened result index: {}", indexName);
+    public void initFlattenedResultIndex(String flattenedResultIndexAlias, ActionListener<CreateIndexResponse> actionListener) {
+        try {
+            String indexName = getCustomResultIndexPattern(flattenedResultIndexAlias);
+            logger.info("Initializing flattened result index: {}", indexName);
 
-        CreateIndexRequest request = new CreateIndexRequest(indexName)
-            .mapping(getFlattenedResultMappings(), XContentType.JSON)
-            .settings(settings);
+            CreateIndexRequest request = new CreateIndexRequest(indexName)
+                    .mapping(getFlattenedResultMappings(), XContentType.JSON)
+                    .settings(settings);
 
-        if (flattenedResultIndexAlias != null) {
-            request.alias(new Alias(flattenedResultIndexAlias));
-        }
-
-        choosePrimaryShards(request, false);
-
-        adminClient.indices().create(request, ActionListener.wrap(response -> {
-            if (response.isAcknowledged()) {
-                logger.info("Successfully created flattened result index: {} with alias: {}", indexName, flattenedResultIndexAlias);
-                actionListener.onResponse(response);
-            } else {
-                String errorMsg = "Index creation not acknowledged for index: " + indexName;
-                logger.error(errorMsg);
-                actionListener.onFailure(new IllegalStateException(errorMsg));
+            if (flattenedResultIndexAlias != null) {
+                request.alias(new Alias(flattenedResultIndexAlias));
             }
-        }, exception -> {
-            logger.error("Failed to create flattened result index: {}", indexName, exception);
-            actionListener.onFailure(exception);
-        }));
+
+            choosePrimaryShards(request, false);
+
+            adminClient.indices().create(request, ActionListener.wrap(response -> {
+                if (response.isAcknowledged()) {
+                    logger.info("Successfully created flattened result index: {} with alias: {}", indexName, flattenedResultIndexAlias);
+                    actionListener.onResponse(response);
+                } else {
+                    String errorMsg = "Index creation not acknowledged for index: " + indexName;
+                    logger.error(errorMsg);
+                    actionListener.onFailure(new IllegalStateException(errorMsg));
+                }
+            }, exception -> {
+                logger.error("Failed to create flattened result index: {}", indexName, exception);
+                actionListener.onFailure(exception);
+            }));
+        } catch (Exception e) {
+            logger.error("Error while initializing flattened result index: {}", flattenedResultIndexAlias, e);
+            actionListener.onFailure(e);
+        }
     }
 
     public String getFlattenedResultIndexAlias(String indexOrAliasName, String configId) {
