@@ -60,8 +60,6 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
     // The index name pattern to query all AD result, history and current AD result
     public static final String ALL_AD_RESULTS_INDEX_PATTERN = ".opendistro-anomaly-results*";
 
-    // private static final ObjectMapper objectMapper = new ObjectMapper();
-
     /**
      * Constructor function
      *

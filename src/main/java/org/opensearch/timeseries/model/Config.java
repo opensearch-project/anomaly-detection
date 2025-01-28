@@ -79,7 +79,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String RESULT_INDEX_FIELD_MIN_SIZE = "result_index_min_size";
     public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
     public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
-    public static final String FLATTEN_RESULT_INDEX_MAPPING = "flatten_custom_result_index";
+    public static final String FLATTEN_CUSTOM_RESULT_INDEX = "flatten_custom_result_index";
     // Changing categorical field, feature attributes, interval, windowDelay, time field, horizon, indices,
     // result index would force us to display results only from the most recent update. Otherwise,
     // the UI appear cluttered and unclear.
@@ -533,7 +533,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             builder.field(RESULT_INDEX_FIELD_TTL, customResultIndexTTL);
         }
         if (flattenResultIndexMapping != null) {
-            builder.field(FLATTEN_RESULT_INDEX_MAPPING, flattenResultIndexMapping);
+            builder.field(FLATTEN_CUSTOM_RESULT_INDEX, flattenResultIndexMapping);
         }
         if (lastUIBreakingChangeTime != null) {
             builder.field(BREAKING_UI_CHANGE_TIME, lastUIBreakingChangeTime.toEpochMilli());
@@ -746,8 +746,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         return customResultIndexTTL;
     }
 
-    public Boolean getFlattenResultIndexMapping() {
-        return flattenResultIndexMapping;
+    public boolean getFlattenResultIndexMapping() {
+        return flattenResultIndexMapping != null ? flattenResultIndexMapping : false;
     }
 
     public Instant getLastBreakingUIChangeTime() {

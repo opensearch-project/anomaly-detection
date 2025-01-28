@@ -529,7 +529,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         XContentBuilder pipelineBuilder = XContentFactory.jsonBuilder();
         pipelineBuilder.startObject();
         {
-            pipelineBuilder.field("description", "Ingest pipeline for anomaly detector with result index: " + indexName);
+            pipelineBuilder.field("description", "Ingest pipeline for flattening result index: " + indexName);
             pipelineBuilder.startArray("processors");
             {
                 pipelineBuilder.startObject();
@@ -578,8 +578,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         if (config.getCustomResultIndexOrAlias() == null) {
             return;
         }
-        if (Boolean.TRUE.equals(existingConfig.getFlattenResultIndexMapping())
-            && Boolean.FALSE.equals(config.getFlattenResultIndexMapping())
+        if (existingConfig.getFlattenResultIndexMapping()
+            && !config.getFlattenResultIndexMapping()
             && existingConfig.getCustomResultIndexOrAlias() != null) {
             String pipelineId = timeSeriesIndices.getFlattenResultIndexIngestPipelineId(config.getId());
             client.admin().cluster().deletePipeline(new DeletePipelineRequest(pipelineId), new ActionListener<AcknowledgedResponse>() {
@@ -611,8 +611,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     }
                 }
             });
-        } else if (Boolean.FALSE.equals(existingConfig.getFlattenResultIndexMapping())
-            && Boolean.TRUE.equals(config.getFlattenResultIndexMapping())
+        } else if (!existingConfig.getFlattenResultIndexMapping()
+            && config.getFlattenResultIndexMapping()
             && existingConfig.getCustomResultIndexOrAlias() != null) {
             listener.onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX, RestStatus.BAD_REQUEST));
             return;
