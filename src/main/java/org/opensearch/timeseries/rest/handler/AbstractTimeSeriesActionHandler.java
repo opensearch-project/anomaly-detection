@@ -454,9 +454,15 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     private void handlePutRequest(boolean indexingDryRun, ActionListener<T> listener) {
-        handler.confirmJobRunning(clusterService, client, id, listener, () -> {
-            updateConfig(id, indexingDryRun, listener);
-        }, xContentRegistry);
+        handler
+            .confirmJobRunning(
+                clusterService,
+                client,
+                id,
+                listener,
+                () -> { updateConfig(id, indexingDryRun, listener); },
+                xContentRegistry
+            );
     }
 
     private void handlePostRequest(boolean indexingDryRun, ActionListener<T> listener) {
@@ -573,8 +579,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             return;
         }
         if (Boolean.TRUE.equals(existingConfig.getFlattenResultIndexMapping())
-                && Boolean.FALSE.equals(config.getFlattenResultIndexMapping())
-                && existingConfig.getCustomResultIndexOrAlias() != null) {
+            && Boolean.FALSE.equals(config.getFlattenResultIndexMapping())
+            && existingConfig.getCustomResultIndexOrAlias() != null) {
             String pipelineId = timeSeriesIndices.getFlattenResultIndexIngestPipelineId(config.getId());
             client.admin().cluster().deletePipeline(new DeletePipelineRequest(pipelineId), new ActionListener<AcknowledgedResponse>() {
 
@@ -606,23 +612,10 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 }
             });
         } else if (Boolean.FALSE.equals(existingConfig.getFlattenResultIndexMapping())
-                && Boolean.TRUE.equals(config.getFlattenResultIndexMapping())
-                && existingConfig.getCustomResultIndexOrAlias() != null
-        ) {
-            String flattenedResultIndexAlias = timeSeriesIndices
-                    .getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), config.getId());
-            String pipelineId = timeSeriesIndices.getFlattenResultIndexIngestPipelineId(config.getId());
-            timeSeriesIndices
-                    .initFlattenedResultIndex(
-                            flattenedResultIndexAlias,
-                            ActionListener.wrap(initResponse -> setupIngestPipeline(config.getId(), ActionListener.wrap(pipelineResponse -> {
-                                updateResultIndexSetting(
-                                        pipelineId,
-                                        flattenedResultIndexAlias,
-                                        ActionListener.wrap(updateResponse -> listener.onResponse(updateResponse), listener::onFailure)
-                                );
-                            }, listener::onFailure)), listener::onFailure)
-                    );
+            && Boolean.TRUE.equals(config.getFlattenResultIndexMapping())
+            && existingConfig.getCustomResultIndexOrAlias() != null) {
+            listener.onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX, RestStatus.BAD_REQUEST));
+            return;
         }
     }
 

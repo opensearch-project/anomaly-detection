@@ -1027,8 +1027,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             logger.info("Initializing flattened result index: {}", indexName);
 
             CreateIndexRequest request = new CreateIndexRequest(indexName)
-                    .mapping(getFlattenedResultMappings(), XContentType.JSON)
-                    .settings(settings);
+                .mapping(getFlattenedResultMappings(), XContentType.JSON)
+                .settings(settings);
 
             if (flattenedResultIndexAlias != null) {
                 request.alias(new Alias(flattenedResultIndexAlias));
