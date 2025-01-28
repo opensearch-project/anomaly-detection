@@ -1307,14 +1307,20 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             }
 
             // perform rollover and delete on found custom result index alias
-            candidateResultAliases.forEach(config -> handleCustomResultIndex(config, resultIndex));
+            candidateResultAliases.forEach(config -> {
+                handleResultIndexRolloverAndDelete(config.getCustomResultIndexOrAlias(), config, resultIndex);
+                if (config.getFlattenResultIndexMapping()) {
+                    String flattenedResultIndexAlias = getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), config.getId());
+                    handleResultIndexRolloverAndDelete(flattenedResultIndexAlias, config, resultIndex);
+                }
+            });
         }, e -> { logger.error("Failed to get configs with custom result index alias.", e); }));
     }
 
-    private void handleCustomResultIndex(Config config, IndexType resultIndex) {
+    private void handleResultIndexRolloverAndDelete(String indexAlias, Config config, IndexType resultIndex) {
         RolloverRequest rolloverRequest = buildRolloverRequest(
-            config.getCustomResultIndexOrAlias(),
-            getCustomResultIndexPattern(config.getCustomResultIndexOrAlias())
+            indexAlias,
+            getCustomResultIndexPattern(indexAlias)
         );
 
         // add rollover conditions if found in config
@@ -1327,9 +1333,9 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
         // perform rollover and delete on custom result index alias
         proceedWithRolloverAndDelete(
-            config.getCustomResultIndexOrAlias(),
+            indexAlias,
             rolloverRequest,
-            getAllCustomResultIndexPattern(config.getCustomResultIndexOrAlias()),
+            getAllCustomResultIndexPattern(indexAlias),
             resultIndex,
             config.getCustomResultIndexTTL()
         );

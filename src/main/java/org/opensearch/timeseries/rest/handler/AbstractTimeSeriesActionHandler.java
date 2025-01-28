@@ -614,6 +614,9 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         } else if (!existingConfig.getFlattenResultIndexMapping()
             && config.getFlattenResultIndexMapping()
             && existingConfig.getCustomResultIndexOrAlias() != null) {
+            // customers can choose to use a flattened result index for newly created detectors and disable it for those detectors.
+            // however, since enabling the flattened result index creates additional resources and due to bwc concerns,
+            // we do not allow customers to enable this feature for existing running detectors.
             listener.onFailure(new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX, RestStatus.BAD_REQUEST));
             return;
         }
