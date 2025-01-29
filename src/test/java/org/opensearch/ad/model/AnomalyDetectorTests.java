@@ -338,7 +338,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -376,7 +376,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -414,7 +414,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -452,7 +452,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -490,7 +490,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -528,7 +528,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -566,7 +566,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     TestHelpers.randomUser(),
                     null,
                     TestHelpers.randomImputationOption(featureList),
-                    randomIntBetween(1, 10000),
+                    randomIntBetween(2, 10000),
                     randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                     randomIntBetween(1, 1000),
                     null,
@@ -730,7 +730,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             TestHelpers.randomUser(),
             null,
             TestHelpers.randomImputationOption(featureList),
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -766,7 +766,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             TestHelpers.randomUser(),
             null,
             TestHelpers.randomImputationOption(featureList),
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             seasonalityIntervals,
             randomIntBetween(1, 1000),
             null,
@@ -832,7 +832,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             TestHelpers.randomUser(),
             null,
             null,
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
@@ -866,7 +866,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             TestHelpers.randomUser(),
             null,
             null,
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO),
             randomIntBetween(1, 1000),
             null,
@@ -1003,12 +1003,11 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"time_field\":\"HmdFH\",\"indices\":[\"ffsBF\"],\"filter_query\":{\"bool\":{\"filter\":[{\"exists\":"
             + "{\"field\":\"value\",\"boost\":1}}],\"adjust_pure_negative\":true,\"boost\":1}},\"window_delay\":"
             + "{\"period\":{\"interval\":2,\"unit\":\"Minutes\"}},\"shingle_size\":8,\"schema_version\":-512063255,"
-            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":true,"
+            + "\"feature_attributes\":[{\"feature_id\":\"OTYJs\",\"feature_name\":\"eYYCM\",\"feature_enabled\":false,"
             + "\"aggregation_query\":{\"XzewX\":{\"value_count\":{\"field\":\"ok\"}}}}],\"recency_emphasis\":3342,"
             + "\"history\":62,\"last_update_time\":1717192049845,\"category_field\":[\"Tcqcb\"],\"result_index\":"
-            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"FIXED_VALUES\",\"default_fill\""
-            + ":[{\"feature_name\":\"eYYCM\", \"data\": 3}]},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
-            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"flatten_result_index_mapping\":true}";
+            + "\"opensearch-ad-plugin-result-test\",\"imputation_option\":{\"method\":\"ZERO\"},\"suggested_seasonality\":64,\"detection_interval\":{\"period\":"
+            + "{\"interval\":5,\"unit\":\"Minutes\"}},\"detector_type\":\"MULTI_ENTITY\",\"rules\":[],\"flatten_custom_result_index\":true}";
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertEquals(true, (boolean) parsedDetector.getFlattenResultIndexMapping());
     }
@@ -1070,7 +1069,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 TestHelpers.randomUser(),
                 null,
                 new ImputationOption(ImputationMethod.FIXED_VALUES, null),
-                randomIntBetween(1, 10000),
+                randomIntBetween(2, 10000),
                 randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
                 randomIntBetween(1, 1000),
                 null,

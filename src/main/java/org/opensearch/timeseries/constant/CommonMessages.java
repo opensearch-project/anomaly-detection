@@ -44,6 +44,7 @@ public class CommonMessages {
     public static String FAIL_TO_FIND_CONFIG_MSG = "Can't find config with id: ";
     public static final String CAN_NOT_CHANGE_CATEGORY_FIELD = "Can't change category field";
     public static final String CAN_NOT_CHANGE_CUSTOM_RESULT_INDEX = "Can't change custom result index";
+    public static final String CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX = "Can't change flatten result index";
     public static final String CATEGORICAL_FIELD_TYPE_ERR_MSG = "Categorical field %s must be of type keyword or ip.";
     // Modifying message for FEATURE below may break the parseADValidationException method of ValidateAnomalyDetectorTransportAction
     public static final String FEATURE_INVALID_MSG_PREFIX = "Feature has an invalid query";

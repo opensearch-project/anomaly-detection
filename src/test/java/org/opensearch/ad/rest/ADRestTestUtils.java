@@ -219,7 +219,7 @@ public class ADRestTestUtils {
             null,
             // we don't release imputation until 2.17. Disable it in bwc first.
             null, // TestHelpers.randomImputationOption(featureList),
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
