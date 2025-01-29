@@ -8,6 +8,7 @@ package org.opensearch.timeseries.rest.handler;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG;
 import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDATION_FAILED;
+import static org.opensearch.timeseries.indices.IndexManagement.getScripts;
 import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
@@ -25,10 +26,13 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsAction;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsRequest;
 import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
+import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.ingest.DeletePipelineRequest;
+import org.opensearch.action.ingest.PutPipelineRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
@@ -40,11 +44,14 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -67,6 +74,7 @@ import org.opensearch.timeseries.model.TaskType;
 import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.*;
@@ -398,23 +406,176 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     /**
-     * Prepare for indexing a new config.
-     * @param indexingDryRun if this is dryrun for indexing; when validation, it is true; when create/update, it is false
+     * Prepares for indexing a new configuration.
+     *
+     * This method handles the preparation of indexing a configuration, either during validation (dry run)
+     * or for create/update operations. It supports both PUT and POST REST request methods.
+     *
+     * @param indexingDryRun indicates whether this is a dry run for indexing.
+     *                       If {@code true}, the operation performs validation without creating/updating the configuration.
+     *                       If {@code false}, the configuration is created or updated.
+     * @param listener       the {@link ActionListener} to handle the response or failure of the operation.
+     *
+     * <p><b>Behavior:</b></p>
+     * <ul>
+     *     <li>For {@code RestRequest.Method.PUT}: Validates that the job is not already running before proceeding
+     *         with updating the configuration. It updates the configuration and manages the result index mapping
+     *         if necessary.</li>
+     *     <li>For {@code RestRequest.Method.POST}: Creates a new configuration. If a custom result index or alias is specified:
+     *         <ul>
+     *             <li>If flattening of the result index mapping is enabled, it initializes a flattened result index,
+     *                 sets up an ingest pipeline, and updates the flattened result index settings to bind the ingest pipeline
+     *                 with the flattened result index, enabling the writing of flattened nested fields into the flattened result index.</li>
+     *             <li>If flattening is not enabled, directly returns the creation response.</li>
+     *         </ul>
+     *         If no custom result index or alias is specified, returns the creation response directly.</li>
+     * </ul>
+     *
+     * <p><b>Notes:</b></p>
+     * <ul>
+     *     <li>If the configuration has a custom result index or alias and flattening is enabled,
+     *         the flattened result index name is suffixed with the detector ID in lowercase.</li>
+     *     <li>The ingest pipeline ID is uniquely generated based on the detector ID in lowercase.</li>
+     * </ul>
+     *
+     * <p><b>Exceptions:</b></p>
+     * <ul>
+     *     <li>If the {@code createConfigResponse} is of an unexpected type, which indicates create config call has failed,
+     *         then an {@link IllegalStateException} is thrown.</li>
+     * </ul>
      */
     protected void prepareConfigIndexing(boolean indexingDryRun, ActionListener<T> listener) {
         if (method == RestRequest.Method.PUT) {
-            handler
-                .confirmJobRunning(
-                    clusterService,
-                    client,
-                    id,
-                    listener,
-                    () -> updateConfig(id, indexingDryRun, listener),
-                    xContentRegistry
-                );
+            handlePutRequest(indexingDryRun, listener);
         } else {
-            createConfig(indexingDryRun, listener);
+            handlePostRequest(indexingDryRun, listener);
         }
+    }
+
+    private void handlePutRequest(boolean indexingDryRun, ActionListener<T> listener) {
+        handler
+            .confirmJobRunning(
+                clusterService,
+                client,
+                id,
+                listener,
+                () -> { updateConfig(id, indexingDryRun, listener); },
+                xContentRegistry
+            );
+    }
+
+    private void handlePostRequest(boolean indexingDryRun, ActionListener<T> listener) {
+        createConfig(indexingDryRun, ActionListener.wrap(createConfigResponse -> {
+            if (shouldHandleFlattening(indexingDryRun)) {
+                String configId = RestHandlerUtils.getConfigIdFromIndexResponse(createConfigResponse);
+                String flattenedResultIndexAlias = config.getFlattenResultIndexAlias();
+
+                timeSeriesIndices
+                    .initFlattenedResultIndex(
+                        flattenedResultIndexAlias,
+                        ActionListener
+                            .wrap(
+                                initResponse -> setupIngestPipeline(flattenedResultIndexAlias, configId, listener, createConfigResponse),
+                                listener::onFailure
+                            )
+                    );
+            } else {
+                listener.onResponse(createConfigResponse);
+            }
+        }, listener::onFailure));
+    }
+
+    private boolean shouldHandleFlattening(boolean indexingDryRun) {
+        Boolean flattenResultIndexMapping = config.getFlattenResultIndexMapping();
+
+        return !indexingDryRun && config.getCustomResultIndexOrAlias() != null && Boolean.TRUE.equals(flattenResultIndexMapping);
+    }
+
+    protected void setupIngestPipeline(
+        String flattenedResultIndexAlias,
+        String configId,
+        ActionListener<T> listener,
+        T createConfigResponse
+    ) {
+        String pipelineId = config.getFlattenResultIndexIngestPipelineName();
+
+        try {
+            BytesReference pipelineSource = createPipelineDefinition(flattenedResultIndexAlias);
+
+            PutPipelineRequest putPipelineRequest = new PutPipelineRequest(pipelineId, pipelineSource, XContentType.JSON);
+
+            client.admin().cluster().putPipeline(putPipelineRequest, ActionListener.wrap(putPipelineResponse -> {
+                logger.info("Ingest pipeline created successfully for pipelineId: {}", pipelineId);
+                bindIngestPipelineWithFlattenedResultIndex(pipelineId, configId, flattenedResultIndexAlias, listener, createConfigResponse);
+
+            }, exception -> {
+                logger.error("Error while creating ingest pipeline for pipelineId: {}", pipelineId, exception);
+                listener.onFailure(exception);
+            }));
+
+        } catch (IOException e) {
+            logger.error("Exception while building ingest pipeline definition for pipeline ID: {}", pipelineId, e);
+            listener.onFailure(e);
+        }
+    }
+
+    private BytesReference createPipelineDefinition(String indexName) throws IOException {
+        XContentBuilder pipelineBuilder = XContentFactory.jsonBuilder();
+        pipelineBuilder.startObject();
+        {
+            pipelineBuilder.field("description", "Ingest pipeline for flattening result index: " + indexName);
+            pipelineBuilder.startArray("processors");
+            {
+                pipelineBuilder.startObject();
+                {
+                    pipelineBuilder.startObject("script");
+                    {
+                        pipelineBuilder.field("lang", "painless");
+                        String flattenScript = getScripts(TimeSeriesSettings.FLATTEN_CUSTOM_RESULT_INDEX_PAINLESS);
+                        pipelineBuilder.field("source", flattenScript);
+                    }
+                    pipelineBuilder.endObject();
+                }
+                pipelineBuilder.endObject();
+            }
+            pipelineBuilder.endArray();
+        }
+        pipelineBuilder.endObject();
+        return BytesReference.bytes(pipelineBuilder);
+    }
+
+    private UpdateSettingsRequest buildUpdateSettingsRequest(
+        String flattenedResultIndexAlias,
+        String defaultPipelineName,
+        String configId
+    ) {
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest();
+        updateSettingsRequest.indices(flattenedResultIndexAlias);
+
+        Settings.Builder settingsBuilder = Settings.builder();
+        settingsBuilder.put("index.default_pipeline", defaultPipelineName);
+
+        updateSettingsRequest.settings(settingsBuilder);
+
+        return updateSettingsRequest;
+    }
+
+    protected void bindIngestPipelineWithFlattenedResultIndex(
+        String pipelineId,
+        String configId,
+        String flattenedResultIndexAlias,
+        ActionListener<T> listener,
+        T createConfigResponse
+    ) {
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(flattenedResultIndexAlias, pipelineId, configId);
+
+        client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(updateSettingsResponse -> {
+            logger.info("Successfully updated settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId);
+            listener.onResponse(createConfigResponse);
+        }, exception -> {
+            logger.error("Failed to update settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId, exception);
+            listener.onFailure(exception);
+        }));
     }
 
     protected void updateConfig(String id, boolean indexingDryRun, ActionListener<T> listener) {
@@ -458,27 +619,92 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                         );
                     return;
                 }
+                if (!existingConfig.getFlattenResultIndexMapping()
+                    && config.getFlattenResultIndexMapping()
+                    && existingConfig.getCustomResultIndexOrAlias() != null) {
+                    // customers can choose to use a flattened result index for newly created detectors and disable it for those detectors.
+                    // however, since enabling the flattened result index creates additional resources and due to bwc concerns,
+                    // we do not allow customers to enable this feature for existing running detectors.
+                    listener
+                        .onFailure(
+                            new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX, RestStatus.BAD_REQUEST)
+                        );
+                    return;
+                }
             } else {
                 if (!ParseUtils.listEqualsWithoutConsideringOrder(existingConfig.getCategoryFields(), config.getCategoryFields())
                     || !Objects.equals(existingConfig.getCustomResultIndexOrAlias(), config.getCustomResultIndexOrAlias())) {
                     breakingUIChange = true;
                 }
             }
+            ActionListener<Void> confirmBatchRunningListener;
 
-            ActionListener<Void> confirmBatchRunningListener = ActionListener
-                .wrap(
-                    r -> searchConfigInputIndices(id, indexingDryRun, listener),
-                    // can't update config if there is task running
-                    listener::onFailure
-                );
+            // when unselecting flatten result index, need to clean up alias and ingest pipeline resources
+            if (existingConfig.getFlattenResultIndexMapping()
+                && !config.getFlattenResultIndexMapping()
+                && existingConfig.getCustomResultIndexOrAlias() != null) {
+                confirmBatchRunningListener = ActionListener
+                    .wrap(
+                        r -> unbindIngestPipelineWithFlattenedResultIndex(existingConfig, listener, id, indexingDryRun),
+                        // can't update config if there is task running
+                        listener::onFailure
+                    );
 
+            } else {
+                confirmBatchRunningListener = ActionListener
+                    .wrap(
+                        r -> searchConfigInputIndices(id, indexingDryRun, listener),
+                        // can't update config if there is task running
+                        listener::onFailure
+                    );
+            }
             handler.confirmBatchRunning(id, batchTasks, confirmBatchRunningListener);
         } catch (Exception e) {
             String message = "Failed to parse config " + id;
             logger.error(message, e);
             listener.onFailure(new OpenSearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR));
         }
+    }
 
+    private void unbindIngestPipelineWithFlattenedResultIndex(
+        Config existingConfig,
+        ActionListener<T> listener,
+        String id,
+        boolean indexingDryRun
+    ) {
+        // The pipeline name _none specifies that the index does not have an ingest pipeline.
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(
+            existingConfig.getFlattenResultIndexAlias(),
+            "_none",
+            existingConfig.getId()
+        );
+        client
+            .admin()
+            .indices()
+            .updateSettings(
+                updateSettingsRequest,
+                ActionListener
+                    .wrap(
+                        updateSettingsResponse -> deleteIngestPipeline(existingConfig, listener, id, indexingDryRun),
+                        exception -> listener.onFailure(exception)
+                    )
+            );
+    }
+
+    private void deleteIngestPipeline(Config existingConfig, ActionListener<T> listener, String id, boolean indexingDryRun) {
+        String pipelineId = existingConfig.getFlattenResultIndexIngestPipelineName();
+
+        client
+            .admin()
+            .cluster()
+            .deletePipeline(
+                new DeletePipelineRequest(pipelineId),
+                ActionListener
+                    .wrap(
+                        deleteIngestPipelineResponse -> searchConfigInputIndices(id, indexingDryRun, listener),
+                        exception -> listener.onFailure(exception)
+                    )
+            );
     }
 
     protected void validateAgainstExistingHCConfig(String configId, boolean indexingDryRun, ActionListener<T> listener) {

@@ -103,8 +103,9 @@ public class ADResultWriteWorker extends
         String configId,
         RequestPriority priority,
         AnomalyResult result,
-        String resultIndex
+        String resultIndex,
+        String flattenResultIndex
     ) {
-        return new ADResultWriteRequest(expirationEpochMs, configId, priority, result, resultIndex);
+        return new ADResultWriteRequest(expirationEpochMs, configId, priority, result, resultIndex, flattenResultIndex);
     }
 }

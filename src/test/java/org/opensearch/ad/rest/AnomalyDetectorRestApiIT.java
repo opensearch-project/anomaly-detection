@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
@@ -123,10 +124,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     private AnomalyDetector createIndexAndGetAnomalyDetector(String indexName, List<Feature> features, boolean useDateNanos)
         throws IOException {
+        return createIndexAndGetAnomalyDetector(indexName, features, useDateNanos, false);
+    }
+
+    private AnomalyDetector createIndexAndGetAnomalyDetector(
+        String indexName,
+        List<Feature> features,
+        boolean useDateNanos,
+        boolean useFlattenResultIndex
+    ) throws IOException {
         TestHelpers.createIndexWithTimeField(client(), indexName, TIME_FIELD, useDateNanos);
         String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
         TestHelpers.ingestDataToIndex(client(), indexName, TestHelpers.toHttpEntity(testIndexData));
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
+
+        AnomalyDetector detector = useFlattenResultIndex
+            ? TestHelpers.randomAnomalyDetectorWithFlattenResultIndex(TIME_FIELD, indexName, features)
+            : TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
+
         return detector;
     }
 
@@ -178,6 +192,272 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         null
                     )
             );
+    }
+
+    public void testCreateAnomalyDetector_withFlattenedResultIndex() throws Exception {
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(
+            INDEX_NAME,
+            ImmutableList.of(TestHelpers.randomFeature("feature_bytes", "agg", true)),
+            false,
+            true
+        );
+
+        // Test behavior when AD is disabled
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(detector),
+                    null
+                )
+        );
+        assertThat(ex.getMessage(), containsString(ADCommonMessages.DISABLED_ERR_MSG));
+
+        // Test behavior when AD is enabled
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector with flattened result index failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        int version = (int) responseMap.get("_version");
+        assertNotEquals("Response is missing Id", AnomalyDetector.NO_ID, id);
+        assertTrue("Incorrect version", version > 0);
+
+        // Ensure the flattened result index was created
+        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
+        assertTrue("Alias for flattened result index does not exist", aliasExists(expectedFlattenedIndex));
+
+        // Start detector
+        String startDetectorEndpoint = String.format(Locale.ROOT, TestHelpers.AD_BASE_START_DETECTOR_URL, id);
+        TestHelpers.makeRequest(client(), "POST", startDetectorEndpoint, ImmutableMap.of(), (HttpEntity) null, null);
+
+        // Wait for detector results, check every 1 second, max 60 seconds
+        boolean resultsAvailable = false;
+        int maxRetries = 60;
+        int retryIntervalMs = 1000;
+
+        Map<String, Object> searchResults = null;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            Response searchAllResponse = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_RESULT_URI + "/_search/" + expectedFlattenedIndex,
+                    ImmutableMap.of(),
+                    new StringEntity("{\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    null
+                );
+            searchResults = entityAsMap(searchAllResponse);
+            List<Map<String, Object>> hitsList = (List<Map<String, Object>>) ((Map<String, Object>) searchResults.get("hits")).get("hits");
+
+            if (hitsList != null && !hitsList.isEmpty()) {
+                resultsAvailable = true;
+                break;
+            }
+            Thread.sleep(retryIntervalMs);
+        }
+
+        assertTrue("No anomaly detection results found within timeout period", resultsAvailable);
+
+        // Extract feature name and value from search results
+        Map<String, Object> firstHit = ((List<Map<String, Object>>) ((Map<String, Object>) searchResults.get("hits")).get("hits")).get(0);
+        Map<String, Object> source = (Map<String, Object>) firstHit.get("_source");
+        assertNotNull("Source should not be null", source);
+        assertTrue("Source should contain 'feature_data'", source.containsKey("feature_data"));
+
+        List<Map<String, Object>> featureDataList = (List<Map<String, Object>>) source.get("feature_data");
+        assertFalse("Feature data list should not be empty", featureDataList.isEmpty());
+
+        Map<String, Object> firstFeature = featureDataList.get(0);
+        String featureName = (String) firstFeature.get("feature_name");
+        Double featureValue = ((Number) firstFeature.get("data")).doubleValue();
+
+        // Validate flattened result index mappings
+        Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", expectedFlattenedIndex, ImmutableMap.of(), "", null);
+        Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
+
+        String indexKey = flattenedResultIndex.keySet().stream().findFirst().orElse(null);
+        Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
+        Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+
+        assertEquals("Dynamic field is not set to true", "true", mappings.get("dynamic").toString());
+
+        Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+        String expectedFieldKey = "feature_data_" + featureName;
+        assertTrue("Flattened field '" + expectedFieldKey + "' does not exist", properties.containsKey(expectedFieldKey));
+
+        // Search against flattened result index and validate value
+        Response searchFlattenResultIndexResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_RESULT_URI + "/_search/" + expectedFlattenedIndex,
+                ImmutableMap.of(),
+                new StringEntity("{\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                null
+            );
+        Map<String, Object> flattenedResultIndexSearchResults = entityAsMap(searchFlattenResultIndexResponse);
+        Map<String, Object> flattenedResultIndexHitsMap = (Map<String, Object>) flattenedResultIndexSearchResults.get("hits");
+        List<Map<String, Object>> flattenedResultIndexHitsList = (List<Map<String, Object>>) flattenedResultIndexHitsMap.get("hits");
+
+        Map<String, Object> flattenedResultIndexFirstHit = flattenedResultIndexHitsList.get(0);
+        Map<String, Object> flattenedResultIndexSource = (Map<String, Object>) flattenedResultIndexFirstHit.get("_source");
+
+        assertTrue(
+            "Flattened result index does not contain '" + expectedFieldKey + "'",
+            flattenedResultIndexSource.containsKey(expectedFieldKey)
+        );
+
+        assertEquals(
+            "Flattened field value is not correct",
+            featureValue,
+            ((Number) flattenedResultIndexSource.get(expectedFieldKey)).doubleValue(),
+            0.0001
+        );
+    }
+
+    public void testUpdateAnomalyDetector_disableFlattenResultIndex_shouldDeletePipeline() throws Exception {
+        AnomalyDetector detector = createIndexAndGetAnomalyDetector(
+            INDEX_NAME,
+            ImmutableList.of(TestHelpers.randomFeature("feature_bytes", "agg", true)),
+            false,
+            true
+        );
+
+        // test behavior when AD is enabled
+        updateClusterSettings(ADEnabledSetting.AD_ENABLED, true);
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector with flattened result index failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
+        String expectedPipelineId = "flatten_result_index_ingest_pipeline_detectorwithflattenresultindex";
+        String getIngestPipelineEndpoint = String.format(Locale.ROOT, "_ingest/pipeline/%s", expectedPipelineId);
+        Response getPipelineResponse = TestHelpers.makeRequest(client(), "GET", getIngestPipelineEndpoint, ImmutableMap.of(), "", null);
+        assertEquals(
+            "Expected 200 response but got: " + getPipelineResponse.getStatusLine().getStatusCode(),
+            200,
+            getPipelineResponse.getStatusLine().getStatusCode()
+        );
+        List<Feature> features = detector.getFeatureAttributes();
+        AnomalyDetector newDetector = new AnomalyDetector(
+            id,
+            detector.getVersion(),
+            detector.getName(),
+            detector.getDescription(),
+            detector.getTimeField(),
+            detector.getIndices(),
+            features,
+            detector.getFilterQuery(),
+            detector.getInterval(),
+            detector.getWindowDelay(),
+            detector.getShingleSize(),
+            detector.getUiMetadata(),
+            detector.getSchemaVersion(),
+            detector.getLastUpdateTime(),
+            null,
+            detector.getUser(),
+            detector.getCustomResultIndexOrAlias(),
+            TestHelpers.randomImputationOption(features),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null,
+            false,
+            detector.getLastBreakingUIChangeTime()
+        );
+        Response updateResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + id + "?refresh=true",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(newDetector),
+                null
+            );
+        assertEquals("Update anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(updateResponse));
+        ResponseException responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers.makeRequest(client(), "GET", getIngestPipelineEndpoint, ImmutableMap.of(), "", null)
+        );
+        int statusCode = responseException.getResponse().getStatusLine().getStatusCode();
+        assertEquals("Expected 404 response but got: " + statusCode, 404, statusCode);
+    }
+
+    public void testUpdateAnomalyDetectorFlattenResultIndexField() throws Exception {
+        TestHelpers.createIndexWithTimeField(client(), INDEX_NAME, TIME_FIELD, false);
+        String testIndexData = "{\"keyword-field\": \"field-1\", \"ip-field\": \"1.2.3.4\", \"timestamp\": 1}";
+        TestHelpers.ingestDataToIndex(client(), INDEX_NAME, TestHelpers.toHttpEntity(testIndexData));
+        AnomalyDetector detector = TestHelpers
+            .randomDetector(
+                ImmutableList.of(TestHelpers.randomFeature("feature_bytes", "agg", true)),
+                INDEX_NAME,
+                5,
+                TIME_FIELD,
+                null,
+                ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test"
+            );
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(detector), null);
+        assertEquals("Create anomaly detector failed", RestStatus.CREATED, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        String id = (String) responseMap.get("_id");
+        List<Feature> features = detector.getFeatureAttributes();
+        long expectedFeatures = features.stream().filter(Feature::getEnabled).count();
+        AnomalyDetector newDetector = new AnomalyDetector(
+            id,
+            null,
+            detector.getName(),
+            detector.getDescription(),
+            detector.getTimeField(),
+            detector.getIndices(),
+            features,
+            detector.getFilterQuery(),
+            detector.getInterval(),
+            detector.getWindowDelay(),
+            detector.getShingleSize(),
+            detector.getUiMetadata(),
+            detector.getSchemaVersion(),
+            detector.getLastUpdateTime(),
+            detector.getCategoryFields(),
+            detector.getUser(),
+            detector.getCustomResultIndexOrAlias(),
+            TestHelpers.randomImputationOption(features),
+            randomIntBetween(1, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            detector.getRules(),
+            null,
+            null,
+            null,
+            true,
+            detector.getLastBreakingUIChangeTime()
+        );
+
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "PUT",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + id + "?refresh=true",
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(newDetector),
+                    null
+                )
+        );
+        assertThat(ex.getMessage(), containsString(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX));
     }
 
     public void testCreateAnomalyDetector() throws Exception {

@@ -76,7 +76,8 @@ public class ForecastSingleStreamResultTransportAction extends
             config.getId(),
             RequestPriority.MEDIUM,
             result,
-            config.getCustomResultIndexOrAlias()
+            config.getCustomResultIndexOrAlias(),
+            config.getFlattenResultIndexAlias()
         );
     }
 }

@@ -34,6 +34,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.ratelimit.ResultWriteRequest;
 import org.opensearch.timeseries.util.BulkUtil;
@@ -51,6 +52,7 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
     protected String indexName;
     private Client client;
     protected Random random;
+    protected NodeStateManager nodeStateManager;
 
     public ResultBulkTransportAction(
         String actionName,
