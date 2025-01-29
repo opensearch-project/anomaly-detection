@@ -31,8 +31,12 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.transport.ResultBulkTransportAction;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
@@ -50,7 +54,8 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
         IndexingPressure indexingPressure,
         Settings settings,
         ClusterService clusterService,
-        Client client
+        Client client,
+        NodeStateManager stateManager
     ) {
         super(
             ADResultBulkAction.NAME,
@@ -62,7 +67,8 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
             AD_INDEX_PRESSURE_SOFT_LIMIT.get(settings),
             AD_INDEX_PRESSURE_HARD_LIMIT.get(settings),
             ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ADResultBulkRequest::new
+            ADResultBulkRequest::new,
+            stateManager
         );
         this.clusterService = clusterService;
         this.client = client;
@@ -137,9 +143,16 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
 
     private void addToFlattenedIndexIfExists(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {
         String flattenedResultIndexAlias = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
-        if (clusterService.state().metadata().hasAlias(flattenedResultIndexAlias)) {
-            addResult(bulkRequest, result, flattenedResultIndexAlias);
-        }
+        String configId = result.getConfigId();
+        nodeStateManager.getConfig(configId, AnalysisType.AD, ActionListener.wrap(configOptional -> {
+            if (configOptional.isEmpty()) {
+                return;
+            }
+            Config config = configOptional.get();
+            if (config.getFlattenResultIndexMapping()) {
+                addResult(bulkRequest, result, flattenedResultIndexAlias);
+            }
+        }, e -> LOG.error("Fail to get config", e)));
     }
 
     private void addResult(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {

@@ -34,6 +34,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.ratelimit.ResultWriteRequest;
 import org.opensearch.timeseries.util.BulkUtil;
@@ -51,6 +52,7 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
     protected String indexName;
     private Client client;
     protected Random random;
+    protected NodeStateManager nodeStateManager;
 
     public ResultBulkTransportAction(
         String actionName,
@@ -62,7 +64,8 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
         float softLimit,
         float hardLimit,
         String indexName,
-        Writeable.Reader<ResultBulkRequestType> requestReader
+        Writeable.Reader<ResultBulkRequestType> requestReader,
+        NodeStateManager nodeStateManager
     ) {
         super(actionName, transportService, actionFilters, requestReader, ThreadPool.Names.SAME);
         this.indexingPressure = indexingPressure;
@@ -72,6 +75,7 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
         this.softLimit = softLimit;
         this.hardLimit = hardLimit;
         this.indexName = indexName;
+        this.nodeStateManager = nodeStateManager;
 
         // random seed is 42. Can be any number
         this.random = new Random(42);

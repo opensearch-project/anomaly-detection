@@ -241,7 +241,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .format(Locale.ROOT, "/opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
         // wait for the detector starts writing result
         try {
-            Thread.sleep(60 * 1000);
+            Thread.sleep(30 * 1000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Thread was interrupted while waiting", e);
