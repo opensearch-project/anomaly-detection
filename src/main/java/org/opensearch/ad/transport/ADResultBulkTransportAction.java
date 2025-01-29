@@ -31,12 +31,9 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
-import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
-import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.transport.ResultBulkTransportAction;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
@@ -120,7 +117,10 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
 
             if (shouldAddResult(indexingPressurePercent, result)) {
                 addResult(bulkRequest, result, resultIndex);
-                addToFlattenedIndexIfExists(bulkRequest, result, resultIndex);
+                if (resultWriteRequest.getFlattenResultIndex()) {
+                    String flattenedResultIndexAlias = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
+                    addResult(bulkRequest, result, flattenedResultIndexAlias);
+                }
             }
         }
 
@@ -139,20 +139,6 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
             // if exceeding hard limit, only index non-zero grade or error result
             return result.isHighPriority();
         }
-    }
-
-    private void addToFlattenedIndexIfExists(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {
-        String flattenedResultIndexAlias = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
-        String configId = result.getConfigId();
-        nodeStateManager.getConfig(configId, AnalysisType.AD, ActionListener.wrap(configOptional -> {
-            if (configOptional.isEmpty()) {
-                return;
-            }
-            Config config = configOptional.get();
-            if (config.getFlattenResultIndexMapping()) {
-                addResult(bulkRequest, result, flattenedResultIndexAlias);
-            }
-        }, e -> LOG.error("Fail to get config", e)));
     }
 
     private void addResult(BulkRequest bulkRequest, AnomalyResult result, String resultIndex) {

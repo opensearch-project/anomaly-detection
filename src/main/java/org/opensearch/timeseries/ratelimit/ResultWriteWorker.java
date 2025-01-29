@@ -199,7 +199,8 @@ public abstract class ResultWriteWorker<ResultType extends IndexableResult, Resu
                     id,
                     resultToRetry.isHighPriority() ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                     resultToRetry,
-                    config.getCustomResultIndexOrAlias()
+                    config.getCustomResultIndexOrAlias(),
+                    config.getFlattenResultIndexMapping()
                 )
             );
 
@@ -216,6 +217,7 @@ public abstract class ResultWriteWorker<ResultType extends IndexableResult, Resu
         String configId,
         RequestPriority priority,
         ResultType result,
-        String resultIndex
+        String resultIndex,
+        boolean flattenResultIndex
     );
 }

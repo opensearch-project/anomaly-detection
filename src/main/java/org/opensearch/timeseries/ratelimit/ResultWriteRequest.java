@@ -22,16 +22,26 @@ public abstract class ResultWriteRequest<ResultType extends IndexableResult> ext
     private final ResultType result;
     // If resultIndex is null, result will be stored in default result index.
     private final String resultIndex;
+    private final boolean flattenResultIndex;
 
-    public ResultWriteRequest(long expirationEpochMs, String configId, RequestPriority priority, ResultType result, String resultIndex) {
+    public ResultWriteRequest(
+        long expirationEpochMs,
+        String configId,
+        RequestPriority priority,
+        ResultType result,
+        String resultIndex,
+        boolean flattenResultIndex
+    ) {
         super(expirationEpochMs, configId, priority);
         this.result = result;
         this.resultIndex = resultIndex;
+        this.flattenResultIndex = flattenResultIndex;
     }
 
-    public ResultWriteRequest(StreamInput in, Writeable.Reader<ResultType> resultReader) throws IOException {
+    public ResultWriteRequest(StreamInput in, Reader<ResultType> resultReader) throws IOException {
         this.result = resultReader.read(in);
         this.resultIndex = in.readOptionalString();
+        this.flattenResultIndex = in.readBoolean();
     }
 
     @Override
@@ -46,5 +56,9 @@ public abstract class ResultWriteRequest<ResultType extends IndexableResult> ext
 
     public String getResultIndex() {
         return resultIndex;
+    }
+
+    public boolean getFlattenResultIndex() {
+        return flattenResultIndex;
     }
 }

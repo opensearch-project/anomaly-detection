@@ -25,9 +25,10 @@ public class ADResultWriteRequest extends ResultWriteRequest<AnomalyResult> {
         String detectorId,
         RequestPriority priority,
         AnomalyResult result,
-        String resultIndex
+        String resultIndex,
+        boolean flattenResultIndex
     ) {
-        super(expirationEpochMs, detectorId, priority, result, resultIndex);
+        super(expirationEpochMs, detectorId, priority, result, resultIndex, flattenResultIndex);
     }
 
     public ADResultWriteRequest(StreamInput in) throws IOException {

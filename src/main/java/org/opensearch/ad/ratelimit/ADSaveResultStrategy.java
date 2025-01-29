@@ -86,7 +86,8 @@ public class ADSaveResultStrategy implements SaveResultStrategy<AnomalyResult, T
                     config.getId(),
                     result.getAnomalyGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                     result,
-                    config.getCustomResultIndexOrAlias()
+                    config.getCustomResultIndexOrAlias(),
+                    config.getFlattenResultIndexMapping()
                 )
             );
     }
