@@ -642,7 +642,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 && existingConfig.getCustomResultIndexOrAlias() != null) {
                 confirmBatchRunningListener = ActionListener
                     .wrap(
-                        r -> getFlattenResultAliasIndex(existingConfig, listener, id, indexingDryRun),
+                        r -> unbindIngestPipelineWithFlattenedResultIndex(existingConfig, listener, id, indexingDryRun),
                         // can't update config if there is task running
                         listener::onFailure
                     );
@@ -663,41 +663,26 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
-    private void getFlattenResultAliasIndex(Config existingConfig, ActionListener<T> listener, String id, boolean indexingDryRun) {
-        String flattenResultIndexAlias = timeSeriesIndices
-            .getFlattenedResultIndexAlias(existingConfig.getCustomResultIndexOrAlias(), existingConfig.getId());
-        GetAliasesRequest getAliasesRequest = new GetAliasesRequest(flattenResultIndexAlias);
-        client.admin().indices().getAliases(getAliasesRequest, ActionListener.wrap(getAliasesResponse -> {
-            Set<String> indices = getAliasesResponse.getAliases().keySet();
-            if (indices.isEmpty()) {
-                return;
-            }
-            String indexName = indices.iterator().next();
-            deleteAlias(indexName, flattenResultIndexAlias, existingConfig, listener, id, indexingDryRun);
-        }, exception -> listener.onFailure(exception)));
+    private UpdateSettingsRequest buildUpdateSettingsRequest(String defaultPipelineName, String configId) {
+        String flattenedResultIndex = timeSeriesIndices
+                .getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), configId);
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest();
+        updateSettingsRequest.indices(flattenedResultIndex);
+
+        Settings.Builder settingsBuilder = Settings.builder();
+        settingsBuilder.put("index.default_pipeline", defaultPipelineName);
+
+        updateSettingsRequest.settings(settingsBuilder);
+
+        return updateSettingsRequest;
     }
 
-    private void deleteAlias(
-        String indexName,
-        String aliasName,
-        Config existingConfig,
-        ActionListener<T> listener,
-        String id,
-        boolean indexingDryRun
-    ) {
-        IndicesAliasesRequest indicesAliasesRequest = new IndicesAliasesRequest();
-        indicesAliasesRequest.addAliasAction(IndicesAliasesRequest.AliasActions.remove().index(indexName).alias(aliasName));
-        client
-            .admin()
-            .indices()
-            .aliases(
-                indicesAliasesRequest,
-                ActionListener
-                    .wrap(
-                        deleteAliasResponse -> deleteIngestPipeline(existingConfig, listener, id, indexingDryRun),
-                        exception -> listener.onFailure(exception)
-                    )
-            );
+    private void unbindIngestPipelineWithFlattenedResultIndex(Config existingConfig, ActionListener<T> listener, String id, boolean indexingDryRun) {
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest("_none", existingConfig.getId());
+        client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(
+            updateSettingsResponse -> deleteIngestPipeline(existingConfig, listener, id, indexingDryRun),
+            exception -> listener.onFailure(exception)
+        ));
     }
 
     private void deleteIngestPipeline(Config existingConfig, ActionListener<T> listener, String id, boolean indexingDryRun) {
