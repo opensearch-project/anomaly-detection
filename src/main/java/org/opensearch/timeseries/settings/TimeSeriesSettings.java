@@ -289,4 +289,6 @@ public class TimeSeriesSettings {
 
     // max entities to track per detector
     public static final int MAX_TRACKING_ENTITIES = 1000000;
+
+    public static final String FLATTEN_CUSTOM_RESULT_INDEX_PAINLESS = "scripts/flatten-custom-result-index-painless.txt";
 }

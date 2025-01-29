@@ -11,6 +11,7 @@
 
 package org.opensearch.timeseries.indices;
 
+import static org.opensearch.ad.indices.ADIndexManagement.getFlattenedResultMappings;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
@@ -89,6 +90,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -136,6 +138,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     private NamedXContentRegistry xContentRegistry;
     protected BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser;
     protected String customResultIndexPrefix;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     protected class IndexState {
         // keep track of whether the mapping version is up-to-date
@@ -269,6 +272,11 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
     protected static String getMappings(String mappingFileRelativePath) throws IOException {
         URL url = IndexManagement.class.getClassLoader().getResource(mappingFileRelativePath);
+        return Resources.toString(url, Charsets.UTF_8);
+    }
+
+    public static String getScripts(String scriptFileRelativePath) throws IOException {
+        URL url = IndexManagement.class.getClassLoader().getResource(scriptFileRelativePath);
         return Resources.toString(url, Charsets.UTF_8);
     }
 
@@ -1008,6 +1016,45 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }
     }
 
+    /**
+     * creates flattened result index
+     * @param flattenedResultIndexAlias the flattened result index alias
+     * @param actionListener the action listener
+     */
+    public void initFlattenedResultIndex(String flattenedResultIndexAlias, ActionListener<CreateIndexResponse> actionListener) {
+        try {
+            String indexName = getCustomResultIndexPattern(flattenedResultIndexAlias);
+            logger.info("Initializing flattened result index: {}", indexName);
+
+            CreateIndexRequest request = new CreateIndexRequest(indexName)
+                .mapping(getFlattenedResultMappings(), XContentType.JSON)
+                .settings(settings);
+
+            if (flattenedResultIndexAlias != null) {
+                request.alias(new Alias(flattenedResultIndexAlias));
+            }
+
+            choosePrimaryShards(request, false);
+
+            adminClient.indices().create(request, ActionListener.wrap(response -> {
+                if (response.isAcknowledged()) {
+                    logger.info("Successfully created flattened result index: {} with alias: {}", indexName, flattenedResultIndexAlias);
+                    actionListener.onResponse(response);
+                } else {
+                    String errorMsg = "Index creation not acknowledged for index: " + indexName;
+                    logger.error(errorMsg);
+                    actionListener.onFailure(new IllegalStateException(errorMsg));
+                }
+            }, exception -> {
+                logger.error("Failed to create flattened result index: {}", indexName, exception);
+                actionListener.onFailure(exception);
+            }));
+        } catch (Exception e) {
+            logger.error("Error while initializing flattened result index: {}", flattenedResultIndexAlias, e);
+            actionListener.onFailure(e);
+        }
+    }
+
     public <T> void validateCustomIndexForBackendJob(
         String resultIndexOrAlias,
         String securityLogId,
@@ -1252,15 +1299,18 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             }
 
             // perform rollover and delete on found custom result index alias
-            candidateResultAliases.forEach(config -> handleCustomResultIndex(config, resultIndex));
+            candidateResultAliases.forEach(config -> {
+                handleResultIndexRolloverAndDelete(config.getCustomResultIndexOrAlias(), config, resultIndex);
+                if (config.getFlattenResultIndexMapping()) {
+                    String flattenedResultIndexAlias = config.getFlattenResultIndexAlias();
+                    handleResultIndexRolloverAndDelete(flattenedResultIndexAlias, config, resultIndex);
+                }
+            });
         }, e -> { logger.error("Failed to get configs with custom result index alias.", e); }));
     }
 
-    private void handleCustomResultIndex(Config config, IndexType resultIndex) {
-        RolloverRequest rolloverRequest = buildRolloverRequest(
-            config.getCustomResultIndexOrAlias(),
-            getCustomResultIndexPattern(config.getCustomResultIndexOrAlias())
-        );
+    private void handleResultIndexRolloverAndDelete(String indexAlias, Config config, IndexType resultIndex) {
+        RolloverRequest rolloverRequest = buildRolloverRequest(indexAlias, getCustomResultIndexPattern(indexAlias));
 
         // add rollover conditions if found in config
         if (config.getCustomResultIndexMinAge() != null) {
@@ -1272,9 +1322,9 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
 
         // perform rollover and delete on custom result index alias
         proceedWithRolloverAndDelete(
-            config.getCustomResultIndexOrAlias(),
+            indexAlias,
             rolloverRequest,
-            getAllCustomResultIndexPattern(config.getCustomResultIndexOrAlias()),
+            getAllCustomResultIndexPattern(indexAlias),
             resultIndex,
             config.getCustomResultIndexTTL()
         );

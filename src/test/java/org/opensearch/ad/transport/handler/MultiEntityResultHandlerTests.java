@@ -50,6 +50,7 @@ public class MultiEntityResultHandlerTests extends AbstractIndexHandlerTest {
             detectorId,
             RequestPriority.MEDIUM,
             TestHelpers.randomAnomalyDetectResult(),
+            null,
             null
         );
         request.add(resultWriteRequest);

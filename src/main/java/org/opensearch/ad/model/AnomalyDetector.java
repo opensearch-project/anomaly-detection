@@ -592,7 +592,7 @@ public class AnomalyDetector extends Config {
                 case RESULT_INDEX_FIELD_TTL:
                     customResultIndexTTL = onlyParseNumberValue(parser);
                     break;
-                case FLATTEN_RESULT_INDEX_MAPPING:
+                case FLATTEN_CUSTOM_RESULT_INDEX:
                     flattenResultIndexMapping = onlyParseBooleanValue(parser);
                     break;
                 case BREAKING_UI_CHANGE_TIME:
