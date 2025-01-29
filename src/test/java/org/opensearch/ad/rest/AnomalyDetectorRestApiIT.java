@@ -246,27 +246,21 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         Map<String, Object> searchResults = null;
         for (int attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                Response searchAllResponse = TestHelpers
-                    .makeRequest(
-                        client(),
-                        "POST",
-                        TestHelpers.AD_BASE_RESULT_URI + "/_search/" + expectedFlattenedIndex,
-                        ImmutableMap.of(),
-                        new StringEntity("{\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
-                        null
-                    );
-                searchResults = entityAsMap(searchAllResponse);
-                List<Map<String, Object>> hitsList = (List<Map<String, Object>>) ((Map<String, Object>) searchResults.get("hits"))
-                    .get("hits");
+            Response searchAllResponse = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_RESULT_URI + "/_search/" + expectedFlattenedIndex,
+                    ImmutableMap.of(),
+                    new StringEntity("{\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    null
+                );
+            searchResults = entityAsMap(searchAllResponse);
+            List<Map<String, Object>> hitsList = (List<Map<String, Object>>) ((Map<String, Object>) searchResults.get("hits")).get("hits");
 
-                if (hitsList != null && !hitsList.isEmpty()) {
-                    resultsAvailable = true;
-                    break;
-                }
-            } catch (Exception e) {
-                // Log the retry attempt and continue retrying
-                System.out.println("Attempt " + (attempt + 1) + " failed, retrying...");
+            if (hitsList != null && !hitsList.isEmpty()) {
+                resultsAvailable = true;
+                break;
             }
             Thread.sleep(retryIntervalMs);
         }
