@@ -84,7 +84,7 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
                     RequestPriority.MEDIUM,
                     result,
                     config.getCustomResultIndexOrAlias(),
-                    config.getFlattenResultIndexMapping()
+                    config.getFlattenResultIndexAlias()
                 )
             );
     }

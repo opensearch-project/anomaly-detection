@@ -104,7 +104,7 @@ public class ForecastResultWriteWorker extends
         RequestPriority priority,
         ForecastResult result,
         String resultIndex,
-        boolean flattenResultIndex
+        String flattenResultIndex
     ) {
         return new ForecastResultWriteRequest(expirationEpochMs, configId, priority, result, resultIndex, flattenResultIndex);
     }

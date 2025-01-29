@@ -231,8 +231,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("Incorrect version", version > 0);
 
         // Ensure the flattened result index was created
-        String expectedFlattenedIndex = String
-            .format(Locale.ROOT, "opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
+        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
         assertTrue("Alias for flattened result index does not exist", aliasExists(expectedFlattenedIndex));
 
         // Start detector
@@ -339,9 +338,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Create anomaly detector with flattened result index failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
-        String expectedFlattenedIndex = String
-            .format(Locale.ROOT, "opensearch-ad-plugin-result-test_flattened_%s", id.toLowerCase(Locale.ROOT));
-        String expectedPipelineId = String.format(Locale.ROOT, "flatten_result_index_ingest_pipeline%s", id.toLowerCase(Locale.ROOT));
+        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
+        String expectedPipelineId = "flatten_result_index_ingest_pipeline_detectorwithflattenresultindex";
         String getIngestPipelineEndpoint = String.format(Locale.ROOT, "_ingest/pipeline/%s", expectedPipelineId);
         Response getPipelineResponse = TestHelpers.makeRequest(client(), "GET", getIngestPipelineEndpoint, ImmutableMap.of(), "", null);
         assertEquals(

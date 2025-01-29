@@ -17,7 +17,6 @@ import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -114,9 +113,8 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
 
             if (shouldAddResult(indexingPressurePercent, result)) {
                 addResult(bulkRequest, result, resultIndex);
-                if (resultWriteRequest.getFlattenResultIndex()) {
-                    String flattenedResultIndexAlias = resultIndex + "_flattened_" + result.getDetectorId().toLowerCase(Locale.ROOT);
-                    addResult(bulkRequest, result, flattenedResultIndexAlias);
+                if (resultWriteRequest.getFlattenResultIndex() != null) {
+                    addResult(bulkRequest, result, resultWriteRequest.getFlattenResultIndex());
                 }
             }
         }

@@ -517,7 +517,7 @@ public class TestHelpers {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
-            randomAlphaOfLength(20),
+            "detectorWithFlattenResultIndex",
             randomAlphaOfLength(30),
             timefield,
             ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
@@ -1054,7 +1054,7 @@ public class TestHelpers {
             RequestPriority.MEDIUM,
             randomHCADAnomalyDetectResult(score, grade),
             null,
-            false
+            null
         );
         return resultWriteRequest;
     }
@@ -2280,7 +2280,7 @@ public class TestHelpers {
         ForecastResult result = randomForecastResult(forecasterId);
         String resultIndex = random.nextBoolean() ? randomAlphaOfLength(10) : null; // Randomly decide to set resultIndex or not
 
-        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex, false);
+        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex, null);
     }
 
     public static ForecastResult randomForecastResult(String forecasterId) {

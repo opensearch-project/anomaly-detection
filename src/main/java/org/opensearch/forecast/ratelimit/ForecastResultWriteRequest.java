@@ -26,7 +26,7 @@ public class ForecastResultWriteRequest extends ResultWriteRequest<ForecastResul
         RequestPriority priority,
         ForecastResult result,
         String resultIndex,
-        boolean flattenResultIndex
+        String flattenResultIndex
     ) {
         super(expirationEpochMs, forecasterId, priority, result, resultIndex, flattenResultIndex);
     }

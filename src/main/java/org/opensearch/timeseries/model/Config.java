@@ -750,6 +750,20 @@ public abstract class Config implements Writeable, ToXContentObject {
         return flattenResultIndexMapping != null ? flattenResultIndexMapping : false;
     }
 
+    public String getFlattenResultIndexAlias() {
+        if (getFlattenResultIndexMapping()) {
+            return (getCustomResultIndexOrAlias() + "_flattened_" + getName()).toLowerCase(Locale.ROOT);
+        }
+        return null;
+    }
+
+    public String getFlattenResultIndexIngestPipelineName() {
+        if (getFlattenResultIndexMapping()) {
+            return ("flatten_result_index_ingest_pipeline_" + getName()).toLowerCase(Locale.ROOT);
+        }
+        return null;
+    }
+
     public Instant getLastBreakingUIChangeTime() {
         return lastUIBreakingChangeTime;
     }

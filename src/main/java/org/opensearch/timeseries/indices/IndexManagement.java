@@ -1037,8 +1037,14 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             choosePrimaryShards(request, false);
 
             adminClient.indices().create(request, ActionListener.wrap(response -> {
-                logger.info("Successfully created flattened result index: {} with alias: {}", indexName, flattenedResultIndexAlias);
-                actionListener.onResponse(response);
+                if (response.isAcknowledged()) {
+                    logger.info("Successfully created flattened result index: {} with alias: {}", indexName, flattenedResultIndexAlias);
+                    actionListener.onResponse(response);
+                } else {
+                    String errorMsg = "Index creation not acknowledged for index: " + indexName;
+                    logger.error(errorMsg);
+                    actionListener.onFailure(new IllegalStateException(errorMsg));
+                }
             }, exception -> {
                 logger.error("Failed to create flattened result index: {}", indexName, exception);
                 actionListener.onFailure(exception);
@@ -1047,14 +1053,6 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             logger.error("Error while initializing flattened result index: {}", flattenedResultIndexAlias, e);
             actionListener.onFailure(e);
         }
-    }
-
-    public String getFlattenedResultIndexAlias(String indexOrAliasName, String configId) {
-        return indexOrAliasName + "_flattened_" + configId.toLowerCase(Locale.ROOT);
-    }
-
-    public String getFlattenResultIndexIngestPipelineId(String configId) {
-        return "flatten_result_index_ingest_pipeline" + configId.toLowerCase(Locale.ROOT);
     }
 
     public <T> void validateCustomIndexForBackendJob(
@@ -1304,7 +1302,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             candidateResultAliases.forEach(config -> {
                 handleResultIndexRolloverAndDelete(config.getCustomResultIndexOrAlias(), config, resultIndex);
                 if (config.getFlattenResultIndexMapping()) {
-                    String flattenedResultIndexAlias = getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), config.getId());
+                    String flattenedResultIndexAlias = config.getFlattenResultIndexAlias();
                     handleResultIndexRolloverAndDelete(flattenedResultIndexAlias, config, resultIndex);
                 }
             });

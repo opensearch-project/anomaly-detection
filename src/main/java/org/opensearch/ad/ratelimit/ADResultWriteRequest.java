@@ -26,7 +26,7 @@ public class ADResultWriteRequest extends ResultWriteRequest<AnomalyResult> {
         RequestPriority priority,
         AnomalyResult result,
         String resultIndex,
-        boolean flattenResultIndex
+        String flattenResultIndex
     ) {
         super(expirationEpochMs, detectorId, priority, result, resultIndex, flattenResultIndex);
     }

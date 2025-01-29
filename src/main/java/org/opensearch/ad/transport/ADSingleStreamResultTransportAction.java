@@ -73,7 +73,7 @@ public class ADSingleStreamResultTransportAction extends
             RequestPriority.MEDIUM,
             result,
             config.getCustomResultIndexOrAlias(),
-            config.getFlattenResultIndexMapping()
+            config.getFlattenResultIndexAlias()
         );
     }
 

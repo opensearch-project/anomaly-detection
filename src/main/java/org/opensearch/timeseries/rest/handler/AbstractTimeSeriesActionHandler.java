@@ -468,14 +468,16 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         createConfig(indexingDryRun, ActionListener.wrap(createConfigResponse -> {
             if (shouldHandleFlattening(indexingDryRun)) {
                 String configId = RestHandlerUtils.getConfigIdFromIndexResponse(createConfigResponse);
-                String flattenedResultIndexAlias = timeSeriesIndices
-                    .getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), configId);
+                String flattenedResultIndexAlias = config.getFlattenResultIndexAlias();
 
                 timeSeriesIndices
                     .initFlattenedResultIndex(
                         flattenedResultIndexAlias,
                         ActionListener
-                            .wrap(initResponse -> setupIngestPipeline(configId, listener, createConfigResponse), listener::onFailure)
+                            .wrap(
+                                initResponse -> setupIngestPipeline(flattenedResultIndexAlias, configId, listener, createConfigResponse),
+                                listener::onFailure
+                            )
                     );
             } else {
                 listener.onResponse(createConfigResponse);
@@ -489,9 +491,13 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         return !indexingDryRun && config.getCustomResultIndexOrAlias() != null && Boolean.TRUE.equals(flattenResultIndexMapping);
     }
 
-    protected void setupIngestPipeline(String configId, ActionListener<T> listener, T createConfigResponse) {
-        String flattenedResultIndexAlias = timeSeriesIndices.getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), configId);
-        String pipelineId = timeSeriesIndices.getFlattenResultIndexIngestPipelineId(configId);
+    protected void setupIngestPipeline(
+        String flattenedResultIndexAlias,
+        String configId,
+        ActionListener<T> listener,
+        T createConfigResponse
+    ) {
+        String pipelineId = config.getFlattenResultIndexIngestPipelineName();
 
         try {
             BytesReference pipelineSource = createPipelineDefinition(flattenedResultIndexAlias);
@@ -538,10 +544,13 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         return BytesReference.bytes(pipelineBuilder);
     }
 
-    private UpdateSettingsRequest buildUpdateSettingsRequest(String defaultPipelineName, String configId) {
-        String flattenedResultIndex = timeSeriesIndices.getFlattenedResultIndexAlias(config.getCustomResultIndexOrAlias(), configId);
+    private UpdateSettingsRequest buildUpdateSettingsRequest(
+        String flattenedResultIndexAlias,
+        String defaultPipelineName,
+        String configId
+    ) {
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest();
-        updateSettingsRequest.indices(flattenedResultIndex);
+        updateSettingsRequest.indices(flattenedResultIndexAlias);
 
         Settings.Builder settingsBuilder = Settings.builder();
         settingsBuilder.put("index.default_pipeline", defaultPipelineName);
@@ -558,7 +567,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         ActionListener<T> listener,
         T createConfigResponse
     ) {
-        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(pipelineId, configId);
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(flattenedResultIndexAlias, pipelineId, configId);
 
         client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(updateSettingsResponse -> {
             logger.info("Successfully updated settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId);
@@ -664,7 +673,11 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         boolean indexingDryRun
     ) {
         // The pipeline name _none specifies that the index does not have an ingest pipeline.
-        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest("_none", existingConfig.getId());
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(
+            existingConfig.getFlattenResultIndexAlias(),
+            "_none",
+            existingConfig.getId()
+        );
         client
             .admin()
             .indices()
@@ -679,7 +692,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     private void deleteIngestPipeline(Config existingConfig, ActionListener<T> listener, String id, boolean indexingDryRun) {
-        String pipelineId = timeSeriesIndices.getFlattenResultIndexIngestPipelineId(existingConfig.getId());
+        String pipelineId = existingConfig.getFlattenResultIndexIngestPipelineName();
 
         client
             .admin()
