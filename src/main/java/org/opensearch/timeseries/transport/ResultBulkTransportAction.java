@@ -64,8 +64,7 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
         float softLimit,
         float hardLimit,
         String indexName,
-        Writeable.Reader<ResultBulkRequestType> requestReader,
-        NodeStateManager nodeStateManager
+        Writeable.Reader<ResultBulkRequestType> requestReader
     ) {
         super(actionName, transportService, actionFilters, requestReader, ThreadPool.Names.SAME);
         this.indexingPressure = indexingPressure;
@@ -75,7 +74,6 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
         this.softLimit = softLimit;
         this.hardLimit = hardLimit;
         this.indexName = indexName;
-        this.nodeStateManager = nodeStateManager;
 
         // random seed is 42. Can be any number
         this.random = new Random(42);

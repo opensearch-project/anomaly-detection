@@ -1053,7 +1053,8 @@ public class TestHelpers {
             detectorId,
             RequestPriority.MEDIUM,
             randomHCADAnomalyDetectResult(score, grade),
-            null
+            null,
+            false
         );
         return resultWriteRequest;
     }
@@ -2279,7 +2280,7 @@ public class TestHelpers {
         ForecastResult result = randomForecastResult(forecasterId);
         String resultIndex = random.nextBoolean() ? randomAlphaOfLength(10) : null; // Randomly decide to set resultIndex or not
 
-        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex);
+        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex, false);
     }
 
     public static ForecastResult randomForecastResult(String forecasterId) {

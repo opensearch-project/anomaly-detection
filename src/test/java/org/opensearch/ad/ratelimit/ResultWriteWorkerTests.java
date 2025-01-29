@@ -120,7 +120,8 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             detectorId,
             RequestPriority.MEDIUM,
             detectResult,
-            null
+            null,
+            false
         );
         request.add(resultWriteRequest);
 
@@ -130,7 +131,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
+        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null, false));
 
         // the request results one flush
         verify(resultHandler, times(1)).flush(any(), any());
@@ -152,7 +153,8 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             detectorId,
             RequestPriority.MEDIUM,
             detectResult,
-            null
+            null,
+            false
         );
         request.add(resultWriteRequest);
 
@@ -168,7 +170,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
+        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null, false));
 
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(2)).flush(any(), any());
@@ -188,7 +190,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
+        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null, false));
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(2)).flush(any(), any());
         verify(nodeStateManager, times(1)).setException(eq(detectorId), any(OpenSearchStatusException.class));
@@ -202,7 +204,7 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
             return null;
         }).when(resultHandler).flush(any(), any());
 
-        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null));
+        resultWriteQueue.put(new ADResultWriteRequest(Long.MAX_VALUE, detectorId, RequestPriority.MEDIUM, detectResult, null, false));
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(1)).flush(any(), any());
         verify(nodeStateManager, times(1)).setException(eq(detectorId), any(OpenSearchRejectedExecutionException.class));

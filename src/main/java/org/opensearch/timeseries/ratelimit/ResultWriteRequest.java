@@ -48,6 +48,7 @@ public abstract class ResultWriteRequest<ResultType extends IndexableResult> ext
     public void writeTo(StreamOutput out) throws IOException {
         result.writeTo(out);
         out.writeOptionalString(resultIndex);
+        out.writeBoolean(flattenResultIndex);
     }
 
     public ResultType getResult() {

@@ -33,7 +33,6 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
-import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.transport.ResultBulkTransportAction;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
@@ -51,8 +50,7 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
         IndexingPressure indexingPressure,
         Settings settings,
         ClusterService clusterService,
-        Client client,
-        NodeStateManager stateManager
+        Client client
     ) {
         super(
             ADResultBulkAction.NAME,
@@ -64,8 +62,7 @@ public class ADResultBulkTransportAction extends ResultBulkTransportAction<Anoma
             AD_INDEX_PRESSURE_SOFT_LIMIT.get(settings),
             AD_INDEX_PRESSURE_HARD_LIMIT.get(settings),
             ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
-            ADResultBulkRequest::new,
-            stateManager
+            ADResultBulkRequest::new
         );
         this.clusterService = clusterService;
         this.client = client;
