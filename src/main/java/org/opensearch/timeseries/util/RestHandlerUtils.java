@@ -26,20 +26,17 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.forecast.transport.IndexForecasterResponse;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.indices.InvalidIndexNameException;
 import org.opensearch.rest.RestChannel;
@@ -293,21 +290,4 @@ public final class RestHandlerUtils {
         // not a valid profile request with correct entity information
         return null;
     }
-
-    public static String getConfigIdFromIndexResponse(ActionResponse actionResponse) {
-        String configId;
-        if (actionResponse instanceof IndexAnomalyDetectorResponse) {
-            IndexAnomalyDetectorResponse response = (IndexAnomalyDetectorResponse) actionResponse;
-            configId = response.getId();
-            logger.info("Handling IndexAnomalyDetectorResponse for configId: {}", configId);
-        } else if (actionResponse instanceof IndexForecasterResponse) {
-            IndexForecasterResponse response = (IndexForecasterResponse) actionResponse;
-            configId = response.getId();
-            logger.info("Handling IndexForecasterResponse for configId: {}", configId);
-        } else {
-            throw new IllegalStateException("Unexpected response type: " + actionResponse.getClass().getName());
-        }
-        return configId;
-    }
-
 }

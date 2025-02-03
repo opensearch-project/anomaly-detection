@@ -445,19 +445,25 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getLastBreakingUIChangeTime()
         );
 
-        Exception ex = expectThrows(
-            ResponseException.class,
-            () -> TestHelpers
-                .makeRequest(
-                    client(),
-                    "PUT",
-                    TestHelpers.AD_BASE_DETECTORS_URI + "/" + id + "?refresh=true",
-                    ImmutableMap.of(),
-                    TestHelpers.toHttpEntity(newDetector),
-                    null
-                )
+        Response updateResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + id + "?refresh=true",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(newDetector),
+                null
+            );
+
+        assertEquals("Update anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(updateResponse));
+        String expectedPipelineId = "flatten_result_index_ingest_pipeline_" + detector.getName().toLowerCase(Locale.ROOT);
+        String getIngestPipelineEndpoint = String.format(Locale.ROOT, "_ingest/pipeline/%s", expectedPipelineId);
+        Response getPipelineResponse = TestHelpers.makeRequest(client(), "GET", getIngestPipelineEndpoint, ImmutableMap.of(), "", null);
+        assertEquals(
+            "Expected 200 response but got: " + getPipelineResponse.getStatusLine().getStatusCode(),
+            200,
+            getPipelineResponse.getStatusLine().getStatusCode()
         );
-        assertThat(ex.getMessage(), containsString(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX));
     }
 
     public void testCreateAnomalyDetector() throws Exception {
