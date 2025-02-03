@@ -19,7 +19,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 
 ### Enhancements
-- Github workflow for changelog verification ([#1413](https://github.com/opensearch-project/anomaly-detection/pull/1412))
+- Github workflow for changelog verification ([#1413](https://github.com/opensearch-project/anomaly-detection/pull/1413))
 ### Bug Fixes
 
 ### Infrastructure
