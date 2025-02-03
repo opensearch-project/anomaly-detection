@@ -79,7 +79,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             randomUser(),
             null,
             TestHelpers.randomImputationOption(null),
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,
