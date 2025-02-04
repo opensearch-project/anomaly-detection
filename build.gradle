@@ -113,7 +113,6 @@ configurations {
 }
 
 dependencies {
-    zipArchive group: 'org.opensearch.plugin', name:'opensearch-job-scheduler', version: "${opensearch_build}"
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
@@ -452,17 +451,6 @@ testClusters.integTest {
         }
     }
     plugin(project.tasks.bundlePlugin.archiveFile)
-    plugin(provider(new Callable<RegularFile>(){
-        @Override
-        RegularFile call() throws Exception {
-            return new RegularFile() {
-                @Override
-                File getAsFile() {
-                    return configurations.zipArchive.asFileTree.getSingleFile()
-                }
-            }
-        }
-    }))
     plugin(provider(jobSchedulerFile))
     if (securityEnabled) {
         plugin(provider(securityPluginFile))
@@ -593,17 +581,6 @@ task integTestRemote(type: RestIntegTestTask) {
 }
 
 List<Provider<RegularFile>> plugins = [
-        provider(new Callable<RegularFile>(){
-            @Override
-            RegularFile call() throws Exception {
-                return new RegularFile() {
-                    @Override
-                    File getAsFile() {
-                        return configurations.zipArchive.asFileTree.getSingleFile()
-                    }
-                }
-            }
-        }),
         provider(new Callable<RegularFile>(){
             @Override
             RegularFile call() throws Exception {
