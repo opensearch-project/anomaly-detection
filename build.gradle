@@ -165,6 +165,9 @@ dependencies {
     testImplementation "org.opensearch:opensearch-core:${opensearch_version}"
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.2")
     testCompileOnly 'junit:junit:4.13.2'
+
+    opensearchPlugin "org.opensearch.plugin:opensearch-job-scheduler:${opensearch_build}@zip"
+    opensearchPlugin "org.opensearch.plugin:opensearch-security:${opensearch_build}@zip"
 }
 
 apply plugin: 'java'
@@ -410,6 +413,26 @@ integTest {
     }
 }
 
+ext.resolvePluginFile = { pluginId ->
+    return new Callable<RegularFile>() {
+        @Override
+        RegularFile call() throws Exception {
+            return new RegularFile() {
+                @Override
+                File getAsFile() {
+                    return configurations.opensearchPlugin.resolvedConfiguration.resolvedArtifacts
+                            .find { ResolvedArtifact f ->
+                                f.name.startsWith(pluginId)
+                            }
+                            .file
+                }
+            }
+        }
+    }
+}
+def jobSchedulerFile = resolvePluginFile("opensearch-job-scheduler")
+def securityPluginFile = resolvePluginFile("opensearch-security")
+
 // === Setup security test ===
 // This flag indicates the existence of security plugin
 def securityEnabled = System.getProperty("security", "false") == "true" || System.getProperty("https", "false") == "true"
@@ -439,6 +462,10 @@ testClusters.integTest {
             }
         }
     }))
+    plugin(provider(jobSchedulerFile))
+    if (securityEnabled) {
+        plugin(provider(securityPluginFile))
+    }
 
     // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
     // the opensearch-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
