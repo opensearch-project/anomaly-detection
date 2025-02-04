@@ -11,6 +11,7 @@
   - [Backports](#backports)
   - [Gradle Plugins](#gradle-plugins)
     - [Distribution Download Plugin](#distribution-download-plugin)
+  - [Changelog](#changelog)
 
 ## Developer Guide
 
@@ -102,3 +103,26 @@ The Distribution Download plugin downloads the latest version of OpenSearch by d
 ```
 ./gradlew integTest -PcustomDistributionUrl="https://ci.opensearch.org/ci/dbc/bundle-build/1.2.0/1127/linux/x64/dist/opensearch-1.2.0-linux-x64.tar.gz"
 ```
+
+## Changelog
+
+AD maintains version specific changelog by enforcing a change to the ongoing [CHANGELOG](CHANGELOG.md) file adhering to the [Keep A Changelog](https://keepachangelog.com/en/1.1.0/) format.
+
+Briefly, the changes are curated by version, with the changes to the main branch added chronologically to `Unreleased` version. Further, each version has corresponding sections which list out the category of the change - `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
+
+#### How to add my changes to [CHANGELOG](CHANGELOG.md)?
+
+As a contributor, you must ensure that every pull request has the changes listed out within the corresponding version and appropriate section of [CHANGELOG](CHANGELOG.md) file.
+
+Adding in the change is two step process -
+1. Add your changes to the corresponding section within the CHANGELOG file with dummy pull request information, publish the PR
+
+`Your change here ([#PR_NUMBER](PR_URL))`
+
+2. Update the entry for your change in [`CHANGELOG.md`](CHANGELOG.md) and make sure that you reference the pull request there.
+
+[Example PR](https://github.com/opensearch-project/flow-framework/pull/998/files#diff-06572a96a58dc510037d5efa622f9bec8519bc1beab13c9f251e97e657a9d4edR24)
+
+For future release notes, all entries can be directly copied to the release notes and then deleted from either the 2.x or 3.0 section as a cleanup. For example, see: https://github.com/opensearch-project/flow-framework/pull/1036/files
+
+For changes that don't require an entry, we can add the 'skip-changelog' label to the PR. This will allow the changelog workflow to pass without adding an entry."
