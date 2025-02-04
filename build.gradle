@@ -199,6 +199,18 @@ ext {
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
+
+    ['esnode.pem', 'esnode-key.pem', 'kirk.pem', 'kirk-key.pem', 'root-ca.pem', 'sample.pem', 'test-kirk.jks'].forEach { file ->
+        File local = getLayout().getBuildDirectory().file(file).get().getAsFile()
+        download.run {
+            src "https://raw.githubusercontent.com/opensearch-project/security/refs/heads/main/bwc-test/src/test/resources/security/" + file
+            dest local
+            overwrite false
+        }
+        processResources {
+            from(local)
+        }
+    }
 }
 
 opensearchplugin {
@@ -397,6 +409,9 @@ integTest {
     }
 }
 
+// === Setup security test ===
+// This flag indicates the existence of security plugin
+def securityEnabled = System.getProperty("security", "false") == "true" || System.getProperty("https", "false") == "true"
 testClusters.integTest {
     testDistribution = "ARCHIVE"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
@@ -446,6 +461,31 @@ testClusters.integTest {
         def firstPlugin = plugins.get(0)
         plugins.remove(0)
         plugins.add(firstPlugin)
+
+        if (securityEnabled) {
+            node.extraConfigFile("kirk.pem", file("build/resources/main/kirk.pem"))
+            node.extraConfigFile("kirk-key.pem", file("build/resources/main/kirk-key.pem"))
+            node.extraConfigFile("esnode.pem", file("build/resources/main/esnode.pem"))
+            node.extraConfigFile("esnode-key.pem", file("build/resources/main/esnode-key.pem"))
+            node.extraConfigFile("root-ca.pem", file("build/resources/main/root-ca.pem"))
+            node.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
+            node.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
+            node.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
+            node.setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
+            node.setting("plugins.security.ssl.http.enabled", "true")
+            node.setting("plugins.security.ssl.http.pemcert_filepath", "esnode.pem")
+            node.setting("plugins.security.ssl.http.pemkey_filepath", "esnode-key.pem")
+            node.setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
+            node.setting("plugins.security.allow_unsafe_democertificates", "true")
+            node.setting("plugins.security.allow_default_init_securityindex", "true")
+            node.setting("plugins.security.authcz.admin_dn", "\n - CN=kirk,OU=client,O=client,L=test,C=de")
+            node.setting("plugins.security.audit.type", "internal_opensearch")
+            node.setting("plugins.security.enable_snapshot_restore_privilege", "true")
+            node.setting("plugins.security.check_snapshot_restore_write_privileges", "true")
+            node.setting("plugins.security.restapi.roles_enabled", "[\"all_access\", \"security_rest_api_access\"]")
+            node.setting("plugins.security.system_indices.enabled", "true")
+            // node.setting("plugins.security.system_indices.indices", "[\".opendistro-ism-config\"]")
+        }
     }
 }
 
