@@ -706,30 +706,36 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
+configurations {
+    bwcZip
+}
+dependencies {
+    bwcZip "org.opensearch.plugin:opensearch-job-scheduler:${bwcVersion}-SNAPSHOT@zip"
+}
+ext.resolvebwcZipFile = { pluginId ->
+    return new Callable<RegularFile>() {
+        @Override
+        RegularFile call() throws Exception {
+            return new RegularFile() {
+                @Override
+                File getAsFile() {
+                    return configurations.bwcZip.resolvedConfiguration.resolvedArtifacts
+                            .find { ResolvedArtifact f ->
+                                f.name.startsWith(pluginId)
+                            }
+                            .file
+                }
+            }
+        }
+    }
+}
 2.times {i -> 
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
             versions = [bwcVersionShort, opensearch_version]
             numberOfNodes = 3
-            plugin(provider(new Callable<RegularFile>(){
-                @Override
-                RegularFile call() throws Exception {
-                    return new RegularFile() {
-                        @Override
-                        File getAsFile() {
-                            if (new File("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion").exists()) {
-                                project.delete(files("$project.rootDir/$bwcFilePath/job-scheduler/$bwcVersion"))
-                            }
-                            project.mkdir bwcJobSchedulerPath + bwcVersion
-                            ant.get(src: bwcOpenSearchJSDownload,
-                                    dest: bwcJobSchedulerPath + bwcVersion,
-                                    httpusecaches: false)
-                            return fileTree(bwcJobSchedulerPath + bwcVersion).getSingleFile()
-                        }
-                    }
-                }
-            }))
+            plugin(provider(resolvebwcZipFile("opensearch-job-scheduler")))
             plugin(provider(new Callable<RegularFile>(){
                 @Override
                 RegularFile call() throws Exception {
