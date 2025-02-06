@@ -503,7 +503,8 @@ public final class ParseUtils {
         Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
-        Class<ConfigType> configTypeClass
+        Class<ConfigType> configTypeClass,
+        boolean resourceSharingEnabled
     ) {
         try {
             if (requestedUser == null || configId == null) {
@@ -520,7 +521,8 @@ public final class ParseUtils {
                     clusterService,
                     xContentRegistry,
                     filterByEnabled,
-                    configTypeClass
+                    configTypeClass,
+                    resourceSharingEnabled
                 );
             }
         } catch (Exception e) {
@@ -550,7 +552,8 @@ public final class ParseUtils {
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole,
-        Class<ConfigType> configTypeClass
+        Class<ConfigType> configTypeClass,
+        boolean resourceSharingEnabled
     ) {
         if (clusterService.state().metadata().indices().containsKey(CommonName.CONFIG_INDEX)) {
             GetRequest request = new GetRequest(CommonName.CONFIG_INDEX).id(configId);
@@ -567,7 +570,8 @@ public final class ParseUtils {
                                 function,
                                 xContentRegistry,
                                 filterByBackendRole,
-                                configTypeClass
+                                configTypeClass,
+                                resourceSharingEnabled
                             ),
                             exception -> {
                                 logger.error("Failed to get config: " + configId, exception);
@@ -610,7 +614,8 @@ public final class ParseUtils {
         Consumer<ConfigType> function,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole,
-        Class<ConfigType> configTypeClass
+        Class<ConfigType> configTypeClass,
+        boolean resourceSharingEnabled
     ) {
         if (response.isExists()) {
             try (
@@ -619,17 +624,26 @@ public final class ParseUtils {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 @SuppressWarnings("unchecked")
                 ConfigType config = (ConfigType) Config.parseConfig(configTypeClass, parser);
-                User resourceUser = config.getUser();
-
-                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
+                if (resourceSharingEnabled) {
+                    // Permission evaluation will be done at DLS level in security plugin
                     function.accept(config);
                 } else {
-                    logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
-                    listener
-                        .onFailure(
-                            new OpenSearchStatusException(CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId, RestStatus.FORBIDDEN)
-                        );
+                    User resourceUser = config.getUser();
+
+                    if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
+                        function.accept(config);
+                    } else {
+                        logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
+                        listener
+                            .onFailure(
+                                new OpenSearchStatusException(
+                                    CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId,
+                                    RestStatus.FORBIDDEN
+                                )
+                            );
+                    }
                 }
+
             } catch (Exception e) {
                 logger.error("Fail to parse user out of config", e);
                 listener.onFailure(new OpenSearchStatusException(CommonMessages.FAIL_TO_GET_USER_INFO + configId, RestStatus.BAD_REQUEST));

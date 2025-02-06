@@ -31,6 +31,7 @@ import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
@@ -101,6 +102,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     private final String singleStreamHistoricalTaskname;
     private final String hcHistoricalTaskName;
     private final TaskProfileRunnerType taskProfileRunner;
+    private final boolean resourceSharingEnabled;
 
     public BaseGetConfigTransportAction(
         TransportService transportService,
@@ -154,6 +156,8 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         this.hcHistoricalTaskName = hcHistoricalTaskName;
         this.singleStreamHistoricalTaskname = singleStreamHistoricalTaskname;
         this.taskProfileRunner = taskProfileRunner;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
     }
 
     @Override
@@ -172,7 +176,8 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                 client,
                 clusterService,
                 xContentRegistry,
-                configTypeClass
+                configTypeClass,
+                resourceSharingEnabled
             );
         } catch (Exception e) {
             LOG.error(e);

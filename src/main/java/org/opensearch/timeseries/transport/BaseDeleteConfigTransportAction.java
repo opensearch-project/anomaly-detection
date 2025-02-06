@@ -24,6 +24,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
@@ -69,6 +70,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private final String stateIndex;
     private final Class<ConfigType> configTypeClass;
     private final List<TaskTypeEnum> batchTaskTypes;
+    private final boolean resourceSharingEnabled;
 
     public BaseDeleteConfigTransportAction(
         TransportService transportService,
@@ -100,6 +102,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         this.stateIndex = stateIndex;
         this.configTypeClass = configTypeClass;
         this.batchTaskTypes = historicalTaskTypes;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
     }
 
     @Override
@@ -142,7 +146,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                 client,
                 clusterService,
                 xContentRegistry,
-                configTypeClass
+                configTypeClass,
+                resourceSharingEnabled
             );
         } catch (Exception e) {
             LOG.error(e);
