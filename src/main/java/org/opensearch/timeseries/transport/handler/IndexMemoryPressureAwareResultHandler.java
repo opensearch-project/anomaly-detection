@@ -20,7 +20,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.block.ClusterBlockException;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.service.ClusterService;
@@ -32,6 +31,7 @@ import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.ratelimit.ResultWriteRequest;
 import org.opensearch.timeseries.transport.ResultBulkRequest;
+import org.opensearch.transport.client.Client;
 
 /**
  * Different from ResultIndexingHandler and ResultBulkIndexingHandler, this class uses

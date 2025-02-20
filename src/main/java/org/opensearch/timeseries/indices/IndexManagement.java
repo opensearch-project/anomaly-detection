@@ -52,8 +52,6 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -89,6 +87,8 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.AdminClient;
+import org.opensearch.transport.client.Client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
@@ -809,7 +809,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             .indices(new String[] { configIndex.getIndexName() })
             .source(new SearchSourceBuilder().size(10000).query(boolQuery));
         client.search(searchRequest, ActionListener.wrap(r -> {
-            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
+            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value() == 0) {
                 logger.info("no config available.");
                 listener.onResponse(new ArrayList<Config>());
                 return;

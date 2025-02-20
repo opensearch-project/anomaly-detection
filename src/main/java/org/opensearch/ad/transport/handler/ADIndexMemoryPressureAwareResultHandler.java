@@ -19,7 +19,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADResultWriteRequest;
 import org.opensearch.ad.transport.ADResultBulkAction;
 import org.opensearch.ad.transport.ADResultBulkRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
@@ -27,6 +26,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.transport.ResultBulkResponse;
 import org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler;
+import org.opensearch.transport.client.Client;
 
 public class ADIndexMemoryPressureAwareResultHandler extends
     IndexMemoryPressureAwareResultHandler<AnomalyResult, ADResultWriteRequest, ADResultBulkRequest, ResultBulkResponse, ADIndex, ADIndexManagement> {

@@ -12,11 +12,11 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.timeseries.transport.BaseSearchConfigInfoTransportAction;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class SearchAnomalyDetectorInfoTransportAction extends BaseSearchConfigInfoTransportAction {
 

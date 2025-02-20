@@ -12,7 +12,7 @@
 package org.opensearch.forecast.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.forecast.constant.ForecastCommonValue;
 
 public class ForecastSingleStreamResultAction extends ActionType<AcknowledgedResponse> {

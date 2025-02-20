@@ -34,7 +34,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.GroupedActionListener;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.routing.Preference;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
@@ -76,6 +75,7 @@ import org.opensearch.timeseries.transport.GetConfigRequest;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.QueryUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 /**
  * Transport action to fetch top forecast results for HC forecaster.

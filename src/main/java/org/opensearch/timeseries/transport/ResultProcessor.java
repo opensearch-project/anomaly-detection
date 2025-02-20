@@ -37,8 +37,7 @@ import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.client.Client;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -93,6 +92,7 @@ import org.opensearch.transport.NodeNotConnectedException;
 import org.opensearch.transport.ReceiveTimeoutTransportException;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public abstract class ResultProcessor<TransportResultRequestType extends ResultRequest, IndexableResultType extends IndexableResult, ResultResponseType extends ResultResponse<IndexableResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>> {
 

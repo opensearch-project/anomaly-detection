@@ -20,7 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -44,6 +43,7 @@ import org.opensearch.timeseries.rest.handler.AggregationPrep;
 import org.opensearch.timeseries.rest.handler.IntervalCalculation;
 import org.opensearch.timeseries.rest.handler.IntervalCalculation.IntervalRecommendationListener;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 public class IntervalCalculationTests extends OpenSearchTestCase {
 

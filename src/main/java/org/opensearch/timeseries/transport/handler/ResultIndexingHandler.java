@@ -24,7 +24,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.bulk.BackoffPolicy;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.block.ClusterBlockLevel;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -42,6 +41,7 @@ import org.opensearch.timeseries.util.BulkUtil;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.IndexUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.transport.client.Client;
 
 public class ResultIndexingHandler<ResultType extends IndexableResult, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>> {
     private static final Logger LOG = LogManager.getLogger(ResultIndexingHandler.class);

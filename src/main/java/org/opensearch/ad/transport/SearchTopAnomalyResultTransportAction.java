@@ -35,7 +35,6 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.Strings;
@@ -66,6 +65,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.transport.GetConfigRequest;
 import org.opensearch.timeseries.util.QueryUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 /**
  * Transport action to fetch top anomaly results for some HC detector. Generates a

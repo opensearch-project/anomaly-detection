@@ -13,7 +13,6 @@ package org.opensearch.forecast.rest;
 
 import java.util.List;
 
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.forecast.stats.ForecastStats;
@@ -24,6 +23,7 @@ import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.rest.RestStatsAction;
 import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.node.NodeClient;
 import org.owasp.encoder.Encode;
 
 import com.google.common.collect.ImmutableList;

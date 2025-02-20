@@ -35,7 +35,6 @@ import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.ad.transport.RCFPollingResponse;
-import org.opensearch.client.Client;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.action.ActionListener;
@@ -56,6 +55,7 @@ import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 /**
  * Profile runner that deals with single stream detectors have different workflow (e.g., require RCFPollingAction

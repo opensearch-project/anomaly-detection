@@ -30,7 +30,6 @@ import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
 import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
@@ -43,6 +42,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestResponseListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
 

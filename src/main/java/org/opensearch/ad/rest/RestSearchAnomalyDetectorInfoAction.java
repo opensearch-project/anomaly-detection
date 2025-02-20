@@ -46,7 +46,8 @@ public class RestSearchAnomalyDetectorInfoAction extends BaseRestHandler {
     }
 
     @Override
-    protected RestChannelConsumer prepareRequest(RestRequest request, org.opensearch.client.node.NodeClient client) throws IOException {
+    protected RestChannelConsumer prepareRequest(RestRequest request, org.opensearch.transport.client.node.NodeClient client)
+        throws IOException {
         if (!ADEnabledSetting.isADEnabled()) {
             throw new IllegalStateException(ADCommonMessages.DISABLED_ERR_MSG);
         }

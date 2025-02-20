@@ -18,13 +18,13 @@ import java.util.List;
 
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.opensearch.ad.ADUnitTestCase;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.env.Environment;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.transport.client.Client;
 
 import io.protostuff.LinkedBuffer;
 

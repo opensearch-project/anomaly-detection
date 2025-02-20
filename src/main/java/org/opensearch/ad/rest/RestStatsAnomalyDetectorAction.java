@@ -20,12 +20,12 @@ import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.timeseries.rest.RestStatsAction;
 import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
 

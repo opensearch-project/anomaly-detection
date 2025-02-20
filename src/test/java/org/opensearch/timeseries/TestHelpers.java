@@ -79,8 +79,6 @@ import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.ExpectedValueList;
 import org.opensearch.ad.model.Rule;
 import org.opensearch.ad.ratelimit.ADResultWriteRequest;
-import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
@@ -159,6 +157,8 @@ import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.transport.client.AdminClient;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

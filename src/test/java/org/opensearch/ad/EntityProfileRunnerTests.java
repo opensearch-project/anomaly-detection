@@ -34,7 +34,6 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.ADEntityProfileAction;
-import org.opensearch.client.Client;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
@@ -63,6 +62,7 @@ import org.opensearch.timeseries.model.ModelProfile;
 import org.opensearch.timeseries.model.ModelProfileOnNode;
 import org.opensearch.timeseries.transport.EntityProfileResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private AnomalyDetector detector;

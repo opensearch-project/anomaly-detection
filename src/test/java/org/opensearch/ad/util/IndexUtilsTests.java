@@ -15,12 +15,12 @@ import static org.mockito.Mockito.mock;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.client.Client;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.IndexUtils;
+import org.opensearch.transport.client.Client;
 
 public class IndexUtilsTests extends OpenSearchIntegTestCase {
 

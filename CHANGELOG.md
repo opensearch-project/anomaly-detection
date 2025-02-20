@@ -12,6 +12,8 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Documentation
 
 ### Maintenance
+- Fix breaking changes for 3.0.0 release ([#1424](https://github.com/opensearch-project/anomaly-detection/pull/1424))
+
 ### Refactoring
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/anomaly-detection/compare/2.19...2.x)

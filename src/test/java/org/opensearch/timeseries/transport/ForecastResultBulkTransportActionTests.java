@@ -24,7 +24,6 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
@@ -38,6 +37,7 @@ import org.opensearch.index.IndexingPressure;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ForecastResultBulkTransportActionTests extends AbstractTimeSeriesTest {
 

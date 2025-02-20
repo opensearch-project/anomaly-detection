@@ -88,7 +88,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlocks;
@@ -143,6 +142,7 @@ import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -307,7 +307,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
         );
         ClusterState initialClusterState = ClusterState
             .builder(new ClusterName(ClusterServiceUtils.class.getSimpleName()))
-            .nodes(DiscoveryNodes.builder().add(node1).localNodeId(node1.getId()).masterNodeId(node1.getId()))
+            .nodes(DiscoveryNodes.builder().add(node1).localNodeId(node1.getId()).clusterManagerNodeId(node1.getId()))
             .blocks(ClusterBlocks.EMPTY_CLUSTER_BLOCK)
             .build();
         clusterService.getClusterApplierService().setInitialState(initialClusterState);

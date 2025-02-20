@@ -35,7 +35,6 @@ import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.ADResultBulkRequest;
 import org.opensearch.ad.transport.ADResultBulkTransportAction;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.Settings;
@@ -46,6 +45,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ADResultBulkTransportActionTests extends AbstractTimeSeriesTest {
     private ADResultBulkTransportAction resultBulk;

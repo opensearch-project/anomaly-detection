@@ -25,7 +25,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -74,6 +73,7 @@ import org.opensearch.timeseries.transport.ResultProcessor;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -280,7 +280,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
 
         client.search(request, ActionListener.wrap(searchResponse -> {
             SearchHits hits = searchResponse.getHits();
-            if (hits.getTotalHits().value > 0) {
+            if (hits.getTotalHits().value() > 0) {
                 // has at least one result
                 updateTaskState(forecastID, taskId, TaskState.TEST_COMPLETE);
             } else {

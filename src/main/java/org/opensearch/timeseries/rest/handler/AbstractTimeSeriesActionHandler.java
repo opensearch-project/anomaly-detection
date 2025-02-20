@@ -39,7 +39,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -80,6 +79,7 @@ import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.*;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.Sets;
 
@@ -748,7 +748,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchTotalConfigResponse(SearchResponse response, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
-        if (response.getHits().getTotalHits().value >= getMaxSingleStreamConfigs()) {
+        if (response.getHits().getTotalHits().value() >= getMaxSingleStreamConfigs()) {
             String errorMsgSingleEntity = getExceedMaxSingleStreamConfigsErrorMsg(getMaxSingleStreamConfigs());
             logger.error(errorMsgSingleEntity);
             if (indexingDryRun) {
@@ -763,7 +763,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchHCConfigResponse(SearchResponse response, String detectorId, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
-        if (response.getHits().getTotalHits().value >= getMaxHCConfigs()) {
+        if (response.getHits().getTotalHits().value() >= getMaxHCConfigs()) {
             String errorMsg = getExceedMaxHCConfigsErrorMsg(getMaxHCConfigs());
             logger.error(errorMsg);
             if (indexingDryRun) {
@@ -918,7 +918,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         boolean indexingDryRun,
         ActionListener<T> listener
     ) throws IOException {
-        if (response.getHits().getTotalHits().value == 0) {
+        if (response.getHits().getTotalHits().value() == 0) {
             String errorMsg = getNoDocsInUserIndexErrorMsg(Arrays.toString(config.getIndices().toArray(new String[0])));
             logger.error(errorMsg);
             if (indexingDryRun) {
@@ -958,7 +958,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchConfigNameResponse(SearchResponse response, String name, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
-        if (response.getHits().getTotalHits().value > 0) {
+        if (response.getHits().getTotalHits().value() > 0) {
             String errorMsg = getDuplicateConfigErrorMsg(name);
             logger.warn(errorMsg);
             if (indexingDryRun) {

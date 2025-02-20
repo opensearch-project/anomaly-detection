@@ -18,8 +18,8 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
-        buildVersionQualifier = System.getProperty("build.version_qualifier", "")
+        opensearch_version = System.getProperty("opensearch.version", "3.0.0-alpha1-SNAPSHOT")
+        buildVersionQualifier = System.getProperty("build.version_qualifier", "alpha1")
         // 3.0.0-SNAPSHOT -> 3.0.0.0-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -35,7 +35,7 @@ buildscript {
         js_resource_folder = "src/test/resources/job-scheduler"
         common_utils_version = System.getProperty("common_utils.version", opensearch_build)
         job_scheduler_version = System.getProperty("job_scheduler.version", opensearch_build)
-        bwcVersionShort = "2.19.0"
+        bwcVersionShort = "2.20.0"
         bwcVersion = bwcVersionShort + ".0"
         bwcOpenSearchADDownload = 'https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/' + bwcVersionShort + '/latest/linux/x64/tar/builds/' +
                 'opensearch/plugins/opensearch-anomaly-detection-' + bwcVersion + '.zip'

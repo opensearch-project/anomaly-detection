@@ -25,7 +25,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -41,6 +40,7 @@ import org.opensearch.timeseries.transport.JobRequest;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class MockAnomalyDetectorJobTransportActionWithUser extends HandledTransportAction<JobRequest, JobResponse> {
     private final Logger logger = LogManager.getLogger(AnomalyDetectorJobTransportAction.class);

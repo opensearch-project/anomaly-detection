@@ -51,7 +51,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.ad.util.*;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
@@ -70,6 +69,7 @@ import org.opensearch.timeseries.transport.ProfileResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
     private AnomalyDetectorProfileRunner runner;

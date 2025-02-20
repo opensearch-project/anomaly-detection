@@ -22,7 +22,6 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
@@ -63,6 +62,7 @@ import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskProfileType extends TaskProfile<TaskClass>, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ConfigProfileType extends ConfigProfile<TaskClass, TaskProfileType>, ProfileActionType extends ActionType<ProfileResponse>, TaskProfileRunnerType extends TaskProfileRunner<TaskClass, TaskProfileType>>
     extends AbstractProfileRunner {
@@ -457,7 +457,7 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
     ) {
         return ActionListener.wrap(searchResponse -> {
             SearchHits hits = searchResponse.getHits();
-            if (hits.getTotalHits().value == 0L) {
+            if (hits.getTotalHits().value() == 0L) {
                 processInitResponse(config, profilesToCollect, totalUpdates, false, profileBuilder, listener);
             } else {
                 createRunningStateAndInitProgress(profilesToCollect, profileBuilder);

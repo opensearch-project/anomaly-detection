@@ -25,7 +25,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADProfileAction;
-import org.opensearch.client.Client;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
@@ -36,6 +35,7 @@ import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.transport.ResultResponse;
 import org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.Client;
 
 public class ExecuteADResultResponseRecorder extends
     ExecuteResultResponseRecorder<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction> {

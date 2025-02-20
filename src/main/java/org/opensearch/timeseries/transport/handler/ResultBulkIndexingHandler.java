@@ -22,7 +22,6 @@ import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.bulk.BulkRequestBuilder;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -38,6 +37,7 @@ import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.IndexUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.transport.client.Client;
 
 /**
  *
