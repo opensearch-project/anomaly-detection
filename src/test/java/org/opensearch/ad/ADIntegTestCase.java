@@ -39,15 +39,13 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.client.Client;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.core.rest.RestStatus;
@@ -66,6 +64,8 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -247,7 +247,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         searchSourceBuilder.query(new MatchAllQueryBuilder()).size(0);
         request.indices(indexName).source(searchSourceBuilder);
         SearchResponse searchResponse = client().search(request).actionGet(timeout);
-        return searchResponse.getHits().getTotalHits().value;
+        return searchResponse.getHits().getTotalHits().value();
     }
 
     public long countDetectorDocs(String detectorId) {
@@ -256,7 +256,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
         searchSourceBuilder.query(new TermQueryBuilder("detector_id", detectorId)).size(10);
         request.indices(ADCommonName.DETECTION_STATE_INDEX).source(searchSourceBuilder);
         SearchResponse searchResponse = client().search(request).actionGet(timeout);
-        return searchResponse.getHits().getTotalHits().value;
+        return searchResponse.getHits().getTotalHits().value();
     }
 
     public ClusterUpdateSettingsResponse updateTransientSettings(Map<String, ?> settings) {

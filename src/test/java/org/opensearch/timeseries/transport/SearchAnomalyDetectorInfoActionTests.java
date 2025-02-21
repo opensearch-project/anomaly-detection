@@ -32,7 +32,6 @@ import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.SearchAnomalyDetectorInfoAction;
 import org.opensearch.ad.transport.SearchAnomalyDetectorInfoTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.ClusterSettings;
@@ -46,6 +45,7 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCase {
     private SearchConfigInfoRequest request;

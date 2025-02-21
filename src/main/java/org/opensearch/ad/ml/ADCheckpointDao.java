@@ -38,7 +38,6 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.MatchQueryBuilder;
@@ -52,6 +51,7 @@ import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.transport.client.Client;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;

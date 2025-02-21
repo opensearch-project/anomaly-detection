@@ -20,7 +20,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.ActionType;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.InjectSecurity;
@@ -51,6 +50,7 @@ import org.opensearch.timeseries.transport.ProfileResponse;
 import org.opensearch.timeseries.transport.ResultRequest;
 import org.opensearch.timeseries.transport.ResultResponse;
 import org.opensearch.timeseries.util.SecurityUtil;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.base.Throwables;
 

@@ -30,7 +30,6 @@ import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -43,6 +42,7 @@ import org.opensearch.timeseries.transport.BaseGetConfigTransportAction;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class GetAnomalyDetectorTransportAction extends
     BaseGetConfigTransportAction<GetAnomalyDetectorResponse, ADTaskCacheManager, ADTaskType, ADTask, ADIndex, ADIndexManagement, ADTaskManager, AnomalyDetector, ADEntityProfileAction, ADEntityProfileRunner, ADTaskProfile, DetectorProfile, ADProfileAction, ADTaskProfileRunner, AnomalyDetectorProfileRunner> {

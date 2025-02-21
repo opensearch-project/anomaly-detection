@@ -26,7 +26,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADResultWriteRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -35,6 +34,7 @@ import org.opensearch.index.IndexingPressure;
 import org.opensearch.timeseries.transport.ResultBulkTransportAction;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ADResultBulkTransportAction extends ResultBulkTransportAction<AnomalyResult, ADResultWriteRequest, ADResultBulkRequest> {
 

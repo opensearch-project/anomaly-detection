@@ -35,7 +35,7 @@ public class DeleteAnomalyResultsTransportActionTests extends HistoricalAnalysis
         String adResultId = createADResult(TestHelpers.randomAnomalyDetectResult());
 
         SearchResponse searchResponse = client().execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest()).actionGet(10000);
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value());
 
         assertEquals(adResultId, searchResponse.getInternalResponse().hits().getAt(0).getId());
         DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest(ANOMALY_RESULT_INDEX_ALIAS);
@@ -45,7 +45,7 @@ public class DeleteAnomalyResultsTransportActionTests extends HistoricalAnalysis
             .actionGet(20000);
         waitUntil(() -> {
             SearchResponse response = client().execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest()).actionGet(10000);
-            return response.getInternalResponse().hits().getTotalHits().value == 0;
+            return response.getInternalResponse().hits().getTotalHits().value() == 0;
         }, 90, TimeUnit.SECONDS);
         assertEquals(1, deleteADResultResponse.getDeleted());
     }

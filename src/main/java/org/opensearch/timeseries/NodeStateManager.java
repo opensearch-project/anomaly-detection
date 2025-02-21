@@ -26,7 +26,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasable;
 import org.opensearch.common.settings.Setting;
@@ -51,6 +50,7 @@ import org.opensearch.timeseries.transport.BackPressureRouting;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.transport.client.Client;
 
 public class NodeStateManager implements MaintenanceState, CleanState, ExceptionRecorder {
     private static final Logger LOG = LogManager.getLogger(NodeStateManager.class);

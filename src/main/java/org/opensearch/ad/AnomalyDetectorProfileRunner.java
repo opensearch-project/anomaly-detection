@@ -24,7 +24,6 @@ import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADProfileAction;
-import org.opensearch.client.Client;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.ProfileRunner;
@@ -32,6 +31,7 @@ import org.opensearch.timeseries.model.ProfileName;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 /**
  * Since version 2.15, we have merged the single-stream and HC detector workflows. Consequently, separate logic for profiling is no longer necessary.

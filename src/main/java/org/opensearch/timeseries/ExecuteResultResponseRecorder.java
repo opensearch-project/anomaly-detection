@@ -20,7 +20,6 @@ import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.transport.RCFPollingAction;
 import org.opensearch.ad.transport.RCFPollingRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
@@ -47,6 +46,7 @@ import org.opensearch.timeseries.transport.ResultResponse;
 import org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.transport.client.Client;
 
 public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, IndexableResultType extends IndexableResult, ProfileActionType extends ActionType<ProfileResponse>> {
 
@@ -324,7 +324,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                             ActionListener.completeWith(listener, () -> {
                                 SearchHits hits = searchResponse.getHits();
                                 Long correctedTotalUpdates = rcfTotalUpdates;
-                                if (hits.getTotalHits().value > 0L) {
+                                if (hits.getTotalHits().value() > 0L) {
                                     // correct the number if we have already had results after job enabling time
                                     // so that the detector won't stay initialized
                                     correctedTotalUpdates = Long.valueOf(rcfMinSamples);

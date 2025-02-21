@@ -28,7 +28,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobTransportActionWithUser;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
@@ -46,6 +45,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 
@@ -109,7 +109,7 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
             try {
                 SearchRequest searchRequest = request.getSearchRequest();
                 client.search(searchRequest, ActionListener.wrap(r -> {
-                    long totalHits = r.getHits().getTotalHits().value;
+                    long totalHits = r.getHits().getTotalHits().value();
                     Iterator<SearchHit> iterator = r.getHits().iterator();
                     BulkRequestBuilder bulkRequestBuilder = client.prepareBulk();
                     while (iterator.hasNext()) {

@@ -15,7 +15,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
@@ -35,6 +34,7 @@ import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.transport.StatsResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class StatsForecasterTransportAction extends BaseStatsTransportAction {
     public final Logger logger = LogManager.getLogger(StatsForecasterTransportAction.class);

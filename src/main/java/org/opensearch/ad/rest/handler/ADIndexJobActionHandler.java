@@ -24,7 +24,6 @@ import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.StopDetectorAction;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -37,6 +36,7 @@ import org.opensearch.timeseries.rest.handler.IndexJobActionHandler;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.ResultRequest;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ADIndexJobActionHandler extends
     IndexJobActionHandler<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction, ExecuteADResultResponseRecorder> {

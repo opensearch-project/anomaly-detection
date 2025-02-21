@@ -15,7 +15,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -43,6 +42,7 @@ import org.opensearch.timeseries.rest.handler.Processor;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>>
     extends HandledTransportAction<ValidateConfigRequest, ValidateConfigResponse> {

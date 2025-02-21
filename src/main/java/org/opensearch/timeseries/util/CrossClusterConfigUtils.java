@@ -12,9 +12,9 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.Client;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class CrossClusterConfigUtils {
     private static final Logger logger = LogManager.getLogger(ParseUtils.class);

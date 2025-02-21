@@ -19,7 +19,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -35,6 +34,7 @@ import org.opensearch.timeseries.transport.ValidateConfigRequest;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTransportAction<ADIndex, ADIndexManagement> {
     public static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);

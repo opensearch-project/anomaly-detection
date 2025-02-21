@@ -57,7 +57,7 @@ public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTes
         SearchRequest request = new SearchRequest().source(searchSourceBuilder);
 
         SearchResponse searchResponse = client().execute(SearchAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value());
         assertEquals(detectorId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
 
@@ -69,7 +69,7 @@ public class SearchAnomalyDetectorActionTests extends HistoricalAnalysisIntegTes
         SearchRequest request = new SearchRequest().source(searchSourceBuilder);
 
         SearchResponse searchResponse = client().execute(SearchAnomalyDetectorAction.INSTANCE, request).actionGet(10000);
-        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value());
     }
 
 }

@@ -22,7 +22,6 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyResultsAction;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
@@ -33,6 +32,7 @@ import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
 

@@ -52,7 +52,6 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -106,6 +105,7 @@ import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -569,7 +569,7 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
             // getTotalHits will be null when we track_total_hits is false in the query request.
             // Add more checking here to cover some unknown cases.
             List<TaskClass> tsTasks = new ArrayList<>();
-            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
+            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value() == 0) {
                 // don't throw exception here as consumer functions need to handle missing task
                 // in different way.
                 function.accept(tsTasks);

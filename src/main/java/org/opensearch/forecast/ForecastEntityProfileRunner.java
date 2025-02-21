@@ -5,7 +5,6 @@
 
 package org.opensearch.forecast;
 
-import org.opensearch.client.Client;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
@@ -15,6 +14,7 @@ import org.opensearch.forecast.transport.ForecastEntityProfileAction;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.EntityProfileRunner;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 public class ForecastEntityProfileRunner extends EntityProfileRunner<ForecastEntityProfileAction> {
 

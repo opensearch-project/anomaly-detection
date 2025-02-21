@@ -42,7 +42,6 @@ import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -63,6 +62,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 
@@ -292,7 +292,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         SearchResponse searchResponse = client()
             .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value());
 
         assertEquals(adResultId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
@@ -303,7 +303,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         SearchResponse searchResponse = client()
             .execute(SearchAnomalyResultAction.INSTANCE, matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);
-        assertEquals(0, searchResponse.getHits().getTotalHits().value);
+        assertEquals(0, searchResponse.getHits().getTotalHits().value());
     }
 
     private List<StringTerms.Bucket> createBuckets() {

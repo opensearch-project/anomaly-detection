@@ -157,7 +157,6 @@ import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.handler.ADIndexMemoryPressureAwareResultHandler;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
@@ -305,6 +304,7 @@ import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.IndexUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;

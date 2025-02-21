@@ -7,7 +7,6 @@ package org.opensearch.forecast.rest.handler;
 
 import java.time.Clock;
 
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -19,6 +18,7 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 /**
  * ValidateForecasterActionHandler extends the AbstractForecasterActionHandler to specifically handle

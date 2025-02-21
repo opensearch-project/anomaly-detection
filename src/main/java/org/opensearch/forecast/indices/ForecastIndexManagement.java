@@ -32,7 +32,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
@@ -50,6 +49,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.Client;
 
 public class ForecastIndexManagement extends IndexManagement<ForecastIndex> {
     private static final Logger logger = LogManager.getLogger(ForecastIndexManagement.class);
