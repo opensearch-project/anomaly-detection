@@ -40,7 +40,6 @@ import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -65,6 +64,7 @@ import org.opensearch.timeseries.transport.StopConfigRequest;
 import org.opensearch.timeseries.transport.StopConfigResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import test.org.opensearch.ad.util.ClusterCreation;
 import test.org.opensearch.ad.util.JsonDeserializer;

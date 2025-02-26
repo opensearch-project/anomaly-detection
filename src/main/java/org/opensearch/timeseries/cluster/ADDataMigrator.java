@@ -39,7 +39,6 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorInternalState;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
@@ -59,6 +58,7 @@ import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.transport.client.Client;
 
 /**
  * Migrate AD data to support backward compatibility.
@@ -132,7 +132,7 @@ public class ADDataMigrator {
             .size(MAX_DETECTOR_UPPER_LIMIT);
         SearchRequest searchRequest = new SearchRequest(CommonName.JOB_INDEX).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(r -> {
-            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
+            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value() == 0) {
                 logger.info("No anomaly detector job found, no need to migrate");
                 return;
             }
@@ -218,7 +218,7 @@ public class ADDataMigrator {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(1);
         SearchRequest searchRequest = new SearchRequest(DETECTION_STATE_INDEX).source(searchSourceBuilder);
         client.search(searchRequest, ActionListener.wrap(r -> {
-            if (r != null && r.getHits().getTotalHits().value > 0) {
+            if (r != null && r.getHits().getTotalHits().value() > 0) {
                 // Backfill next realtime job
                 backfillRealtimeTask(detectorJobs, migrateAll);
                 return;

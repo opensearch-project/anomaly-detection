@@ -18,7 +18,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.stats.ADStats;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
@@ -33,6 +32,7 @@ import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.transport.StatsResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportAction {
     public static final String DETECTOR_TYPE_AGG = "detector_type_agg";
@@ -77,7 +77,7 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
             client.search(request, ActionListener.wrap(r -> {
                 StringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
                 List<StringTerms.Bucket> buckets = aggregation.getBuckets();
-                long totalDetectors = r.getHits().getTotalHits().value;
+                long totalDetectors = r.getHits().getTotalHits().value();
                 long totalSingleEntityDetectors = 0;
                 long totalMultiEntityDetectors = 0;
                 for (StringTerms.Bucket b : buckets) {

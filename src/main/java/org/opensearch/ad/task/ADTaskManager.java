@@ -80,7 +80,6 @@ import org.opensearch.ad.transport.ADCancelTaskRequest;
 import org.opensearch.ad.transport.ADStatsNodesAction;
 import org.opensearch.ad.transport.ForwardADTaskAction;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -133,6 +132,7 @@ import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1300,7 +1300,7 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         request.indices(DETECTION_STATE_INDEX);
         client.search(request, ActionListener.wrap(r -> {
             TotalHits totalHits = r.getHits().getTotalHits();
-            listener.onResponse(totalHits.value);
+            listener.onResponse(totalHits.value());
         }, e -> listener.onFailure(e)));
     }
 
@@ -1839,7 +1839,7 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         searchRequest.indices(DETECTION_STATE_INDEX);
 
         client.search(searchRequest, ActionListener.wrap(r -> {
-            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value == 0) {
+            if (r == null || r.getHits().getTotalHits() == null || r.getHits().getTotalHits().value() == 0) {
                 return;
             }
             ConcurrentLinkedQueue<ADTask> taskQueue = new ConcurrentLinkedQueue<>();

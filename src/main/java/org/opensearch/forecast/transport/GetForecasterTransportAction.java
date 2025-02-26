@@ -14,7 +14,6 @@ package org.opensearch.forecast.transport;
 import java.util.Optional;
 
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -40,6 +39,7 @@ import org.opensearch.timeseries.transport.BaseGetConfigTransportAction;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class GetForecasterTransportAction extends
     BaseGetConfigTransportAction<GetForecasterResponse, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastIndex, ForecastIndexManagement, ForecastTaskManager, Forecaster, ForecastEntityProfileAction, ForecastEntityProfileRunner, ForecastTaskProfile, ForecasterProfile, ForecastProfileAction, ForecastTaskProfileRunner, ForecastProfileRunner> {

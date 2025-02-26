@@ -1,0 +1,67 @@
+// Create a map to store the relationship between feature_id and feature_name from feature_data
+def featureNameMap = [:];
+
+// Populate the map from feature_data
+if (ctx.containsKey('feature_data') && ctx.feature_data != null) {
+    for (int i = 0; i < ctx.feature_data.length; i++) {
+        def feature = ctx.feature_data[i];
+        if (feature != null && feature.containsKey('feature_id') && feature.containsKey('feature_name')) {
+            featureNameMap[feature.feature_id] = feature.feature_name;
+            ctx['feature_data_' + feature.feature_name] = feature.data; // Flatten feature_data as before
+        }
+    }
+}
+
+// Flatten nested entity field
+if (ctx.containsKey('entity') && ctx.entity != null) {
+    for (int i = 0; i < ctx.entity.length; i++) {
+        def entity = ctx.entity[i];
+        if (entity != null && entity.containsKey('name') && entity.containsKey('value')) {
+            ctx['entity_' + entity.name] = entity.value;
+        }
+    }
+}
+
+// Flatten nested relevant_attribution field
+if (ctx.containsKey('relevant_attribution') && ctx.relevant_attribution != null) {
+    for (int i = 0; i < ctx.relevant_attribution.length; i++) {
+        def attribution = ctx.relevant_attribution[i];
+        if (attribution != null && attribution.containsKey('feature_id') && attribution.containsKey('data')) {
+            def featureName = featureNameMap[attribution.feature_id];
+            if (featureName != null) {
+                ctx['relevant_attribution_' + featureName] = attribution.data;
+            }
+        }
+    }
+}
+
+// Flatten nested expected_values field
+if (ctx.containsKey('expected_values') && ctx.expected_values != null) {
+    for (int i = 0; i < ctx.expected_values.length; i++) {
+        def expected = ctx.expected_values[i];
+        if (expected != null && expected.containsKey('value_list') && expected.value_list != null) {
+            for (int j = 0; j < expected.value_list.length; j++) {
+                def value = expected.value_list[j];
+                if (value != null && value.containsKey('feature_id') && value.containsKey('data')) {
+                    def featureName = featureNameMap[value.feature_id];
+                    if (featureName != null) {
+                        ctx['expected_values_' + featureName] = value.data;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Flatten nested past_values field
+if (ctx.containsKey('past_values') && ctx.past_values != null) {
+    for (int i = 0; i < ctx.past_values.length; i++) {
+        def pastValue = ctx.past_values[i];
+        if (pastValue != null && pastValue.containsKey('feature_id') && pastValue.containsKey('data')) {
+            def featureName = featureNameMap[pastValue.feature_id];
+            if (featureName != null) {
+                ctx['past_value_' + featureName] = pastValue.data;
+            }
+        }
+    }
+}

@@ -28,7 +28,6 @@ import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.ad.transport.CronAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.service.ClusterService;
@@ -41,6 +40,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.transport.CronNodeResponse;
 import org.opensearch.timeseries.transport.CronResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.Client;
 
 import test.org.opensearch.ad.util.ClusterCreation;
 

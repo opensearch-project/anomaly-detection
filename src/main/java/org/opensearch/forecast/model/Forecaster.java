@@ -437,7 +437,7 @@ public class Forecaster extends Config {
                 case RESULT_INDEX_FIELD_TTL:
                     customResultIndexTTL = parser.intValue();
                     break;
-                case FLATTEN_RESULT_INDEX_MAPPING:
+                case FLATTEN_CUSTOM_RESULT_INDEX:
                     flattenResultIndexMapping = parser.booleanValue();
                     break;
                 case BREAKING_UI_CHANGE_TIME:

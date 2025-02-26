@@ -30,7 +30,6 @@ import org.opensearch.ad.ADIntegTestCase;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResultBucket;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregation;
@@ -40,6 +39,7 @@ import org.opensearch.search.aggregations.metrics.InternalMax;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 

@@ -67,7 +67,7 @@ public class SearchADTasksTransportActionTests extends HistoricalAnalysisIntegTe
         createDetectionStateIndex();
         SearchRequest request = searchRequest(false);
         SearchResponse response = client().execute(SearchADTasksAction.INSTANCE, request).actionGet(10000);
-        assertEquals(0, response.getHits().getTotalHits().value);
+        assertEquals(0, response.getHits().getTotalHits().value());
     }
 
     @Ignore
@@ -75,7 +75,7 @@ public class SearchADTasksTransportActionTests extends HistoricalAnalysisIntegTe
         startHistoricalAnalysis(startTime, endTime);
         SearchRequest searchRequest = searchRequest(true);
         SearchResponse response = client().execute(SearchADTasksAction.INSTANCE, searchRequest).actionGet(10000);
-        assertEquals(1, response.getHits().getTotalHits().value);
+        assertEquals(1, response.getHits().getTotalHits().value());
     }
 
     private SearchRequest searchRequest(boolean isLatest) {

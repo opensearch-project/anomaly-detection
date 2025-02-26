@@ -13,7 +13,6 @@ package org.opensearch.forecast.transport.handler;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
@@ -27,6 +26,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.transport.ResultBulkResponse;
 import org.opensearch.timeseries.transport.handler.IndexMemoryPressureAwareResultHandler;
+import org.opensearch.transport.client.Client;
 
 public class ForecastIndexMemoryPressureAwareResultHandler extends
     IndexMemoryPressureAwareResultHandler<ForecastResult, ForecastResultWriteRequest, ForecastResultBulkRequest, ResultBulkResponse, ForecastIndex, ForecastIndexManagement> {

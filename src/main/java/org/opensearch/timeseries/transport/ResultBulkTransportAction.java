@@ -25,7 +25,6 @@ import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -34,11 +33,13 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexingPressure;
 import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.ratelimit.ResultWriteRequest;
 import org.opensearch.timeseries.util.BulkUtil;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 @SuppressWarnings("rawtypes")
 public abstract class ResultBulkTransportAction<ResultType extends IndexableResult, ADResultWriteRequestType extends ResultWriteRequest<ResultType>, ResultBulkRequestType extends ResultBulkRequest<ResultType, ADResultWriteRequestType>>
@@ -51,6 +52,7 @@ public abstract class ResultBulkTransportAction<ResultType extends IndexableResu
     protected String indexName;
     private Client client;
     protected Random random;
+    protected NodeStateManager nodeStateManager;
 
     public ResultBulkTransportAction(
         String actionName,

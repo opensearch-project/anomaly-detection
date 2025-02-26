@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.forecast.transport.ForecasterJobAction;
@@ -23,6 +22,7 @@ import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.rest.RestJobAction;
 import org.opensearch.timeseries.transport.JobRequest;
+import org.opensearch.transport.client.node.NodeClient;
 import org.owasp.encoder.Encode;
 
 import com.google.common.collect.ImmutableList;

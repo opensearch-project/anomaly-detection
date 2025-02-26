@@ -20,10 +20,10 @@ import org.opensearch.action.LatchedActionListener;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultRequest;
 import org.opensearch.ad.transport.AnomalyResultResponse;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.model.FeatureData;
+import org.opensearch.transport.client.Client;
 
 public class ClientUtilTests extends OpenSearchTestCase {
     private AnomalyResultRequest asyncRequest;

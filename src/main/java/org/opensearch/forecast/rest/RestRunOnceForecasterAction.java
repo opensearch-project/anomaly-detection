@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Locale;
 
 import org.joda.time.Instant;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.forecast.transport.ForecastResultRequest;
@@ -28,6 +27,7 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.transport.client.node.NodeClient;
 import org.owasp.encoder.Encode;
 
 import com.google.common.collect.ImmutableList;

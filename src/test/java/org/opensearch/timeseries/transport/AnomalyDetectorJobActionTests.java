@@ -28,7 +28,6 @@ import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.AnomalyDetectorJobTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.settings.ClusterSettings;
@@ -42,6 +41,7 @@ import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     private AnomalyDetectorJobTransportAction action;

@@ -935,7 +935,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         SearchResponse searchResponse = SearchResponse
             .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-        long total = searchResponse.getHits().getTotalHits().value;
+        long total = searchResponse.getHits().getTotalHits().value();
         assertTrue("got: " + total, total > 0);
 
         // case 13: read access user can validate forecaster
@@ -1054,7 +1054,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 null
             );
         searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-        total = searchResponse.getHits().getTotalHits().value;
+        total = searchResponse.getHits().getTotalHits().value();
         assertTrue("got: " + total, total > 0);
 
         // case 18: read access user cannot update forecaster
@@ -1228,7 +1228,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     null
                 );
             searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-            total = searchResponse.getHits().getTotalHits().value;
+            total = searchResponse.getHits().getTotalHits().value();
             assertTrue("got: " + total, total == 0);
         } finally {
             disableFilterBy();
@@ -1368,7 +1368,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 );
             SearchResponse searchResponse = SearchResponse
                 .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-            long total = searchResponse.getHits().getTotalHits().value;
+            long total = searchResponse.getHits().getTotalHits().value();
             assertTrue("got: " + total, total == 1);
 
             response = TestHelpers
@@ -1381,7 +1381,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     null
                 );
             searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-            total = searchResponse.getHits().getTotalHits().value;
+            total = searchResponse.getHits().getTotalHits().value();
             assertTrue("got: " + total, total == 1);
 
             // case 2: Full access user cannot start/stop/delete forecaster created by other user
@@ -1577,7 +1577,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             Response response = searchResultMatchAll(sdeLimitedClient, "opensearch-forecast-result*");
             SearchResponse searchResponse = SearchResponse
                 .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-            long total = searchResponse.getHits().getTotalHits().value;
+            long total = searchResponse.getHits().getTotalHits().value();
             assertEquals("actual: " + total, 0, total);
         } finally {
             disableFilterBy();

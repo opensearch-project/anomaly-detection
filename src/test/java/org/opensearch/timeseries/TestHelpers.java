@@ -79,8 +79,6 @@ import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.model.ExpectedValueList;
 import org.opensearch.ad.model.Rule;
 import org.opensearch.ad.ratelimit.ADResultWriteRequest;
-import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
@@ -159,6 +157,8 @@ import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.transport.client.AdminClient;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -171,6 +171,7 @@ public class TestHelpers {
     public static final String AD_BASE_RESULT_URI = AD_BASE_DETECTORS_URI + "/results";
     public static final String AD_BASE_PREVIEW_URI = AD_BASE_DETECTORS_URI + "/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
+    public static final String AD_BASE_START_DETECTOR_URL = AD_BASE_DETECTORS_URI + "/%s/_start";
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name());
     // Task may fail if memory circuit breaker triggered.
@@ -507,6 +508,41 @@ public class TestHelpers {
             null,
             null,
             null,
+            Instant.now()
+        );
+    }
+
+    public static AnomalyDetector randomAnomalyDetectorWithFlattenResultIndex(String timefield, String indexName, List<Feature> features)
+        throws IOException {
+        return new AnomalyDetector(
+            randomAlphaOfLength(10),
+            randomLong(),
+            "detectorWithFlattenResultIndex",
+            randomAlphaOfLength(30),
+            timefield,
+            ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
+            features,
+            randomQuery(),
+            randomIntervalTimeConfiguration(),
+            randomIntervalTimeConfiguration(),
+            randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
+            null,
+            randomInt(),
+            Instant.now(),
+            null,
+            randomUser(),
+            ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test",
+            TestHelpers.randomImputationOption(features),
+            // timeDecay (reverse of recencyEmphasis) should be less than 1.
+            // so we start with 2.
+            randomIntBetween(2, 10000),
+            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
+            randomIntBetween(1, 1000),
+            null,
+            null,
+            null,
+            null,
+            true,
             Instant.now()
         );
     }
@@ -1017,6 +1053,7 @@ public class TestHelpers {
             detectorId,
             RequestPriority.MEDIUM,
             randomHCADAnomalyDetectResult(score, grade),
+            null,
             null
         );
         return resultWriteRequest;
@@ -2243,7 +2280,7 @@ public class TestHelpers {
         ForecastResult result = randomForecastResult(forecasterId);
         String resultIndex = random.nextBoolean() ? randomAlphaOfLength(10) : null; // Randomly decide to set resultIndex or not
 
-        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex);
+        return new ForecastResultWriteRequest(expirationEpochMs, forecasterId, priority, result, resultIndex, null);
     }
 
     public static ForecastResult randomForecastResult(String forecasterId) {

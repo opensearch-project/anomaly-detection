@@ -35,7 +35,6 @@ import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
-import org.opensearch.client.Client;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
@@ -48,6 +47,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.ConfigState;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 
@@ -73,7 +73,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         deleteIndexIfExists(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(TestHelpers.matchAllRequest()).actionGet(10000);
-        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value());
     }
 
     @Test
@@ -82,7 +82,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         createDetectorIndex();
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(TestHelpers.matchAllRequest()).actionGet(10000);
-        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value());
     }
 
     @Test
@@ -107,7 +107,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         SearchRequest request = new SearchRequest().source(searchSourceBuilder);
 
         SearchResponse searchResponse = adClient.searchAnomalyDetectors(request).actionGet(10000);
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value());
         assertEquals(detectorId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
 
@@ -126,7 +126,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         SearchResponse searchResponse = adClient
             .searchAnomalyResults(TestHelpers.matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);
-        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value());
     }
 
     @Test
@@ -139,7 +139,7 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
             .searchAnomalyResults(TestHelpers.matchAllRequest().indices(ALL_AD_RESULTS_INDEX_PATTERN))
             .actionGet(10000);
 
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value());
         assertEquals(adResultId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
 

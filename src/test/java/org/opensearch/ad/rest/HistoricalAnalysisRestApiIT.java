@@ -343,7 +343,7 @@ public class HistoricalAnalysisRestApiIT extends HistoricalAnalysisRestTestCase 
             detector.getUser(),
             detector.getCustomResultIndexOrAlias(),
             detector.getImputationOption(),
-            randomIntBetween(1, 10000),
+            randomIntBetween(2, 10000),
             randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
             randomIntBetween(1, 1000),
             null,

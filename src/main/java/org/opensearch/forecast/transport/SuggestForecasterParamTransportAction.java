@@ -12,7 +12,6 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.inject.Inject;
@@ -32,6 +31,7 @@ import org.opensearch.timeseries.transport.SuggestConfigParamResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class SuggestForecasterParamTransportAction extends BaseSuggestConfigParamTransportAction {
     public static final Logger logger = LogManager.getLogger(SuggestForecasterParamTransportAction.class);
