@@ -40,6 +40,7 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
@@ -69,6 +70,8 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.client.resources.ResourceSharingClient;
+import org.opensearch.security.spi.resources.exceptions.ResourceSharingException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -77,7 +80,9 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
 
@@ -503,8 +508,7 @@ public final class ParseUtils {
         Client client,
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
-        Class<ConfigType> configTypeClass,
-        boolean resourceSharingEnabled
+        Class<ConfigType> configTypeClass
     ) {
         try {
             if (requestedUser == null || configId == null) {
@@ -521,8 +525,7 @@ public final class ParseUtils {
                     clusterService,
                     xContentRegistry,
                     filterByEnabled,
-                    configTypeClass,
-                    resourceSharingEnabled
+                    configTypeClass
                 );
             }
         } catch (Exception e) {
@@ -552,8 +555,7 @@ public final class ParseUtils {
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole,
-        Class<ConfigType> configTypeClass,
-        boolean resourceSharingEnabled
+        Class<ConfigType> configTypeClass
     ) {
         if (clusterService.state().metadata().indices().containsKey(CommonName.CONFIG_INDEX)) {
             GetRequest request = new GetRequest(CommonName.CONFIG_INDEX).id(configId);
@@ -570,8 +572,7 @@ public final class ParseUtils {
                                 function,
                                 xContentRegistry,
                                 filterByBackendRole,
-                                configTypeClass,
-                                resourceSharingEnabled
+                                configTypeClass
                             ),
                             exception -> {
                                 logger.error("Failed to get config: " + configId, exception);
@@ -614,8 +615,7 @@ public final class ParseUtils {
         Consumer<ConfigType> function,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole,
-        Class<ConfigType> configTypeClass,
-        boolean resourceSharingEnabled
+        Class<ConfigType> configTypeClass
     ) {
         if (response.isExists()) {
             try (
@@ -624,24 +624,17 @@ public final class ParseUtils {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 @SuppressWarnings("unchecked")
                 ConfigType config = (ConfigType) Config.parseConfig(configTypeClass, parser);
-                if (resourceSharingEnabled) {
-                    // Permission evaluation will be done at DLS level in security plugin
+
+                User resourceUser = config.getUser();
+
+                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
                     function.accept(config);
                 } else {
-                    User resourceUser = config.getUser();
-
-                    if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
-                        function.accept(config);
-                    } else {
-                        logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
-                        listener
-                            .onFailure(
-                                new OpenSearchStatusException(
-                                    CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId,
-                                    RestStatus.FORBIDDEN
-                                )
-                            );
-                    }
+                    logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
+                    listener
+                        .onFailure(
+                            new OpenSearchStatusException(CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId, RestStatus.FORBIDDEN)
+                        );
                 }
 
             } catch (Exception e) {
@@ -700,6 +693,35 @@ public final class ParseUtils {
                 );
         }
         return null;
+    }
+
+    /**
+     * Verifies whether the user has permission to access the resource.
+     */
+    public static void verifyResourceAccessAndProcessRequest(
+        User requestedUser,
+        String detectorId,
+        String scope,
+        NodeClient client,
+        Settings settings,
+        ActionListener<? extends ActionResponse> listener,
+        Consumer<Object[]> function,
+        Object... args
+    ) {
+        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient(client, settings);
+
+        resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, scope, ActionListener.wrap(isAuthorized -> {
+            if (!isAuthorized) {
+                listener
+                    .onFailure(
+                        new ResourceSharingException(
+                            "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId
+                        )
+                    );
+                return;
+            }
+            function.accept(args);
+        }, listener::onFailure));
     }
 
     /**

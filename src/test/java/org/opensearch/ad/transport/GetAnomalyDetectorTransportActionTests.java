@@ -57,6 +57,7 @@ import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -103,7 +104,8 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
             Settings.EMPTY,
             xContentRegistry(),
             adTaskManager,
-            mock(ADTaskProfileRunner.class)
+            mock(ADTaskProfileRunner.class),
+            mock(NodeClient.class)
         );
         task = Mockito.mock(Task.class);
         response = new ActionListener<GetAnomalyDetectorResponse>() {

@@ -6,6 +6,7 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -13,6 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -38,6 +40,7 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, IndexableResultType extends IndexableResult, ProfileActionType extends ActionType<ProfileResponse>, ExecuteResultResponseRecorderType extends ExecuteResultResponseRecorder<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType>, IndexJobActionHandlerType extends IndexJobActionHandler<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType, ExecuteResultResponseRecorderType>>
     extends HandledTransportAction<JobRequest, JobResponse> {
@@ -55,6 +58,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
     private final boolean resourceSharingEnabled;
+    private final NodeClient nodeClient;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -69,7 +73,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStartMsg,
         String failtoStopMsg,
         Class<? extends Config> configClass,
-        IndexJobActionHandlerType indexJobActionHandlerType
+        IndexJobActionHandlerType indexJobActionHandlerType,
+        NodeClient nodeClient
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
         this.transportService = transportService;
@@ -86,6 +91,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.indexJobActionHandlerType = indexJobActionHandlerType;
         this.resourceSharingEnabled = settings
             .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -98,9 +104,27 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? failtoStartMsg : failtoStopMsg;
         ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
-        // By the time request reaches here, the user permissions are validated by Security plugin.
+        // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (resourceSharingEnabled) {
+                // Call verifyResourceAccessAndProcessRequest before proceeding with job execution
+                verifyResourceAccessAndProcessRequest(
+                    user,
+                    configId,
+                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    nodeClient,
+                    settings,
+                    listener,
+                    args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context) // Execute only
+                                                                                                                             // if access is
+                                                                                                                             // granted
+                );
+                return;
+            }
+
+            // Proceed with normal execution if resource sharing is not enabled
             resolveUserAndExecute(
                 user,
                 configId,
@@ -110,8 +134,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
                 client,
                 clusterService,
                 xContentRegistry,
-                configClass,
-                resourceSharingEnabled
+                configClass
             );
         } catch (Exception e) {
             logger.error(e);

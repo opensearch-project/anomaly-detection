@@ -23,6 +23,7 @@ import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.BaseDeleteConfigTransportAction;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class DeleteForecasterTransportAction extends
     BaseDeleteConfigTransportAction<TaskCacheManager, ForecastTaskType, ForecastTask, ForecastIndex, ForecastIndexManagement, ForecastTaskManager, Forecaster> {
@@ -36,7 +37,8 @@ public class DeleteForecasterTransportAction extends
         Settings settings,
         NamedXContentRegistry xContentRegistry,
         NodeStateManager nodeStateManager,
-        ForecastTaskManager taskManager
+        ForecastTaskManager taskManager,
+        NodeClient nodeClient
     ) {
         super(
             transportService,
@@ -52,7 +54,8 @@ public class DeleteForecasterTransportAction extends
             AnalysisType.FORECAST,
             ForecastIndex.STATE.getIndexName(),
             Forecaster.class,
-            ForecastTaskType.RUN_ONCE_TASK_TYPES
+            ForecastTaskType.RUN_ONCE_TASK_TYPES,
+            nodeClient
         );
     }
 }

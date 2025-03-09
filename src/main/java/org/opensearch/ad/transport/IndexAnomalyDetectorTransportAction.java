@@ -16,6 +16,7 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_UPDATE_DETECTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
@@ -27,6 +28,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -52,6 +54,7 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
@@ -66,6 +69,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private final SearchFeatureDao searchFeatureDao;
     private final Settings settings;
     private final boolean resourceSharingEnabled;
+    private final NodeClient nodeClient;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -78,7 +82,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NodeClient nodeClient
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -94,6 +99,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         this.settings = settings;
         this.resourceSharingEnabled = settings
             .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -103,7 +109,29 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_DETECTOR : FAIL_TO_CREATE_DETECTOR;
         ActionListener<IndexAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (resourceSharingEnabled) {
+                // Call verifyResourceAccessAndProcessRequest before proceeding
+                verifyResourceAccessAndProcessRequest(
+                    user,
+                    detectorId,
+                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    nodeClient,
+                    settings,
+                    listener,
+                    args -> indexDetector(
+                        user,
+                        detectorId,
+                        method,
+                        listener,
+                        detector -> adExecute(request, user, detector, context, listener)
+                    ) // Execute only if access is granted
+                );
+                return;
+            }
+
+            // Proceed with normal execution if resource sharing is not enabled
             resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, context, listener));
         } catch (Exception e) {
             LOG.error(e);
@@ -119,41 +147,48 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Consumer<AnomalyDetector> function
     ) {
         try {
-            // If resource sharing flag is enabled then access evaluation will be performed at DLS level
-            if (!resourceSharingEnabled && filterByEnabled) {
-                // Check if user has backend roles
-                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
+            if (filterByEnabled) {
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {
                     listener.onFailure(new TimeSeriesException(error));
                     return;
                 }
             }
-            if (method == RestRequest.Method.PUT) {
-                // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
-                // check if request user have access to the detector or not. But we still need to get current detector for
-                // this case, so we can keep current detector's user data.
-                boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
-                // Update detector request, check if user has permissions to update the detector
-                // Get detector and verify backend roles
-                getConfig(
-                    requestedUser,
-                    detectorId,
-                    listener,
-                    function,
-                    client,
-                    clusterService,
-                    xContentRegistry,
-                    filterByBackendRole,
-                    AnomalyDetector.class,
-                    resourceSharingEnabled
-                );
-            } else {
-                // Create Detector. No need to get current detector.
-                function.accept(null);
-            }
+
+            indexDetector(requestedUser, detectorId, method, listener, function);
         } catch (Exception e) {
             listener.onFailure(e);
+        }
+    }
+
+    private void indexDetector(
+        User requestedUser,
+        String detectorId,
+        RestRequest.Method method,
+        ActionListener<IndexAnomalyDetectorResponse> listener,
+        Consumer<AnomalyDetector> function
+    ) {
+        if (method == RestRequest.Method.PUT) {
+            // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
+            // check if request user have access to the detector or not. But we still need to get current detector for
+            // this case, so we can keep current detector's user data.
+            boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
+            // Update detector request, check if user has permissions to update the detector
+            // Get detector and verify backend roles
+            getConfig(
+                requestedUser,
+                detectorId,
+                listener,
+                function,
+                client,
+                clusterService,
+                xContentRegistry,
+                filterByBackendRole,
+                AnomalyDetector.class
+            );
+        } else {
+            // Create Detector. No need to get current detector.
+            function.accept(null);
         }
     }
 

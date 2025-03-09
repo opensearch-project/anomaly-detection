@@ -274,6 +274,8 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
+import org.opensearch.security.spi.resources.Resource;
+import org.opensearch.security.spi.resources.ResourceParser;
 import org.opensearch.security.spi.resources.ResourceSharingExtension;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
@@ -1774,5 +1776,10 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
     @Override
     public String getResourceIndex() {
         return CommonName.CONFIG_INDEX;
+    }
+
+    @Override
+    public ResourceParser<? extends Resource> getResourceParser() {
+        return null;
     }
 }

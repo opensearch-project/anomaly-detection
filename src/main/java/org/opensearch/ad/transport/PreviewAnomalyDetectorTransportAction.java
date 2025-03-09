@@ -17,6 +17,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
@@ -34,6 +35,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -59,6 +61,7 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class PreviewAnomalyDetectorTransportAction extends
     HandledTransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
@@ -72,6 +75,8 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final CircuitBreakerService adCircuitBreakerService;
     private Semaphore lock;
     private final boolean resourceSharingEnabled;
+    private final Settings settings;
+    private final NodeClient nodeClient;
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
@@ -82,7 +87,8 @@ public class PreviewAnomalyDetectorTransportAction extends
         Client client,
         AnomalyDetectorRunner anomalyDetectorRunner,
         NamedXContentRegistry xContentRegistry,
-        CircuitBreakerService adCircuitBreakerService
+        CircuitBreakerService adCircuitBreakerService,
+        NodeClient nodeClient
     ) {
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
@@ -97,6 +103,8 @@ public class PreviewAnomalyDetectorTransportAction extends
         this.lock = new Semaphore(MAX_CONCURRENT_PREVIEW.get(settings), true);
         this.resourceSharingEnabled = settings
             .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        this.settings = settings;
+        this.nodeClient = nodeClient;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CONCURRENT_PREVIEW, it -> { lock = new Semaphore(it); });
     }
 
@@ -109,7 +117,23 @@ public class PreviewAnomalyDetectorTransportAction extends
         String detectorId = request.getId();
         User user = ParseUtils.getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (resourceSharingEnabled) {
+                // Call the verifyResourceAccessAndProcessRequest method
+                verifyResourceAccessAndProcessRequest(
+                    user,
+                    detectorId,
+                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    nodeClient,
+                    settings,
+                    listener,
+                    args -> previewExecute(request, context, listener) // Function to execute on successful verification
+                );
+                return;
+            }
+
+            // If resource sharing is not enabled, proceed with normal execution
             resolveUserAndExecute(
                 user,
                 detectorId,
@@ -119,9 +143,9 @@ public class PreviewAnomalyDetectorTransportAction extends
                 client,
                 clusterService,
                 xContentRegistry,
-                AnomalyDetector.class,
-                resourceSharingEnabled
+                AnomalyDetector.class
             );
+
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

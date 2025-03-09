@@ -8,6 +8,7 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_DELETE_CONFIG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
@@ -24,6 +25,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.cluster.service.ClusterService;
@@ -53,6 +55,7 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ConfigType extends Config>
     extends HandledTransportAction<DeleteConfigRequest, DeleteResponse> {
@@ -71,6 +74,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private final Class<ConfigType> configTypeClass;
     private final List<TaskTypeEnum> batchTaskTypes;
     private final boolean resourceSharingEnabled;
+    private final Settings settings;
+    private final NodeClient nodeClient;
 
     public BaseDeleteConfigTransportAction(
         TransportService transportService,
@@ -86,7 +91,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         AnalysisType analysisType,
         String stateIndex,
         Class<ConfigType> configTypeClass,
-        List<TaskTypeEnum> historicalTaskTypes
+        List<TaskTypeEnum> historicalTaskTypes,
+        NodeClient nodeClient
     ) {
         super(deleteConfigAction, transportService, actionFilters, DeleteConfigRequest::new);
         this.transportService = transportService;
@@ -104,6 +110,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         this.batchTaskTypes = historicalTaskTypes;
         this.resourceSharingEnabled = settings
             .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        this.settings = settings;
+        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -112,8 +120,42 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         LOG.info("Delete job {}", configId);
         User user = ParseUtils.getUserContext(client);
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_CONFIG);
-        // By the time request reaches here, the user permissions are validated by Security plugin.
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (resourceSharingEnabled) {
+                // Call verifyResourceAccessAndProcessRequest before proceeding with deletion
+                verifyResourceAccessAndProcessRequest(
+                    user,
+                    configId,
+                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    nodeClient,
+                    settings,
+                    listener,
+                    (args) -> nodeStateManager.getConfig(configId, analysisType, config -> {
+                        if (config.isEmpty()) {
+                            LOG.info("Can't find config {}", configId);
+                            taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
+                            return;
+                        }
+
+                        // Check if there is a realtime job or batch analysis task running
+                        getJob(configId, listener, () -> {
+                            taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
+                                if (configTask.isPresent() && !configTask.get().isDone()) {
+                                    String batchTaskName = configTask.get() instanceof ADTask ? "Historical" : "Run once";
+                                    listener
+                                        .onFailure(new OpenSearchStatusException(batchTaskName + " is running", RestStatus.BAD_REQUEST));
+                                } else {
+                                    taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
+                                }
+                            }, transportService, false, listener);
+                        });
+                    }, listener)
+                );
+                return;
+            }
+
+            // Proceed with normal execution if resource sharing is not enabled
             resolveUserAndExecute(
                 user,
                 configId,
@@ -121,15 +163,12 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                 listener,
                 (input) -> nodeStateManager.getConfig(configId, analysisType, config -> {
                     if (config.isEmpty()) {
-                        // In a mixed cluster, if delete detector request routes to node running AD1.0, then it will
-                        // not delete detector tasks. User can re-delete these deleted detector after cluster upgraded,
-                        // in that case, the detector is not present.
                         LOG.info("Can't find config {}", configId);
                         taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
                         return;
                     }
-                    // Check if there is realtime job or batch analysis task running. If none of these running, we
-                    // can delete the config.
+
+                    // Check if there is a realtime job or batch analysis task running
                     getJob(configId, listener, () -> {
                         taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
                             if (configTask.isPresent() && !configTask.get().isDone()) {
@@ -138,16 +177,13 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                             } else {
                                 taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
                             }
-                            // false means don't reset task state as inactive/stopped state. We are checking if task has finished or not.
-                            // So no need to reset task state.
                         }, transportService, false, listener);
                     });
                 }, listener),
                 client,
                 clusterService,
                 xContentRegistry,
-                configTypeClass,
-                resourceSharingEnabled
+                configTypeClass
             );
         } catch (Exception e) {
             LOG.error(e);

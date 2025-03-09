@@ -64,6 +64,7 @@ import org.opensearch.timeseries.model.Job;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private DeleteAnomalyDetectorTransportAction action;
@@ -122,7 +123,8 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
             Settings.EMPTY,
             xContentRegistry(),
             nodeStatemanager,
-            adTaskManager
+            adTaskManager,
+            mock(NodeClient.class)
         );
 
         jobParameter = mock(Job.class);

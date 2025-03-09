@@ -30,6 +30,7 @@ import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.transport.BaseDeleteConfigTransportAction;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class DeleteAnomalyDetectorTransportAction extends
     BaseDeleteConfigTransportAction<ADTaskCacheManager, ADTaskType, ADTask, ADIndex, ADIndexManagement, ADTaskManager, AnomalyDetector> {
@@ -43,7 +44,8 @@ public class DeleteAnomalyDetectorTransportAction extends
         Settings settings,
         NamedXContentRegistry xContentRegistry,
         NodeStateManager nodeStateManager,
-        ADTaskManager adTaskManager
+        ADTaskManager adTaskManager,
+        NodeClient nodeClient
     ) {
         super(
             transportService,
@@ -59,7 +61,8 @@ public class DeleteAnomalyDetectorTransportAction extends
             AnalysisType.AD,
             ADCommonName.DETECTION_STATE_INDEX,
             AnomalyDetector.class,
-            ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES
+            ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES,
+            nodeClient
         );
     }
 }
