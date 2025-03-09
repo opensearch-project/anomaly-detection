@@ -8,6 +8,7 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -31,6 +32,8 @@ import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ADResourceScope;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.settings.Setting;
@@ -71,6 +74,7 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.Sets;
 
@@ -101,6 +105,9 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     private final String singleStreamHistoricalTaskname;
     private final String hcHistoricalTaskName;
     private final TaskProfileRunnerType taskProfileRunner;
+    private final boolean resourceSharingEnabled;
+    private final Settings settings;
+    private final NodeClient nodeClient;
 
     public BaseGetConfigTransportAction(
         TransportService transportService,
@@ -121,7 +128,8 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String hcHistoricalTaskName,
         String singleStreamHistoricalTaskname,
         Setting<Boolean> filterByBackendRoleEnableSetting,
-        TaskProfileRunnerType taskProfileRunner
+        TaskProfileRunnerType taskProfileRunner,
+        NodeClient nodeClient
     ) {
         super(getConfigAction, transportService, actionFilters, GetConfigRequest::new);
         this.clusterService = clusterService;
@@ -154,6 +162,10 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         this.hcHistoricalTaskName = hcHistoricalTaskName;
         this.singleStreamHistoricalTaskname = singleStreamHistoricalTaskname;
         this.taskProfileRunner = taskProfileRunner;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        this.settings = settings;
+        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -162,7 +174,23 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String configID = getConfigRequest.getConfigID();
         User user = ParseUtils.getUserContext(client);
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (resourceSharingEnabled) {
+                // Call verifyResourceAccessAndProcessRequest before proceeding with get execution
+                verifyResourceAccessAndProcessRequest(
+                    user,
+                    configID,
+                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    nodeClient,
+                    settings,
+                    listener,
+                    args -> getExecute(getConfigRequest, listener) // Execute only if access is granted
+                );
+                return;
+            }
+
+            // Proceed with normal execution if resource sharing is not enabled
             resolveUserAndExecute(
                 user,
                 configID,
