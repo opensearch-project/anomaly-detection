@@ -112,10 +112,10 @@ configurations {
 
 dependencies {
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-job-scheduler', version: "${opensearch_build}"
+    implementation group: 'org.opensearch', name:'opensearch-security-client', version: "${opensearch_build}"
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
-    compileOnly "org.opensearch:opensearch-security-client:${opensearch_build}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     compileOnly group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'
