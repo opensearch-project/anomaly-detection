@@ -9,6 +9,8 @@ import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
@@ -113,7 +115,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
                 verifyResourceAccessAndProcessRequest(
                     user,
                     configId,
-                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

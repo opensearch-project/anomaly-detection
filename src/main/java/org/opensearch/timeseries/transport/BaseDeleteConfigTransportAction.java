@@ -13,6 +13,7 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionList
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -127,7 +128,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                 verifyResourceAccessAndProcessRequest(
                     user,
                     configId,
-                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

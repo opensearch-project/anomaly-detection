@@ -21,6 +21,7 @@ import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndP
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
@@ -115,7 +116,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
                 verifyResourceAccessAndProcessRequest(
                     user,
                     forecasterId,
-                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

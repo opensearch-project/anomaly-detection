@@ -23,6 +23,7 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionList
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import org.apache.commons.lang.StringUtils;
@@ -124,7 +125,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 verifyResourceAccessAndProcessRequest(
                     user,
                     detectorId,
-                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

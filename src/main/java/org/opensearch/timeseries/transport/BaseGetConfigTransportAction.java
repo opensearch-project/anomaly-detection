@@ -181,7 +181,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                 verifyResourceAccessAndProcessRequest(
                     user,
                     configID,
-                    ADResourceScope.AD_FULL_ACCESS.value(),
+                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,
