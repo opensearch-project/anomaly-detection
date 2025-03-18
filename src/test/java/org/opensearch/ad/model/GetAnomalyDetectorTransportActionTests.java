@@ -38,6 +38,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.transport.GetConfigRequest;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class GetAnomalyDetectorTransportActionTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
@@ -78,7 +79,8 @@ public class GetAnomalyDetectorTransportActionTests extends AbstractTimeSeriesTe
                 Settings.EMPTY,
                 null,
                 taskManager,
-                null
+                null,
+                mock(NodeClient.class)
             )
         );
 
@@ -132,7 +134,8 @@ public class GetAnomalyDetectorTransportActionTests extends AbstractTimeSeriesTe
                 Settings.EMPTY,
                 null,
                 taskManager,
-                null
+                null,
+                mock(NodeClient.class)
             )
         );
 

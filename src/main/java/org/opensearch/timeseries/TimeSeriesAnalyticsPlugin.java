@@ -274,6 +274,9 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
+import org.opensearch.security.spi.resources.Resource;
+import org.opensearch.security.spi.resources.ResourceParser;
+import org.opensearch.security.spi.resources.ResourceSharingExtension;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -327,7 +330,13 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin
+    implements
+        ActionPlugin,
+        ScriptPlugin,
+        SystemIndexPlugin,
+        JobSchedulerExtension,
+        ResourceSharingExtension {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -1757,5 +1766,20 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 LOG.error("Failed to shut down object Pool", e);
             }
         }
+    }
+
+    @Override
+    public String getResourceType() {
+        return "detectors";
+    }
+
+    @Override
+    public String getResourceIndex() {
+        return CommonName.CONFIG_INDEX;
+    }
+
+    @Override
+    public ResourceParser<? extends Resource> getResourceParser() {
+        return null;
     }
 }

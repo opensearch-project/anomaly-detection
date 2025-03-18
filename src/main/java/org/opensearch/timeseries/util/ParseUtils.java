@@ -40,6 +40,7 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
@@ -69,6 +70,8 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.client.resources.ResourceSharingClient;
+import org.opensearch.security.spi.resources.exceptions.ResourceSharingException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -77,7 +80,9 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
 
@@ -619,6 +624,7 @@ public final class ParseUtils {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 @SuppressWarnings("unchecked")
                 ConfigType config = (ConfigType) Config.parseConfig(configTypeClass, parser);
+
                 User resourceUser = config.getUser();
 
                 if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
@@ -630,6 +636,7 @@ public final class ParseUtils {
                             new OpenSearchStatusException(CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId, RestStatus.FORBIDDEN)
                         );
                 }
+
             } catch (Exception e) {
                 logger.error("Fail to parse user out of config", e);
                 listener.onFailure(new OpenSearchStatusException(CommonMessages.FAIL_TO_GET_USER_INFO + configId, RestStatus.BAD_REQUEST));
@@ -686,6 +693,35 @@ public final class ParseUtils {
                 );
         }
         return null;
+    }
+
+    /**
+     * Verifies whether the user has permission to access the resource.
+     */
+    public static void verifyResourceAccessAndProcessRequest(
+        User requestedUser,
+        String detectorId,
+        Set<String> scopes,
+        NodeClient client,
+        Settings settings,
+        ActionListener<? extends ActionResponse> listener,
+        Consumer<Object[]> function,
+        Object... args
+    ) {
+        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient(client, settings);
+
+        resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, scopes, ActionListener.wrap(isAuthorized -> {
+            if (!isAuthorized) {
+                listener
+                    .onFailure(
+                        new ResourceSharingException(
+                            "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId
+                        )
+                    );
+                return;
+            }
+            function.accept(args);
+        }, listener::onFailure));
     }
 
     /**

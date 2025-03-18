@@ -17,9 +17,11 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
@@ -28,6 +30,8 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADResourceScope;
+import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -50,6 +54,7 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class IndexForecasterTransportAction extends HandledTransportAction<IndexForecasterRequest, IndexForecasterResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexForecasterTransportAction.class);
@@ -63,6 +68,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
     private final SearchFeatureDao searchFeatureDao;
     private final ForecastTaskManager taskManager;
     private final Settings settings;
+    private final boolean resourceSharingEnabled;
+    private final NodeClient nodeClient;
 
     @Inject
     public IndexForecasterTransportAction(
@@ -75,7 +82,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         ForecastIndexManagement forecastIndices,
         NamedXContentRegistry xContentRegistry,
         SearchFeatureDao searchFeatureDao,
-        ForecastTaskManager taskManager
+        ForecastTaskManager taskManager,
+        NodeClient nodeClient
     ) {
         super(IndexForecasterAction.NAME, transportService, actionFilters, IndexForecasterRequest::new);
         this.client = client;
@@ -89,6 +97,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         this.searchFeatureDao = searchFeatureDao;
         this.taskManager = taskManager;
         this.settings = settings;
+        this.resourceSharingEnabled = settings
+            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -98,7 +109,23 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_FORECASTER : FAIL_TO_CREATE_FORECASTER;
         ActionListener<IndexForecasterResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            if (resourceSharingEnabled) {
+                // Call verifyResourceAccessAndProcessRequest before executing the forecast
+                verifyResourceAccessAndProcessRequest(
+                    user,
+                    forecasterId,
+                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
+                    nodeClient,
+                    settings,
+                    listener,
+                    (args) -> forecastExecute(request, user, (Forecaster) args[0], context, listener) // Execute only if access is granted
+                );
+                return;
+            }
+
+            // Proceed with normal execution if resource sharing is not enabled
             resolveUserAndExecute(
                 user,
                 forecasterId,
@@ -125,9 +152,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
             // this case, so we can keep current forecaster's user data.
             boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
 
-            // Check if user has backend roles
-            // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
             if (filterByEnabled) {
+                // Check if user has backend roles
+                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {
                     listener.onFailure(new IllegalArgumentException(error));
