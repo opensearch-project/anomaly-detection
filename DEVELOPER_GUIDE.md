@@ -51,6 +51,7 @@ Currently we just put RCF jar in lib as dependency. Plan to publish to Maven and
 10. `./gradlew bwcTestSuite -Dtests.security.manager=false` runs all the above bwc tests combined.
 11. `./gradlew ':test' --tests "org.opensearch.ad.ml.HCADModelPerfTests" -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true -Dmodel-benchmark=true` launches HCAD model performance tests and logs the result in the standard output
 12. `./gradlew integTest --tests "org.opensearch.ad.e2e.SingleStreamModelPerfIT" -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true -Dmodel-benchmark=true` launches single stream AD model performance tests and logs the result in the standard output
+13. `./gradlew integTest -Dsecurity=true -Dhttps=true --tests '*IT'` runs integration tests against a secure cluster
 
 When launching a cluster using one of the above commands logs are placed in `/build/cluster/run node0/opensearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 
