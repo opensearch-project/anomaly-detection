@@ -16,6 +16,7 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedB
 import java.io.IOException;
 import java.time.Clock;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
@@ -38,7 +39,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -79,6 +79,7 @@ import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.*;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.Sets;
 
@@ -467,18 +468,10 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     private void handlePostRequest(boolean indexingDryRun, ActionListener<T> listener) {
         createConfig(indexingDryRun, ActionListener.wrap(createConfigResponse -> {
             if (shouldHandleFlattening(indexingDryRun)) {
-                String configId = RestHandlerUtils.getConfigIdFromIndexResponse(createConfigResponse);
                 String flattenedResultIndexAlias = config.getFlattenResultIndexAlias();
 
-                timeSeriesIndices
-                    .initFlattenedResultIndex(
-                        flattenedResultIndexAlias,
-                        ActionListener
-                            .wrap(
-                                initResponse -> setupIngestPipeline(flattenedResultIndexAlias, configId, listener, createConfigResponse),
-                                listener::onFailure
-                            )
-                    );
+                initAndSetupPipeline(flattenedResultIndexAlias, listener, l -> l.onResponse(createConfigResponse));
+
             } else {
                 listener.onResponse(createConfigResponse);
             }
@@ -491,23 +484,25 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         return !indexingDryRun && config.getCustomResultIndexOrAlias() != null && Boolean.TRUE.equals(flattenResultIndexMapping);
     }
 
-    protected void setupIngestPipeline(
-        String flattenedResultIndexAlias,
-        String configId,
-        ActionListener<T> listener,
-        T createConfigResponse
-    ) {
+    private void initAndSetupPipeline(String flattenedResultIndexAlias, ActionListener<T> listener, Consumer<ActionListener<T>> onSuccess) {
+        timeSeriesIndices
+            .initFlattenedResultIndex(
+                flattenedResultIndexAlias,
+                ActionListener
+                    .wrap(initResponse -> setupIngestPipeline(flattenedResultIndexAlias, listener, onSuccess), listener::onFailure)
+            );
+    }
+
+    private void setupIngestPipeline(String flattenedResultIndexAlias, ActionListener<T> listener, Consumer<ActionListener<T>> onSuccess) {
         String pipelineId = config.getFlattenResultIndexIngestPipelineName();
 
         try {
             BytesReference pipelineSource = createPipelineDefinition(flattenedResultIndexAlias);
-
             PutPipelineRequest putPipelineRequest = new PutPipelineRequest(pipelineId, pipelineSource, XContentType.JSON);
 
             client.admin().cluster().putPipeline(putPipelineRequest, ActionListener.wrap(putPipelineResponse -> {
                 logger.info("Ingest pipeline created successfully for pipelineId: {}", pipelineId);
-                bindIngestPipelineWithFlattenedResultIndex(pipelineId, configId, flattenedResultIndexAlias, listener, createConfigResponse);
-
+                bindIngestPipelineWithFlattenedResultIndex(pipelineId, flattenedResultIndexAlias, listener, onSuccess);
             }, exception -> {
                 logger.error("Error while creating ingest pipeline for pipelineId: {}", pipelineId, exception);
                 listener.onFailure(exception);
@@ -517,6 +512,23 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             logger.error("Exception while building ingest pipeline definition for pipeline ID: {}", pipelineId, e);
             listener.onFailure(e);
         }
+    }
+
+    private void bindIngestPipelineWithFlattenedResultIndex(
+        String pipelineId,
+        String flattenedResultIndexAlias,
+        ActionListener<T> listener,
+        Consumer<ActionListener<T>> onSuccess
+    ) {
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(flattenedResultIndexAlias, pipelineId);
+
+        client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(updateSettingsResponse -> {
+            logger.info("Successfully updated settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId);
+            onSuccess.accept(listener);
+        }, exception -> {
+            logger.error("Failed to update settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId, exception);
+            listener.onFailure(exception);
+        }));
     }
 
     private BytesReference createPipelineDefinition(String indexName) throws IOException {
@@ -544,11 +556,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         return BytesReference.bytes(pipelineBuilder);
     }
 
-    private UpdateSettingsRequest buildUpdateSettingsRequest(
-        String flattenedResultIndexAlias,
-        String defaultPipelineName,
-        String configId
-    ) {
+    private UpdateSettingsRequest buildUpdateSettingsRequest(String flattenedResultIndexAlias, String defaultPipelineName) {
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest();
         updateSettingsRequest.indices(flattenedResultIndexAlias);
 
@@ -558,24 +566,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         updateSettingsRequest.settings(settingsBuilder);
 
         return updateSettingsRequest;
-    }
-
-    protected void bindIngestPipelineWithFlattenedResultIndex(
-        String pipelineId,
-        String configId,
-        String flattenedResultIndexAlias,
-        ActionListener<T> listener,
-        T createConfigResponse
-    ) {
-        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(flattenedResultIndexAlias, pipelineId, configId);
-
-        client.admin().indices().updateSettings(updateSettingsRequest, ActionListener.wrap(updateSettingsResponse -> {
-            logger.info("Successfully updated settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId);
-            listener.onResponse(createConfigResponse);
-        }, exception -> {
-            logger.error("Failed to update settings for index: {} with pipeline: {}", flattenedResultIndexAlias, pipelineId, exception);
-            listener.onFailure(exception);
-        }));
     }
 
     protected void updateConfig(String id, boolean indexingDryRun, ActionListener<T> listener) {
@@ -619,18 +609,6 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                         );
                     return;
                 }
-                if (!existingConfig.getFlattenResultIndexMapping()
-                    && config.getFlattenResultIndexMapping()
-                    && existingConfig.getCustomResultIndexOrAlias() != null) {
-                    // customers can choose to use a flattened result index for newly created detectors and disable it for those detectors.
-                    // however, since enabling the flattened result index creates additional resources and due to bwc concerns,
-                    // we do not allow customers to enable this feature for existing running detectors.
-                    listener
-                        .onFailure(
-                            new OpenSearchStatusException(CommonMessages.CAN_NOT_CHANGE_FLATTEN_RESULT_INDEX, RestStatus.BAD_REQUEST)
-                        );
-                    return;
-                }
             } else {
                 if (!ParseUtils.listEqualsWithoutConsideringOrder(existingConfig.getCategoryFields(), config.getCategoryFields())
                     || !Objects.equals(existingConfig.getCustomResultIndexOrAlias(), config.getCustomResultIndexOrAlias())) {
@@ -647,6 +625,19 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     .wrap(
                         r -> unbindIngestPipelineWithFlattenedResultIndex(existingConfig, listener, id, indexingDryRun),
                         // can't update config if there is task running
+                        listener::onFailure
+                    );
+
+            } else if (!existingConfig.getFlattenResultIndexMapping()
+                && config.getFlattenResultIndexMapping()
+                && existingConfig.getCustomResultIndexOrAlias() != null) {
+                confirmBatchRunningListener = ActionListener
+                    .wrap(
+                        r -> initAndSetupPipeline(
+                            config.getFlattenResultIndexAlias(),
+                            listener,
+                            l -> searchConfigInputIndices(id, indexingDryRun, l)
+                        ),
                         listener::onFailure
                     );
 
@@ -673,11 +664,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         boolean indexingDryRun
     ) {
         // The pipeline name _none specifies that the index does not have an ingest pipeline.
-        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(
-            existingConfig.getFlattenResultIndexAlias(),
-            "_none",
-            existingConfig.getId()
-        );
+        UpdateSettingsRequest updateSettingsRequest = buildUpdateSettingsRequest(existingConfig.getFlattenResultIndexAlias(), "_none");
         client
             .admin()
             .indices()
@@ -761,7 +748,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchTotalConfigResponse(SearchResponse response, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
-        if (response.getHits().getTotalHits().value >= getMaxSingleStreamConfigs()) {
+        if (response.getHits().getTotalHits().value() >= getMaxSingleStreamConfigs()) {
             String errorMsgSingleEntity = getExceedMaxSingleStreamConfigsErrorMsg(getMaxSingleStreamConfigs());
             logger.error(errorMsgSingleEntity);
             if (indexingDryRun) {
@@ -776,7 +763,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchHCConfigResponse(SearchResponse response, String detectorId, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
-        if (response.getHits().getTotalHits().value >= getMaxHCConfigs()) {
+        if (response.getHits().getTotalHits().value() >= getMaxHCConfigs()) {
             String errorMsg = getExceedMaxHCConfigsErrorMsg(getMaxHCConfigs());
             logger.error(errorMsg);
             if (indexingDryRun) {
@@ -931,7 +918,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         boolean indexingDryRun,
         ActionListener<T> listener
     ) throws IOException {
-        if (response.getHits().getTotalHits().value == 0) {
+        if (response.getHits().getTotalHits().value() == 0) {
             String errorMsg = getNoDocsInUserIndexErrorMsg(Arrays.toString(config.getIndices().toArray(new String[0])));
             logger.error(errorMsg);
             if (indexingDryRun) {
@@ -971,7 +958,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onSearchConfigNameResponse(SearchResponse response, String name, boolean indexingDryRun, ActionListener<T> listener)
         throws IOException {
-        if (response.getHits().getTotalHits().value > 0) {
+        if (response.getHits().getTotalHits().value() > 0) {
             String errorMsg = getDuplicateConfigErrorMsg(name);
             logger.warn(errorMsg);
             if (indexingDryRun) {

@@ -29,7 +29,6 @@ import org.mockito.Mock;
 import org.opensearch.OpenSearchException;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.reindex.BulkByScrollResponse;
@@ -38,6 +37,7 @@ import org.opensearch.index.reindex.ScrollableHitSource;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.ml.CheckpointDao;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.transport.client.Client;
 
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestMapper;
 import com.amazon.randomcutforest.parkservices.state.ThresholdedRandomCutForestState;

@@ -29,7 +29,6 @@ import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.IndicesOptions;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
@@ -45,6 +44,7 @@ import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.transport.client.Client;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 import com.amazon.randomcutforest.parkservices.state.RCFCasterMapper;

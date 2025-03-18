@@ -27,7 +27,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
@@ -45,6 +44,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 
@@ -163,7 +163,7 @@ public class MockReindexPlugin extends Plugin implements ActionPlugin {
         protected void doExecute(Task task, DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
             SearchRequest searchRequest = request.getSearchRequest();
             client.search(searchRequest, ActionListener.wrap(r -> {
-                long totalHits = r.getHits().getTotalHits().value;
+                long totalHits = r.getHits().getTotalHits().value();
                 MultiResponsesActionListener delegateListener = new MultiResponsesActionListener(listener, totalHits);
                 Iterator<SearchHit> iterator = r.getHits().iterator();
                 while (iterator.hasNext()) {

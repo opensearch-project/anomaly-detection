@@ -26,7 +26,6 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.routing.Preference;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
@@ -57,6 +56,7 @@ import org.opensearch.timeseries.transport.EntityProfileResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 public class EntityProfileRunner<EntityProfileActionType extends ActionType<EntityProfileResponse>> extends AbstractProfileRunner {
     private final Logger logger = LogManager.getLogger(EntityProfileRunner.class);

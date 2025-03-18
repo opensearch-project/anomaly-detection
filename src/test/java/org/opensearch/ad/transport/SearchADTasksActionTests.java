@@ -29,7 +29,7 @@ public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
         String adTaskId = createADTask(TestHelpers.randomAdTask());
 
         SearchResponse searchResponse = client().execute(SearchADTasksAction.INSTANCE, matchAllRequest()).actionGet(10000);
-        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(1, searchResponse.getInternalResponse().hits().getTotalHits().value());
         assertEquals(adTaskId, searchResponse.getInternalResponse().hits().getAt(0).getId());
     }
 
@@ -37,7 +37,7 @@ public class SearchADTasksActionTests extends HistoricalAnalysisIntegTestCase {
     public void testNoIndex() {
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
         SearchResponse searchResponse = client().execute(SearchADTasksAction.INSTANCE, matchAllRequest()).actionGet(10000);
-        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value);
+        assertEquals(0, searchResponse.getInternalResponse().hits().getTotalHits().value());
     }
 
 }

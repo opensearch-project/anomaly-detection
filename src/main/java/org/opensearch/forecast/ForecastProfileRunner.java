@@ -5,7 +5,6 @@
 
 package org.opensearch.forecast;
 
-import org.opensearch.client.Client;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
@@ -24,6 +23,7 @@ import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ForecastProfileRunner extends
     ProfileRunner<TaskCacheManager, ForecastTaskType, ForecastTask, ForecastIndex, ForecastIndexManagement, ForecastTaskProfile, ForecastTaskManager, ForecasterProfile, ForecastProfileAction, ForecastTaskProfileRunner> {

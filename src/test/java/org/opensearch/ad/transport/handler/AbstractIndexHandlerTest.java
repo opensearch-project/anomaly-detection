@@ -29,7 +29,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlocks;
@@ -45,6 +44,7 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.IndexUtils;
+import org.opensearch.transport.client.Client;
 
 public abstract class AbstractIndexHandlerTest extends AbstractTimeSeriesTest {
     enum IndexCreation {

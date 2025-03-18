@@ -20,7 +20,6 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -40,6 +39,7 @@ import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.ResultProcessor;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ADResultProcessor extends
     ResultProcessor<AnomalyResultRequest, AnomalyResult, AnomalyResultResponse, ADTaskCacheManager, ADTaskType, ADTask, ADIndex, ADIndexManagement, ADTaskManager> {

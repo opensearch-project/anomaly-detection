@@ -33,7 +33,6 @@ import org.opensearch.ad.stats.ADStats;
 import org.opensearch.ad.stats.suppliers.ADModelsOnNodeSupplier;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADStatsNodesTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -49,6 +48,7 @@ import org.opensearch.timeseries.stats.suppliers.IndexStatusSupplier;
 import org.opensearch.timeseries.stats.suppliers.SettableSupplier;
 import org.opensearch.timeseries.util.IndexUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ADStatsNodesTransportActionTests extends OpenSearchIntegTestCase {
 

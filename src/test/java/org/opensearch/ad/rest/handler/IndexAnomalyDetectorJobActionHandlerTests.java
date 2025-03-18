@@ -45,7 +45,6 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.ad.transport.AnomalyResultResponse;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -63,6 +62,7 @@ import org.opensearch.timeseries.transport.ProfileResponse;
 import org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 

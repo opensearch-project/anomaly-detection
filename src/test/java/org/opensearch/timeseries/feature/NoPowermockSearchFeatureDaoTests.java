@@ -58,7 +58,6 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.settings.ClusterSettings;
@@ -106,6 +105,7 @@ import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 

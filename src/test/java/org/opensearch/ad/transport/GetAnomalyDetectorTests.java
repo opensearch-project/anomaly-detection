@@ -42,7 +42,6 @@ import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -61,6 +60,7 @@ import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private GetAnomalyDetectorTransportAction action;

@@ -29,7 +29,6 @@ import java.util.Locale;
 
 import org.junit.Before;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lifecycle.LifecycleListener;
 import org.opensearch.common.settings.ClusterSettings;
@@ -45,6 +44,7 @@ import org.opensearch.timeseries.cluster.diskcleanup.BaseModelCheckpointIndexRet
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.Client;
 
 public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
     private ClusterService clusterService;

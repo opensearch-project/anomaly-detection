@@ -165,7 +165,7 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
     protected List<SearchHit> toHits(Response response) throws UnsupportedOperationException, IOException {
         SearchResponse searchResponse = SearchResponse
             .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
-        long total = searchResponse.getHits().getTotalHits().value;
+        long total = searchResponse.getHits().getTotalHits().value();
         if (total == 0) {
             return new ArrayList<>();
         }

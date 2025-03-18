@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
@@ -35,6 +34,7 @@ import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.ConfigValidationIssue;
 import org.opensearch.timeseries.rest.RestValidateAction;
 import org.opensearch.timeseries.transport.ValidateConfigRequest;
+import org.opensearch.transport.client.node.NodeClient;
 import org.owasp.encoder.Encode;
 
 import com.google.common.collect.ImmutableList;

@@ -13,7 +13,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
@@ -25,6 +24,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public abstract class BaseSearchConfigInfoTransportAction extends
     HandledTransportAction<SearchConfigInfoRequest, SearchConfigInfoResponse> {
@@ -57,7 +57,7 @@ public abstract class BaseSearchConfigInfoTransportAction extends
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
                         SearchConfigInfoResponse response = new SearchConfigInfoResponse(
-                            searchResponse.getHits().getTotalHits().value,
+                            searchResponse.getHits().getTotalHits().value(),
                             false
                         );
                         listener.onResponse(response);
@@ -85,7 +85,7 @@ public abstract class BaseSearchConfigInfoTransportAction extends
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
                         boolean nameExists = false;
-                        nameExists = searchResponse.getHits().getTotalHits().value > 0;
+                        nameExists = searchResponse.getHits().getTotalHits().value() > 0;
                         SearchConfigInfoResponse response = new SearchConfigInfoResponse(0, nameExists);
                         listener.onResponse(response);
                     }

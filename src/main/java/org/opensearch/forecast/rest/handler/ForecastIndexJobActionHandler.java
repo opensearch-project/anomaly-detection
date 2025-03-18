@@ -11,7 +11,6 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_REQUEST
 import java.util.List;
 
 import org.opensearch.OpenSearchStatusException;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -36,6 +35,7 @@ import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.ResultRequest;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ForecastIndexJobActionHandler extends
     IndexJobActionHandler<ForecastIndex, ForecastIndexManagement, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastResult, ForecastProfileAction, ExecuteForecastResultResponseRecorder> {

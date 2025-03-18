@@ -35,7 +35,6 @@ import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -46,6 +45,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
 

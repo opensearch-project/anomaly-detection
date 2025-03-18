@@ -91,7 +91,6 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.IndexNotFoundException;
@@ -104,6 +103,7 @@ import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.transport.client.Client;
 
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.config.Precision;

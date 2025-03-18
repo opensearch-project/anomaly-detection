@@ -15,10 +15,10 @@ import java.util.function.BiConsumer;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.transport.client.Client;
 
 public class ClientUtil {
     private Client client;

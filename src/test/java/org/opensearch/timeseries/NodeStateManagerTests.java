@@ -46,7 +46,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.AnomalyResultTests;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.cluster.service.ClusterService;
@@ -65,6 +64,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ClientUtil;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableMap;
 

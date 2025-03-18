@@ -21,7 +21,6 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentParser;
@@ -36,6 +35,7 @@ import org.opensearch.timeseries.model.ConfigValidationIssue;
 import org.opensearch.timeseries.rest.handler.AbstractTimeSeriesActionHandler;
 import org.opensearch.timeseries.transport.ValidateConfigRequest;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
+import org.opensearch.transport.client.node.NodeClient;
 
 /**
  * This class consists of the REST handler to validate anomaly detector configurations.

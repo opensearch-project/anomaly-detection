@@ -24,7 +24,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -52,6 +51,7 @@ import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.client.Client;
 
 /**
  * <p>This class executes all validation checks that are not blocking on the 'model' level.

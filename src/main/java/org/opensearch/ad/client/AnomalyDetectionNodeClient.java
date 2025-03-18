@@ -13,11 +13,11 @@ import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.transport.client.Client;
 
 public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
     private final Client client;

@@ -25,7 +25,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
@@ -46,6 +45,7 @@ import org.opensearch.rest.action.RestResponseListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.transport.client.node.NodeClient;
 import org.owasp.encoder.Encode;
 
 import com.google.common.collect.ImmutableList;

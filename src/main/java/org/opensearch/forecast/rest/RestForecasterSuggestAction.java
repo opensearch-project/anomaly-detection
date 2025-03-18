@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.settings.Settings;
@@ -37,6 +36,7 @@ import org.opensearch.rest.action.RestToXContentListener;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.transport.SuggestConfigParamRequest;
+import org.opensearch.transport.client.node.NodeClient;
 import org.owasp.encoder.Encode;
 
 import com.google.common.collect.ImmutableList;

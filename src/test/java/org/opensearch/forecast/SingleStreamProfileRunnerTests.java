@@ -35,7 +35,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Settings;
@@ -62,6 +61,7 @@ import org.opensearch.timeseries.transport.ProfileResponse;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class SingleStreamProfileRunnerTests extends AbstractTimeSeriesTest {
     private ForecastProfileRunner runner;

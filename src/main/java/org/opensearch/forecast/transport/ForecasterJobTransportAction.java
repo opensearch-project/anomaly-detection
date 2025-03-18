@@ -11,7 +11,6 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_REQUEST_TIMEOUT;
 
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -28,6 +27,7 @@ import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.BaseJobTransportAction;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ForecasterJobTransportAction extends
     BaseJobTransportAction<ForecastIndex, ForecastIndexManagement, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastResult, ForecastProfileAction, ExecuteForecastResultResponseRecorder, ForecastIndexJobActionHandler> {

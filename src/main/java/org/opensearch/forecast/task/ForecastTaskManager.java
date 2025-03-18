@@ -43,7 +43,6 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -79,6 +78,7 @@ import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class ForecastTaskManager extends
     TaskManager<TaskCacheManager, ForecastTaskType, ForecastTask, ForecastIndex, ForecastIndexManagement> {

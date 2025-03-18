@@ -16,7 +16,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
@@ -26,6 +25,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.stats.Stats;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public abstract class BaseStatsTransportAction extends HandledTransportAction<StatsRequest, StatsTimeSeriesResponse> {
     public final Logger logger = LogManager.getLogger(BaseStatsTransportAction.class);

@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.opensearch.ad.cluster.diskcleanup.ADCheckpointIndexRetention;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.LocalNodeClusterManagerListener;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.lifecycle.LifecycleListener;
@@ -31,6 +30,7 @@ import org.opensearch.timeseries.cluster.diskcleanup.IndexCleanup;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DateUtils;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.annotations.VisibleForTesting;
 

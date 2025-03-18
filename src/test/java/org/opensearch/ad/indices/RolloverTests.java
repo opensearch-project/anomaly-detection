@@ -40,14 +40,10 @@ import org.opensearch.action.admin.indices.rollover.RolloverRequest;
 import org.opensearch.action.admin.indices.rollover.RolloverResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
-import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.client.AdminClient;
-import org.opensearch.client.Client;
-import org.opensearch.client.ClusterAdminClient;
-import org.opensearch.client.IndicesAdminClient;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.AliasMetadata;
@@ -70,6 +66,10 @@ import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.transport.client.AdminClient;
+import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.ClusterAdminClient;
+import org.opensearch.transport.client.IndicesAdminClient;
 
 public class RolloverTests extends AbstractTimeSeriesTest {
     private ADIndexManagement adIndices;

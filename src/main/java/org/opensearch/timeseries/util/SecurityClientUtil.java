@@ -15,7 +15,6 @@ import java.util.function.BiConsumer;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -24,6 +23,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.transport.client.Client;
 
 public class SecurityClientUtil {
     private static final String INJECTION_ID = "direct";

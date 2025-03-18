@@ -32,7 +32,6 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -51,6 +50,7 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);

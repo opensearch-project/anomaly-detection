@@ -12,10 +12,10 @@
 package org.opensearch.ad.transport.handler;
 
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.timeseries.transport.handler.SearchHandler;
+import org.opensearch.transport.client.Client;
 
 /**
  * Handle general search request, check user role and return search response.

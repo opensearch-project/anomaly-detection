@@ -15,7 +15,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
@@ -26,6 +25,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.transport.client.Client;
 
 public class ProfileUtil {
     /**

@@ -35,7 +35,6 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.client.Client;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -76,6 +75,7 @@ import org.opensearch.timeseries.transport.StopConfigResponse;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
+import org.opensearch.transport.client.Client;
 
 import com.google.common.base.Throwables;
 
