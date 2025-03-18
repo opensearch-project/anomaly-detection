@@ -83,15 +83,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     private static final Logger LOG = (Logger) LogManager.getLogger(ODFERestTestCase.class);
 
     protected boolean isHttps() {
-        boolean isHttps = Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
-        if (isHttps) {
-            // currently only external cluster is supported for security enabled testing
-            if (!Optional.ofNullable(System.getProperty("tests.rest.cluster")).isPresent()) {
-                throw new RuntimeException("cluster url should be provided for security enabled testing");
-            }
-        }
-
-        return isHttps;
+        return Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
     }
 
     @Override
@@ -138,12 +130,12 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             if (Objects.nonNull(keystore)) {
                 URI uri = null;
                 try {
-                    uri = this.getClass().getClassLoader().getResource("security/sample.pem").toURI();
+                    uri = this.getClass().getClassLoader().getResource("sample.pem").toURI();
                 } catch (URISyntaxException e) {
                     throw new RuntimeException(e);
                 }
                 Path configPath = PathUtils.get(uri).getParent().toAbsolutePath();
-                return new SecureRestClientBuilder(settings, configPath).build();
+                return new SecureRestClientBuilder(settings, configPath, hosts).build();
             } else {
                 configureHttpsClient(builder, settings);
                 builder.setStrictDeprecationMode(strictDeprecationMode);
