@@ -41,17 +41,19 @@ Currently we just put RCF jar in lib as dependency. Plan to publish to Maven and
 
 1. `./gradlew build` builds and tests
 2. `./gradlew :run` launches a single node cluster with anomaly-detection (and job-scheduler) plugin installed
-3. `./gradlew :integTest` launches a single node cluster with anomaly-detection (and job-scheduler) plugin installed and runs all integration tests except security
-4. ` ./gradlew :integTest --tests="**.test execute foo"` runs a single integration test class or method
-5. `./gradlew integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster" -Dhttps=true -Duser=admin -Dpassword=<admin-password>` launches integration tests against a local cluster and run tests with security
-6. `./gradlew spotlessApply` formats code. And/or import formatting rules in `.eclipseformat.xml` with IDE.
-7. `./gradlew adBwcCluster#mixedClusterTask -Dtests.security.manager=false` launches a cluster with three nodes of bwc version of OpenSearch with anomaly-detection and job-scheduler and tests backwards compatibility by upgrading one of the nodes with the current version of OpenSearch with anomaly-detection and job-scheduler creating a mixed cluster.
-8. `./gradlew adBwcCluster#rollingUpgradeClusterTask -Dtests.security.manager=false` launches a cluster with three nodes of bwc version of OpenSearch with anomaly-detection and job-scheduler and tests backwards compatibility by performing rolling upgrade of each node with the current version of OpenSearch with anomaly-detection and job-scheduler.
-9. `./gradlew adBwcCluster#fullRestartClusterTask -Dtests.security.manager=false` launches a cluster with three nodes of bwc version of OpenSearch with anomaly-detection and job-scheduler and tests backwards compatibility by performing a full restart on the cluster upgrading all the nodes with the current version of OpenSearch with anomaly-detection and job-scheduler.
-10. `./gradlew bwcTestSuite -Dtests.security.manager=false` runs all the above bwc tests combined.
-11. `./gradlew ':test' --tests "org.opensearch.ad.ml.HCADModelPerfTests" -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true -Dmodel-benchmark=true` launches HCAD model performance tests and logs the result in the standard output
-12. `./gradlew integTest --tests "org.opensearch.ad.e2e.SingleStreamModelPerfIT" -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true -Dmodel-benchmark=true` launches single stream AD model performance tests and logs the result in the standard output
-13. `./gradlew integTest -Dsecurity=true -Dhttps=true --tests '*IT'` runs integration tests against a secure cluster
+3. `./gradlew :run -PdualCluster=true` launches 2 single node clusters with anomaly-detection (and job-scheduler) plugin installed, one cluster is on localhost:9200 and the other on localhost:9200
+4. `./gradlew :integTest` launches a single node cluster with anomaly-detection (and job-scheduler) plugin installed and runs all integration tests except security
+5. ` ./gradlew :integTest --tests="**.test execute foo"` runs a single integration test class or method
+6. `./gradlew integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="docker-cluster" -Dhttps=true -Duser=admin -Dpassword=<admin-password>` launches integration tests against a local cluster and run tests with security
+7. `./gradlew spotlessApply` formats code. And/or import formatting rules in `.eclipseformat.xml` with IDE.
+8. `./gradlew adBwcCluster#mixedClusterTask -Dtests.security.manager=false` launches a cluster with three nodes of bwc version of OpenSearch with anomaly-detection and job-scheduler and tests backwards compatibility by upgrading one of the nodes with the current version of OpenSearch with anomaly-detection and job-scheduler creating a mixed cluster.
+9. `./gradlew adBwcCluster#rollingUpgradeClusterTask -Dtests.security.manager=false` launches a cluster with three nodes of bwc version of OpenSearch with anomaly-detection and job-scheduler and tests backwards compatibility by performing rolling upgrade of each node with the current version of OpenSearch with anomaly-detection and job-scheduler.
+10. `./gradlew adBwcCluster#fullRestartClusterTask -Dtests.security.manager=false` launches a cluster with three nodes of bwc version of OpenSearch with anomaly-detection and job-scheduler and tests backwards compatibility by performing a full restart on the cluster upgrading all the nodes with the current version of OpenSearch with anomaly-detection and job-scheduler.
+11. `./gradlew bwcTestSuite -Dtests.security.manager=false` runs all the above bwc tests combined.
+12. `./gradlew ':test' --tests "org.opensearch.ad.ml.HCADModelPerfTests" -Dtests.seed=2AEBDBBAE75AC5E0 -Dtests.security.manager=false -Dtests.locale=es-CU -Dtests.timezone=Chile/EasterIsland -Dtest.logs=true -Dmodel-benchmark=true` launches HCAD model performance tests and logs the result in the standard output
+13. `./gradlew integTest --tests "org.opensearch.ad.e2e.SingleStreamModelPerfIT" -Dtests.seed=60CDDB34427ACD0C -Dtests.security.manager=false -Dtests.locale=kab-DZ -Dtests.timezone=Asia/Hebron -Dtest.logs=true -Dmodel-benchmark=true` launches single stream AD model performance tests and logs the result in the standard output
+14. `./gradlew integTest -Dsecurity=true -Dhttps=true --tests '*IT'` runs integration tests against a secure cluster
+
 
 When launching a cluster using one of the above commands logs are placed in `/build/cluster/run node0/opensearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 

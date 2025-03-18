@@ -26,6 +26,8 @@ import java.util.concurrent.Callable
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 import org.opensearch.gradle.info.BuildParams
+import java.util.stream.Collectors
+
 
 import java.util.concurrent.TimeUnit
 import java.util.function.Predicate
@@ -65,7 +67,7 @@ buildscript {
         jacksonVersion = "2.18.2"
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
-        // This option turn on log printing during tests. 
+        // This option turn on log printing during tests.
         printLogs = "true" == System.getProperty("test.logs", "false")
     }
 
@@ -260,7 +262,7 @@ configurations.all {
 
         force "com.google.guava:guava:32.1.3-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
-        force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0        
+        force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
     }
 }
 
@@ -287,7 +289,7 @@ publishing {
             }
         }
     }
-    
+
     repositories {
         maven {
             name = "Snapshots"
@@ -453,10 +455,35 @@ def securityPluginFile = resolvePluginFile("opensearch-security")
 // === Setup security test ===
 // This flag indicates the existence of security plugin
 def securityEnabled = System.getProperty("security", "false") == "true" || System.getProperty("https", "false") == "true"
+
 testClusters.integTest {
     testDistribution = "ARCHIVE"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
+    configureClusterPlugins(delegate, jobSchedulerFile, securityPluginFile, securityEnabled)
+}
+
+testClusters {
+    leaderCluster {
+        testDistribution = "ARCHIVE"
+        setting 'path.repo', file("${buildDir}/leaderCluster/repo").absolutePath
+        setting 'discovery.type', 'single-node'
+        // Add custom attribute to identify this cluster
+        setting 'node.attr.cluster_role', 'leader'
+        configureClusterPlugins(delegate, jobSchedulerFile, securityPluginFile, securityEnabled)
+    }
+
+    followCluster {
+        testDistribution = "ARCHIVE"
+        setting 'path.repo', file("${buildDir}/followCluster/repo").absolutePath
+        setting 'discovery.type', 'single-node'
+        // Add custom attribute to identify this cluster
+        setting 'node.attr.cluster_role', 'follower'
+        configureClusterPlugins(delegate, jobSchedulerFile, securityPluginFile, securityEnabled)
+    }
+}
+
+def configureClusterPlugins(cluster, jobSchedulerFile, securityPluginFile, securityEnabled) {
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
     // since we also support multi node integration tests we increase debugPort per node
@@ -467,58 +494,60 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    plugin(project.tasks.bundlePlugin.archiveFile)
-    plugin(provider(jobSchedulerFile))
-    if (securityEnabled) {
-        plugin(provider(securityPluginFile))
-    }
-
-    // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
-    // the opensearch-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
-    //
-    // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opensearch-job-scheduler], dependency of [opendistro-anomaly-detection]
-    //       at org.opensearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
-    //
-    // One explanation is that ES build script sort plugins according to the natural ordering of their names.
-    // opendistro-anomaly-detection comes before opensearch-job-scheduler.
-    //
-    // The following is a comparison of different plugin installation order:
-    // Before 7.7:
-    // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opensearch-job-scheduler.zip
-    //
-    // After 7.7:
-    // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
-    //
-    // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
-    nodes.each { node ->
-        def plugins = node.plugins
-        def firstPlugin = plugins.get(0)
-        plugins.remove(0)
-        plugins.add(firstPlugin)
-
+    cluster.with {
+        plugin(project.tasks.bundlePlugin.archiveFile)
+        plugin(provider(jobSchedulerFile))
         if (securityEnabled) {
-            node.extraConfigFile("kirk.pem", file("build/resources/main/kirk.pem"))
-            node.extraConfigFile("kirk-key.pem", file("build/resources/main/kirk-key.pem"))
-            node.extraConfigFile("esnode.pem", file("build/resources/main/esnode.pem"))
-            node.extraConfigFile("esnode-key.pem", file("build/resources/main/esnode-key.pem"))
-            node.extraConfigFile("root-ca.pem", file("build/resources/main/root-ca.pem"))
-            node.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
-            node.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
-            node.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
-            node.setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
-            node.setting("plugins.security.ssl.http.enabled", "true")
-            node.setting("plugins.security.ssl.http.pemcert_filepath", "esnode.pem")
-            node.setting("plugins.security.ssl.http.pemkey_filepath", "esnode-key.pem")
-            node.setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
-            node.setting("plugins.security.allow_unsafe_democertificates", "true")
-            node.setting("plugins.security.allow_default_init_securityindex", "true")
-            node.setting("plugins.security.authcz.admin_dn", "\n - CN=kirk,OU=client,O=client,L=test,C=de")
-            node.setting("plugins.security.audit.type", "internal_opensearch")
-            node.setting("plugins.security.enable_snapshot_restore_privilege", "true")
-            node.setting("plugins.security.check_snapshot_restore_write_privileges", "true")
-            node.setting("plugins.security.restapi.roles_enabled", "[\"all_access\", \"security_rest_api_access\"]")
-            node.setting("plugins.security.system_indices.enabled", "true")
-            // node.setting("plugins.security.system_indices.indices", "[\".opendistro-ism-config\"]")
+            plugin(provider(securityPluginFile))
+        }
+
+        // As of ES 7.7.0 the opendistro-anomaly-detection plugin is being added to the list of plugins for the testCluster during build before
+        // the opensearch-job-scheduler plugin, which is causing build failures. From the stack trace, this looks like a bug.
+        //
+        // Exception in thread "main" java.lang.IllegalArgumentException: Missing plugin [opensearch-job-scheduler], dependency of [opendistro-anomaly-detection]
+        //       at org.opensearch.plugins.PluginsService.addSortedBundle(PluginsService.java:452)
+        //
+        // One explanation is that ES build script sort plugins according to the natural ordering of their names.
+        // opendistro-anomaly-detection comes before opensearch-job-scheduler.
+        //
+        // The following is a comparison of different plugin installation order:
+        // Before 7.7:
+        // ./bin/elasticsearch-plugin install --batch file:opendistro-anomaly-detection.zip file:opensearch-job-scheduler.zip
+        //
+        // After 7.7:
+        // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
+        //
+        // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
+        nodes.each { node ->
+            def plugins = node.plugins
+            def firstPlugin = plugins.get(0)
+            plugins.remove(0)
+            plugins.add(firstPlugin)
+
+            if (securityEnabled) {
+                node.extraConfigFile("kirk.pem", file("build/resources/main/kirk.pem"))
+                node.extraConfigFile("kirk-key.pem", file("build/resources/main/kirk-key.pem"))
+                node.extraConfigFile("esnode.pem", file("build/resources/main/esnode.pem"))
+                node.extraConfigFile("esnode-key.pem", file("build/resources/main/esnode-key.pem"))
+                node.extraConfigFile("root-ca.pem", file("build/resources/main/root-ca.pem"))
+                node.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
+                node.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
+                node.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
+                node.setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
+                node.setting("plugins.security.ssl.http.enabled", "true")
+                node.setting("plugins.security.ssl.http.pemcert_filepath", "esnode.pem")
+                node.setting("plugins.security.ssl.http.pemkey_filepath", "esnode-key.pem")
+                node.setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
+                node.setting("plugins.security.allow_unsafe_democertificates", "true")
+                node.setting("plugins.security.allow_default_init_securityindex", "true")
+                node.setting("plugins.security.authcz.admin_dn", "\n - CN=kirk,OU=client,O=client,L=test,C=de")
+                node.setting("plugins.security.audit.type", "internal_opensearch")
+                node.setting("plugins.security.enable_snapshot_restore_privilege", "true")
+                node.setting("plugins.security.check_snapshot_restore_write_privileges", "true")
+                node.setting("plugins.security.restapi.roles_enabled", "[\"all_access\", \"security_rest_api_access\"]")
+                node.setting("plugins.security.system_indices.enabled", "true")
+                // node.setting("plugins.security.system_indices.indices", "[\".opendistro-ism-config\"]")
+            }
         }
     }
 }
@@ -729,7 +758,7 @@ ext.resolvebwcZipFile = { pluginId ->
         }
     }
 }
-2.times {i -> 
+2.times {i ->
     testClusters {
         "${baseName}$i" {
             testDistribution = "ARCHIVE"
@@ -774,8 +803,8 @@ task prepareBwcTests {
     }
 }
 
-// Creates 2 test clusters with 3 nodes of the old version. 
-2.times {i -> 
+// Creates 2 test clusters with 3 nodes of the old version.
+2.times {i ->
     task "${baseName}#oldVersionClusterTask$i"(type: RestIntegTestTask) {
         dependsOn 'prepareBwcTests'
         useCluster testClusters."${baseName}$i"
@@ -787,10 +816,10 @@ task prepareBwcTests {
         systemProperty 'tests.plugin_bwc_version', bwcVersion
         nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}$i".allHttpSocketURI.join(",")}")
         nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}$i".getName()}")
-    }    
+    }
 }
 
-// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version 
+// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
 // This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
 // This is also used as a one third upgraded cluster for a rolling upgrade.
 task "${baseName}#mixedClusterTask"(type: RestIntegTestTask) {
@@ -848,7 +877,7 @@ task "${baseName}#rollingUpgradeClusterTask"(type: RestIntegTestTask) {
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
 }
 
-// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version 
+// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version
 // at the same time resulting in a fully upgraded cluster.
 task "${baseName}#fullRestartClusterTask"(type: RestIntegTestTask) {
     dependsOn "${baseName}#oldVersionClusterTask1"
@@ -876,15 +905,53 @@ task bwcTestSuite(type: RestIntegTestTask) {
 
 run {
     doFirst {
-        // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
-        // not being written, the waitForAllConditions ensures it's written
         getClusters().forEach { cluster ->
             cluster.waitForAllConditions()
         }
+
+        if (project.hasProperty('dualCluster')) {
+            def clusterPorts = [:] // Map to store leader/follow cluster info
+
+            getClusters().forEach { cluster ->
+                def clusterName = cluster.getName()
+                def allTransportSocketURI = cluster.nodes
+                        .collectMany { node -> node.getAllTransportPortURI() }
+                        .join(",")
+
+                def allHttpSocketURI = cluster.nodes
+                        .collectMany { node -> node.getAllHttpSocketURI() }
+                        .join(",")
+
+                clusterPorts[clusterName] = [
+                        httpHosts: allHttpSocketURI,
+                        transportHosts: allTransportSocketURI
+                ]
+
+                println "${clusterName.capitalize()} cluster running at HTTP: ${allHttpSocketURI}, Transport: ${allTransportSocketURI}"
+            }
+
+            // Pass cluster info to tests
+            if (clusterPorts.containsKey('leader') && clusterPorts.containsKey('follow')) {
+                systemProperty "tests.leader.cluster.name", "leader"
+                systemProperty "tests.follow.cluster.name", "follower"
+
+                systemProperty "tests.cluster.leader.http_hosts", clusterPorts['leader'].httpHosts
+                systemProperty "tests.cluster.follow.http_hosts", clusterPorts['follow'].httpHosts
+
+                systemProperty "tests.cluster.leader.transport_hosts", clusterPorts['leader'].transportHosts
+                systemProperty "tests.cluster.follow.transport_hosts", clusterPorts['follow'].transportHosts
+            }
+        }
     }
 
-    useCluster testClusters.integTest
+    if (project.hasProperty('dualCluster')) {
+        useCluster testClusters.leaderCluster
+        useCluster testClusters.followCluster
+    } else {
+        useCluster testClusters.integTest
+    }
 }
+
 
 evaluationDependsOnChildren()
 
