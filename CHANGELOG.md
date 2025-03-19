@@ -9,7 +9,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Use testclusters when testing with security ([#1414](https://github.com/opensearch-project/anomaly-detection/pull/1414))
 ### Bug Fixes
 ### Infrastructure
-
+- Adding dual cluster arg to gradle run ([#1441](https://github.com/opensearch-project/anomaly-detection/pull/1441))
 ### Documentation
 
 ### Maintenance
@@ -21,9 +21,11 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Enhancements
 - Github workflow for changelog verification ([#1413](https://github.com/opensearch-project/anomaly-detection/pull/1413))
+- Use testclusters when testing with security ([#1414](https://github.com/opensearch-project/anomaly-detection/pull/1414))
 ### Bug Fixes
 
 ### Infrastructure
+- Adding dual cluster arg to gradle run ([#1441](https://github.com/opensearch-project/anomaly-detection/pull/1441))
 ### Documentation
 ### Maintenance
 ### Refactoring
