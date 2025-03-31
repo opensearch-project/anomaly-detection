@@ -701,7 +701,6 @@ public final class ParseUtils {
     public static void verifyResourceAccessAndProcessRequest(
         User requestedUser,
         String detectorId,
-        Set<String> scopes,
         NodeClient client,
         Settings settings,
         ActionListener<? extends ActionResponse> listener,
@@ -710,7 +709,7 @@ public final class ParseUtils {
     ) {
         ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient(client, settings);
 
-        resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, scopes, ActionListener.wrap(isAuthorized -> {
+        resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
             if (!isAuthorized) {
                 listener
                     .onFailure(

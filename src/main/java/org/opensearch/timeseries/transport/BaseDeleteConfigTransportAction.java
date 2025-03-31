@@ -13,7 +13,6 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionList
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,7 +25,6 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.cluster.service.ClusterService;
@@ -128,7 +126,6 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                 verifyResourceAccessAndProcessRequest(
                     user,
                     configId,
-                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

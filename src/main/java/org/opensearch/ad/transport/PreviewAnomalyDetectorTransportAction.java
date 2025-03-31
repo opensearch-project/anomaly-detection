@@ -23,7 +23,6 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionList
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import org.apache.commons.lang.StringUtils;
@@ -36,7 +35,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -125,7 +123,6 @@ public class PreviewAnomalyDetectorTransportAction extends
                 verifyResourceAccessAndProcessRequest(
                     user,
                     detectorId,
-                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

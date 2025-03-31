@@ -17,7 +17,6 @@ import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,7 +26,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -173,7 +171,6 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                 verifyResourceAccessAndProcessRequest(
                     user,
                     forecastID,
-                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,

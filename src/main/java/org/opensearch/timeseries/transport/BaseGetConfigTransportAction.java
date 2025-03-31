@@ -32,7 +32,6 @@ import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ADResourceScope;
 import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
@@ -181,7 +180,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                 verifyResourceAccessAndProcessRequest(
                     user,
                     configID,
-                    Set.of(ADResourceScope.AD_FULL_ACCESS.value()),
                     nodeClient,
                     settings,
                     listener,
