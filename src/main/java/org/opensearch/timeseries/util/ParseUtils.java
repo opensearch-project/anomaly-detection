@@ -71,7 +71,6 @@ import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuild
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.security.client.resources.ResourceSharingClient;
-import org.opensearch.security.spi.resources.exceptions.ResourceSharingException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -713,8 +712,9 @@ public final class ParseUtils {
             if (!isAuthorized) {
                 listener
                     .onFailure(
-                        new ResourceSharingException(
-                            "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId
+                        new OpenSearchStatusException(
+                            "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId,
+                                RestStatus.FORBIDDEN
                         )
                     );
                 return;
