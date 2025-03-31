@@ -4,6 +4,7 @@ on:
     branches-ignore:
       - 'whitesource-remediate/**'
       - 'backport/**'
+      - 'dependabot/**'
   pull_request:
     types: [opened, edited, review_requested, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
