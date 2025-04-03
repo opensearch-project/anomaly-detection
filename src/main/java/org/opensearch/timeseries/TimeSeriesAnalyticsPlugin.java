@@ -274,9 +274,10 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
-import org.opensearch.security.spi.resources.Resource;
-import org.opensearch.security.spi.resources.ResourceParser;
 import org.opensearch.security.spi.resources.ResourceSharingExtension;
+import org.opensearch.security.spi.resources.ShareableResource;
+import org.opensearch.security.spi.resources.ShareableResourceParser;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -293,6 +294,7 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ThrowingSupplierWrapper;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.ratelimit.CheckPointMaintainRequestAdapter;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.settings.TimeSeriesEnabledSetting;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
@@ -1779,7 +1781,12 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
     }
 
     @Override
-    public ResourceParser<? extends Resource> getResourceParser() {
+    public ShareableResourceParser<? extends ShareableResource> getShareableResourceParser() {
         return null;
+    }
+
+    @Override
+    public void assignResourceSharingClient(ResourceSharingClient resourceSharingClient) {
+        ResourceSharingClientAccessor.setResourceSharingClient(resourceSharingClient);
     }
 }

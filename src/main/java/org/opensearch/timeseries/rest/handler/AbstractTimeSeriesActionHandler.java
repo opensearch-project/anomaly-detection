@@ -59,6 +59,9 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
+import org.opensearch.security.spi.resources.sharing.Recipient;
+import org.opensearch.security.spi.resources.sharing.SharedWithActionGroup;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
@@ -74,6 +77,7 @@ import org.opensearch.timeseries.model.TaskType;
 import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
@@ -1018,7 +1022,28 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
                     return;
                 }
-                listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+
+                // Share with user's backend_roles here before sending response
+
+                String configId = indexResponse.getId();
+                String configIndex = indexResponse.getIndex();
+                Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
+                SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(recipientMap);
+
+                ResourceSharingClient client = ResourceSharingClientAccessor.getResourceSharingClient();
+
+                client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
+                    logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
+                    listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                }, failure -> {
+                    if (failure instanceof OpenSearchStatusException
+                        && ((OpenSearchStatusException) failure).status().equals(RestStatus.NOT_IMPLEMENTED)) {
+                        listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                    } else {
+                        listener.onFailure(failure);
+                    }
+                }));
+
             }
 
             @Override

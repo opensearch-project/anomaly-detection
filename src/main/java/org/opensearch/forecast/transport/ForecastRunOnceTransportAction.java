@@ -26,7 +26,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -76,7 +75,6 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -100,8 +98,6 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     private final FeatureManager featureManager;
     private final ForecastStats forecastStats;
     private volatile Boolean filterByEnabled;
-    private final boolean resourceSharingEnabled;
-    private final NodeClient nodeClient;
 
     protected volatile Integer maxSingleStreamForecasters;
     protected volatile Integer maxHCForecasters;
@@ -125,8 +121,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         ForecastStats forecastStats,
         ThreadPool threadPool,
         NamedXContentRegistry xContentRegistry,
-        ForecastTaskManager realTimeTaskManager,
-        NodeClient nodeClient
+        ForecastTaskManager realTimeTaskManager
     ) {
         super(ForecastRunOnceAction.NAME, transportService, actionFilters, ForecastResultRequest::new);
 
@@ -153,9 +148,6 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         this.maxHCForecasters = MAX_HC_FORECASTERS.get(settings);
         this.maxForecastFeatures = MAX_FORECAST_FEATURES;
         this.maxCategoricalFields = ForecastNumericSetting.maxCategoricalFields();
-        this.resourceSharingEnabled = settings
-            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
-        this.nodeClient = nodeClient;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_SINGLE_STREAM_FORECASTERS, it -> maxSingleStreamForecasters = it);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_HC_FORECASTERS, it -> maxHCForecasters = it);
     }
@@ -166,31 +158,26 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         User user = ParseUtils.getUserContext(client);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (resourceSharingEnabled) {
-                // Call verifyResourceAccessAndProcessRequest for access verification
-                verifyResourceAccessAndProcessRequest(
-                    user,
-                    forecastID,
-                    nodeClient,
-                    settings,
-                    listener,
-                    args -> executeRunOnce(forecastID, request, listener) // Function to execute after verification
-                );
-                return;
-            }
-
-            // If resource sharing is not enabled, proceed with normal execution
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
                 forecastID,
-                filterByEnabled,
                 listener,
-                (forecaster) -> executeRunOnce(forecastID, request, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                Forecaster.class
+                args -> executeRunOnce(forecastID, request, listener),
+                new Object[] {},
+                (error, fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    forecastID,
+                    filterByEnabled,
+                    listener,
+                    (forecaster) -> executeRunOnce(forecastID, request, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    Forecaster.class
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(new OpenSearchStatusException("Failed to run once forecaster " + forecastID, INTERNAL_SERVER_ERROR));

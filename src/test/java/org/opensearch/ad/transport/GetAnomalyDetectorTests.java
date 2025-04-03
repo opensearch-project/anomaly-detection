@@ -61,7 +61,6 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.Transport;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
     private GetAnomalyDetectorTransportAction action;
@@ -135,8 +134,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
             Settings.EMPTY,
             xContentRegistry(),
             adTaskManager,
-            adTaskProfileRunner,
-            mock(NodeClient.class)
+            adTaskProfileRunner
         );
 
         entity = Entity.createSingleAttributeEntity(categoryField, entityValue);

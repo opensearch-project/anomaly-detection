@@ -29,7 +29,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -52,7 +51,6 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class IndexForecasterTransportAction extends HandledTransportAction<IndexForecasterRequest, IndexForecasterResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexForecasterTransportAction.class);
@@ -66,8 +64,6 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
     private final SearchFeatureDao searchFeatureDao;
     private final ForecastTaskManager taskManager;
     private final Settings settings;
-    private final boolean resourceSharingEnabled;
-    private final NodeClient nodeClient;
 
     @Inject
     public IndexForecasterTransportAction(
@@ -80,8 +76,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         ForecastIndexManagement forecastIndices,
         NamedXContentRegistry xContentRegistry,
         SearchFeatureDao searchFeatureDao,
-        ForecastTaskManager taskManager,
-        NodeClient nodeClient
+        ForecastTaskManager taskManager
     ) {
         super(IndexForecasterAction.NAME, transportService, actionFilters, IndexForecasterRequest::new);
         this.client = client;
@@ -95,9 +90,6 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         this.searchFeatureDao = searchFeatureDao;
         this.taskManager = taskManager;
         this.settings = settings;
-        this.resourceSharingEnabled = settings
-            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
-        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -109,27 +101,22 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         ActionListener<IndexForecasterResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (resourceSharingEnabled) {
-                // Call verifyResourceAccessAndProcessRequest before executing the forecast
-                verifyResourceAccessAndProcessRequest(
-                    user,
-                    forecasterId,
-                    nodeClient,
-                    settings,
-                    listener,
-                    (args) -> forecastExecute(request, user, (Forecaster) args[0], context, listener) // Execute only if access is granted
-                );
-                return;
-            }
-
-            // Proceed with normal execution if resource sharing is not enabled
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
                 forecasterId,
-                method,
                 listener,
-                (forecaster) -> forecastExecute(request, user, forecaster, context, listener)
+                (args) -> forecastExecute(request, user, (Forecaster) args[0], context, listener),
+                new Object[] {},
+                (error, fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    forecasterId,
+                    method,
+                    listener,
+                    (forecaster) -> forecastExecute(request, user, forecaster, context, listener)
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

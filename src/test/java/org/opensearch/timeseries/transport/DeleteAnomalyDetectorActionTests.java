@@ -39,7 +39,6 @@ import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.transport.TransportService;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
     private DeleteAnomalyDetectorTransportAction action;
@@ -65,8 +64,7 @@ public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
             Settings.EMPTY,
             xContentRegistry(),
             mock(NodeStateManager.class),
-            adTaskManager,
-            mock(NodeClient.class)
+            adTaskManager
         );
         response = new ActionListener<DeleteResponse>() {
             @Override

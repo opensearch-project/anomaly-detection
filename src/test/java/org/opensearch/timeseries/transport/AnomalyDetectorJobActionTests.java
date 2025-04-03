@@ -42,7 +42,6 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     private AnomalyDetectorJobTransportAction action;
@@ -76,8 +75,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
             clusterService,
             indexSettings(),
             xContentRegistry(),
-            mock(ADIndexJobActionHandler.class),
-            mock(NodeClient.class)
+            mock(ADIndexJobActionHandler.class)
         );
         task = mock(Task.class);
         request = new JobRequest("1234", new DateRange(Instant.ofEpochMilli(4567), Instant.ofEpochMilli(7890)), true, "_start");

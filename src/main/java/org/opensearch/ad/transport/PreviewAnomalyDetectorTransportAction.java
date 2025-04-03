@@ -35,7 +35,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -73,9 +72,6 @@ public class PreviewAnomalyDetectorTransportAction extends
     private volatile Boolean filterByEnabled;
     private final CircuitBreakerService adCircuitBreakerService;
     private Semaphore lock;
-    private final boolean resourceSharingEnabled;
-    private final Settings settings;
-    private final NodeClient nodeClient;
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
@@ -100,10 +96,6 @@ public class PreviewAnomalyDetectorTransportAction extends
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.adCircuitBreakerService = adCircuitBreakerService;
         this.lock = new Semaphore(MAX_CONCURRENT_PREVIEW.get(settings), true);
-        this.resourceSharingEnabled = settings
-            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
-        this.settings = settings;
-        this.nodeClient = nodeClient;
         clusterService.getClusterSettings().addSettingsUpdateConsumer(MAX_CONCURRENT_PREVIEW, it -> { lock = new Semaphore(it); });
     }
 
@@ -118,30 +110,25 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (resourceSharingEnabled) {
-                // Call the verifyResourceAccessAndProcessRequest method
-                verifyResourceAccessAndProcessRequest(
-                    user,
-                    detectorId,
-                    nodeClient,
-                    settings,
-                    listener,
-                    args -> previewExecute(request, context, listener) // Function to execute on successful verification
-                );
-                return;
-            }
-
-            // If resource sharing is not enabled, proceed with normal execution
-            resolveUserAndExecute(
+            // Call the verifyResourceAccessAndProcessRequest method
+            verifyResourceAccessAndProcessRequest(
                 user,
                 detectorId,
-                filterByEnabled,
                 listener,
-                (anomalyDetector) -> previewExecute(request, context, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                AnomalyDetector.class
+                args -> previewExecute(request, context, listener),
+                new Object[] {},
+                (error, fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    detectorId,
+                    filterByEnabled,
+                    listener,
+                    ad -> previewExecute(request, context, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    AnomalyDetector.class
+                ),
+                new Object[] {}
             );
 
         } catch (Exception e) {

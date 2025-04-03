@@ -34,7 +34,6 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.timeseries.transport.BaseJobTransportAction;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class AnomalyDetectorJobTransportAction extends
     BaseJobTransportAction<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction, ExecuteADResultResponseRecorder, ADIndexJobActionHandler> {
@@ -46,8 +45,7 @@ public class AnomalyDetectorJobTransportAction extends
         ClusterService clusterService,
         Settings settings,
         NamedXContentRegistry xContentRegistry,
-        ADIndexJobActionHandler adIndexJobActionHandler,
-        NodeClient nodeClient
+        ADIndexJobActionHandler adIndexJobActionHandler
     ) {
         super(
             transportService,
@@ -62,8 +60,7 @@ public class AnomalyDetectorJobTransportAction extends
             FAIL_TO_START_DETECTOR,
             FAIL_TO_STOP_DETECTOR,
             AnomalyDetector.class,
-            adIndexJobActionHandler,
-            nodeClient
+            adIndexJobActionHandler
         );
     }
 }

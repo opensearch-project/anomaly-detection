@@ -38,7 +38,6 @@ import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.transport.GetConfigRequest;
 import org.opensearch.transport.TransportService;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class GetForecasterTransportActionTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
@@ -79,8 +78,7 @@ public class GetForecasterTransportActionTests extends AbstractTimeSeriesTest {
                 Settings.EMPTY,
                 null,
                 taskManager,
-                null,
-                mock(NodeClient.class)
+                null
             )
         );
 

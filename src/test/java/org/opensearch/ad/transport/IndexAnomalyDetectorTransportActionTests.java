@@ -64,7 +64,6 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -120,8 +119,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao,
-            mock(NodeClient.class)
+            searchFeatureDao
         );
         task = mock(Task.class);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
@@ -220,8 +218,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao,
-            mock(NodeClient.class)
+            searchFeatureDao
         );
         transportAction.doExecute(task, request, response);
     }
@@ -246,8 +243,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao,
-            mock(NodeClient.class)
+            searchFeatureDao
         );
         transportAction.doExecute(task, request, response);
     }

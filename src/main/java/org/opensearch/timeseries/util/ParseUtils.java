@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
@@ -40,7 +41,6 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
@@ -70,7 +70,7 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.security.client.resources.ResourceSharingClient;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -81,7 +81,6 @@ import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
 
@@ -700,13 +699,13 @@ public final class ParseUtils {
     public static void verifyResourceAccessAndProcessRequest(
         User requestedUser,
         String detectorId,
-        NodeClient client,
-        Settings settings,
         ActionListener<? extends ActionResponse> listener,
-        Consumer<Object[]> function,
-        Object... args
+        Consumer<Object[]> onSuccess,
+        Object[] successArgs,
+        BiConsumer<Throwable, Object[]> fallbackOn501,
+        Object[] fallbackArgs
     ) {
-        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient(client, settings);
+        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
 
         resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
             if (!isAuthorized) {
@@ -714,13 +713,21 @@ public final class ParseUtils {
                     .onFailure(
                         new OpenSearchStatusException(
                             "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId,
-                                RestStatus.FORBIDDEN
+                            RestStatus.FORBIDDEN
                         )
                     );
                 return;
             }
-            function.accept(args);
-        }, listener::onFailure));
+            onSuccess.accept(successArgs);
+        }, failure -> {
+            // if resource-sharing feature is not available, proceed with old flow of evaluating filter-by-backend role.
+            if (failure instanceof OpenSearchStatusException
+                && ((OpenSearchStatusException) failure).status().equals(RestStatus.NOT_IMPLEMENTED)) {
+                fallbackOn501.accept(failure, fallbackArgs);
+            } else {
+                listener.onFailure(failure);
+            }
+        }));
     }
 
     /**

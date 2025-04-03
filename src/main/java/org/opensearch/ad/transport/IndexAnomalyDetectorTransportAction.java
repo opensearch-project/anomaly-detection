@@ -28,7 +28,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.ad.constant.ConfigConstants;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -53,7 +52,6 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
@@ -67,8 +65,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
     private final Settings settings;
-    private final boolean resourceSharingEnabled;
-    private final NodeClient nodeClient;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -81,8 +77,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
-        SearchFeatureDao searchFeatureDao,
-        NodeClient nodeClient
+        SearchFeatureDao searchFeatureDao
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -96,9 +91,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.settings = settings;
-        this.resourceSharingEnabled = settings
-            .getAsBoolean(ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED, ConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
-        this.nodeClient = nodeClient;
     }
 
     @Override
@@ -110,27 +102,28 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ActionListener<IndexAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (resourceSharingEnabled) {
-                // Call verifyResourceAccessAndProcessRequest before proceeding
-                verifyResourceAccessAndProcessRequest(
+            verifyResourceAccessAndProcessRequest(
+                user,
+                detectorId,
+                listener,
+                args -> indexDetector(
                     user,
                     detectorId,
-                    nodeClient,
-                    settings,
+                    method,
                     listener,
-                    args -> indexDetector(
-                        user,
-                        detectorId,
-                        method,
-                        listener,
-                        detector -> adExecute(request, user, detector, context, listener)
-                    ) // Execute only if access is granted
-                );
-                return;
-            }
+                    detector -> adExecute(request, user, detector, context, listener)
+                ),
+                new Object[] {},
+                (error, fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    detectorId,
+                    method,
+                    listener,
+                    (detector) -> adExecute(request, user, detector, context, listener)
+                ),
+                new Object[] {}
+            );
 
-            // Proceed with normal execution if resource sharing is not enabled
-            resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, context, listener));
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
