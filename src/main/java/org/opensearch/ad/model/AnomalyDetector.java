@@ -42,7 +42,6 @@ import org.opensearch.core.xcontent.XContentParseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.security.spi.resources.ShareableResource;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -67,8 +66,7 @@ import com.google.common.base.Objects;
  * TODO: Will replace detector config mapping in AD task with detector config setting directly \
  *      in code rather than config it in anomaly-detection-state.json file.
  */
-public class AnomalyDetector extends Config implements ShareableResource {
-
+public class AnomalyDetector extends Config {
     static class ADShingleGetter implements ShingleGetter {
         private Integer seasonIntervals;
 
