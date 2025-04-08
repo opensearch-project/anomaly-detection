@@ -6,7 +6,6 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased 3.0](https://github.com/opensearch-project/anomaly-detection/compare/2.x...HEAD)
 ### Features
 ### Enhancements
-- Use testclusters when testing with security ([#1414](https://github.com/opensearch-project/anomaly-detection/pull/1414))
 ### Bug Fixes
 ### Infrastructure
 ### Documentation
