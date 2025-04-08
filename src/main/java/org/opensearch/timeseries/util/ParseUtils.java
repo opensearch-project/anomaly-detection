@@ -705,9 +705,9 @@ public final class ParseUtils {
         Consumer<Object[]> fallbackOn501,
         Object[] fallbackArgs
     ) {
-        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
-
+        // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
         if (isResourceSharingFeatureEnabled) {
+            ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
             resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {
                     listener

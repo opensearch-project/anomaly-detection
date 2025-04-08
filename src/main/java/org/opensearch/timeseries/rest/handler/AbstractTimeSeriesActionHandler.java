@@ -1027,16 +1027,16 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     return;
                 }
 
-                // Share with user's backend_roles here before sending response
-
-                String configId = indexResponse.getId();
-                String configIndex = indexResponse.getIndex();
-                Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
-                SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(recipientMap);
-
-                ResourceSharingClient client = ResourceSharingClientAccessor.getResourceSharingClient();
-
+                // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
                 if (isResourceSharingFeatureEnabled) {
+                    // Share with user's backend_roles here before sending response
+
+                    String configId = indexResponse.getId();
+                    String configIndex = indexResponse.getIndex();
+                    Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
+                    SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(recipientMap);
+
+                    ResourceSharingClient client = ResourceSharingClientAccessor.getResourceSharingClient();
                     client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
                         logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
                         listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
