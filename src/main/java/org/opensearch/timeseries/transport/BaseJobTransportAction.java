@@ -5,7 +5,10 @@
 
 package org.opensearch.timeseries.transport;
 
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -93,21 +96,34 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         TimeValue requestTimeout = requestTimeOutSetting.get(settings);
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? failtoStartMsg : failtoStopMsg;
         ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
-        // By the time request reaches here, the user permissions are validated by Security plugin.
+        // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
                 configId,
-                filterByEnabled,
+                isResourceSharingFeatureEnabled,
                 listener,
-                (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
-                client,
-                clusterService,
-                xContentRegistry,
-                configClass
+                args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    configId,
+                    filterByEnabled,
+                    listener,
+                    (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    configClass
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

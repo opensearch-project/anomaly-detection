@@ -32,6 +32,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.security.spi.resources.ShareableResource;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
@@ -46,7 +47,7 @@ import org.owasp.encoder.Encode;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
-public abstract class Config implements Writeable, ToXContentObject {
+public abstract class Config implements ShareableResource, Writeable, ToXContentObject {
     private static final Logger logger = LogManager.getLogger(Config.class);
 
     public static final int MAX_RESULT_INDEX_NAME_SIZE = 255;
@@ -822,5 +823,10 @@ public abstract class Config implements Writeable, ToXContentObject {
             .append("customResultIndexTTL", customResultIndexTTL)
             .append("flattenResultIndexMapping", flattenResultIndexMapping)
             .toString();
+    }
+
+    @Override
+    public boolean isFragment() {
+        return ShareableResource.super.isFragment();
     }
 }

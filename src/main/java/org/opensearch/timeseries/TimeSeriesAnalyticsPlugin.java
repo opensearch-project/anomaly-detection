@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -274,6 +275,9 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
+import org.opensearch.security.spi.resources.ResourceProvider;
+import org.opensearch.security.spi.resources.ResourceSharingExtension;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -288,8 +292,10 @@ import org.opensearch.timeseries.dataprocessor.LinearUniformImputer;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ThrowingSupplierWrapper;
+import org.opensearch.timeseries.model.ConfigParser;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.ratelimit.CheckPointMaintainRequestAdapter;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.settings.TimeSeriesEnabledSetting;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
@@ -327,7 +333,13 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin
+    implements
+        ActionPlugin,
+        ScriptPlugin,
+        SystemIndexPlugin,
+        JobSchedulerExtension,
+        ResourceSharingExtension {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -1757,5 +1769,27 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 LOG.error("Failed to shut down object Pool", e);
             }
         }
+    }
+
+    @Override
+    public Set<ResourceProvider> getResourceProviders() {
+        return Set
+            .of(
+                new ResourceProvider(
+                    AnomalyDetector.class.getCanonicalName(),
+                    CommonName.CONFIG_INDEX, // TODO These values need to be updated to point to individual index
+                    new ConfigParser(AnomalyDetector.class)
+                ),
+                new ResourceProvider(
+                    Forecaster.class.getCanonicalName(),
+                    CommonName.CONFIG_INDEX, // TODO These values need to be updated to point to individual index
+                    new ConfigParser(Forecaster.class)
+                )
+            );
+    }
+
+    @Override
+    public void assignResourceSharingClient(ResourceSharingClient resourceSharingClient) {
+        ResourceSharingClientAccessor.setResourceSharingClient(resourceSharingClient);
     }
 }

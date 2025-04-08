@@ -13,7 +13,10 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_FORECAST_FEATURES;
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_HC_FORECASTERS;
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_SINGLE_STREAM_FORECASTERS;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -155,19 +158,31 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     protected void doExecute(Task task, ForecastResultRequest request, ActionListener<ForecastResultResponse> listener) {
         String forecastID = request.getConfigId();
         User user = ParseUtils.getUserContext(client);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
-            resolveUserAndExecute(
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            verifyResourceAccessAndProcessRequest(
                 user,
                 forecastID,
-                filterByEnabled,
+                isResourceSharingFeatureEnabled,
                 listener,
-                (forecaster) -> executeRunOnce(forecastID, request, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                Forecaster.class
+                args -> executeRunOnce(forecastID, request, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    forecastID,
+                    filterByEnabled,
+                    listener,
+                    (forecaster) -> executeRunOnce(forecastID, request, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    Forecaster.class
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(new OpenSearchStatusException("Failed to run once forecaster " + forecastID, INTERNAL_SERVER_ERROR));
