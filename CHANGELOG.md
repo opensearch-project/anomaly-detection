@@ -21,6 +21,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Enhancements
 - Github workflow for changelog verification ([#1413](https://github.com/opensearch-project/anomaly-detection/pull/1413))
 ### Bug Fixes
+- Distinguish local cluster when local name is same as remote ([#1446](https://github.com/opensearch-project/anomaly-detection/pull/1446))
 ### Infrastructure
 ### Documentation
 ### Maintenance
