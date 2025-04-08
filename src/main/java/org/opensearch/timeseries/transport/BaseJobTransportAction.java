@@ -5,6 +5,8 @@
 
 package org.opensearch.timeseries.transport;
 
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -94,6 +96,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         TimeValue requestTimeout = requestTimeOutSetting.get(settings);
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? failtoStartMsg : failtoStopMsg;
         ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
         // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
@@ -102,10 +106,11 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
             verifyResourceAccessAndProcessRequest(
                 user,
                 configId,
+                isResourceSharingFeatureEnabled,
                 listener,
                 args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
                 new Object[] {},
-                (error, fallbackArgs) -> resolveUserAndExecute(
+                (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,

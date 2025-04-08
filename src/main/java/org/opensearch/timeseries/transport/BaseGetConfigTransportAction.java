@@ -6,6 +6,8 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
@@ -82,6 +84,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
     protected final ClusterService clusterService;
     protected final Client client;
+    protected final Settings settings;
     protected final SecurityClientUtil clientUtil;
     protected final Set<String> allProfileTypeStrs;
     protected final Set<ProfileName> allProfileTypes;
@@ -127,6 +130,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         super(getConfigAction, transportService, actionFilters, GetConfigRequest::new);
         this.clusterService = clusterService;
         this.client = client;
+        this.settings = settings;
         this.clientUtil = clientUtil;
 
         List<ProfileName> allProfiles = Arrays.asList(ProfileName.values());
@@ -163,15 +167,18 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String configID = getConfigRequest.getConfigID();
         User user = ParseUtils.getUserContext(client);
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
                 configID,
+                isResourceSharingFeatureEnabled,
                 listener,
                 args -> getExecute(getConfigRequest, listener),
                 new Object[] {},
-                (error, fallbackArgs) -> resolveUserAndExecute(
+                (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     configID,
                     filterByEnabled,

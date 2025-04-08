@@ -6,6 +6,8 @@
 package org.opensearch.timeseries.rest.handler;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG;
 import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDATION_FAILED;
 import static org.opensearch.timeseries.indices.IndexManagement.getScripts;
@@ -977,7 +979,9 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void tryIndexingConfig(boolean indexingDryRun, ActionListener<T> listener) throws IOException {
         if (!indexingDryRun) {
-            indexConfig(id, listener);
+            boolean isResourceSharingFeatureEnabled = this.settings
+                .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+            indexConfig(id, isResourceSharingFeatureEnabled, listener);
         } else {
             finishConfigValidationOrContinueToModelValidation(listener);
         }
@@ -1002,7 +1006,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
-    protected void indexConfig(String id, ActionListener<T> listener) throws IOException {
+    protected void indexConfig(String id, boolean isResourceSharingFeatureEnabled, ActionListener<T> listener) throws IOException {
         Config copiedConfig = copyConfig(user, config);
         IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
             .setRefreshPolicy(refreshPolicy)
@@ -1032,17 +1036,15 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
                 ResourceSharingClient client = ResourceSharingClientAccessor.getResourceSharingClient();
 
-                client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
-                    logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
-                    listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
-                }, failure -> {
-                    if (failure instanceof OpenSearchStatusException
-                        && ((OpenSearchStatusException) failure).status().equals(RestStatus.NOT_IMPLEMENTED)) {
+                if (isResourceSharingFeatureEnabled) {
+                    client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
+                        logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
                         listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
-                    } else {
-                        listener.onFailure(failure);
-                    }
-                }));
+                    }, listener::onFailure));
+                } else {
+                    // if feature is disabled, return all resources
+                    createIndexConfigResponse(indexResponse, copiedConfig);
+                }
 
             }
 

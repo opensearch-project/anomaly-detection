@@ -16,6 +16,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -67,6 +69,7 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     private final ClusterService clusterService;
     private final Client client;
+    private final Settings settings;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
@@ -88,6 +91,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
         this.client = client;
+        this.settings = settings;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.xContentRegistry = xContentRegistry;
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
@@ -108,16 +112,19 @@ public class PreviewAnomalyDetectorTransportAction extends
         String detectorId = request.getId();
         User user = ParseUtils.getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
                 user,
                 detectorId,
+                isResourceSharingFeatureEnabled,
                 listener,
                 args -> previewExecute(request, context, listener),
                 new Object[] {},
-                (error, fallbackArgs) -> resolveUserAndExecute(
+                (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     detectorId,
                     filterByEnabled,

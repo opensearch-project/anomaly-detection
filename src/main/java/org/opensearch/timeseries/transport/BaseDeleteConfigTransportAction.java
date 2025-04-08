@@ -6,6 +6,8 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_DELETE_CONFIG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
@@ -60,6 +62,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private static final Logger LOG = LogManager.getLogger(BaseDeleteConfigTransportAction.class);
 
     private final Client client;
+    private final Settings settings;
     private final ClusterService clusterService;
     private final TransportService transportService;
     private NamedXContentRegistry xContentRegistry;
@@ -90,6 +93,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         super(deleteConfigAction, transportService, actionFilters, DeleteConfigRequest::new);
         this.transportService = transportService;
         this.client = client;
+        this.settings = settings;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.taskManager = taskManager;
@@ -109,11 +113,14 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         LOG.info("Delete job {}", configId);
         User user = ParseUtils.getUserContext(client);
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_CONFIG);
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
                 configId,
+                isResourceSharingFeatureEnabled,
                 listener,
                 (args) -> nodeStateManager.getConfig(configId, analysisType, config -> {
                     if (config.isEmpty()) {
@@ -135,7 +142,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                     });
                 }, listener),
                 new Object[] {},
-                (error, fallbackArgs) -> resolveUserAndExecute(
+                (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,

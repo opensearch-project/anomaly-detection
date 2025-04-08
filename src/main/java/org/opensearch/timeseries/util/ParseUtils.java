@@ -29,7 +29,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
@@ -699,35 +698,32 @@ public final class ParseUtils {
     public static void verifyResourceAccessAndProcessRequest(
         User requestedUser,
         String detectorId,
+        boolean isResourceSharingFeatureEnabled,
         ActionListener<? extends ActionResponse> listener,
         Consumer<Object[]> onSuccess,
         Object[] successArgs,
-        BiConsumer<Throwable, Object[]> fallbackOn501,
+        Consumer<Object[]> fallbackOn501,
         Object[] fallbackArgs
     ) {
         ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
 
-        resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
-            if (!isAuthorized) {
-                listener
-                    .onFailure(
-                        new OpenSearchStatusException(
-                            "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId,
-                            RestStatus.FORBIDDEN
-                        )
-                    );
-                return;
-            }
-            onSuccess.accept(successArgs);
-        }, failure -> {
-            // if resource-sharing feature is not available, proceed with old flow of evaluating filter-by-backend role.
-            if (failure instanceof OpenSearchStatusException
-                && ((OpenSearchStatusException) failure).status().equals(RestStatus.NOT_IMPLEMENTED)) {
-                fallbackOn501.accept(failure, fallbackArgs);
-            } else {
-                listener.onFailure(failure);
-            }
-        }));
+        if (isResourceSharingFeatureEnabled) {
+            resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
+                if (!isAuthorized) {
+                    listener
+                        .onFailure(
+                            new OpenSearchStatusException(
+                                "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId,
+                                RestStatus.FORBIDDEN
+                            )
+                        );
+                    return;
+                }
+                onSuccess.accept(successArgs);
+            }, listener::onFailure));
+        } else {
+            fallbackOn501.accept(fallbackArgs);
+        }
     }
 
     /**
