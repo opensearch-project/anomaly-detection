@@ -143,6 +143,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Consumer<AnomalyDetector> function
     ) {
         try {
+            // Check if user has backend roles
+            // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
             if (filterByEnabled) {
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {

@@ -242,17 +242,12 @@ public class AnomalyDetector extends Config {
 
     @Override
     public String getName() {
-        return "detector";
+        return "anomaly_detector";
     }
 
     @Override
     public String getWriteableName() {
         return "anomaly_detector";
-    }
-
-    @Override
-    public boolean isFragment() {
-        return super.isFragment();
     }
 
     /*

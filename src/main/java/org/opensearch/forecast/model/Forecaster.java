@@ -238,11 +238,6 @@ public class Forecaster extends Config {
         return "forecaster";
     }
 
-    @Override
-    public boolean isFragment() {
-        return super.isFragment();
-    }
-
     public boolean invalidHorizon(Integer horizonToTest) {
         return horizonToTest != null
             && (horizonToTest < 1 || horizonToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO);
