@@ -241,6 +241,11 @@ public class AnomalyDetector extends Config {
     }
 
     @Override
+    public String getShareableResourceName() {
+        return "anomaly_detector";
+    }
+
+    @Override
     public String getWriteableName() {
         return "anomaly_detector";
     }

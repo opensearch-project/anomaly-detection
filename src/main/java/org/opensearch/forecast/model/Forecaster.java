@@ -229,6 +229,11 @@ public class Forecaster extends Config {
     }
 
     @Override
+    public String getShareableResourceName() {
+        return "forecaster";
+    }
+
+    @Override
     public String getWriteableName() {
         return "forecaster";
     }
