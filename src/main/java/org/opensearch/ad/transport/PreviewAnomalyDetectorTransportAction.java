@@ -115,12 +115,15 @@ public class PreviewAnomalyDetectorTransportAction extends
         boolean isResourceSharingFeatureEnabled = this.settings
             .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
                 user,
                 detectorId,
-                isResourceSharingFeatureEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
                 args -> previewExecute(request, context, listener),
                 new Object[] {},

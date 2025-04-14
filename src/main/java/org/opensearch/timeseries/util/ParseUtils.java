@@ -694,11 +694,19 @@ public final class ParseUtils {
 
     /**
      * Verifies whether the user has permission to access the resource.
+     * @param requestedUser user from request
+     * @param detectorId detector id
+     * @param shouldEvaluateWithNewAuthz true only if resource-sharing feature and filter_by_backend role, both are enabled.
+     * @param listener action listener
+     * @param onSuccess consumer function to execute if user has permission
+     * @param successArgs arguments to pass to the consumer function
+     * @param fallbackOn501 consumer function to execute if user does not have permission
+     * @param fallbackArgs arguments to pass to the consumer function
      */
     public static void verifyResourceAccessAndProcessRequest(
         User requestedUser,
         String detectorId,
-        boolean isResourceSharingFeatureEnabled,
+        boolean shouldEvaluateWithNewAuthz,
         ActionListener<? extends ActionResponse> listener,
         Consumer<Object[]> onSuccess,
         Object[] successArgs,
@@ -706,7 +714,7 @@ public final class ParseUtils {
         Object[] fallbackArgs
     ) {
         // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
-        if (isResourceSharingFeatureEnabled) {
+        if (shouldEvaluateWithNewAuthz) {
             ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
             resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {

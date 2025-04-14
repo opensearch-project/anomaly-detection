@@ -116,11 +116,14 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         boolean isResourceSharingFeatureEnabled = this.settings
             .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
                 configId,
-                isResourceSharingFeatureEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
                 (args) -> nodeStateManager.getConfig(configId, analysisType, config -> {
                     if (config.isEmpty()) {

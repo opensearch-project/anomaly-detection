@@ -99,6 +99,9 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         boolean isResourceSharingFeatureEnabled = this.settings
             .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+
         // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
 
@@ -106,7 +109,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
             verifyResourceAccessAndProcessRequest(
                 user,
                 configId,
-                isResourceSharingFeatureEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
                 args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
                 new Object[] {},
