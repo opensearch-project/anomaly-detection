@@ -229,11 +229,6 @@ public class Forecaster extends Config {
     }
 
     @Override
-    public String getName() {
-        return "forecaster";
-    }
-
-    @Override
     public String getWriteableName() {
         return "forecaster";
     }

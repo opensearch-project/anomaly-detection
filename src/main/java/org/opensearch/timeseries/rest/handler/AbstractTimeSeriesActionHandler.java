@@ -61,6 +61,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.NoopResourceSharingClient;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.security.spi.resources.sharing.Recipient;
 import org.opensearch.security.spi.resources.sharing.SharedWithActionGroup;
@@ -1030,17 +1031,22 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
                 if (isResourceSharingFeatureEnabled) {
                     // Share with user's backend_roles here before sending response
-
-                    String configId = indexResponse.getId();
-                    String configIndex = indexResponse.getIndex();
-                    Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
-                    SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(recipientMap);
-
                     ResourceSharingClient client = ResourceSharingClientAccessor.getResourceSharingClient();
-                    client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
-                        logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
+                    if (client instanceof NoopResourceSharingClient) {
                         listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
-                    }, listener::onFailure));
+                    } else {
+                        String configId = indexResponse.getId();
+                        String configIndex = indexResponse.getIndex();
+                        Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
+                        SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(
+                            recipientMap
+                        );
+
+                        client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
+                            logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
+                            listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                        }, listener::onFailure));
+                    }
                 } else {
                     // if feature is disabled, return all resources
                     createIndexConfigResponse(indexResponse, copiedConfig);

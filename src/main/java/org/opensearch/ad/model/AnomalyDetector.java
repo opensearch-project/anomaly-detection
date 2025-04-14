@@ -241,11 +241,6 @@ public class AnomalyDetector extends Config {
     }
 
     @Override
-    public String getName() {
-        return "anomaly_detector";
-    }
-
-    @Override
     public String getWriteableName() {
         return "anomaly_detector";
     }
