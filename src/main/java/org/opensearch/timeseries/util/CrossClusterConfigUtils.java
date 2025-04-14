@@ -28,7 +28,9 @@ public class CrossClusterConfigUtils {
      * @return The local {@link NodeClient} for the local cluster, or a remote client for a remote cluster.
      */
     public static Client getClientForCluster(String clusterName, Client client, String localClusterName) {
-        return clusterName.equals(localClusterName) ? client : client.getRemoteClusterClient(clusterName);
+        return clusterName.contains("#local") && clusterName.split("#")[0].equals(localClusterName)
+            ? client
+            : client.getRemoteClusterClient(clusterName);
     }
 
     /**
@@ -68,9 +70,9 @@ public class CrossClusterConfigUtils {
             String clusterName = clusterAndIndex.getKey();
             String indexName = clusterAndIndex.getValue();
 
-            // If the index entry does not have a cluster_name, it indicates the index is on the local cluster.
             if (clusterName.isEmpty()) {
-                clusterName = localClusterName;
+                // Use #local marker to indicate local cluster to avoid clashing if local cluster has the same name as remote cluster
+                clusterName = localClusterName + "#local";
             }
             output.computeIfAbsent(clusterName, k -> new ArrayList<>()).add(indexName);
         }
