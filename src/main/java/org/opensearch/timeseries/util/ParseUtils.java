@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
-import joptsimple.internal.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
@@ -48,6 +47,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.ParsingException;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;

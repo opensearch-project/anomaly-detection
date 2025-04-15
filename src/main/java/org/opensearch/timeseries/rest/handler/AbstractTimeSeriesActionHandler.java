@@ -1031,8 +1031,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
                 if (isResourceSharingFeatureEnabled) {
                     // Share with user's backend_roles here before sending response
-                    ResourceSharingClient client = ResourceSharingClientAccessor.getResourceSharingClient();
-                    if (client instanceof NoopResourceSharingClient) {
+                    ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
+                    if (resourceSharingClient instanceof NoopResourceSharingClient) {
                         listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
                     } else {
                         String configId = indexResponse.getId();
@@ -1042,7 +1042,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                             recipientMap
                         );
 
-                        client.shareResource(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
+                        resourceSharingClient.share(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
                             logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
                             listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
                         }, listener::onFailure));
