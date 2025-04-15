@@ -197,6 +197,7 @@ apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
 apply plugin: 'opensearch.pluginzip'
+apply plugin: 'opensearch.java-agent'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -210,29 +211,6 @@ allprojects {
 
     plugins.withId('jacoco') {
         jacoco.toolVersion = '0.8.12'
-    }
-
-    configurations {
-        agent
-    }
-
-    dependencies {
-    }
-
-    task prepareAgent(type: Copy) {
-        from(configurations.agent)
-        into "$buildDir/agent"
-    }
-
-    dependencies {
-        agent "org.opensearch:opensearch-agent-bootstrap:${opensearch_version}"
-        agent "org.opensearch:opensearch-agent:${opensearch_version}"
-        agent "net.bytebuddy:byte-buddy:${versions.bytebuddy}"
-    }
-
-    tasks.withType(Test) {
-        dependsOn prepareAgent
-        jvmArgs += ["-javaagent:" + project.layout.buildDirectory.file("agent/opensearch-agent-${opensearch_version}.jar").get()]
     }
 }
 
