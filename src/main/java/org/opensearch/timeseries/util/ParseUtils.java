@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
+import joptsimple.internal.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
@@ -714,7 +715,8 @@ public final class ParseUtils {
         Object[] fallbackArgs
     ) {
         // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
-        if (shouldEvaluateWithNewAuthz) {
+        // detectorId will be null when this is a create request and so we don't need resource authz check
+        if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(detectorId)) {
             ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
             resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {
