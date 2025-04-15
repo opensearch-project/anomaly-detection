@@ -197,6 +197,7 @@ apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
 apply plugin: 'opensearch.pluginzip'
+apply plugin: 'opensearch.java-agent'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
