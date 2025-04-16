@@ -47,6 +47,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.ParsingException;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
@@ -69,6 +70,7 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -77,6 +79,7 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
@@ -619,6 +622,7 @@ public final class ParseUtils {
                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                 @SuppressWarnings("unchecked")
                 ConfigType config = (ConfigType) Config.parseConfig(configTypeClass, parser);
+
                 User resourceUser = config.getUser();
 
                 if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
@@ -630,6 +634,7 @@ public final class ParseUtils {
                             new OpenSearchStatusException(CommonMessages.NO_PERMISSION_TO_ACCESS_CONFIG + configId, RestStatus.FORBIDDEN)
                         );
                 }
+
             } catch (Exception e) {
                 logger.error("Fail to parse user out of config", e);
                 listener.onFailure(new OpenSearchStatusException(CommonMessages.FAIL_TO_GET_USER_INFO + configId, RestStatus.BAD_REQUEST));
@@ -686,6 +691,49 @@ public final class ParseUtils {
                 );
         }
         return null;
+    }
+
+    /**
+     * Verifies whether the user has permission to access the resource.
+     * @param requestedUser user from request
+     * @param detectorId detector id
+     * @param shouldEvaluateWithNewAuthz true only if resource-sharing feature and filter_by_backend role, both are enabled.
+     * @param listener action listener
+     * @param onSuccess consumer function to execute if user has permission
+     * @param successArgs arguments to pass to the consumer function
+     * @param fallbackOn501 consumer function to execute if user does not have permission
+     * @param fallbackArgs arguments to pass to the consumer function
+     */
+    public static void verifyResourceAccessAndProcessRequest(
+        User requestedUser,
+        String detectorId,
+        boolean shouldEvaluateWithNewAuthz,
+        ActionListener<? extends ActionResponse> listener,
+        Consumer<Object[]> onSuccess,
+        Object[] successArgs,
+        Consumer<Object[]> fallbackOn501,
+        Object[] fallbackArgs
+    ) {
+        // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
+        // detectorId will be null when this is a create request and so we don't need resource authz check
+        if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(detectorId)) {
+            ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
+            resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
+                if (!isAuthorized) {
+                    listener
+                        .onFailure(
+                            new OpenSearchStatusException(
+                                "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId,
+                                RestStatus.FORBIDDEN
+                            )
+                        );
+                    return;
+                }
+                onSuccess.accept(successArgs);
+            }, listener::onFailure));
+        } else {
+            fallbackOn501.accept(fallbackArgs);
+        }
     }
 
     /**

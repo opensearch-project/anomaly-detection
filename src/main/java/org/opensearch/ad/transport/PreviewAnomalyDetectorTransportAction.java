@@ -16,7 +16,10 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEATURES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
@@ -58,6 +61,7 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
+import org.opensearch.transport.client.node.NodeClient;
 
 public class PreviewAnomalyDetectorTransportAction extends
     HandledTransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
@@ -65,6 +69,7 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     private final ClusterService clusterService;
     private final Client client;
+    private final Settings settings;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
@@ -80,11 +85,13 @@ public class PreviewAnomalyDetectorTransportAction extends
         Client client,
         AnomalyDetectorRunner anomalyDetectorRunner,
         NamedXContentRegistry xContentRegistry,
-        CircuitBreakerService adCircuitBreakerService
+        CircuitBreakerService adCircuitBreakerService,
+        NodeClient nodeClient
     ) {
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
         this.client = client;
+        this.settings = settings;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.xContentRegistry = xContentRegistry;
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
@@ -105,18 +112,35 @@ public class PreviewAnomalyDetectorTransportAction extends
         String detectorId = request.getId();
         User user = ParseUtils.getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            // Call the verifyResourceAccessAndProcessRequest method
+            verifyResourceAccessAndProcessRequest(
                 user,
                 detectorId,
-                filterByEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
-                (anomalyDetector) -> previewExecute(request, context, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                AnomalyDetector.class
+                args -> previewExecute(request, context, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    detectorId,
+                    filterByEnabled,
+                    listener,
+                    ad -> previewExecute(request, context, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    AnomalyDetector.class
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

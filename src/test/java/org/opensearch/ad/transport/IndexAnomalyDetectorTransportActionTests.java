@@ -219,7 +219,6 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             xContentRegistry(),
             adTaskManager,
             searchFeatureDao
-
         );
         transportAction.doExecute(task, request, response);
     }

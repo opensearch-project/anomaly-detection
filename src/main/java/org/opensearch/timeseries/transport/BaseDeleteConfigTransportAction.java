@@ -6,8 +6,11 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_DELETE_CONFIG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
@@ -59,6 +62,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private static final Logger LOG = LogManager.getLogger(BaseDeleteConfigTransportAction.class);
 
     private final Client client;
+    private final Settings settings;
     private final ClusterService clusterService;
     private final TransportService transportService;
     private NamedXContentRegistry xContentRegistry;
@@ -89,6 +93,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         super(deleteConfigAction, transportService, actionFilters, DeleteConfigRequest::new);
         this.transportService = transportService;
         this.client = client;
+        this.settings = settings;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.taskManager = taskManager;
@@ -108,24 +113,26 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         LOG.info("Delete job {}", configId);
         User user = ParseUtils.getUserContext(client);
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_CONFIG);
-        // By the time request reaches here, the user permissions are validated by Security plugin.
+        boolean isResourceSharingFeatureEnabled = this.settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
                 configId,
-                filterByEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
-                (input) -> nodeStateManager.getConfig(configId, analysisType, config -> {
+                (args) -> nodeStateManager.getConfig(configId, analysisType, config -> {
                     if (config.isEmpty()) {
-                        // In a mixed cluster, if delete detector request routes to node running AD1.0, then it will
-                        // not delete detector tasks. User can re-delete these deleted detector after cluster upgraded,
-                        // in that case, the detector is not present.
                         LOG.info("Can't find config {}", configId);
                         taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
                         return;
                     }
-                    // Check if there is realtime job or batch analysis task running. If none of these running, we
-                    // can delete the config.
+
+                    // Check if there is a realtime job or batch analysis task running
                     getJob(configId, listener, () -> {
                         taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
                             if (configTask.isPresent() && !configTask.get().isDone()) {
@@ -134,16 +141,43 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                             } else {
                                 taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
                             }
-                            // false means don't reset task state as inactive/stopped state. We are checking if task has finished or not.
-                            // So no need to reset task state.
                         }, transportService, false, listener);
                     });
                 }, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                configTypeClass
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    configId,
+                    filterByEnabled,
+                    listener,
+                    (input) -> nodeStateManager.getConfig(configId, analysisType, config -> {
+                        if (config.isEmpty()) {
+                            LOG.info("Can't find config {}", configId);
+                            taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
+                            return;
+                        }
+
+                        // Check if there is a realtime job or batch analysis task running
+                        getJob(configId, listener, () -> {
+                            taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
+                                if (configTask.isPresent() && !configTask.get().isDone()) {
+                                    String batchTaskName = configTask.get() instanceof ADTask ? "Historical" : "Run once";
+                                    listener
+                                        .onFailure(new OpenSearchStatusException(batchTaskName + " is running", RestStatus.BAD_REQUEST));
+                                } else {
+                                    taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
+                                }
+                            }, transportService, false, listener);
+                        });
+                    }, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    configTypeClass
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
