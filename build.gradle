@@ -132,14 +132,14 @@ configurations {
 }
 
 dependencies {
-    implementation group: 'org.opensearch', name:'opensearch-resource-sharing-spi', version:"${opensearch_build}"
+    compileOnly group: 'org.opensearch', name:'opensearch-security-spi', version:"${opensearch_build}"
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     compileOnly group: 'com.google.guava', name: 'guava', version:'33.4.5-jre'
-//    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.2'
+    compileOnly group: 'com.google.guava', name: 'failureaccess', version:'1.0.3'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.11.0'
     implementation group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'

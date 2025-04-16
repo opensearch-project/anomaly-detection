@@ -240,16 +240,6 @@ public class AnomalyDetector extends Config {
         this.rules = rules == null || rules.isEmpty() ? getDefaultRule() : rules;
     }
 
-    @Override
-    public String getShareableResourceName() {
-        return "anomaly_detector";
-    }
-
-    @Override
-    public String getWriteableName() {
-        return "anomaly_detector";
-    }
-
     /*
      * For backward compatiblity reason, we cannot use super class
      * Config's constructor as we have detectionDateRange and

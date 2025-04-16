@@ -228,16 +228,6 @@ public class Forecaster extends Config {
         output.writeInt(horizon);
     }
 
-    @Override
-    public String getShareableResourceName() {
-        return "forecaster";
-    }
-
-    @Override
-    public String getWriteableName() {
-        return "forecaster";
-    }
-
     public boolean invalidHorizon(Integer horizonToTest) {
         return horizonToTest != null
             && (horizonToTest < 1 || horizonToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE * DEFAULT_HORIZON_SHINGLE_RATIO);
