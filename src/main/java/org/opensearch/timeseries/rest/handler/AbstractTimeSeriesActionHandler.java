@@ -6,12 +6,11 @@
 package org.opensearch.timeseries.rest.handler;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG;
 import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDATION_FAILED;
 import static org.opensearch.timeseries.indices.IndexManagement.getScripts;
 import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
@@ -980,8 +979,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void tryIndexingConfig(boolean indexingDryRun, ActionListener<T> listener) throws IOException {
         if (!indexingDryRun) {
-            boolean isResourceSharingFeatureEnabled = this.settings
-                .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+            boolean isResourceSharingFeatureEnabled = shouldUseResourceAuthz(settings);
             indexConfig(id, isResourceSharingFeatureEnabled, listener);
         } else {
             finishConfigValidationOrContinueToModelValidation(listener);

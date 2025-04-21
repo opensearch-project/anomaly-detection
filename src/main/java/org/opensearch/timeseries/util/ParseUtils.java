@@ -14,6 +14,8 @@ package org.opensearch.timeseries.util;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 import static org.opensearch.timeseries.settings.TimeSeriesSettings.MAX_BATCH_TASK_PIECE_SIZE;
 
@@ -39,7 +41,9 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
@@ -691,6 +695,18 @@ public final class ParseUtils {
                 );
         }
         return null;
+    }
+
+    /**
+     * Checks whether to utilize new ResourAuthz
+     * @param settings which is to be checked for the config
+     * @return true if the resource-sharing feature and filter-by is enabled, false otherwise.
+     */
+    public static boolean shouldUseResourceAuthz(Settings settings) {
+        boolean filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
+        boolean isResourceSharingFeatureEnabled = settings
+            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        return isResourceSharingFeatureEnabled && filterByEnabled;
     }
 
     /**

@@ -13,12 +13,13 @@ package org.opensearch.timeseries;
 
 import java.util.Set;
 
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.security.spi.resources.ResourceProvider;
 import org.opensearch.security.spi.resources.ResourceSharingExtension;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 
 public class TimeSeriesResourceSharingExtension implements ResourceSharingExtension {
@@ -26,14 +27,8 @@ public class TimeSeriesResourceSharingExtension implements ResourceSharingExtens
     public Set<ResourceProvider> getResourceProviders() {
         return Set
             .of(
-                new ResourceProvider(
-                    AnomalyDetector.class.getCanonicalName(),
-                    CommonName.CONFIG_INDEX // TODO These values need to be updated to point to individual index
-                ),
-                new ResourceProvider(
-                    Forecaster.class.getCanonicalName(),
-                    CommonName.CONFIG_INDEX // TODO These values need to be updated to point to individual index
-                )
+                new ResourceProvider(AnomalyDetector.class.getCanonicalName(), ADIndex.CONFIG.getIndexName()),
+                new ResourceProvider(Forecaster.class.getCanonicalName(), ForecastIndex.CONFIG.getIndexName())
             );
     }
 

@@ -13,9 +13,8 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_FORECAST_FEATURES;
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_HC_FORECASTERS;
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_SINGLE_STREAM_FORECASTERS;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.util.Optional;
@@ -158,10 +157,8 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     protected void doExecute(Task task, ForecastResultRequest request, ActionListener<ForecastResultResponse> listener) {
         String forecastID = request.getConfigId();
         User user = ParseUtils.getUserContext(client);
-        boolean isResourceSharingFeatureEnabled = this.settings
-            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
         // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(

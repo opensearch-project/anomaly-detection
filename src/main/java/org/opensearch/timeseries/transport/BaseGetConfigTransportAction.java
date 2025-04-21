@@ -6,10 +6,9 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -167,11 +166,9 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String configID = getConfigRequest.getConfigID();
         User user = ParseUtils.getUserContext(client);
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
-        boolean isResourceSharingFeatureEnabled = this.settings
-            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
 
         // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = isResourceSharingFeatureEnabled && filterByEnabled;
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
