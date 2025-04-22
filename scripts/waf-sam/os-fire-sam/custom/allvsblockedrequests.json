@@ -1,0 +1,12 @@
+{
+   "attributes": {
+     "title": "Allowed vs Blocked Requests",
+     "visState": "{\"title\":\"Allowed vs Blocked Requests\",\"type\":\"timelion\",\"params\":{\"expression\":\".es(timefield=timestamp, q='action:ALLOW').label(\\\"Allowed Requests\\\").color(#009933), .es(timefield=timestamp, q='action:BLOCK').label(\\\"Blocked Requests\\\").color(#cc0000)\",\"interval\":\"1m\"},\"aggs\":[]}",
+     "uiStateJSON": "{}",
+     "description": "",
+     "version": 1,
+     "kibanaSavedObjectMeta": {
+       "searchSourceJSON": "{\"query\":{\"language\":\"lucene\",\"query\":\"\"},\"filter\":[]}"
+     }
+    }
+}
