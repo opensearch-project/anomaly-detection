@@ -733,7 +733,7 @@ public final class ParseUtils {
         // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
         // detectorId will be null when this is a create request and so we don't need resource authz check
         if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(detectorId)) {
-            ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getResourceSharingClient();
+            ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
             resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {
                     listener

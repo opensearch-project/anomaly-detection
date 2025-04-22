@@ -34,6 +34,6 @@ public class TimeSeriesResourceSharingExtension implements ResourceSharingExtens
 
     @Override
     public void assignResourceSharingClient(ResourceSharingClient resourceSharingClient) {
-        ResourceSharingClientAccessor.setResourceSharingClient(resourceSharingClient);
+        ResourceSharingClientAccessor.getInstance().setResourceSharingClient(resourceSharingClient);
     }
 }
