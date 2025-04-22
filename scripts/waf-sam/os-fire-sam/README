@@ -1,0 +1,67 @@
+## Project Overview
+
+This directory contains an AWS SAM (Serverless Application Model) project for deploying an AWS WAF dashboard on Amazon OpenSearch Service. It includes:
+
+- **template.yaml**: The SAM/CloudFormation template defining all AWS resources (Lambda functions, IAM roles, custom resources, etc.).
+- **Python handlers** for custom resources and processing:
+  - `kibana_customizer.py` – loads index templates and OpenSearch Dashboards saved objects (visualizations and dashboards).
+  - `processor_function.py` – core log-processing Lambda logic (Firehose processing).
+  - `es_cognito_auth_setter.py` – sets up Cognito authentication for the OpenSearch domain.
+  - `user_pool_domain_setter.py` – custom resource to configure a Cognito User Pool domain.
+- **custom/** directory: JSON definitions for OpenSearch index templates and OpenSearch Dashboards saved objects:
+  - `template.json` – Elasticsearch index template for AWS WAF logs.
+  - `.json` files for each visualization (e.g., `top10countries.json`, `allvsblockedrequests.json`, etc.) and the dashboard (`dashboard.json`).
+- **cfnresponse/**: AWS CloudFormation response helper module.
+- **urllib3/**: Bundled HTTP library dependency for Lambda functions.
+
+## Directory Structure
+
+```
+├── template.yaml
+├── kibana_customizer.py
+├── processor_function.py
+├── es_cognito_auth_setter.py
+├── user_pool_domain_setter.py
+├── custom/
+│   ├── template.json
+│   ├── allvsblockedrequests.json
+│   ├── dashboard.json
+│   ├── executedrules.json
+│   ├── filters.json
+│   ├── httpmethods.json
+│   ├── httpversions.json
+│   ├── numberofallrequests.json
+│   ├── numberofblockedrequests.json
+│   ├── requestcount.json
+│   ├── top10countries.json
+│   ├── top10hosts.json
+│   ├── top10ip.json
+│   ├── top10rules.json
+│   ├── top10uris.json
+│   ├── top10useragents.json
+│   ├── top10webacl.json
+│   └── uniqueipcount.json
+├── cfnresponse/
+│   └── __init__.py
+└── urllib3/
+    └── ...
+```
+
+## Usage
+
+1. **Build & Deploy**:
+   ```bash
+    # Export temporary AWS credentials before deploying
+    export AWS_ACCESS_KEY_ID=...
+    export AWS_SECRET_ACCESS_KEY=...
+    export AWS_SESSION_TOKEN=...
+
+    sam build
+    sam deploy --guided
+   ```
+2. **Custom Resources**:
+   - **KibanaCustomizerLambda**: Reads JSON in `custom/` to import index template and dashboards into OpenSearch.
+   - **ESCognitoAuthSetter**, **UserPoolDomainSetterLambda**: Configure Cognito authentication for the OpenSearch domain.
+3. **Log Processing**:
+   - **ProcessorFunction**: Subscribed to Firehose or other sources to ingest WAF logs into OpenSearch.
+
