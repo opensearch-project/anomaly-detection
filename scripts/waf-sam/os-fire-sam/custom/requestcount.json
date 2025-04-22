@@ -1,0 +1,12 @@
+{
+   "attributes": {
+     "title": "Requests Count",
+     "visState": "{\"title\":\"Requests Count\",\"type\":\"timelion\",\"params\":{\"expression\":\".es(timefield=timestamp).label(\\\"Requests Count\\\").color(#AA9933)\",\"interval\":\"auto\"},\"aggs\":[]}",
+     "uiStateJSON": "{}",
+     "description": "",
+     "version": 1,
+     "kibanaSavedObjectMeta": {
+       "searchSourceJSON": "{\"query\":{\"query\":\"\",\"language\":\"lucene\"},\"filter\":[]}"
+     }
+    }
+}

@@ -1,0 +1,697 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Sample AWS WAF Dashboard build on Amazon OpenSearch Service.
+
+Parameters:
+  DataNodeEBSVolumeSize:
+    Type: Number
+    Default: 100
+    Description: OpenSearch volume disk size
+
+  NodeType:
+    Type: String
+    Default: m5.large.search
+    Description: OpenSearch Node Type
+
+  OpenSearchDomainName:
+    Type: String
+    Default: 'waf-dashboard-sbp'
+    AllowedPattern: "^[a-z][a-z0-9\\-]{1,26}[a-z0-9]$"
+    Description: OpenSearch domain name
+
+  UserEmail:
+    Type: String
+    Default: 'your@email.com'
+    Description: Dashboard user e-mail address
+
+  OpenSearchVersion:
+    Type: String
+    Default: OpenSearch_2.17
+    Description: “Which OpenSearch engine version to use”
+
+  DataNodeInstanceCount:
+    Type: Number
+    Default: 1
+    Description: Number of data nodes in the OpenSearch cluster
+
+Resources:
+  myKey:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: key-default-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: kms:*
+            Resource: '*'
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref UserEmail
+          Protocol: email
+      KmsMasterKeyId: !Ref myKey
+
+  UserPoolDomainSetterLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: user_pool_domain_setter.handler
+      Role: !GetAtt UserPoolDomainSetterLambdaRole.Arn
+      CodeUri: ./
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 90
+
+  ESCognitoAuthSetterLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: es_cognito_auth_setter.handler
+      Role: !GetAtt ESCognitoAuthSetterLambdaRole.Arn
+      CodeUri: ./
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 900
+
+  KibanaCustomizerLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: kibana_customizer.handler
+      Role: !GetAtt KibanaCustomizerLambdaRole.Arn
+      CodeUri: ./
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 160
+      Environment:
+        Variables:
+          REGION: !Ref "AWS::Region"
+          ACCOUNT_ID: !Ref "AWS::AccountId"
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: processor_function.handler
+      Runtime: python3.9
+      CodeUri: ./
+      Timeout: 60
+      MemorySize: 128
+      Role: !GetAtt ProcessorFunctionRole.Arn
+
+  KibanaUpdate:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: kibana_customizer.update_kibana
+      Role: !GetAtt KibanaCustomizerLambdaRole.Arn
+      CodeUri: ./
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 160
+      Environment:
+        Variables:
+          ES_ENDPOINT: !GetAtt OpenSearchDomain.DomainEndpoint
+          REGION: !Ref "AWS::Region"
+          ACCOUNT_ID: !Ref "AWS::AccountId"
+      Events:
+        WAFv2Modification:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - "aws.wafv2"
+              detail-type:
+                - "AWS API Call via CloudTrail"
+              detail:
+                eventSource:
+                  - wafv2.amazonaws.com
+                eventName:
+                  - CreateWebACL
+                  - CreateRule
+        WAFGlobalModification:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - "aws.waf"
+              detail-type:
+                - "AWS API Call via CloudTrail"
+              detail:
+                eventSource:
+                  - waf.amazonaws.com
+                eventName:
+                  - CreateWebACL
+                  - CreateRule
+        WAFRegionalModification:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+                - "aws.waf-regional"
+              detail-type:
+                - "AWS API Call via CloudTrail"
+              detail:
+                eventSource:
+                  - waf-regional.amazonaws.com
+                eventName:
+                  - CreateWebACL
+                  - CreateRule
+
+  # IAM Roles and other resources remain the same
+  UserPoolDomainSetterLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: UserPoolDomainSetterPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cognito-idp:CreateUserPoolDomain'
+                  - 'cognito-idp:DeleteUserPoolDomain'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'events:PutRule'
+                  - 'events:DeleteRule'
+                  - 'lambda:AddPermission'
+                  - 'events:PutTargets'
+                  - 'events:RemoveTargets'
+                  - 'lambda:RemovePermission'
+                Resource: "*"
+
+  SNSAccessIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: ESAnomalyAlert
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sns:*'
+                Resource: "*"
+
+  ESCognitoAuthSetterLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: ESCognitoAuthSetterPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'es:UpdateElasticsearchDomainConfig'
+                  - 'es:DescribeElasticsearchDomain'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'events:PutRule'
+                  - 'events:DeleteRule'
+                  - 'lambda:AddPermission'
+                  - 'events:PutTargets'
+                  - 'events:RemoveTargets'
+                  - 'lambda:RemovePermission'
+                  - 'iam:PassRole'
+                Resource: "*"
+
+  KibanaCustomizerLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: KibanaCustomizerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'es:UpdateElasticsearchDomainConfig'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'events:PutRule'
+                  - 'events:DeleteRule'
+                  - 'lambda:AddPermission'
+                  - 'events:PutTargets'
+                  - 'events:RemoveTargets'
+                  - 'lambda:RemovePermission'
+                  - 'iam:PassRole'
+                  - 'waf:ListWebACLs'
+                  - 'waf-regional:ListWebACLs'
+                  - 'waf:ListRules'
+                  - 'waf-regional:ListRules'
+                  - 'wafv2:ListWebACLs'
+                Resource: "*"
+
+  KinesisFirehoseS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    # if CloudFormation ever replaces the resource (e.g. due to an immutable‐property change), it’ll also retain or snapshot the old one.
+    UpdateReplacePolicy: Retain
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: 'WAFKibanaUsers'
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: True
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Required: true
+
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: "WAFKibanaIdentityPool"
+      AllowUnauthenticatedIdentities: true
+
+  AuthenticatedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "es:ESHttp*"
+            Resource:
+              - !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/*"
+
+  AuthenticatedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": authenticated
+      ManagedPolicyArns:
+        - !Ref AuthenticatedPolicy
+
+  CognitoAccessForAmazonESRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonESCognitoAccess'
+
+
+  RoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt AuthenticatedRole.Arn
+
+  CognitoPoolUser:
+    Type: AWS::Cognito::UserPoolUser
+    Properties:
+      Username: !Ref UserEmail
+      UserPoolId: !Ref UserPool
+
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: !Ref OpenSearchDomainName
+      EngineVersion: !Ref OpenSearchVersion
+      ClusterConfig:
+        DedicatedMasterEnabled: true           # turned on
+        DedicatedMasterType: !Ref NodeType
+        DedicatedMasterCount: 3                # fixed at three masters
+        InstanceType: !Ref NodeType            # data‑node instance type
+        InstanceCount: !Ref DataNodeInstanceCount  # driven by a parameter
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: !Ref DataNodeEBSVolumeSize
+        VolumeType: gp3
+      AccessPolicies:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal:
+                AWS: !GetAtt AuthenticatedRole.Arn
+              Action: "es:*"
+              Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/*"
+            - Effect: "Allow"
+              Principal:
+                AWS: !GetAtt KibanaCustomizerLambdaRole.Arn
+              Action: "es:*"
+              Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/*"
+
+
+  ProcessorFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+          Condition: {}
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      - arn:aws:iam::aws:policy/AmazonKinesisFirehoseFullAccess
+
+  KinesisFirehoseDeliveryRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service:
+                - 'firehose.amazonaws.com'
+
+  KinesisFirehoseDeliveryPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: 'WAFDeliveryPolicy'
+      Roles:
+        - !Ref KinesisFirehoseDeliveryRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: 'S3Access' # needs to be a non‐empty alphanumeric string
+          Effect: Allow
+          Action:
+            - s3:AbortMultipartUpload
+            - s3:GetBucketLocation
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:ListBucketMultipartUploads
+            - s3:PutObject
+          Resource:
+            - !Sub 'arn:aws:s3:::${KinesisFirehoseS3Bucket}'
+            - !Sub 'arn:aws:s3:::${KinesisFirehoseS3Bucket}/*'
+        - Sid: 'LambdaInvoke'
+          Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+            - lambda:GetFunctionConfiguration
+          # Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:%FIREHOSE_DEFAULT_FUNCTION%:%FIREHOSE_DEFAULT_VERSION%'
+          Resource: '*'
+        - Sid: 'ESDescribeDomain'
+          Effect: Allow
+          Action:
+            - es:DescribeElasticsearchDomain
+            - es:DescribeElasticsearchDomains
+            - es:DescribeElasticsearchDomainConfig
+            - es:ESHttpPost
+            - es:ESHttpPut
+          Resource:
+            - !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}"
+            - !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/*"
+        - Sid: 'ESReadClusterStats'
+          Effect: Allow
+          Action:
+            - es:ESHttpGet
+          Resource:
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/_all/_settings'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/_cluster/stats'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/awswaf*/_mapping/superstore'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/_nodes'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/_nodes/stats'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/_nodes/*/stats'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/_stats'
+            - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/awswaf*/_stats'
+        - Sid: 'CloudWatchPutLogs'
+          Effect: Allow
+          Action:
+            - logs:PutLogEvents
+            - logs:CreateLogStream
+          Resource:
+            - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/waflogs:log-stream:*'
+            - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:deliverystream:*'
+        - Sid: 'KinesisReadStream'
+          Effect: Allow
+          Action:
+          - kinesis:DescribeStream
+          - kinesis:GetShardIterator
+          - kinesis:GetRecords
+          Resource: !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/%FIREHOSE_STREAM_NAME%'
+        - Sid: KMSDecrypt
+          Effect: Allow
+          Action:
+            - kms:Decrypt
+          Resource:
+            - !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/%SSE_KEY_ARN%'
+          Condition:
+            StringEquals:
+              'kms:ViaService': !Sub 's3.${AWS::Region}.amazonaws.com'
+            StringLike:
+              'kms:EncryptionContext:aws:kinesis:arn': !Sub 'arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/%FIREHOSE_STREAM_NAME%'
+  
+  FirehoseCWLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: deliverystream
+
+  FirehoseCWLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref FirehoseCWLogGroup
+      LogStreamName: elasticsearchDelivery
+  
+  S3BackupCWLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref FirehoseCWLogGroup
+      LogStreamName: s3Backup
+
+  KinesisFirehoseDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub 'aws-waf-logs-${UserPool}'
+      DeliveryStreamType: "DirectPut"
+      AmazonopensearchserviceDestinationConfiguration:
+        BufferingHints:
+          IntervalInSeconds: "60"
+          SizeInMBs: 5
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: 'deliverystream'
+          LogStreamName: 'elasticsearchDelivery'
+        DomainARN: !GetAtt OpenSearchDomain.Arn
+        IndexName: 'awswaf'
+        IndexRotationPeriod: "OneDay"
+        RetryOptions:
+          DurationInSeconds: "60"
+        RoleARN: !GetAtt KinesisFirehoseDeliveryRole.Arn
+        S3BackupMode: "AllDocuments"
+        S3Configuration:
+          BucketARN: !Sub 'arn:aws:s3:::${KinesisFirehoseS3Bucket}'
+          BufferingHints:
+            IntervalInSeconds: "60"
+            SizeInMBs: "50"
+          CompressionFormat: "UNCOMPRESSED"
+          Prefix: 'log/'
+          RoleARN: !GetAtt KinesisFirehoseDeliveryRole.Arn
+          CloudWatchLoggingOptions:
+            Enabled: true
+            LogGroupName: "deliverystream"
+            LogStreamName: "s3Backup"
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+          - Type: Lambda
+            Parameters:
+            - ParameterName: LambdaArn
+              ParameterValue: !GetAtt ProcessorFunction.Arn
+            - ParameterName: RoleArn
+              ParameterValue: !GetAtt KinesisFirehoseDeliveryRole.Arn
+            - ParameterName: NumberOfRetries
+              ParameterValue: '3'
+            - ParameterName: BufferSizeInMBs
+              ParameterValue: '1'
+            - ParameterName: BufferIntervalInSeconds
+              ParameterValue: '60'
+
+  UserPoolDomainSetter:
+    Type: Custom::UserPoolDomainSetterLambda
+    DependsOn: OpenSearchDomain
+    Properties:
+      ServiceToken: !GetAtt UserPoolDomainSetterLambda.Arn
+      StackName: !Ref "AWS::StackName"
+      UserPoolId: !Ref UserPool
+      ServiceTimeout: 300
+
+  ESCognitoAuthSetter:
+    Type: Custom::ESCognitoAuthSetter
+    DependsOn: UserPoolDomainSetter
+    Properties:
+      ServiceToken: !GetAtt ESCognitoAuthSetterLambda.Arn
+      StackName: !Ref "AWS::StackName"
+      UserPoolId: !Ref UserPool
+      IdentityPoolId: !Ref IdentityPool
+      RoleArn: !GetAtt CognitoAccessForAmazonESRole.Arn
+      DomainName: !Ref OpenSearchDomainName
+
+  KibanaCustomizer:
+    Type: Custom::KibanaCustomizer
+    DependsOn: UserPoolDomainSetter
+    Properties:
+      ServiceToken: !GetAtt KibanaCustomizerLambda.Arn
+      StackName: !Ref "AWS::StackName"
+      Region: !Ref "AWS::Region"
+      Host: !GetAtt OpenSearchDomain.DomainEndpoint
+      AccountID: !Ref "AWS::AccountId"
+
+  WAFv2Modification:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: WAF Dashboard - detects new WebACL and rules for WAFv2.
+      EventPattern:
+        source:
+          - "aws.wafv2"
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - wafv2.amazonaws.com
+          eventName:
+            - CreateWebACL
+            - CreateRule
+      Name: WAFv2Modification
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: !GetAtt KibanaUpdate.Arn
+          Id: "1"
+
+
+  WAFGlobalModification:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: WAF Dashboard - detects new WebACL and rules for WAF Global.
+      EventPattern:
+        source:
+          - "aws.waf"
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - waf.amazonaws.com
+          eventName:
+            - CreateWebACL
+            - CreateRule
+      Name: WAFGlobalModification
+      State: "ENABLED"
+      Targets:
+        -
+          Arn: !GetAtt KibanaUpdate.Arn
+          Id: "1"
+
+  WAFRegionalModification:
+   Type: AWS::Events::Rule
+   Properties:
+     Description: WAF Dashboard - detects new WebACL and rules for WAF Regional.
+     EventPattern:
+       source:
+         - "aws.waf-regional"
+       detail-type:
+         - "AWS API Call via CloudTrail"
+       detail:
+         eventSource:
+           - waf-regional.amazonaws.com
+         eventName:
+           - CreateWebACL
+           - CreateRule
+     Name: WAFRegionalModification
+     State: "ENABLED"
+     Targets:
+       -
+         Arn: !GetAtt KibanaUpdate.Arn
+         Id: "1"
+
+  KibanaUpdateWAFGlobalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref KibanaUpdate
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt WAFGlobalModification.Arn
+
+  KibanaUpdateWAFv2Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref KibanaUpdate
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt WAFv2Modification.Arn
+
+  KibanaUpdateWAFRegionalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref KibanaUpdate
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt WAFRegionalModification.Arn
+
+Outputs:
+  DashboardLinkOutput:
+    Description: Link to WAF Dashboard
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !GetAtt OpenSearchDomain.DomainEndpoint
+        - '/_dashboards/app/home'
