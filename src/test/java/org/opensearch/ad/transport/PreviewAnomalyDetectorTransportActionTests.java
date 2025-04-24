@@ -75,7 +75,6 @@ import org.opensearch.timeseries.feature.Features;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -139,8 +138,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             client(),
             runner,
             xContentRegistry(),
-            circuitBreaker,
-            mock(NodeClient.class)
+            circuitBreaker
         );
     }
 
@@ -293,8 +291,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             client,
             runner,
             xContentRegistry(),
-            circuitBreaker,
-            mock(NodeClient.class)
+            circuitBreaker
         );
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());

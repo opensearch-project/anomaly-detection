@@ -60,7 +60,6 @@ import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.node.NodeClient;
 
 public class PreviewAnomalyDetectorTransportAction extends
     HandledTransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
@@ -84,8 +83,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         Client client,
         AnomalyDetectorRunner anomalyDetectorRunner,
         NamedXContentRegistry xContentRegistry,
-        CircuitBreakerService adCircuitBreakerService,
-        NodeClient nodeClient
+        CircuitBreakerService adCircuitBreakerService
     ) {
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
