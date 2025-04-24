@@ -738,12 +738,12 @@ public final class ParseUtils {
         if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(detectorId)) {
             ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
             String index = isDetector ? ADIndex.CONFIG.getIndexName() : ForecastIndex.CONFIG.getIndexName();
-            resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
+            resourceSharingClient.verifyResourceAccess(detectorId, index, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {
                     listener
                         .onFailure(
                             new OpenSearchStatusException(
-                                "User " + requestedUser.getName() + " is not authorized to access resource: " + detectorId,
+                                "User " + requestedUser.getName() + " is not authorized to access config: " + detectorId,
                                 RestStatus.FORBIDDEN
                             )
                         );
