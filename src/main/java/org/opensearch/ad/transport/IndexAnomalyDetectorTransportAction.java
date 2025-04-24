@@ -108,6 +108,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
+                true,
                 detectorId,
                 shouldEvaluateWithNewAuthz,
                 listener,

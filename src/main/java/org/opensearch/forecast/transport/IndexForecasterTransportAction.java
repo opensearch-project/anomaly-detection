@@ -107,6 +107,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
+                false,
                 forecasterId,
                 shouldEvaluateWithNewAuthz,
                 listener,

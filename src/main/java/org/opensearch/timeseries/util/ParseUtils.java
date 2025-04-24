@@ -41,6 +41,7 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
@@ -55,6 +56,7 @@ import org.opensearch.core.common.Strings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
@@ -722,6 +724,7 @@ public final class ParseUtils {
      */
     public static void verifyResourceAccessAndProcessRequest(
         User requestedUser,
+        boolean isDetector,
         String detectorId,
         boolean shouldEvaluateWithNewAuthz,
         ActionListener<? extends ActionResponse> listener,
@@ -734,6 +737,7 @@ public final class ParseUtils {
         // detectorId will be null when this is a create request and so we don't need resource authz check
         if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(detectorId)) {
             ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+            String index = isDetector ? ADIndex.CONFIG.getIndexName() : ForecastIndex.CONFIG.getIndexName();
             resourceSharingClient.verifyResourceAccess(detectorId, CommonName.CONFIG_INDEX, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {
                     listener

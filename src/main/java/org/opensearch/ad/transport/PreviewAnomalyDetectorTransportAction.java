@@ -119,6 +119,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
                 user,
+                true,
                 detectorId,
                 shouldEvaluateWithNewAuthz,
                 listener,

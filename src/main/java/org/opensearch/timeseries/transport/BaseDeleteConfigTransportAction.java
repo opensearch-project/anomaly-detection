@@ -27,6 +27,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -116,9 +117,11 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         // TODO: Remove following and any other conditional check, post GA for Resource Authz.
         boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
 
+        boolean isDetector = configTypeClass.getName().contains(AnomalyDetector.class.getName());
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
+                isDetector, // TODO check if this should be true
                 configId,
                 shouldEvaluateWithNewAuthz,
                 listener,

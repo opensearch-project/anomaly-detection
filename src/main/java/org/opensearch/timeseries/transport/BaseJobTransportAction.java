@@ -15,6 +15,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -98,6 +99,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
 
         // TODO: Remove following and any other conditional check, post GA for Resource Authz.
         boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
+        boolean isDetector = configClass.getName().contains(AnomalyDetector.class.getName());
 
         // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
@@ -105,6 +107,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
+                isDetector,
                 configId,
                 shouldEvaluateWithNewAuthz,
                 listener,
