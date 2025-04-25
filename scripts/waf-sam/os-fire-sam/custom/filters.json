@@ -1,0 +1,12 @@
+{
+   "attributes": {
+     "title": "Filters",
+     "visState": "{\"title\":\"Filters\",\"type\":\"input_control_vis\",\"params\":{\"controls\":[{\"fieldName\":\"webaclname\",\"id\":\"1565169719620\",\"indexPattern\":\"awswaf\",\"label\":\"WebACL\",\"options\":{\"dynamicOptions\":true,\"multiselect\":true,\"order\":\"desc\",\"size\":5,\"type\":\"terms\"},\"parent\":\"\",\"type\":\"list\"},{\"fieldName\":\"rulename\",\"id\":\"1565169760470\",\"indexPattern\":\"awswaf\",\"label\":\"Rule\",\"options\":{\"dynamicOptions\":true,\"multiselect\":true,\"order\":\"desc\",\"size\":5,\"type\":\"terms\"},\"parent\":\"\",\"type\":\"list\"},{\"fieldName\":\"action.keyword\",\"id\":\"1565169899571\",\"indexPattern\":\"awswaf\",\"label\":\"Action\",\"options\":{\"dynamicOptions\":true,\"multiselect\":true,\"order\":\"desc\",\"size\":5,\"type\":\"terms\"},\"parent\":\"\",\"type\":\"list\"},{\"fieldName\":\"httpRequest.country.keyword\",\"id\":\"1565170498755\",\"indexPattern\":\"awswaf\",\"label\":\"Country\",\"options\":{\"dynamicOptions\":true,\"multiselect\":true,\"order\":\"desc\",\"size\":5,\"type\":\"terms\"},\"parent\":\"\",\"type\":\"list\"},{\"fieldName\":\"httpRequest.clientIp\",\"id\":\"1565170536048\",\"indexPattern\":\"awswaf\",\"label\":\"Client IP\",\"options\":{\"dynamicOptions\":true,\"multiselect\":false,\"order\":\"desc\",\"size\":5,\"type\":\"terms\"},\"parent\":\"\",\"type\":\"list\"},{\"id\":\"1565182161719\",\"indexPattern\":\"awswaf\",\"fieldName\":\"Host\",\"parent\":\"\",\"label\":\"Host\",\"type\":\"list\",\"options\":{\"type\":\"terms\",\"multiselect\":true,\"dynamicOptions\":true,\"size\":5,\"order\":\"desc\"}},{\"id\":\"1565775477773\",\"indexPattern\":\"awswaf\",\"fieldName\":\"terminatingRuleType.keyword\",\"parent\":\"\",\"label\":\"Rule Type\",\"type\":\"list\",\"options\":{\"type\":\"terms\",\"multiselect\":false,\"dynamicOptions\":true,\"size\":5,\"order\":\"desc\"}}],\"pinFilters\":true,\"updateFiltersOnChange\":true,\"useTimeFilter\":false},\"aggs\":[]}",
+     "uiStateJSON": "{}",
+     "description": "",
+     "version": 1,
+     "kibanaSavedObjectMeta": {
+       "searchSourceJSON": "{\"query\":{\"language\":\"lucene\",\"query\":\"\"},\"filter\":[]}"
+     }
+   }
+}

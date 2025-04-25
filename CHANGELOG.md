@@ -9,6 +9,8 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Use Centralized Resource Access Control framework provided by security plugin ([#1400](https://github.com/opensearch-project/anomaly-detection/pull/1400))
 ### Bug Fixes
 ### Infrastructure
+- Add AWS SAM template for WAF log analysis and anomaly detection ([#1460](https://github.com/opensearch-project/anomaly-detection/pull/1460))
+
 ### Documentation
 ### Maintenance
 ### Refactoring
