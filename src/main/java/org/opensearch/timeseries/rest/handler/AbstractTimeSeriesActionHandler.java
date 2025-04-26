@@ -1041,7 +1041,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     }, listener::onFailure));
                 } else {
                     // if feature is disabled, return all resources
-                    createIndexConfigResponse(indexResponse, copiedConfig);
+                    listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
                 }
             }
 
