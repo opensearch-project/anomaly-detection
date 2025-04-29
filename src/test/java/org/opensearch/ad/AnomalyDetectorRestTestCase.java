@@ -39,7 +39,6 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContent;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.XContentParserUtils;
-import org.opensearch.security.spi.resources.FeatureConfigConstants;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.timeseries.ODFERestTestCase;
 import org.opensearch.timeseries.TestHelpers;
@@ -539,27 +538,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
-    public Response enablResourceSharing() throws IOException {
-        return TestHelpers
-            .makeRequest(
-                client(),
-                "PUT",
-                "_cluster/settings",
-                null,
-                TestHelpers
-                    .toHttpEntity(
-                        "{\n"
-                            + "  \"persistent\": {\n"
-                            + "       \""
-                            + FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED
-                            + "\" : \"true\"\n"
-                            + "   }\n"
-                            + "}"
-                    ),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-    }
-
     public Response disableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
@@ -572,27 +550,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                         "{\n"
                             + "  \"persistent\": {\n"
                             + "       \"opendistro.anomaly_detection.filter_by_backend_roles\" : \"false\"\n"
-                            + "   }\n"
-                            + "}"
-                    ),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-    }
-
-    public Response disableResourceSharing() throws IOException {
-        return TestHelpers
-            .makeRequest(
-                client(),
-                "PUT",
-                "_cluster/settings",
-                null,
-                TestHelpers
-                    .toHttpEntity(
-                        "{\n"
-                            + "  \"persistent\": {\n"
-                            + "       \""
-                            + FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED
-                            + "\" : \"false\"\n"
                             + "   }\n"
                             + "}"
                     ),

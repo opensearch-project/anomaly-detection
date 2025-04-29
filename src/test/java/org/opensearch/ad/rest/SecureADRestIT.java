@@ -530,10 +530,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
     /**
      * Resource-sharing enabled, filter-by enabled
+     * Experimental flag is turned on by default in build.gradle
      */
     public void testCreateWithResourceSharingAndFilterByEnabled() throws IOException {
-        // turn on experimental resource-sharing
-        enablResourceSharing();
         enableFilterBy();
 
         // Ocean creates detector
@@ -560,7 +559,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null
         );
         enableFilterBy();
-        enablResourceSharing();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
@@ -611,7 +609,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Instant.now()
         );
         enableFilterBy();
-        enablResourceSharing();
 
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
         // Fish should be able to update detectors created by Alice. But the detector's backend role should
@@ -638,7 +635,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         enableFilterBy();
-        enablResourceSharing();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
@@ -650,12 +646,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     }
 
     /**
-     * Resource-sharing disabled, filter-by enabled
+     * Resource-sharing enabled, filter-by disabled
      */
     public void testCreateWithResourceSharingDisabledFilterEnabled() throws IOException {
         // turn off experimental resource-sharing, but leave filter-by on
-        disableResourceSharing();
-        enableFilterBy();
+        disableFilterBy();
 
         // Ocean creates detector
         AnomalyDetector created = createRandomAnomalyDetector(false, false, oceanClient);
@@ -680,8 +675,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Instant.now(),
             null
         );
-        enableFilterBy();
-        disableResourceSharing();
+        disableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
@@ -731,8 +725,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             Instant.now()
         );
-        enableFilterBy();
-        disableResourceSharing();
+        disableFilterBy();
 
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
         // Fish should be able to update detectors created by Alice. But the detector's backend role should
@@ -759,8 +752,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     public void testDeleteApiResourceSharingDisabledAndFilterByEnabled() throws IOException {
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        enableFilterBy();
-        disableResourceSharing();
+        disableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
