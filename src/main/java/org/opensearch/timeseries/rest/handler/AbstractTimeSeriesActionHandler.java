@@ -10,6 +10,7 @@ import static org.opensearch.timeseries.constant.CommonMessages.CATEGORICAL_FIEL
 import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDATION_FAILED;
 import static org.opensearch.timeseries.indices.IndexManagement.getScripts;
 import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
@@ -59,6 +60,9 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
+import org.opensearch.security.spi.resources.sharing.Recipient;
+import org.opensearch.security.spi.resources.sharing.SharedWithActionGroup;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
@@ -74,6 +78,7 @@ import org.opensearch.timeseries.model.TaskType;
 import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
@@ -973,7 +978,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void tryIndexingConfig(boolean indexingDryRun, ActionListener<T> listener) throws IOException {
         if (!indexingDryRun) {
-            indexConfig(id, listener);
+            boolean shouldUseResourceAuthz = shouldUseResourceAuthz(settings);
+            indexConfig(id, shouldUseResourceAuthz, listener);
         } else {
             finishConfigValidationOrContinueToModelValidation(listener);
         }
@@ -998,7 +1004,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         }
     }
 
-    protected void indexConfig(String id, ActionListener<T> listener) throws IOException {
+    protected void indexConfig(String id, boolean shouldUseResourceAuthz, ActionListener<T> listener) throws IOException {
         Config copiedConfig = copyConfig(user, config);
         IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
             .setRefreshPolicy(refreshPolicy)
@@ -1018,7 +1024,25 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
                     return;
                 }
-                listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+
+                // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
+                if (shouldUseResourceAuthz) {
+                    // Share with user's backend_roles here before sending response
+                    ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+
+                    String configId = indexResponse.getId();
+                    String configIndex = indexResponse.getIndex();
+                    Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
+                    SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(recipientMap);
+
+                    resourceSharingClient.share(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
+                        logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
+                        listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                    }, listener::onFailure));
+                } else {
+                    // if feature is disabled, return all resources
+                    listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                }
             }
 
             @Override
