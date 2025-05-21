@@ -738,7 +738,7 @@ public final class ParseUtils {
         if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(detectorId)) {
             ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
             String index = isDetector ? ADIndex.CONFIG.getIndexName() : ForecastIndex.CONFIG.getIndexName();
-            resourceSharingClient.verifyResourceAccess(detectorId, index, ActionListener.wrap(isAuthorized -> {
+            resourceSharingClient.verifyAccess(detectorId, index, ActionListener.wrap(isAuthorized -> {
                 if (!isAuthorized) {
                     listener
                         .onFailure(
