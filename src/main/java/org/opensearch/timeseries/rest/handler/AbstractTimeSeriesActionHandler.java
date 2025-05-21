@@ -6,6 +6,7 @@
 package org.opensearch.timeseries.rest.handler;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.security.spi.resources.ResourceAccessLevels.PLACE_HOLDER;
 import static org.opensearch.timeseries.constant.CommonMessages.CATEGORICAL_FIELD_TYPE_ERR_MSG;
 import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDATION_FAILED;
 import static org.opensearch.timeseries.indices.IndexManagement.getScripts;
@@ -62,7 +63,8 @@ import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.security.spi.resources.sharing.Recipient;
-import org.opensearch.security.spi.resources.sharing.SharedWithActionGroup;
+import org.opensearch.security.spi.resources.sharing.Recipients;
+import org.opensearch.security.spi.resources.sharing.ShareWith;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
@@ -1032,11 +1034,16 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
                     String configId = indexResponse.getId();
                     String configIndex = indexResponse.getIndex();
-                    Map<Recipient, Set<String>> recipientMap = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
-                    SharedWithActionGroup.ActionGroupRecipients recipients = new SharedWithActionGroup.ActionGroupRecipients(recipientMap);
+                    Map<Recipient, Set<String>> recipients = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
+                    ShareWith shareWith = new ShareWith(Map.of(PLACE_HOLDER, new Recipients(recipients)));
 
-                    resourceSharingClient.share(configId, configIndex, recipients, ActionListener.wrap(resourceSharing -> {
-                        logger.debug("Successfully shared config: {} with entities: {}", config.getName(), recipientMap);
+                    resourceSharingClient.share(configId, configIndex, shareWith, ActionListener.wrap(resourceSharing -> {
+                        logger
+                            .debug(
+                                "Successfully shared config: {} with entities: {}",
+                                config.getName(),
+                                shareWith.atAccessLevel(PLACE_HOLDER)
+                            );
                         listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
                     }, listener::onFailure));
                 } else {

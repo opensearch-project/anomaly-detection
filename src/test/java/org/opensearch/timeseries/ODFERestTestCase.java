@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.management.MBeanServerInvocationHandler;
@@ -183,8 +184,11 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
             for (Map<String, Object> index : parserList) {
                 String indexName = (String) index.get("index");
-                if (indexName != null && !".opendistro_security".equals(indexName)) {
+                if (indexName != null && (!Set.of(".opendistro_security", ".opensearch_resource_sharing").contains(indexName))) {
                     adminClient().performRequest(new Request("DELETE", "/" + indexName));
+                }
+                if (indexName != null && indexName.equals(".opensearch_resource_sharing")) {
+                    deleteAllResourceSharingRecords();
                 }
             }
         }
@@ -454,4 +458,29 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
     }
+
+    public Response deleteAllResourceSharingRecords() throws IOException {
+        String endpoint = "/.opensearch_resource_sharing/_delete_by_query";
+        String jsonBody = "{ \"query\": { \"match_all\": {} } }";
+
+        return TestHelpers
+            .makeRequest(
+                adminClient(),
+                "POST",
+                endpoint,
+                null,
+                jsonBody,
+                ImmutableList
+                    .of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"))
+            );
+    }
+
+    public Response getResourceSharingEnabledSetting() throws IOException {
+        // use filter_path to return only the persistent setting
+        String endpoint = "/_cluster/settings" + "?filter_path=persistent.plugins.security.experimental.resource_sharing.enabled";
+
+        return TestHelpers
+            .makeRequest(adminClient(), "GET", endpoint, null, "", ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana")));
+    }
+
 }
