@@ -356,7 +356,6 @@ task integTest(type: RestIntegTestTask) {
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
-
     retry {
         if (BuildParams.isCi()) {
             maxRetries = 6
