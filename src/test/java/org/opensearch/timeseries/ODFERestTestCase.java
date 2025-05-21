@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -463,12 +464,17 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         String endpoint = "/.opensearch_resource_sharing/_delete_by_query";
         String jsonBody = "{ \"query\": { \"match_all\": {} } }";
 
+        // tell delete_by_query to ignore version conflicts and immediately refresh
+        Map<String, String> params = new HashMap<>();
+        params.put("conflicts", "proceed");
+        params.put("refresh", "true");
+
         return TestHelpers
             .makeRequest(
                 adminClient(),
                 "POST",
                 endpoint,
-                null,
+                params,
                 jsonBody,
                 ImmutableList
                     .of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"))
