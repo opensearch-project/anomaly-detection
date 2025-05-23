@@ -152,69 +152,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         deleteUser(oceanUser);
     }
 
-    public void testCreateAnomalyDetectorWithWriteAccess() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        Assert.assertNotNull("User alice could not create detector", aliceDetector.getId());
-    }
-
-    public void testCreateAnomalyDetectorWithReadAccess() {
-        // User Bob has AD read access, should not be able to create a detector
-        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, bobClient); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
-    }
-
-    public void testStartDetectorWithReadAccess() throws IOException {
-        // User Bob has AD read access, should not be able to modify a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        Assert.assertNotNull(aliceDetector.getId());
-        Exception exception = expectThrows(IOException.class, () -> { startAnomalyDetector(aliceDetector.getId(), null, bobClient); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]"));
-    }
-
-    public void testStartDetectorForWriteUser() throws IOException {
-        // User Alice has AD full access, should be able to modify a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        Assert.assertNotNull(aliceDetector.getId());
-        Instant now = Instant.now();
-        Response response = startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), aliceClient);
-        MatcherAssert.assertThat(response.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
-    }
-
-    public void testFilterByDisabled() throws IOException {
-        disableFilterBy();
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        // User Cat has AD full access, should be able to get a detector
-        AnomalyDetector detector = getConfig(aliceDetector.getId(), catClient);
-        Assert.assertEquals(aliceDetector.getId(), detector.getId());
-    }
-
-    public void testGetApiFilterByEnabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        enableFilterBy();
-        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-        // Alice detector
-        Exception exception = expectThrows(IOException.class, () -> { getConfig(aliceDetector.getId(), catClient); });
-        assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    }
-
-    public void testGetApiFilterByDisabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        disableFilterBy();
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-        // Alice detector
-        AnomalyDetector detector = getConfig(aliceDetector.getId(), catClient);
-        assertEquals(detector.getId(), aliceDetector.getId());
-    }
-
     private void confirmingClientIsAdmin() throws IOException {
         Response resp = TestHelpers
             .makeRequest(
@@ -230,12 +167,81 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         assertTrue(roles.contains("all_access"));
     }
 
-    public void testGetApiFilterByEnabledForAdmin() throws IOException {
-        // User Alice has AD full access, should be able to create a detector and has backend role "odfe"
+    public void testCreateAnomalyDetector() throws IOException {
+        enableFilterBy();
+
+        // 1. NO Backend_role
+
+        // User Dog has AD full access, but has no backend role
+        // When filter by is enabled, we block creating Detectors
+        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, dogClient); });
+        Assert
+            .assertTrue(
+                exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
+            );
+
+        // 2. No read permission on index
+
+        // User alice has AD full access and index permission, so can create detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        // User ocean has AD full access, but has no read permission of index
+        String indexName = aliceDetector.getIndices().getFirst();
+        exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, oceanClient); });
+        Assert
+            .assertTrue(
+                "actual: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]")
+            );
+
+        // User Bob has AD read access, should not be able to create a detector
+        exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, bobClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
+
+        // 3. With Custom Result Index
+
+        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
+        AnomalyDetector detector = cloneDetector(aliceDetector, resultIndex);
+        // User goat doesn't have permission to create index
+        exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
+        Assert
+            .assertTrue(
+                "got " + exception.getMessage(),
+                exception.getMessage().contains("indices:admin/aliases")
+                    && exception.getMessage().contains("indices:admin/create")
+                    && exception.getMessage().contains("no permissions for")
+            );
+
+        // User cat has permission to create index
+        resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
+        TestHelpers.createIndexWithTimeField(client(), aliceDetector.getIndices().getFirst(), aliceDetector.getTimeField());
+        AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(aliceDetector, resultIndex), true, catClient);
+        assertEquals(resultIndex, detectorOfCat.getCustomResultIndexOrAlias());
+    }
+
+    public void testGetDetector() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(IOException.class, () -> { getConfig(aliceDetector.getId(), catClient); });
+        assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
+
+        disableFilterBy();
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        // User Cat has AD full access, is part of different backend role but filter by is disabled, Cat can access Alice's detector
+        AnomalyDetector detector = getConfig(aliceDetector.getId(), catClient);
+        assertEquals(detector.getId(), aliceDetector.getId());
+
         enableFilterBy();
         confirmingClientIsAdmin();
-        AnomalyDetector detector = getConfig(aliceDetector.getId(), client());
+        detector = getConfig(aliceDetector.getId(), client());
         Assert
             .assertArrayEquals(
                 "User backend role of detector doesn't change",
@@ -244,9 +250,10 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    public void testUpdateApiFilterByEnabledForAdmin() throws IOException {
+    public void testUpdateDetector() throws IOException {
         // User Alice has AD full access, should be able to create a detector and has backend role "odfe"
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+
         enableFilterBy();
 
         AnomalyDetector newDetector = new AnomalyDetector(
@@ -283,69 +290,25 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             Instant.now()
         );
+
         // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
         // But the detector's backend role should not be replaced as client's backend roles (all_access).
         Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, client());
-        Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
-        AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
+        Assert.assertEquals(200, response.getStatusLine().getStatusCode());
+        AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), client());
         Assert
             .assertArrayEquals(
                 "odfe is still the backendrole, not opensearch",
                 new String[] { "odfe" },
                 anomalyDetector.getUser().getBackendRoles().toArray(new String[0])
             );
-    }
 
-    public void testUpdateApiFilterByEnabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        Assert
-            .assertArrayEquals(
-                "Wrong user roles",
-                new String[] { "odfe" },
-                aliceDetector.getUser().getBackendRoles().toArray(new String[0])
-            );
-        AnomalyDetector newDetector = new AnomalyDetector(
-            aliceDetector.getId(),
-            aliceDetector.getVersion(),
-            aliceDetector.getName(),
-            randomAlphaOfLength(10),
-            aliceDetector.getTimeField(),
-            aliceDetector.getIndices(),
-            aliceDetector.getFeatureAttributes(),
-            aliceDetector.getFilterQuery(),
-            aliceDetector.getInterval(),
-            aliceDetector.getWindowDelay(),
-            aliceDetector.getShingleSize(),
-            aliceDetector.getUiMetadata(),
-            aliceDetector.getSchemaVersion(),
-            Instant.now(),
-            aliceDetector.getCategoryFields(),
-            new User(
-                randomAlphaOfLength(5),
-                ImmutableList.of("odfe", randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5))
-            ),
-            null,
-            aliceDetector.getImputationOption(),
-            randomIntBetween(2, 10000),
-            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
-            randomIntBetween(1, 1000),
-            null,
-            null,
-            null,
-            null,
-            null,
-            Instant.now()
-        );
-        enableFilterBy();
         // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
         // Fish should be able to update detectors created by Alice. But the detector's backend role should
         // not be replaced as Fish's backend roles.
-        Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, fishClient);
+        response = updateAnomalyDetector(aliceDetector.getId(), newDetector, fishClient);
         assertEquals(200, response.getStatusLine().getStatusCode());
-        AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
+        anomalyDetector = getConfig(aliceDetector.getId(), fishClient);
         Assert
             .assertArrayEquals(
                 "Wrong user roles",
@@ -360,58 +323,13 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             () -> { updateAnomalyDetector(aliceDetector.getId(), newDetector, catClient); }
         );
         assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    }
 
-    public void testUpdateApiFilterByDisabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        Assert
-            .assertArrayEquals(
-                "Wrong user roles",
-                new String[] { "odfe" },
-                aliceDetector.getUser().getBackendRoles().toArray(new String[0])
-            );
-        AnomalyDetector newDetector = new AnomalyDetector(
-            aliceDetector.getId(),
-            aliceDetector.getVersion(),
-            aliceDetector.getName(),
-            randomAlphaOfLength(10),
-            aliceDetector.getTimeField(),
-            aliceDetector.getIndices(),
-            aliceDetector.getFeatureAttributes(),
-            aliceDetector.getFilterQuery(),
-            aliceDetector.getInterval(),
-            aliceDetector.getWindowDelay(),
-            aliceDetector.getShingleSize(),
-            aliceDetector.getUiMetadata(),
-            aliceDetector.getSchemaVersion(),
-            Instant.now(),
-            aliceDetector.getCategoryFields(),
-            new User(
-                randomAlphaOfLength(5),
-                ImmutableList.of("odfe", randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5))
-            ),
-            null,
-            aliceDetector.getImputationOption(),
-            randomIntBetween(2, 10000),
-            randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
-            randomIntBetween(1, 1000),
-            null,
-            null,
-            null,
-            null,
-            null,
-            Instant.now()
-        );
         disableFilterBy();
-        // User Fish has AD full access, so
-        // Fish should be able to update detectors created by Alice. But the detector's backend role should
-        // not be replaced as Fish's backend roles.
-        Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, fishClient);
+        // User Cat has AD full access, is part of different backend role but filter by is disabled, Cat can access Alice's detector
+        // But the detector's backend role should not be replaced as Cat's backend roles (all_access).
+        response = updateAnomalyDetector(aliceDetector.getId(), newDetector, catClient);
         assertEquals(200, response.getStatusLine().getStatusCode());
-        AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
+        anomalyDetector = getConfig(aliceDetector.getId(), catClient);
         Assert
             .assertArrayEquals(
                 "Wrong user roles",
@@ -420,125 +338,47 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             );
     }
 
-    public void testStartApiFilterByEnabled() throws IOException {
+    public void testStartAndStopDetector() throws IOException {
         // User Alice has AD full access, should be able to create a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+
         enableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
-        Instant now = Instant.now();
+        final Instant now = Instant.now();
         Exception exception = expectThrows(IOException.class, () -> {
             startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
         });
         Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    }
 
-    public void testStartApiFilterByDisabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        disableFilterBy();
-        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // User Bob has AD read access, should not be able to modify a detector
+        Assert.assertNotNull(aliceDetector.getId());
+        exception = expectThrows(IOException.class, () -> { startAnomalyDetector(aliceDetector.getId(), null, bobClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]"));
+
+        // User elk shares backend_role with alice and has AD full access, it should be able to modify alice's detector
+        Response response = startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), elkClient);
+        MatcherAssert.assertThat(response.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
+        // User elk should also be able to stop detector
+        stopAnomalyDetector(aliceDetector.getId(), elkClient, true);
+
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to stop
         // Alice detector
-        Instant now = Instant.now();
-
-        Response response = startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-    }
-
-    public void testStopApiFilterByEnabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        enableFilterBy();
-        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-        // Alice detector
-        Exception exception = expectThrows(IOException.class, () -> { stopAnomalyDetector(aliceDetector.getId(), catClient, true); });
+        exception = expectThrows(IOException.class, () -> { stopAnomalyDetector(aliceDetector.getId(), catClient, true); });
         Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    }
 
-    public void testStopApiFilterByDisabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         disableFilterBy();
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        // User Cat has AD full access, so should be able to access Alice's detector
-        Response response = stopAnomalyDetector(aliceDetector.getId(), catClient, true);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-    }
-
-    public void testDeleteApiFilterByEnabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        enableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
-        Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    }
-
-    public void testDeleteApiFilterByDisabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        disableFilterBy();
-        // User Cat has AD full access, should be able to access
-        // Alice detector
-        Response response = deleteAnomalyDetector(aliceDetector.getId(), catClient);
+        response = startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
         assertEquals(200, response.getStatusLine().getStatusCode());
+        // User Cat should also be able to stop Alice's detector
+        response = stopAnomalyDetector(aliceDetector.getId(), catClient, true);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+
     }
 
-    public void testCreateAnomalyDetectorWithNoBackendRole() throws IOException {
-        enableFilterBy();
-        // User Dog has AD full access, but has no backend role
-        // When filter by is enabled, we block creating Detectors
-        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, dogClient); });
-        Assert
-            .assertTrue(
-                exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
-            );
-    }
-
-    public void testCreateAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
-        enableFilterBy();
-        // User alice has AD full access and index permission, so can create detector
-        AnomalyDetector anomalyDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        // User elk has AD full access, but has no read permission of index
-        String indexName = anomalyDetector.getIndices().get(0);
-        Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, oceanClient); });
-        Assert
-            .assertTrue(
-                "actual: " + exception.getMessage(),
-                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]")
-            );
-    }
-
-    public void testCreateAnomalyDetectorWithCustomResultIndex() throws IOException {
-        // User alice has AD full access and index permission, so can create detector
-        AnomalyDetector anomalyDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        // User elk has AD full access, but has no read permission of index
-
-        String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
-        AnomalyDetector detector = cloneDetector(anomalyDetector, resultIndex);
-        // User goat has no permission to create index
-        Exception exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
-        Assert
-            .assertTrue(
-                "got " + exception.getMessage(),
-                exception.getMessage().contains("indices:admin/aliases")
-                    && exception.getMessage().contains("indices:admin/create")
-                    && exception.getMessage().contains("no permissions for")
-            );
-
-        // User cat has permission to create index
-        resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
-        TestHelpers.createIndexWithTimeField(client(), anomalyDetector.getIndices().get(0), anomalyDetector.getTimeField());
-        AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(anomalyDetector, resultIndex), true, catClient);
-        assertEquals(resultIndex, detectorOfCat.getCustomResultIndexOrAlias());
-    }
-
-    public void testPreviewAnomalyDetectorWithWriteAccess() throws IOException {
+    public void testPreviewAnomalyDetector() throws IOException {
         // User Alice has AD full access, should be able to create/preview a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
@@ -547,354 +387,89 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Instant.now(),
             null
         );
+
         Response response = previewAnomalyDetector(aliceDetector.getId(), aliceClient, input);
         Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
-    }
 
-    public void testPreviewAnomalyDetectorWithReadAccess() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
-            randomAlphaOfLength(5),
-            Instant.now().minusSeconds(60 * 10),
-            Instant.now(),
-            null
-        );
-        // User bob has AD read access, should not be able to preview a detector
-        Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), bobClient, input); });
-        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/preview]"));
-    }
-
-    public void testPreviewAnomalyDetectorWithFilterEnabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
-            aliceDetector.getId(),
-            Instant.now().minusSeconds(60 * 10),
-            Instant.now(),
-            null
-        );
         enableFilterBy();
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
         // Alice detector
         Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
         Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    }
 
-    public void testPreviewAnomalyDetectorWithFilterDisabled() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
-            aliceDetector.getId(),
-            Instant.now().minusSeconds(60 * 10),
-            Instant.now(),
-            null
-        );
-        disableFilterBy();
-        // User Cat has AD full access, should be able to access
-        // Alice detector
-        Response response = previewAnomalyDetector(aliceDetector.getId(), catClient, input);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-    }
+        // User bob has AD read access, should not be able to preview a detector
+        exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), bobClient, input); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/preview]"));
 
-    public void testPreviewAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
-        // User Alice has AD full access, should be able to create a detector
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
-            aliceDetector.getId(),
-            Instant.now().minusSeconds(60 * 10),
-            Instant.now(),
-            aliceDetector
-        );
-        enableFilterBy();
-        // User elk has no read permission of index
-        Exception exception = expectThrows(Exception.class, () -> { previewAnomalyDetector(aliceDetector.getId(), oceanClient, input); });
+        // User ocean has no read permission of index
+        exception = expectThrows(Exception.class, () -> { previewAnomalyDetector(aliceDetector.getId(), oceanClient, input); });
         Assert
             .assertTrue(
                 "actual msg: " + exception.getMessage(),
                 exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/preview]")
             );
+
+        disableFilterBy();
+        // User Cat has AD full access, is part of different backend_role, but filter_by is disabled so Cat should be able to preview
+        // Alice detector
+        response = previewAnomalyDetector(aliceDetector.getId(), catClient, input);
+        assertEquals(200, response.getStatusLine().getStatusCode());
     }
 
-    public void testValidateAnomalyDetectorWithWriteAccess() throws IOException {
+    public void testValidateAnomalyDetector() throws IOException {
         // User Alice has AD full access, should be able to validate a detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
         Response validateResponse = validateAnomalyDetector(aliceDetector, aliceClient);
         Assert.assertNotNull("User alice validated detector successfully", validateResponse);
-    }
 
-    public void testValidateAnomalyDetectorWithNoADAccess() throws IOException {
         // User Lion has no AD access at all, should not be able to validate a detector
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
-        Exception exception = expectThrows(IOException.class, () -> { validateAnomalyDetector(detector, lionClient); });
+        Exception exception = expectThrows(IOException.class, () -> { validateAnomalyDetector(aliceDetector, lionClient); });
         Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/validate]"));
 
-    }
-
-    public void testValidateAnomalyDetectorWithReadAccess() throws IOException {
         // User Bob has AD read access, should still be able to validate a detector
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
-        Response validateResponse = validateAnomalyDetector(detector, bobClient);
+        validateResponse = validateAnomalyDetector(detector, bobClient);
         Assert.assertNotNull("User bob validated detector successfully", validateResponse);
-    }
 
-    public void testValidateAnomalyDetectorWithNoReadPermissionOfIndex() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
-        enableFilterBy();
-        // User elk has no read permission of index, can't validate detector
-        Exception exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, oceanClient); });
+        // User ocean has no read permission of index, can't validate detector
+        exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, oceanClient); });
         Assert
             .assertTrue(
                 "actual: " + exception.getMessage(),
                 exception.getMessage().contains("no permissions for [indices:data/read/search]")
             );
-    }
 
-    public void testValidateAnomalyDetectorWithNoBackendRole() throws IOException {
-        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
         enableFilterBy();
         // User Dog has AD full access, but has no backend role
         // When filter by is enabled, we block validating Detectors
-        Exception exception = expectThrows(IOException.class, () -> { validateAnomalyDetector(detector, dogClient); });
+        exception = expectThrows(IOException.class, () -> { validateAnomalyDetector(detector, dogClient); });
         Assert
             .assertTrue(
                 exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
             );
+
+        disableFilterBy();
+        // User Dog has AD full access, but has no backend role
+        // When filter by is disabled, we allow validating Detectors
+        validateResponse = validateAnomalyDetector(detector, dogClient);
+        Assert.assertNotNull("User dog validated detector successfully", validateResponse);
     }
 
-    // /**
-    // * Resource-sharing enabled, filter-by enabled
-    // * Experimental flag is turned on by default in build.gradle
-    // */
-    // public void testCreateWithResourceSharingAndFilterByEnabled() throws IOException {
-    // enableFilterBy();
-    //
-    // // Ocean creates detector
-    // AnomalyDetector created = createRandomAnomalyDetector(false, false, oceanClient);
-    // Assert.assertNotNull(created.getId());
-    //
-    // // Fish has backend role 'odfe' — which overlaps with ocean's 'odfe'
-    // AnomalyDetector read = getConfig(created.getId(), fishClient);
-    // assertNotNull(read);
-    // assertEquals(read.getName(), created.getName());
-    //
-    // // lion doesn't share backend_roles with Ocean
-    // Exception ex = expectThrows(IOException.class, () -> getConfig(created.getId(), lionClient));
-    // Assert.assertTrue(ex.getMessage().contains("User lion is not authorized access config: " + created.getId()));
-    // }
-    //
-    // public void testPreviewAnomalyDetectorWithResourceSharingAndFilterEnabled() throws IOException {
-    // // User Alice has AD full access, should be able to create a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
-    // aliceDetector.getId(),
-    // Instant.now().minusSeconds(60 * 10),
-    // Instant.now(),
-    // null
-    // );
-    // enableFilterBy();
-    // // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-    // // Alice detector
-    // Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
-    // Assert.assertTrue(exception.getMessage().contains("User cat is not authorized to access config: " + aliceDetector.getId()));
-    // }
-    //
-    // public void testUpdateApiResourceSharingAndFilterByEnabled() throws IOException {
-    // // User Alice has AD full access, should be able to create a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // Assert
-    // .assertArrayEquals(
-    // "Wrong user roles",
-    // new String[] { "odfe" },
-    // aliceDetector.getUser().getBackendRoles().toArray(new String[0])
-    // );
-    // AnomalyDetector newDetector = new AnomalyDetector(
-    // aliceDetector.getId(),
-    // aliceDetector.getVersion(),
-    // aliceDetector.getName(),
-    // randomAlphaOfLength(10),
-    // aliceDetector.getTimeField(),
-    // aliceDetector.getIndices(),
-    // aliceDetector.getFeatureAttributes(),
-    // aliceDetector.getFilterQuery(),
-    // aliceDetector.getInterval(),
-    // aliceDetector.getWindowDelay(),
-    // aliceDetector.getShingleSize(),
-    // aliceDetector.getUiMetadata(),
-    // aliceDetector.getSchemaVersion(),
-    // Instant.now(),
-    // aliceDetector.getCategoryFields(),
-    // new User(
-    // randomAlphaOfLength(5),
-    // ImmutableList.of("odfe", randomAlphaOfLength(5)),
-    // ImmutableList.of(randomAlphaOfLength(5)),
-    // ImmutableList.of(randomAlphaOfLength(5))
-    // ),
-    // null,
-    // aliceDetector.getImputationOption(),
-    // randomIntBetween(2, 10000),
-    // randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
-    // randomIntBetween(1, 1000),
-    // null,
-    // null,
-    // null,
-    // null,
-    // null,
-    // Instant.now()
-    // );
-    // enableFilterBy();
-    //
-    // // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
-    // // Fish should be able to update detectors created by Alice. But the detector's backend role should
-    // // not be replaced as Fish's backend roles.
-    // Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, fishClient);
-    // Assert.assertEquals(RestStatus.OK.getStatus(), response.getStatusLine().getStatusCode());
-    // AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
-    // Assert
-    // .assertArrayEquals(
-    // "Wrong user roles",
-    // new String[] { "odfe" },
-    // anomalyDetector.getUser().getBackendRoles().toArray(new String[0])
-    // );
-    //
-    // // lion does not share same backend role as alice, so update will fail with exception
-    // Exception exception = expectThrows(
-    // IOException.class,
-    // () -> { updateAnomalyDetector(aliceDetector.getId(), newDetector, lionClient); }
-    // );
-    // Assert.assertTrue(exception.getMessage().contains("User lion is not authorized to access config: " + aliceDetector.getId()));
-    // }
-    //
-    // public void testDeleteApiResourceSharingAndFilterByEnabled() throws IOException {
-    // // User Alice has AD full access, should be able to create a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // enableFilterBy();
-    // // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-    // // Alice detector
-    // Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
-    // Assert.assertTrue(exception.getMessage().contains("User cat is not authorized to access config: " + aliceDetector.getId()));
-    //
-    // // Fish shares same backend roles as alice and should be able to delete detector
-    // Response response = deleteAnomalyDetector(aliceDetector.getId(), fishClient);
-    // Assert.assertEquals(RestStatus.OK.getStatus(), response.getStatusLine().getStatusCode());
-    // }
-    //
-    // /**
-    // * Resource-sharing enabled, filter-by disabled
-    // */
-    // public void testCreateWithResourceSharingDisabledFilterEnabled() throws IOException {
-    // // turn off experimental resource-sharing, but leave filter-by on
-    // disableFilterBy();
-    //
-    // // Ocean creates detector
-    // AnomalyDetector created = createRandomAnomalyDetector(false, false, oceanClient);
-    // Assert.assertNotNull(created.getId());
-    //
-    // // Fish has backend role 'odfe' — which overlaps with ocean's 'odfe'
-    // AnomalyDetector read = getConfig(created.getId(), fishClient);
-    // assertNotNull(read);
-    // assertTrue(read.getName().equals(created.getName()));
-    //
-    // // lion doesn't share backend_roles with Ocean
-    // Exception ex = expectThrows(IOException.class, () -> getConfig(created.getId(), lionClient));
-    // Assert.assertTrue(ex.getMessage().contains("User lion does not have permissions to access config: " + created.getId()));
-    // }
-    //
-    // public void testPreviewAnomalyDetectorWithResourceSharingDisabledAndFilterEnabled() throws IOException {
-    // // User Alice has AD full access, should be able to create a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // AnomalyDetectorExecutionInput input = new AnomalyDetectorExecutionInput(
-    // aliceDetector.getId(),
-    // Instant.now().minusSeconds(60 * 10),
-    // Instant.now(),
-    // null
-    // );
-    // disableFilterBy();
-    // // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-    // // Alice detector
-    // Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
-    // Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
-    // }
-    //
-    // public void testUpdateApiResourceSharingDisabledAndFilterByEnabled() throws IOException {
-    // // User Alice has AD full access, should be able to create a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // Assert
-    // .assertArrayEquals(
-    // "Wrong user roles",
-    // new String[] { "odfe" },
-    // aliceDetector.getUser().getBackendRoles().toArray(new String[0])
-    // );
-    // AnomalyDetector newDetector = new AnomalyDetector(
-    // aliceDetector.getId(),
-    // aliceDetector.getVersion(),
-    // aliceDetector.getName(),
-    // randomAlphaOfLength(10),
-    // aliceDetector.getTimeField(),
-    // aliceDetector.getIndices(),
-    // aliceDetector.getFeatureAttributes(),
-    // aliceDetector.getFilterQuery(),
-    // aliceDetector.getInterval(),
-    // aliceDetector.getWindowDelay(),
-    // aliceDetector.getShingleSize(),
-    // aliceDetector.getUiMetadata(),
-    // aliceDetector.getSchemaVersion(),
-    // Instant.now(),
-    // aliceDetector.getCategoryFields(),
-    // new User(
-    // randomAlphaOfLength(5),
-    // ImmutableList.of("odfe", randomAlphaOfLength(5)),
-    // ImmutableList.of(randomAlphaOfLength(5)),
-    // ImmutableList.of(randomAlphaOfLength(5))
-    // ),
-    // null,
-    // aliceDetector.getImputationOption(),
-    // randomIntBetween(2, 10000),
-    // randomInt(TimeSeriesSettings.MAX_SHINGLE_SIZE / 2),
-    // randomIntBetween(1, 1000),
-    // null,
-    // null,
-    // null,
-    // null,
-    // null,
-    // Instant.now()
-    // );
-    // disableFilterBy();
-    //
-    // // User Fish has AD full access, and has "odfe" backend role which is one of Alice's backend role, so
-    // // Fish should be able to update detectors created by Alice. But the detector's backend role should
-    // // not be replaced as Fish's backend roles.
-    // Response response = updateAnomalyDetector(aliceDetector.getId(), newDetector, fishClient);
-    // Assert.assertEquals(response.getStatusLine().getStatusCode(), 200);
-    // AnomalyDetector anomalyDetector = getConfig(aliceDetector.getId(), aliceClient);
-    // Assert
-    // .assertArrayEquals(
-    // "Wrong user roles",
-    // new String[] { "odfe" },
-    // anomalyDetector.getUser().getBackendRoles().toArray(new String[0])
-    // );
-    //
-    // // lion does not share same backend role as alice, so update will fail with exception
-    // Exception exception = expectThrows(
-    // IOException.class,
-    // () -> { updateAnomalyDetector(aliceDetector.getId(), newDetector, lionClient); }
-    // );
-    // Assert
-    // .assertTrue(exception.getMessage().contains("User lion does not have permissions to access config: " + aliceDetector.getId()));
-    // }
-    //
-    // public void testDeleteApiResourceSharingDisabledAndFilterByEnabled() throws IOException {
-    // // User Alice has AD full access, should be able to create a detector
-    // AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-    // disableFilterBy();
-    // // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
-    // // Alice detector
-    // Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
-    // Assert.assertTrue(exception.getMessage().contains("User cat does not have permissions to access config: " + aliceDetector.getId()));
-    //
-    // // Fish shares same backend roles as alice and should be able to delete detector
-    // Response response = deleteAnomalyDetector(aliceDetector.getId(), fishClient);
-    // Assert.assertEquals(RestStatus.OK.getStatus(), response.getStatusLine().getStatusCode());
-    // }
+    public void testDeleteDetector() throws IOException {
+        // User Alice has AD full access, should be able to create a detector
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+
+        enableFilterBy();
+        // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
+        // Alice detector
+        Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), catClient); });
+        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
+
+        disableFilterBy();
+        // User Cat has AD full access, should be able to access
+        // Alice detector
+        Response response = deleteAnomalyDetector(aliceDetector.getId(), catClient);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+    }
 
 }
