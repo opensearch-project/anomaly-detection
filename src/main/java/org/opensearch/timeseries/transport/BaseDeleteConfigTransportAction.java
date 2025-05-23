@@ -212,7 +212,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         LOG.info("Delete config {}", configId);
         DeleteRequest deleteRequest = new DeleteRequest(CommonName.CONFIG_INDEX, configId)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-        client.delete(deleteRequest, new ActionListener<DeleteResponse>() {
+        client.delete(deleteRequest, new ActionListener<>() {
             @Override
             public void onResponse(DeleteResponse deleteResponse) {
                 listener.onResponse(deleteResponse);
