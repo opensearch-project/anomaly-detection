@@ -125,51 +125,14 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                 configId,
                 shouldEvaluateWithNewAuthz,
                 listener,
-                (args) -> nodeStateManager.getConfig(configId, analysisType, config -> {
-                    if (config.isEmpty()) {
-                        LOG.info("Can't find config {}", configId);
-                        taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
-                        return;
-                    }
-
-                    // Check if there is a realtime job or batch analysis task running
-                    getJob(configId, listener, () -> {
-                        taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
-                            if (configTask.isPresent() && !configTask.get().isDone()) {
-                                String batchTaskName = configTask.get() instanceof ADTask ? "Historical" : "Run once";
-                                listener.onFailure(new OpenSearchStatusException(batchTaskName + " is running", RestStatus.BAD_REQUEST));
-                            } else {
-                                taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
-                            }
-                        }, transportService, false, listener);
-                    });
-                }, listener),
+                (args) -> getConfig(configId, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,
                     listener,
-                    (input) -> nodeStateManager.getConfig(configId, analysisType, config -> {
-                        if (config.isEmpty()) {
-                            LOG.info("Can't find config {}", configId);
-                            taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
-                            return;
-                        }
-
-                        // Check if there is a realtime job or batch analysis task running
-                        getJob(configId, listener, () -> {
-                            taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
-                                if (configTask.isPresent() && !configTask.get().isDone()) {
-                                    String batchTaskName = configTask.get() instanceof ADTask ? "Historical" : "Run once";
-                                    listener
-                                        .onFailure(new OpenSearchStatusException(batchTaskName + " is running", RestStatus.BAD_REQUEST));
-                                } else {
-                                    taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
-                                }
-                            }, transportService, false, listener);
-                        });
-                    }, listener),
+                    (input) -> getConfig(configId, listener),
                     client,
                     clusterService,
                     xContentRegistry,
@@ -182,6 +145,28 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
             LOG.error(e);
             listener.onFailure(e);
         }
+    }
+
+    private void getConfig(String configId, ActionListener<DeleteResponse> listener) {
+        nodeStateManager.getConfig(configId, analysisType, config -> {
+            if (config.isEmpty()) {
+                LOG.info("Can't find config {}", configId);
+                taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
+                return;
+            }
+
+            // Check if there is a realtime job or batch analysis task running
+            getJob(configId, listener, () -> {
+                taskManager.getAndExecuteOnLatestConfigLevelTask(configId, batchTaskTypes, configTask -> {
+                    if (configTask.isPresent() && !configTask.get().isDone()) {
+                        String batchTaskName = configTask.get() instanceof ADTask ? "Historical" : "Run once";
+                        listener.onFailure(new OpenSearchStatusException(batchTaskName + " is running", RestStatus.BAD_REQUEST));
+                    } else {
+                        taskManager.deleteTasks(configId, () -> deleteJobDoc(configId, listener), listener);
+                    }
+                }, transportService, false, listener);
+            });
+        }, listener);
     }
 
     private void deleteJobDoc(String configId, ActionListener<DeleteResponse> listener) {
