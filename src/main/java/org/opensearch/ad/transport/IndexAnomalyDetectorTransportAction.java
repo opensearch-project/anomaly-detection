@@ -16,6 +16,8 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_UPDATE_DETECTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
@@ -99,8 +101,35 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_DETECTOR : FAIL_TO_CREATE_DETECTOR;
         ActionListener<IndexAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, detectorId, method, listener, (detector) -> adExecute(request, user, detector, context, listener));
+            verifyResourceAccessAndProcessRequest(
+                user,
+                true,
+                detectorId,
+                shouldEvaluateWithNewAuthz,
+                listener,
+                args -> indexDetector(
+                    user,
+                    detectorId,
+                    method,
+                    listener,
+                    detector -> adExecute(request, user, detector, context, listener)
+                ),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    detectorId,
+                    method,
+                    listener,
+                    (detector) -> adExecute(request, user, detector, context, listener)
+                ),
+                new Object[] {}
+            );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
@@ -124,30 +153,41 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                     return;
                 }
             }
-            if (method == RestRequest.Method.PUT) {
-                // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
-                // check if request user have access to the detector or not. But we still need to get current detector for
-                // this case, so we can keep current detector's user data.
-                boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
-                // Update detector request, check if user has permissions to update the detector
-                // Get detector and verify backend roles
-                getConfig(
-                    requestedUser,
-                    detectorId,
-                    listener,
-                    function,
-                    client,
-                    clusterService,
-                    xContentRegistry,
-                    filterByBackendRole,
-                    AnomalyDetector.class
-                );
-            } else {
-                // Create Detector. No need to get current detector.
-                function.accept(null);
-            }
+
+            indexDetector(requestedUser, detectorId, method, listener, function);
         } catch (Exception e) {
             listener.onFailure(e);
+        }
+    }
+
+    private void indexDetector(
+        User requestedUser,
+        String detectorId,
+        RestRequest.Method method,
+        ActionListener<IndexAnomalyDetectorResponse> listener,
+        Consumer<AnomalyDetector> function
+    ) {
+        if (method == RestRequest.Method.PUT) {
+            // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
+            // check if request user have access to the detector or not. But we still need to get current detector for
+            // this case, so we can keep current detector's user data.
+            boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
+            // Update detector request, check if user has permissions to update the detector
+            // Get detector and verify backend roles
+            getConfig(
+                requestedUser,
+                detectorId,
+                listener,
+                function,
+                client,
+                clusterService,
+                xContentRegistry,
+                filterByBackendRole,
+                AnomalyDetector.class
+            );
+        } else {
+            // Create Detector. No need to get current detector.
+            function.accept(null);
         }
     }
 
@@ -175,6 +215,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         checkIndicesAndExecute(detector.getIndices(), () -> {
             // Don't replace detector's user when update detector
             // Github issue: https://github.com/opensearch-project/anomaly-detection/issues/124
+            // TODO this and similar code should be updated to remove reference to a user
+
             User detectorUser = currentDetector == null ? user : currentDetector.getUser();
             IndexAnomalyDetectorActionHandler indexAnomalyDetectorActionHandler = new IndexAnomalyDetectorActionHandler(
                 clusterService,

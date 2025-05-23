@@ -541,7 +541,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     public Response disableFilterBy() throws IOException {
         return TestHelpers
             .makeRequest(
-                client(),
+                adminClient(),
                 "PUT",
                 "_cluster/settings",
                 null,
