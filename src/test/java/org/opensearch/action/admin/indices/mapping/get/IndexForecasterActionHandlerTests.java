@@ -15,14 +15,21 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
+import static org.opensearch.security.spi.resources.ResourceAccessLevels.PLACE_HOLDER;
+import static org.opensearch.timeseries.TestHelpers.randomUser;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.lucene.search.TotalHits;
+import org.mockito.ArgumentCaptor;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
@@ -31,6 +38,7 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.get.GetAction;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexAction;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
@@ -39,15 +47,19 @@ import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.action.support.replication.ReplicationResponse.ShardInfo;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.routing.AllocationId;
+import org.opensearch.common.UUIDs;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
 import org.opensearch.forecast.task.ForecastTaskManager;
+import org.opensearch.forecast.transport.IndexForecasterResponse;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.rest.RestRequest;
@@ -55,9 +67,14 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.histogram.Histogram;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
+import org.opensearch.security.spi.resources.sharing.Recipient;
+import org.opensearch.security.spi.resources.sharing.Recipients;
+import org.opensearch.security.spi.resources.sharing.ShareWith;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.rest.handler.AggregationPrep;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.node.NodeClient;
@@ -1408,5 +1425,183 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(10, TimeUnit.SECONDS));
+    }
+
+    public void testShareWithResourceAuthzBranch() throws InterruptedException, IOException {
+        Settings testSettings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true)
+            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, true)
+            .build();
+
+        User user = randomUser();
+
+        NodeClient client = new NodeClient(Settings.EMPTY, threadPool) {
+            @Override
+            public <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                if (action.equals(GetFieldMappingsAction.INSTANCE)) {
+                    try {
+                        var response = new GetFieldMappingsResponse(
+                            TestHelpers.createFieldMappings(forecaster.getIndices().get(0), "timestamp", "date")
+                        );
+                        listener.onResponse((Response) response);
+                    } catch (IOException e) {
+                        listener.onFailure(e);
+                    }
+                } else if (action.equals(GetAction.INSTANCE)) {
+                    GetResult notFound = new GetResult(
+                        CommonName.CONFIG_INDEX,       // index name
+                        forecaster.getId(),            // id
+                        UNASSIGNED_SEQ_NO,
+                        0,
+                        -1,
+                        false,
+                        null,
+                        null,
+                        null
+                    );
+                    listener.onResponse((Response) new GetResponse(notFound));
+                } else if (action.equals(SearchAction.INSTANCE)) {
+                    SearchRequest searchRequest = (SearchRequest) request;
+
+                    SearchResponseSections sections;
+                    if ("test-index".equals(searchRequest.indices()[0])) {
+                        // Simulate “existing config” → return ONE hit
+                        SearchHit hit = new SearchHit(randomIntBetween(0, Integer.MAX_VALUE));
+                        sections = new SearchResponseSections(
+                            new SearchHits(new SearchHit[] { hit }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 0),
+                            mock(Aggregations.class),
+                            null,
+                            false,
+                            null,
+                            null,
+                            1
+                        );
+                    } else {
+                        // For any other index, return ZERO hits
+                        sections = new SearchResponseSections(
+                            new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
+                            mock(Aggregations.class),
+                            null,
+                            false,
+                            null,
+                            null,
+                            1
+                        );
+                    }
+
+                    SearchResponse resp = new SearchResponse(
+                        sections,
+                        /* scrollId */ null,
+                        /* totalShards */ 1,
+                        /* successful */ 1,
+                        /* skipped */ 0,
+                        /* tookInMillis */0L,
+                        ShardSearchFailure.EMPTY_ARRAY,
+                        SearchResponse.Clusters.EMPTY
+                    );
+                    listener.onResponse((Response) resp);
+                } else if (action.equals(IndexAction.INSTANCE)) {
+                    IndexRequest ir = (IndexRequest) request;
+                    // simulate that indexing created a new config doc
+                    ShardId sid = new ShardId(ir.index(), UUIDs.randomBase64UUID(), 0);
+                    IndexResponse irsp = new IndexResponse(
+                        sid,
+                        ir.id(),
+                        /*seqNo*/ 1L,
+                        /*primaryTerm*/ 1L,
+                        /*version*/ 1L,
+                        /*created*/ true
+                    );
+                    irsp.setShardInfo(new ShardInfo(1, 1));
+                    listener.onResponse((Response) irsp);
+                } else {
+                    fail("Unexpected action: " + action.name());
+                }
+            }
+        };
+        NodeClient clientSpy = spy(client);
+        forecaster = TestHelpers.ForecasterBuilder
+            .newInstance()
+            .setConfigId(forecasterId)
+            .setTimeField("timestamp")
+            .setIndices(ImmutableList.of("test-index"))
+            .setFeatureAttributes(Collections.emptyList())
+            .setCategoryFields(Collections.emptyList())
+            .setNullImputationOption()
+            .build();
+
+        handler = new IndexForecasterActionHandler(
+            clusterService,
+            clientSpy,
+            clientUtil,
+            mock(TransportService.class),
+            forecastISM,
+            forecaster.getId(),
+            seqNo,
+            primaryTerm,
+            refreshPolicy,
+            forecaster,
+            requestTimeout,
+            maxSingleStreamForecasters,
+            maxHCForecasters,
+            maxForecastFeatures,
+            maxCategoricalFields,
+            method,
+            xContentRegistry(),
+            user,
+            null,
+            searchFeatureDao,
+            testSettings
+        );
+
+        ResourceSharingClient mockClient = mock(ResourceSharingClient.class);
+        ResourceSharingClientAccessor.getInstance().setResourceSharingClient(mockClient);
+
+        // capture when the final onResponse() is called
+        AtomicBoolean responseCalled = new AtomicBoolean(false);
+        @SuppressWarnings("unchecked")
+        ActionListener<IndexForecasterResponse> testListener = new ActionListener<>() {
+            @Override
+            public void onResponse(IndexForecasterResponse r) {
+                responseCalled.set(true);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                fail("should not fail: " + e);
+            }
+        };
+
+        handler.start(testListener);
+
+        // verify share(...) was invoked with the right arguments
+        @SuppressWarnings("unchecked")
+        var idCaptor = ArgumentCaptor.forClass(String.class);
+        @SuppressWarnings("unchecked")
+        var idxCaptor = ArgumentCaptor.forClass(String.class);
+        var shareWithCaptor = ArgumentCaptor.forClass(ShareWith.class);
+        @SuppressWarnings("unchecked")
+        var listenerCaptor = ArgumentCaptor.forClass(ActionListener.class);
+
+        verify(mockClient).share(idCaptor.capture(), idxCaptor.capture(), shareWithCaptor.capture(), listenerCaptor.capture());
+
+        assertEquals("123", idCaptor.getValue());
+        assertEquals(CommonName.CONFIG_INDEX, idxCaptor.getValue());
+
+        ShareWith sw = shareWithCaptor.getValue();
+        Recipients rec = sw.atAccessLevel(PLACE_HOLDER);
+        // the Recipients should carry exactly the user's backend roles
+        assertEquals(Set.copyOf(user.getBackendRoles()), rec.getRecipients().get(Recipient.BACKEND_ROLES));
+
+        // simulate a successful share callback
+        listenerCaptor.getValue().onResponse(null);
+
+        // testListener should have fired
+        assertTrue(responseCalled.get());
     }
 }
