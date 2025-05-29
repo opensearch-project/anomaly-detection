@@ -125,14 +125,14 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                 configId,
                 shouldEvaluateWithNewAuthz,
                 listener,
-                (args) -> getConfig(configId, listener),
+                (args) -> deleteConfigIfNotRunning(configId, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,
                     listener,
-                    (input) -> getConfig(configId, listener),
+                    (input) -> deleteConfigIfNotRunning(configId, listener),
                     client,
                     clusterService,
                     xContentRegistry,
@@ -147,7 +147,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         }
     }
 
-    private void getConfig(String configId, ActionListener<DeleteResponse> listener) {
+    private void deleteConfigIfNotRunning(String configId, ActionListener<DeleteResponse> listener) {
         nodeStateManager.getConfig(configId, analysisType, config -> {
             if (config.isEmpty()) {
                 LOG.info("Can't find config {}", configId);
