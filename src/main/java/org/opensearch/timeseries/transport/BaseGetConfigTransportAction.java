@@ -33,7 +33,6 @@ import org.opensearch.action.get.MultiGetRequest;
 import org.opensearch.action.get.MultiGetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
 import org.opensearch.common.settings.Setting;
@@ -105,6 +104,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     private final String singleStreamHistoricalTaskname;
     private final String hcHistoricalTaskName;
     private final TaskProfileRunnerType taskProfileRunner;
+    private final String configIndexName;
 
     public BaseGetConfigTransportAction(
         TransportService transportService,
@@ -125,7 +125,8 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String hcHistoricalTaskName,
         String singleStreamHistoricalTaskname,
         Setting<Boolean> filterByBackendRoleEnableSetting,
-        TaskProfileRunnerType taskProfileRunner
+        TaskProfileRunnerType taskProfileRunner,
+        String configIndexName
     ) {
         super(getConfigAction, transportService, actionFilters, GetConfigRequest::new);
         this.clusterService = clusterService;
@@ -159,6 +160,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         this.hcHistoricalTaskName = hcHistoricalTaskName;
         this.singleStreamHistoricalTaskname = singleStreamHistoricalTaskname;
         this.taskProfileRunner = taskProfileRunner;
+        this.configIndexName = configIndexName;
     }
 
     @Override
@@ -170,12 +172,11 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
         // TODO: Remove following and any other conditional check, post GA for Resource Authz.
         boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
-        boolean isDetector = configTypeClass.getName().contains(AnomalyDetector.class.getName());
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
-                isDetector,
+                configIndexName,
                 configID,
                 shouldEvaluateWithNewAuthz,
                 listener,

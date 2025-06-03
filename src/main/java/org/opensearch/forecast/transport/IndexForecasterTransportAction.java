@@ -38,6 +38,7 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
@@ -107,7 +108,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
                 user,
-                false,
+                ForecastIndex.CONFIG.getIndexName(),
                 forecasterId,
                 shouldEvaluateWithNewAuthz,
                 listener,

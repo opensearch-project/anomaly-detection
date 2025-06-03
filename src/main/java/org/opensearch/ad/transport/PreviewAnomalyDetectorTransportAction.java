@@ -36,6 +36,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -117,7 +118,7 @@ public class PreviewAnomalyDetectorTransportAction extends
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
                 user,
-                true,
+                ADIndex.CONFIG.getIndexName(),
                 detectorId,
                 shouldEvaluateWithNewAuthz,
                 listener,

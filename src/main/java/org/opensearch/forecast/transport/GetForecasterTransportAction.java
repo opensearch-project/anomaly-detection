@@ -76,7 +76,8 @@ public class GetForecasterTransportAction extends
             ForecastTaskType.RUN_ONCE_FORECAST_HC_FORECASTER.name(),
             ForecastTaskType.RUN_ONCE_FORECAST_SINGLE_STREAM.name(),
             ForecastSettings.FORECAST_FILTER_BY_BACKEND_ROLES,
-            taskProfileRunner
+            taskProfileRunner,
+            ForecastIndex.CONFIG.getIndexName()
         );
     }
 
