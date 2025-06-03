@@ -168,10 +168,10 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testCreateAnomalyDetector() throws IOException {
-        enableFilterBy();
 
         // 1. NO Backend_role
 
+        enableFilterBy();
         // User Dog has AD full access, but has no backend role
         // When filter by is enabled, we block creating Detectors
         Exception exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, dogClient); });
@@ -180,12 +180,32 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 exception.getMessage().contains("Filter by backend roles is enabled and User dog does not have backend roles configured")
             );
 
+        disableFilterBy();
+        // When filter by is enabled, we allow creating Detector
+        AnomalyDetector detectorOfDog = createRandomAnomalyDetector(false, false, dogClient);
+        assertNotNull(detectorOfDog.getId());
+
         // 2. No read permission on index
 
+        // 2.1
+        enableFilterBy();
         // User alice has AD full access and index permission, so can create detector
         AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        // User ocean has AD full access, but has no read permission of index
+        // User ocean has AD full access, but has no write permission of index
         String indexName = aliceDetector.getIndices().getFirst();
+        exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, oceanClient); });
+        Assert
+            .assertTrue(
+                "actual: " + exception.getMessage(),
+                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]")
+            );
+        // User Bob has AD read access, should not be able to create a detector
+        exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, bobClient); });
+        Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
+
+        // 2.2
+        disableFilterBy();
+        // User Ocean is not allowed to create detector without write permission
         exception = expectThrows(IOException.class, () -> { createRandomAnomalyDetector(false, false, indexName, oceanClient); });
         Assert
             .assertTrue(
@@ -198,7 +218,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
 
         // 3. With Custom Result Index
-
+        // 3.1
+        enableFilterBy();
         String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
         AnomalyDetector detector = cloneDetector(aliceDetector, resultIndex);
         // User goat doesn't have permission to create index
@@ -216,6 +237,24 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         TestHelpers.createIndexWithTimeField(client(), aliceDetector.getIndices().getFirst(), aliceDetector.getTimeField());
         AnomalyDetector detectorOfCat = createAnomalyDetector(cloneDetector(aliceDetector, resultIndex), true, catClient);
         assertEquals(resultIndex, detectorOfCat.getCustomResultIndexOrAlias());
+
+        // 3.2
+        disableFilterBy();
+        // User goat doesn't have permission to create index
+        exception = expectThrows(IOException.class, () -> { createAnomalyDetector(detector, true, goatClient); });
+        Assert
+            .assertTrue(
+                "got " + exception.getMessage(),
+                exception.getMessage().contains("indices:admin/aliases")
+                    && exception.getMessage().contains("indices:admin/create")
+                    && exception.getMessage().contains("no permissions for")
+            );
+
+        // User cat has permission to create index
+        resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test2";
+        TestHelpers.createIndexWithTimeField(client(), aliceDetector.getIndices().getFirst(), aliceDetector.getTimeField());
+        AnomalyDetector detectorOfCat2 = createAnomalyDetector(cloneDetector(aliceDetector, resultIndex), true, catClient);
+        assertEquals(resultIndex, detectorOfCat2.getCustomResultIndexOrAlias());
     }
 
     public void testGetDetector() throws IOException {
