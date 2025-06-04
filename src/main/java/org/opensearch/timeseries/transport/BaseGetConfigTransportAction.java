@@ -8,6 +8,8 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -81,6 +83,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
     protected final ClusterService clusterService;
     protected final Client client;
+    protected final Settings settings;
     protected final SecurityClientUtil clientUtil;
     protected final Set<String> allProfileTypeStrs;
     protected final Set<ProfileName> allProfileTypes;
@@ -101,6 +104,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     private final String singleStreamHistoricalTaskname;
     private final String hcHistoricalTaskName;
     private final TaskProfileRunnerType taskProfileRunner;
+    private final String configIndexName;
 
     public BaseGetConfigTransportAction(
         TransportService transportService,
@@ -121,11 +125,13 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String hcHistoricalTaskName,
         String singleStreamHistoricalTaskname,
         Setting<Boolean> filterByBackendRoleEnableSetting,
-        TaskProfileRunnerType taskProfileRunner
+        TaskProfileRunnerType taskProfileRunner,
+        String configIndexName
     ) {
         super(getConfigAction, transportService, actionFilters, GetConfigRequest::new);
         this.clusterService = clusterService;
         this.client = client;
+        this.settings = settings;
         this.clientUtil = clientUtil;
 
         List<ProfileName> allProfiles = Arrays.asList(ProfileName.values());
@@ -154,6 +160,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         this.hcHistoricalTaskName = hcHistoricalTaskName;
         this.singleStreamHistoricalTaskname = singleStreamHistoricalTaskname;
         this.taskProfileRunner = taskProfileRunner;
+        this.configIndexName = configIndexName;
     }
 
     @Override
@@ -162,18 +169,33 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         String configID = getConfigRequest.getConfigID();
         User user = ParseUtils.getUserContext(client);
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
+
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
+                configIndexName,
                 configID,
-                filterByEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
-                (config) -> getExecute(getConfigRequest, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                configTypeClass
+                args -> getExecute(getConfigRequest, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    configID,
+                    filterByEnabled,
+                    listener,
+                    (config) -> getExecute(getConfigRequest, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    configTypeClass
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);

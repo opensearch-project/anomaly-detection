@@ -59,7 +59,8 @@ public class DeleteAnomalyDetectorTransportAction extends
             AnalysisType.AD,
             ADCommonName.DETECTION_STATE_INDEX,
             AnomalyDetector.class,
-            ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES
+            ADTaskType.HISTORICAL_DETECTOR_TASK_TYPES,
+            ADIndex.CONFIG.getIndexName()
         );
     }
 }

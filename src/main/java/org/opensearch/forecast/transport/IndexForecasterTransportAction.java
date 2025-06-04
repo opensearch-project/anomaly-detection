@@ -17,6 +17,8 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.util.List;
@@ -36,6 +38,7 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
@@ -98,14 +101,29 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         RestRequest.Method method = request.getMethod();
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_FORECASTER : FAIL_TO_CREATE_FORECASTER;
         ActionListener<IndexForecasterResponse> listener = wrapRestActionListener(actionListener, errorMessage);
+
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
+                ForecastIndex.CONFIG.getIndexName(),
                 forecasterId,
-                method,
+                shouldEvaluateWithNewAuthz,
                 listener,
-                (forecaster) -> forecastExecute(request, user, forecaster, context, listener)
+                (args) -> forecastExecute(request, user, (Forecaster) args[0], context, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    forecasterId,
+                    method,
+                    listener,
+                    (forecaster) -> forecastExecute(request, user, forecaster, context, listener)
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
@@ -125,9 +143,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
             // this case, so we can keep current forecaster's user data.
             boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
 
-            // Check if user has backend roles
-            // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
             if (filterByEnabled) {
+                // Check if user has backend roles
+                // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
                 String error = checkFilterByBackendRoles(requestedUser);
                 if (error != null) {
                     listener.onFailure(new IllegalArgumentException(error));

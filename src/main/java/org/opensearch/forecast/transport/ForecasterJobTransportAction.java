@@ -55,7 +55,8 @@ public class ForecasterJobTransportAction extends
             FAIL_TO_START_FORECASTER,
             FAIL_TO_STOP_FORECASTER,
             Forecaster.class,
-            forecastIndexJobActionHandler
+            forecastIndexJobActionHandler,
+            ForecastIndex.CONFIG.getIndexName()
         );
     }
 }

@@ -60,7 +60,8 @@ public class AnomalyDetectorJobTransportAction extends
             FAIL_TO_START_DETECTOR,
             FAIL_TO_STOP_DETECTOR,
             AnomalyDetector.class,
-            adIndexJobActionHandler
+            adIndexJobActionHandler,
+            ADIndex.CONFIG.getIndexName()
         );
     }
 }

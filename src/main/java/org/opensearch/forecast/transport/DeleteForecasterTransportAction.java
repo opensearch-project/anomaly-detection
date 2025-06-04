@@ -52,7 +52,8 @@ public class DeleteForecasterTransportAction extends
             AnalysisType.FORECAST,
             ForecastIndex.STATE.getIndexName(),
             Forecaster.class,
-            ForecastTaskType.RUN_ONCE_TASK_TYPES
+            ForecastTaskType.RUN_ONCE_TASK_TYPES,
+            ForecastIndex.CONFIG.getIndexName()
         );
     }
 }

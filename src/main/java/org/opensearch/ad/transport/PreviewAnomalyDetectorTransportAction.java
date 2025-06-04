@@ -17,6 +17,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import java.io.IOException;
@@ -34,6 +36,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -65,6 +68,7 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     private final ClusterService clusterService;
     private final Client client;
+    private final Settings settings;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
@@ -85,6 +89,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
         this.client = client;
+        this.settings = settings;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.xContentRegistry = xContentRegistry;
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
@@ -105,18 +110,34 @@ public class PreviewAnomalyDetectorTransportAction extends
         String detectorId = request.getId();
         User user = ParseUtils.getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
+
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            // Call the verifyResourceAccessAndProcessRequest method
+            verifyResourceAccessAndProcessRequest(
                 user,
+                ADIndex.CONFIG.getIndexName(),
                 detectorId,
-                filterByEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
-                (anomalyDetector) -> previewExecute(request, context, listener),
-                client,
-                clusterService,
-                xContentRegistry,
-                AnomalyDetector.class
+                args -> previewExecute(request, context, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    detectorId,
+                    filterByEnabled,
+                    listener,
+                    ad -> previewExecute(request, context, listener),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    AnomalyDetector.class
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

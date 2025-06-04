@@ -11,22 +11,30 @@
 
 package org.opensearch.ad.util;
 
+import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
 import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.function.Consumer;
 
+import org.mockito.Mock;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -36,6 +44,25 @@ import org.opensearch.timeseries.util.ParseUtils;
 import com.google.common.collect.ImmutableList;
 
 public class ParseUtilsTests extends OpenSearchTestCase {
+
+    @Mock
+    private ResourceSharingClient resourceSharingClient;
+
+    @Mock
+    private ActionListener<? extends ActionResponse> listener;
+
+    @Mock
+    private Consumer<Object[]> onSuccess;
+
+    @Mock
+    private Consumer<Object[]> fallbackOn501;
+
+    @Mock
+    private User user;
+
+    private static final String DETECTOR_ID = "detector-123";
+    private static final Object[] SUCCESS_ARGS = { "arg1", 42 };
+    private static final Object[] FALLBACK_ARGS = { "fb1", 99 };
 
     public void testToInstant() throws IOException {
         long epochMilli = Instant.now().toEpochMilli();
@@ -307,5 +334,29 @@ public class ParseUtilsTests extends OpenSearchTestCase {
 
     public void testIsAdminNull() {
         assertFalse(isAdmin(null));
+    }
+
+    public void testShouldUseNewAuthz() {
+        Settings settings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true)
+            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, true)
+            .build();
+        assertTrue(ParseUtils.shouldUseResourceAuthz(settings));
+
+        settings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), false)
+            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, true)
+            .build();
+        assertFalse(ParseUtils.shouldUseResourceAuthz(settings));
+
+        settings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true)
+            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, false)
+            .build();
+        assertFalse(ParseUtils.shouldUseResourceAuthz(settings));
+
     }
 }

@@ -6,6 +6,8 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
 import org.apache.logging.log4j.LogManager;
@@ -53,6 +55,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final String failtoStopMsg;
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
+    private final String configIndexName;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -67,7 +70,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStartMsg,
         String failtoStopMsg,
         Class<? extends Config> configClass,
-        IndexJobActionHandlerType indexJobActionHandlerType
+        IndexJobActionHandlerType indexJobActionHandlerType,
+        String configIndexName
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
         this.transportService = transportService;
@@ -82,6 +86,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.failtoStopMsg = failtoStopMsg;
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
+        this.configIndexName = configIndexName;
     }
 
     @Override
@@ -94,20 +99,35 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? failtoStartMsg : failtoStopMsg;
         ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
-        // By the time request reaches here, the user permissions are validated by Security plugin.
+        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
+        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
+
+        // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
+
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(
+            verifyResourceAccessAndProcessRequest(
                 user,
+                configIndexName,
                 configId,
-                filterByEnabled,
+                shouldEvaluateWithNewAuthz,
                 listener,
-                (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
-                client,
-                clusterService,
-                xContentRegistry,
-                configClass
+                args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(
+                    user,
+                    configId,
+                    filterByEnabled,
+                    listener,
+                    (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                    client,
+                    clusterService,
+                    xContentRegistry,
+                    configClass
+                ),
+                new Object[] {}
             );
+
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

@@ -81,7 +81,8 @@ public class GetAnomalyDetectorTransportAction extends
             ADTaskType.HISTORICAL_HC_DETECTOR.name(),
             ADTaskType.HISTORICAL_SINGLE_ENTITY.name(),
             AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
-            adTaskProfileRunner
+            adTaskProfileRunner,
+            ADIndex.CONFIG.getIndexName()
         );
     }
 
