@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.lucene.search.TotalHits;
-import org.bouncycastle.cms.Recipient;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.ActionRequest;
@@ -71,11 +70,11 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
+import org.opensearch.security.spi.resources.sharing.Recipient;
 import org.opensearch.security.spi.resources.sharing.Recipients;
 import org.opensearch.security.spi.resources.sharing.ShareWith;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.rest.handler.AggregationPrep;
 import org.opensearch.transport.TransportService;
@@ -1593,7 +1592,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
         verify(mockClient).share(idCaptor.capture(), idxCaptor.capture(), shareWithCaptor.capture(), listenerCaptor.capture());
 
         assertEquals("123", idCaptor.getValue());
-        assertEquals(CommonName.CONFIG_INDEX, idxCaptor.getValue());
+        assertEquals(ForecastIndex.CONFIG.getIndexName(), idxCaptor.getValue());
 
         ShareWith sw = shareWithCaptor.getValue();
         Recipients rec = sw.atAccessLevel(PLACE_HOLDER);

@@ -208,7 +208,7 @@ public class Forecaster extends Config {
         // we have already assigned this.shingleSize in super class
         if (this.shingleSize < 4) {
             throw new ValidationException(
-                "Shingle size must be no less than " + ForecastSettings.MINIMUM_SHINLE_SIZE + ". Got " + shingleSize,
+                "Shingle size must be no less than " + ForecastSettings.MINIMUM_SHINGLE_SIZE + ". Got " + shingleSize,
                 ValidationIssueType.SHINGLE_SIZE_FIELD,
                 ValidationAspect.FORECASTER
             );
@@ -236,7 +236,7 @@ public class Forecaster extends Config {
     @Override
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
         return shingleSizeToTest != null
-            && (shingleSizeToTest < ForecastSettings.MINIMUM_SHINLE_SIZE || shingleSizeToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE);
+            && (shingleSizeToTest < ForecastSettings.MINIMUM_SHINGLE_SIZE || shingleSizeToTest > TimeSeriesSettings.MAX_SHINGLE_SIZE);
     }
 
     /**
@@ -537,6 +537,6 @@ public class Forecaster extends Config {
 
     @Override
     protected int getMinimumShingle() {
-        return ForecastSettings.MINIMUM_SHINLE_SIZE;
+        return ForecastSettings.MINIMUM_SHINGLE_SIZE;
     }
 }

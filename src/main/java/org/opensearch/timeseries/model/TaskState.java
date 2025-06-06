@@ -84,7 +84,14 @@ public enum TaskState {
     }
 
     public static List<String> NOT_ENDED_STATES = ImmutableList
-        .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name(), INIT_TEST.name());
+        .of(
+            TaskState.CREATED.name(),
+            TaskState.INIT.name(),
+            TaskState.RUNNING.name(),
+            INIT_TEST.name(),
+            AWAITING_DATA_TO_INIT.name(),
+            AWAITING_DATA_TO_RESTART.name()
+        );
 
     public static boolean isAwaitState(String state) {
         return AWAITING_DATA_TO_INIT.name().equals(state) || AWAITING_DATA_TO_RESTART.name().equals(state);

@@ -252,7 +252,7 @@ public class SearchFeatureDao extends AbstractRetriever {
                 // user is the one who triggered the caller of this function
                 user,
                 client,
-                AnalysisType.AD,
+                config instanceof AnomalyDetector ? AnalysisType.AD : AnalysisType.FORECAST,
                 searchResponseListener
             );
     }
@@ -949,14 +949,10 @@ public class SearchFeatureDao extends AbstractRetriever {
      *
      * @param response            the {@link SearchResponse} returned by OpenSearch
      * @param config              configuration
-     * @param includesEmptyBucket if {@code true}, a bucket with {@code doc_count == 0}
-     *                            is treated as valid (useful when you have already
-     *                            filled empty buckets with zeros upstream); if
-     *                            {@code false}, an empty bucket breaks continuity
      * @return the number of overlapping shingles whose buckets are all
      *         above the document-count threshold
      */
-    public int countContinuousShinglesFromDateRangeSearch(SearchResponse response, Config config, boolean includesEmptyBucket) {
+    public int countContinuousShinglesFromDateRangeSearch(SearchResponse response, Config config) {
         /*
          Example response when feature has no filter:
         {

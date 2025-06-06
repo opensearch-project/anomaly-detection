@@ -482,7 +482,7 @@ public class ADBatchTaskRunner {
                 // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
                 adTask.getUser(),
                 client,
-                AnalysisType.AD,
+                AnalysisType.AD, // only meant for AD
                 searchResponseListener
             );
     }
@@ -1005,7 +1005,7 @@ public class ADBatchTaskRunner {
                 // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
                 adTask.getUser(),
                 client,
-                AnalysisType.AD,
+                AnalysisType.AD, // only meant for AD
                 searchResponseListener
             );
     }

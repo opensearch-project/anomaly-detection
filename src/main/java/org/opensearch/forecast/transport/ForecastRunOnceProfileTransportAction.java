@@ -95,6 +95,10 @@ public class ForecastRunOnceProfileTransportAction extends
         String configId = request.getConfigId();
         Optional<Exception> exception = nodeStateManager.fetchExceptionAndClear(configId);
 
+        if (exception.isPresent()) {
+            LOG.error("Run-once execution failed for config {} on node {}", configId, clusterService.localNode().getId(), exception);
+        }
+
         return new ForecastRunOnceProfileNodeResponse(
             clusterService.localNode(),
             coldStartWorker.hasInflightRequest(configId)

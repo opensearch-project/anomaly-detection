@@ -118,7 +118,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                     dataStartTime,
                     dataEndTime,
                     executionStartTime,
-                    Instant.now(),
+                    clock.instant(),
                     indexManagement.getSchemaVersion(resultIndex),
                     user,
                     response.getError()
@@ -283,7 +283,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
      *
      * @param configId Config id
      * @param taskState task state
-     * @param configIntervalInMinutes config interval in minutes
+     * @param overrideIntervalMinutes config interval in minutes
      * @param error Error
      * @param clock Clock to get current time
      * @param listener Callback to return whether any result has been generated in the past two intervals.
@@ -291,7 +291,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
     private void hasRecentResult(
         String configId,
         String taskState,
-        Long configIntervalInMinutes,
+        Long overrideIntervalMinutes,
         String error,
         Clock clock,
         ActionListener<Boolean> listener
@@ -302,10 +302,15 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                 listener.onFailure(new TimeSeriesException(configId, "fail to get config"));
                 return;
             }
+
+            Config config = configOptional.get();
+
+            long intervalMinutes = overrideIntervalMinutes != null ? overrideIntervalMinutes : config.getIntervalInMinutes();
+
             ProfileUtil
                 .confirmRealtimeResultStatus(
-                    configOptional.get(),
-                    clock.millis() - 2 * configIntervalInMinutes * 60000,
+                    config,
+                    clock.millis() - 2 * intervalMinutes * 60000,
                     client,
                     analysisType,
                     ActionListener.wrap(searchResponse -> {

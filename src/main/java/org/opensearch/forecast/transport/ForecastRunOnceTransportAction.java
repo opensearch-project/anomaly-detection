@@ -201,6 +201,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     private void executeRunOnce(String forecastID, ForecastResultRequest request, ActionListener<ForecastResultResponse> listener) {
         if (!ForecastEnabledSetting.isForecastEnabled()) {
             listener.onFailure(new OpenSearchStatusException(ForecastCommonMessages.DISABLED_ERR_MSG, FORBIDDEN));
+            return;
         }
 
         if (circuitBreakerService.isOpen()) {

@@ -64,7 +64,7 @@ public class AggregationPrep {
     public long getShingleCount(SearchResponse response) {
         // as feature query might contain filter, use feature query as we do in cold start
         if (config.getEnabledFeatureIds() != null && config.getEnabledFeatureIds().size() > 0) {
-            return searchFeatureDao.countContinuousShinglesFromDateRangeSearch(response, config, false);
+            return searchFeatureDao.countContinuousShinglesFromDateRangeSearch(response, config);
         } else {
             return searchFeatureDao.countContinuousShinglesFromHistogramSearch(response, config, false);
         }
