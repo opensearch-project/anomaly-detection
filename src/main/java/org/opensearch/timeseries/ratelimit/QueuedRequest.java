@@ -54,4 +54,8 @@ public abstract class QueuedRequest {
     public void setDetectorId(String detectorId) {
         this.configId = detectorId;
     }
+
+    public void setExpirationEpochMs(long expirationEpochMs) {
+        this.expirationEpochMs = expirationEpochMs;
+    }
 }

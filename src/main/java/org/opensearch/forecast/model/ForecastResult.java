@@ -174,7 +174,8 @@ public class ForecastResult extends IndexableResult {
     ) {
         int inputLength = featureData.size();
         int numberOfForecasts = 0;
-        if (forecastsValues != null) {
+        // it is possible we might get all 0 forecast even though dataQuality is 0 at the beginning
+        if (forecastsValues != null && dataQuality > 0) {
             numberOfForecasts = forecastsValues.length / inputLength;
         }
 

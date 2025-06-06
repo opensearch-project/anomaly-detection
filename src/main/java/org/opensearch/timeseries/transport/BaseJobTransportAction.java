@@ -10,6 +10,8 @@ import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
+import java.time.Clock;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
@@ -56,6 +58,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
     private final String configIndexName;
+    private final Clock clock;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -71,7 +74,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStopMsg,
         Class<? extends Config> configClass,
         IndexJobActionHandlerType indexJobActionHandlerType,
-        String configIndexName
+        String configIndexName,
+        Clock clock
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
         this.transportService = transportService;
@@ -87,6 +91,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
         this.configIndexName = configIndexName;
+        this.clock = clock;
     }
 
     @Override
@@ -112,14 +117,14 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
                 configId,
                 shouldEvaluateWithNewAuthz,
                 listener,
-                args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,
                     listener,
-                    (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                    (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
                     client,
                     clusterService,
                     xContentRegistry,
@@ -142,10 +147,11 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String rawPath,
         TimeValue requestTimeout,
         User user,
-        ThreadContext.StoredContext context
+        ThreadContext.StoredContext context,
+        Clock clock
     ) {
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            indexJobActionHandlerType.startConfig(configId, dateRange, user, transportService, context, listener);
+            indexJobActionHandlerType.startConfig(configId, dateRange, user, transportService, context, clock, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             indexJobActionHandlerType.stopConfig(configId, historical, user, transportService, listener);
         }

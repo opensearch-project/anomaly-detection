@@ -29,6 +29,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.IndicesOptions;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -43,7 +44,6 @@ import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -123,7 +123,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             .field(AnomalyDetector.RESULT_INDEX_FIELD)
             .size(MAX_DETECTOR_UPPER_LIMIT);
         searchResultIndexBuilder.aggregation(aggregation).size(0);
-        return new SearchRequest(CommonName.CONFIG_INDEX).source(searchResultIndexBuilder);
+        return new SearchRequest(ADCommonName.CONFIG_INDEX).source(searchResultIndexBuilder);
     }
 
     @VisibleForTesting

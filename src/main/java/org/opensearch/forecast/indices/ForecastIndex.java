@@ -26,7 +26,8 @@ public enum ForecastIndex implements TimeSeriesIndex {
         true,
         ThrowingSupplierWrapper.throwingSupplierWrapper(ForecastIndexManagement::getResultMappings)
     ),
-    CONFIG(CommonName.CONFIG_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getConfigMappings)),
+    // two config indices share the same mapping as they overlap a lot
+    CONFIG(ForecastCommonName.CONFIG_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getConfigMappings)),
     JOB(CommonName.JOB_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getJobMappings)),
     CHECKPOINT(
         ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME,
@@ -64,5 +65,10 @@ public enum ForecastIndex implements TimeSeriesIndex {
     @Override
     public String getMapping() {
         return mapping;
+    }
+
+    @Override
+    public boolean isConfigIndex() {
+        return ForecastCommonName.CONFIG_INDEX.equals(getIndexName());
     }
 }

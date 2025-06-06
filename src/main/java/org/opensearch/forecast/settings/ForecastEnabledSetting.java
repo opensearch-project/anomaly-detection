@@ -32,8 +32,7 @@ public class ForecastEnabledSetting extends DynamicNumericSetting {
             /**
              * forecast enable/disable setting
              */
-            // TODO: enable forecasting by default. Currently disabled.
-            put(FORECAST_ENABLED, Setting.boolSetting(FORECAST_ENABLED, false, NodeScope, Dynamic));
+            put(FORECAST_ENABLED, Setting.boolSetting(FORECAST_ENABLED, true, NodeScope, Dynamic));
         }
     });
 

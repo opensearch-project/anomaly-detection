@@ -17,7 +17,18 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedB
 
 import java.io.IOException;
 import java.time.Clock;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -42,6 +53,7 @@ import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.replication.ReplicationResponse;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.UUIDs;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -55,6 +67,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -84,7 +97,11 @@ import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
-import org.opensearch.timeseries.util.*;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
+import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -162,6 +179,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     protected final Settings settings;
     protected final ValidationAspect configValidationAspect;
     protected boolean breakingUIChange;
+    protected final String configIndexName;
 
     public AbstractTimeSeriesActionHandler(
         Config config,
@@ -191,7 +209,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         Integer maxHCConfigs,
         Clock clock,
         Settings settings,
-        ValidationAspect configValidationAspect
+        ValidationAspect configValidationAspect,
+        String configIndexName
     ) {
         this.config = config;
         this.timeSeriesIndices = timeSeriesIndices;
@@ -221,6 +240,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         this.handler = new ConfigUpdateConfirmer<>(taskManager, transportService);
         this.configValidationAspect = configValidationAspect;
         this.breakingUIChange = false;
+        this.configIndexName = configIndexName;
     }
 
     /**
@@ -576,7 +596,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     protected void updateConfig(String id, boolean indexingDryRun, ActionListener<T> listener) {
-        GetRequest request = new GetRequest(CommonName.CONFIG_INDEX, id);
+        GetRequest request = new GetRequest(configIndexName, id);
         client
             .get(
                 request,
@@ -706,7 +726,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             QueryBuilder query = QueryBuilders.boolQuery().filter(QueryBuilders.existsQuery(Config.CATEGORY_FIELD));
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
-            SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
+            SearchRequest searchRequest = new SearchRequest(configIndexName).source(searchSourceBuilder);
             client
                 .search(
                     searchRequest,
@@ -732,7 +752,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                     QueryBuilder query = QueryBuilders.matchAllQuery();
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query).size(0).timeout(requestTimeout);
 
-                    SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
+                    SearchRequest searchRequest = new SearchRequest(configIndexName).source(searchSourceBuilder);
 
                     client
                         .search(
@@ -947,7 +967,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                 boolQueryBuilder.mustNot(QueryBuilders.termQuery(RestHandlerUtils._ID, configId));
             }
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(boolQueryBuilder).timeout(requestTimeout);
-            SearchRequest searchRequest = new SearchRequest(CommonName.CONFIG_INDEX).source(searchSourceBuilder);
+            SearchRequest searchRequest = new SearchRequest(configIndexName).source(searchSourceBuilder);
             client
                 .search(
                     searchRequest,
@@ -1008,7 +1028,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void indexConfig(String id, boolean shouldUseResourceAuthz, ActionListener<T> listener) throws IOException {
         Config copiedConfig = copyConfig(user, config);
-        IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
+        IndexRequest indexRequest = new IndexRequest(configIndexName)
             .setRefreshPolicy(refreshPolicy)
             .source(copiedConfig.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
             .setIfSeqNo(seqNo)
@@ -1016,6 +1036,51 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             .timeout(requestTimeout);
         if (StringUtils.isNotBlank(id)) {
             indexRequest.id(id);
+        }
+        /*
+         * We only prepend "forecast-" to the document ID when the config is for a Forecaster.
+         *
+         * Rationale:
+         *  1) AD configs already existed without any enforced ID scheme.
+         *     Forecasting is new, so we can safely introduce a prefix now.
+         *
+         *  2) Forecasting and AD share a single "job index" in the plugin design because
+         *     a single plugin can only use one job index. Moreover, we have the assumption
+         *     across our code base that a "job id" equals its corresponding "config id," and
+         *     changing that assumption would be error-prone. We must keep them in the same
+         *     index but still uniquely separated.
+         *
+         *  3) We cannot merge forecasting and AD configs under the same index because
+         *   a) We do NOT allow duplicate config names, and it would be odd to force users to
+         *   avoid naming a forecaster the same as a detector considering they’re separate
+         *   functionalities in the UI.
+         *   b) A new security feature, Resource Sharing, will only apply to one "resource type"
+         *   per config index. In other words, if we try to , it complicates (or breaks) the
+         *   security model.
+         *
+         *  4) Why "forecast-" + UUIDs.randomBase64UUID() won't collide with AD docs:
+         *     - AD doc IDs are auto-generated by OpenSearch as ~128-bit Base64 strings,
+         *      whereas the forecast ID includes a 9-character ASCII prefix "forecast-"
+         *      before those Base64 characters.
+         *     - This means the **lengths** of the final IDs are different (forecast IDs
+         *       are longer by the prefix length), so a random 128-bit AD ID cannot match
+         *       the "forecast-" prefixed ID.
+         *     - Even if you ignore length, the literal ASCII prefix “forecast-” must match
+         *       byte-for-byte, which is astronomically unlikely to be produced by random
+         *       128-bit generation.
+         *
+         *  6) Using a ~25-byte document ID in OpenSearch:
+         *     - OpenSearch supports _id fields up to 512 bytes, so a 25-byte ID does not
+         *      cause technical issues.
+         *     - There's minimal overhead using IDs of this length, and it's generally not
+         *       problematic for indexing or retrieval.
+         *
+         * Overall, "forecast-" + UUIDs.randomBase64UUID() ensures forecast config docs
+         * are distinguishable from AD docs in the shared job index, while preserving
+         * a random component for uniqueness.
+         */
+        else if (config instanceof Forecaster) {
+            indexRequest.id("forecast-" + UUIDs.randomBase64UUID());
         }
 
         client.index(indexRequest, new ActionListener<IndexResponse>() {
@@ -1066,14 +1131,14 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void onCreateMappingsResponse(CreateIndexResponse response, boolean indexingDryRun, ActionListener<T> listener) {
         if (response.isAcknowledged()) {
-            logger.info("Created {} with mappings.", CommonName.CONFIG_INDEX);
+            logger.info("Created {} with mappings.", configIndexName);
             prepareConfigIndexing(indexingDryRun, listener);
         } else {
-            logger.warn("Created {} with mappings call not acknowledged.", CommonName.CONFIG_INDEX);
+            logger.warn("Created {} with mappings call not acknowledged.", configIndexName);
             listener
                 .onFailure(
                     new OpenSearchStatusException(
-                        "Created " + CommonName.CONFIG_INDEX + "with mappings call not acknowledged.",
+                        "Created " + configIndexName + "with mappings call not acknowledged.",
                         RestStatus.INTERNAL_SERVER_ERROR
                     )
                 );

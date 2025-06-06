@@ -122,7 +122,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
         }).when(indicesClient).create(any(), any());
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
-        if (index.equals(CommonName.CONFIG_INDEX)) {
+        if (index.equals(ADCommonName.CONFIG_INDEX)) {
             adIndices.initConfigIndexIfAbsent(listener);
         } else {
             adIndices.initStateIndex(listener);
@@ -149,7 +149,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
         when(clusterState.metadata()).thenReturn(mb.build());
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
-        if (index.equals(CommonName.CONFIG_INDEX)) {
+        if (index.equals(ADCommonName.CONFIG_INDEX)) {
             adIndices.initConfigIndexIfAbsent(listener);
         } else {
             adIndices.initDefaultResultIndexIfAbsent(listener);
@@ -183,7 +183,7 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
         }).when(indicesClient).create(any(), any());
 
         ActionListener<CreateIndexResponse> listener = mock(ActionListener.class);
-        if (index.equals(CommonName.CONFIG_INDEX)) {
+        if (index.equals(ADCommonName.CONFIG_INDEX)) {
             adIndices.initConfigIndexIfAbsent(listener);
         } else if (index.equals(ADCommonName.DETECTION_STATE_INDEX)) {
             adIndices.initStateIndex(listener);
@@ -202,15 +202,15 @@ public class InitAnomalyDetectionIndicesTests extends AbstractTimeSeriesTest {
     }
 
     public void testNotCreateDetector() throws IOException {
-        fixedPrimaryShardsIndexNoCreationTemplate(CommonName.CONFIG_INDEX);
+        fixedPrimaryShardsIndexNoCreationTemplate(ADCommonName.CONFIG_INDEX);
     }
 
     public void testNotCreateResult() throws IOException {
-        fixedPrimaryShardsIndexNoCreationTemplate(CommonName.CONFIG_INDEX);
+        fixedPrimaryShardsIndexNoCreationTemplate(ADCommonName.CONFIG_INDEX);
     }
 
     public void testCreateDetector() throws IOException {
-        fixedPrimaryShardsIndexCreationTemplate(CommonName.CONFIG_INDEX);
+        fixedPrimaryShardsIndexCreationTemplate(ADCommonName.CONFIG_INDEX);
     }
 
     public void testCreateState() throws IOException {

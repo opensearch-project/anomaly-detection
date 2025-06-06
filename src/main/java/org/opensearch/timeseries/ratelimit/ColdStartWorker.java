@@ -14,9 +14,10 @@ package org.opensearch.timeseries.ratelimit;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
@@ -26,11 +27,13 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.Strings;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.caching.TimeSeriesCache;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.ml.CheckpointDao;
@@ -40,13 +43,17 @@ import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
-import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IndexableResult;
+import org.opensearch.timeseries.model.TaskState;
+import org.opensearch.timeseries.model.TaskType;
+import org.opensearch.timeseries.model.TimeSeriesTask;
+import org.opensearch.timeseries.task.TaskCacheManager;
+import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType>, CacheType extends TimeSeriesCache<RCFModelType>, IndexableResultType extends IndexableResult, IntermediateResultType extends IntermediateResult<IndexableResultType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, IntermediateResultType>>
+public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, IndexableResultType>, CacheType extends TimeSeriesCache<RCFModelType>, IndexableResultType extends IndexableResult, IntermediateResultType extends IntermediateResult<IndexableResultType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, IntermediateResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>>
     extends SingleRequestWorker<FeatureRequest> {
     private static final Logger LOG = LogManager.getLogger(ColdStartWorker.class);
 
@@ -54,6 +61,7 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
     protected final CacheType cacheProvider;
     private final ModelManagerType modelManager;
     private final SaveResultStrategyType resultSaver;
+    private final TaskManagerType taskManager;
 
     public ColdStartWorker(
         String workerName,
@@ -79,7 +87,8 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
         CacheType cacheProvider,
         AnalysisType context,
         ModelManagerType modelManager,
-        SaveResultStrategyType resultSaver
+        SaveResultStrategyType resultSaver,
+        TaskManagerType taskManager
     ) {
         super(
             workerName,
@@ -107,6 +116,7 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
         this.cacheProvider = cacheProvider;
         this.modelManager = modelManager;
         this.resultSaver = resultSaver;
+        this.taskManager = taskManager;
     }
 
     @Override
@@ -114,7 +124,6 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
         String configId = coldStartRequest.getConfigId();
 
         String modelId = coldStartRequest.getModelId();
-
         if (null == modelId) {
             String error = String.format(Locale.ROOT, "Fail to get model id for request %s", coldStartRequest);
             LOG.warn(error);
@@ -123,8 +132,9 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
         }
         ModelState<RCFModelType> modelState = createEmptyState(coldStartRequest, modelId, configId);
 
-        ActionListener<List<Sample>> coldStartListener = ActionListener.wrap(r -> {
-            nodeStateManager.getConfig(configId, context, ActionListener.wrap(configOptional -> {
+        ActionListener<List<IndexableResultType>> coldStartListener = ActionListener.wrap(r -> {
+            // task id equals to null means it is real time and we want to cache
+            nodeStateManager.getConfig(configId, context, coldStartRequest.getTaskId() == null, ActionListener.wrap(configOptional -> {
                 try {
                     if (!configOptional.isPresent()) {
                         LOG
@@ -143,14 +153,7 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
                         String taskId = coldStartRequest.getTaskId();
                         if (r != null) {
                             for (int i = 0; i < r.size(); i++) {
-                                Sample entry = r.get(i);
-                                IndexableResultType trainingResult = createIndexableResult(
-                                    config,
-                                    taskId,
-                                    modelId,
-                                    entry,
-                                    coldStartRequest.getEntity()
-                                );
+                                IndexableResultType trainingResult = r.get(i);
                                 resultSaver.saveResult(trainingResult, config);
                             }
                         }
@@ -165,7 +168,7 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
                         resultSaver.saveResult(result, config, coldStartRequest, modelId);
 
                         // only load model to memory for real time analysis that has no task id
-                        if (null == coldStartRequest.getTaskId()) {
+                        if (Strings.isEmpty(coldStartRequest.getTaskId())) {
                             boolean hosted = cacheProvider.hostIfPossible(configOptional.get(), modelState);
                             LOG
                                 .debug(
@@ -173,6 +176,18 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
                                         ? new ParameterizedMessage("Loaded model {}.", modelState.getModelId())
                                         : new ParameterizedMessage("Failed to load model {}.", modelState.getModelId())
                                 );
+                        }
+                    } else {
+                        // run once scenario
+                        String taskId = coldStartRequest.getTaskId();
+                        if (taskId != null) {
+                            Map<String, Object> updatedFields = new HashMap<>();
+                            updatedFields.put(TimeSeriesTask.STATE_FIELD, TaskState.INACTIVE.name());
+                            updatedFields.put(TimeSeriesTask.ERROR_FIELD, CommonMessages.NOT_ENOUGH_DATA);
+
+                            taskManager.updateTask(taskId, updatedFields, ActionListener.wrap(updateResponse -> {
+                                LOG.info("Updated task {} for config {}", taskId, configId);
+                            }, e -> { LOG.error("Failed to update task: {} for config: {}", taskId, configId, e); }));
                         }
                     }
                 } finally {
@@ -196,12 +211,4 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
     }
 
     protected abstract ModelState<RCFModelType> createEmptyState(FeatureRequest coldStartRequest, String modelId, String configId);
-
-    protected abstract IndexableResultType createIndexableResult(
-        Config config,
-        String taskId,
-        String modelId,
-        Sample entry,
-        Optional<Entity> entity
-    );
 }

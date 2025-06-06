@@ -13,10 +13,13 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_FORECAST_FEATURES;
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_HC_FORECASTERS;
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_SINGLE_STREAM_FORECASTERS;
+import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,6 +38,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.constant.ForecastCommonName;
@@ -72,16 +76,21 @@ import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.ResultProcessor;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-import com.google.common.collect.ImmutableMap;
-
 public class ForecastRunOnceTransportAction extends HandledTransportAction<ForecastResultRequest, ForecastResultResponse> {
 
     private static final Logger LOG = LogManager.getLogger(ForecastRunOnceTransportAction.class);
+    // Define constants for retry logic.
+    private static final int MAX_RETRIES = 3;
+    private static final long BASE_DELAY_MS = 1000; // 1 second initial delay
+    private static final int POLL_FREQ = 10; // 10 seconds
+    private static final int MAX_WAIT_TIMES = 100;
+
     private ResultProcessor<ForecastResultRequest, ForecastResult, ForecastResultResponse, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastIndex, ForecastIndexManagement, ForecastTaskManager> resultProcessor;
     private final Client client;
     private CircuitBreakerService circuitBreakerService;
@@ -192,6 +201,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     private void executeRunOnce(String forecastID, ForecastResultRequest request, ActionListener<ForecastResultResponse> listener) {
         if (!ForecastEnabledSetting.isForecastEnabled()) {
             listener.onFailure(new OpenSearchStatusException(ForecastCommonMessages.DISABLED_ERR_MSG, FORBIDDEN));
+            return;
         }
 
         if (circuitBreakerService.isOpen()) {
@@ -204,7 +214,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                 listener
                     .onFailure(
                         new OpenSearchStatusException(
-                            "cannot start a new test " + forecastID + " since current test hasn't finished.",
+                            "cannot start a new test for " + forecastID + " since current test hasn't finished.",
                             CONFLICT
                         )
                     );
@@ -238,46 +248,50 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     private void checkIfRunOnceFinished(String forecastID, String taskId, AtomicInteger waitTimes) {
         client.execute(ForecastRunOnceProfileAction.INSTANCE, new ForecastRunOnceProfileRequest(forecastID), ActionListener.wrap(r -> {
             if (r.isAnswerTrue()) {
-                handleRunOnceNotFinished(forecastID, taskId, waitTimes);
+                handleRunOnceNotFinished(forecastID, taskId, waitTimes, r.getExceptionMsg());
             } else {
-                handleRunOnceFinished(forecastID, taskId);
+                handleRunOnceFinished(forecastID, taskId, r.getExceptionMsg());
             }
         }, e -> {
             LOG.error("Failed to profile run once of forecaster " + forecastID, e);
-            handleRunOnceNotFinished(forecastID, taskId, waitTimes);
+            handleRunOnceNotFinished(forecastID, taskId, waitTimes, ExceptionUtil.getErrorMessage(e));
         }));
     }
 
-    private void handleRunOnceNotFinished(String forecastID, String taskId, AtomicInteger waitTimes) {
-        if (waitTimes.get() < 10) {
+    private void handleRunOnceNotFinished(String forecastID, String taskId, AtomicInteger waitTimes, String exceptionMsg) {
+        if (waitTimes.get() < MAX_WAIT_TIMES) {
             waitTimes.addAndGet(1);
             threadPool
                 .schedule(
                     () -> checkIfRunOnceFinished(forecastID, taskId, waitTimes),
-                    new TimeValue(10, TimeUnit.SECONDS),
-                    TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME
+                    new TimeValue(POLL_FREQ, TimeUnit.SECONDS),
+                    FORECAST_THREAD_POOL_NAME
                 );
+            if (!Strings.isEmpty(exceptionMsg)) {
+                updateTaskError(forecastID, taskId, exceptionMsg);
+            }
         } else {
             LOG.warn("Timed out run once of forecaster {}", forecastID);
             updateTaskState(forecastID, taskId, TaskState.INACTIVE);
         }
     }
 
-    private void handleRunOnceFinished(String forecastID, String taskId) {
+    private void handleRunOnceFinished(String forecastID, String taskId, String exceptionMsg) {
         LOG.info("Run once of forecaster {} finished", forecastID);
-        nodeStateManager.getConfig(forecastID, AnalysisType.FORECAST, ActionListener.wrap(configOptional -> {
+        // run once does not need to cache config
+        nodeStateManager.getConfig(forecastID, AnalysisType.FORECAST, false, ActionListener.wrap(configOptional -> {
             if (configOptional.isEmpty()) {
                 updateTaskState(forecastID, taskId, TaskState.INACTIVE);
                 return;
             }
-            checkForecastResults(forecastID, taskId, configOptional.get());
+            checkForecastResults(forecastID, taskId, configOptional.get(), exceptionMsg);
         }, e -> {
             LOG.error("Fail to get config", e);
             updateTaskState(forecastID, taskId, TaskState.INACTIVE);
         }));
     }
 
-    private void checkForecastResults(String forecastID, String taskId, Config config) {
+    private void checkForecastResults(String forecastID, String taskId, Config config, String exceptionMsg) {
         BoolQueryBuilder filterQuery = new BoolQueryBuilder();
         filterQuery.filter(QueryBuilders.termQuery(ForecastCommonName.FORECASTER_ID_KEY, forecastID));
         ExistsQueryBuilder forecastsExistFilter = QueryBuilders.existsQuery(ForecastResult.VALUE_FIELD);
@@ -293,23 +307,28 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
             request.indices(config.getCustomResultIndexPattern());
         }
 
-        client.search(request, ActionListener.wrap(searchResponse -> {
-            SearchHits hits = searchResponse.getHits();
-            if (hits.getTotalHits().value() > 0) {
-                // has at least one result
-                updateTaskState(forecastID, taskId, TaskState.TEST_COMPLETE);
-            } else {
-                updateTaskState(forecastID, taskId, TaskState.INIT_TEST_FAILED);
-            }
-        }, e -> {
-            LOG.error("Fail to search result", e);
-            updateTaskState(forecastID, taskId, TaskState.INACTIVE);
-        }));
+        performSearchWithRetry(forecastID, taskId, request, 0, exceptionMsg);
+    }
+
+    private void updateTaskError(String forecastID, String taskId, String exceptionMsg) {
+        updateTask(forecastID, taskId, null, exceptionMsg);
     }
 
     private void updateTaskState(String forecastID, String taskId, TaskState state) {
-        taskManager.updateTask(taskId, ImmutableMap.of(TimeSeriesTask.STATE_FIELD, state.name()), ActionListener.wrap(updateResponse -> {
-            LOG.info("Updated forecaster task: {} state as: {} for forecaster: {}", taskId, state.name(), forecastID);
+        updateTask(forecastID, taskId, state, null);
+    }
+
+    private void updateTask(String forecastID, String taskId, TaskState state, String exceptionMsg) {
+        Map<String, Object> updatedFields = new HashMap<>();
+        if (state != null) {
+            updatedFields.put(TimeSeriesTask.STATE_FIELD, state.name());
+        }
+        if (!Strings.isEmpty(exceptionMsg)) {
+            updatedFields.put(TimeSeriesTask.ERROR_FIELD, exceptionMsg);
+        }
+
+        taskManager.updateTask(taskId, updatedFields, ActionListener.wrap(updateResponse -> {
+            LOG.info("Updated forecaster task {} for forecaster {}: {}", taskId, forecastID, updatedFields);
         }, e -> { LOG.error("Failed to update forecaster task: {} for forecaster: {}", taskId, forecastID, e); }));
     }
 
@@ -343,7 +362,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                 threadPool
                     .schedule(
                         () -> checkIfRunOnceFinished(forecastID, r.getTaskId(), waitTimes),
-                        new TimeValue(10, TimeUnit.SECONDS),
+                        new TimeValue(POLL_FREQ, TimeUnit.SECONDS),
                         TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME
                     );
                 listener.onResponse(r);
@@ -356,6 +375,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                 .getConfig(
                     forecastID,
                     AnalysisType.FORECAST,
+                    false,
                     resultProcessor.onGetConfig(wrappedListener, forecastID, request, Optional.empty())
                 );
 
@@ -363,5 +383,72 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         } catch (Exception ex) {
             ResultProcessor.handleExecuteException(ex, listener, forecastID);
         }
+    }
+
+    /**
+     * Performs the search with retry logic.
+     *
+     * @param forecastID   The forecast ID.
+     * @param taskId       The task ID.
+     * @param request      The search request.
+     * @param attempt      The current attempt number (start with 0).
+     * @param exceptionMsg The exception message to pass in case of failure.
+     */
+    private void performSearchWithRetry(String forecastID, String taskId, SearchRequest request, int attempt, String exceptionMsg) {
+        client.search(request, ActionListener.wrap(searchResponse -> {
+            SearchHits hits = searchResponse.getHits();
+            if (hits.getTotalHits().value() > 0) {
+                // At least one result found: mark the task as complete.
+                updateTaskState(forecastID, taskId, TaskState.TEST_COMPLETE);
+            } else {
+                if (attempt < MAX_RETRIES) {
+                    // Calculate the exponential delay: BASE_DELAY_MS * 2^(attempt)
+                    // e.g. for attempts: 1s, 2s, 4s delays respectively.
+                    long delayMillis = BASE_DELAY_MS * (1L << attempt);
+
+                    LOG.info("No hits found. Retrying search in {} ms (attempt {}/{})...", delayMillis, attempt + 1, MAX_RETRIES);
+                    // Schedule a retry after the calculated delay.
+                    threadPool
+                        .schedule(
+                            () -> performSearchWithRetry(forecastID, taskId, request, attempt + 1, exceptionMsg),
+                            TimeValue.timeValueMillis(delayMillis),
+                            FORECAST_THREAD_POOL_NAME
+                        );
+                } else {
+                    // After MAX_RETRIES attempts, update the task as INIT_TEST_FAILED if there is no existing state.
+                    taskManager.getTask(taskId, ActionListener.wrap(r -> {
+                        if (r.isPresent()) {
+                            String state = r.get().getState();
+                            // If there is no state, update it; otherwise, it might have been set elsewhere (e.g., by ColdStartWorker)
+                            if (Strings.isEmpty(state)) {
+                                updateTask(forecastID, taskId, TaskState.INIT_TEST_FAILED, exceptionMsg);
+                            }
+                        } else {
+                            updateTask(forecastID, taskId, TaskState.INIT_TEST_FAILED, exceptionMsg);
+                        }
+                    }, e -> {
+                        // The task may not exist.
+                        updateTask(forecastID, taskId, TaskState.INIT_TEST_FAILED, ExceptionUtil.getErrorMessage(e));
+                    }));
+                }
+            }
+        }, e -> {
+            // Treat search failures as transient errors.
+            // Some errors, such as "all shards failed", may occur temporarily before the index is ready for search.
+            // Therefore, we count the failure as part of the retry logic rather than immediately failing the task.
+            LOG.error("Fail to search result on attempt {}/{}. Retrying...", attempt + 1, MAX_RETRIES, e);
+            if (attempt < MAX_RETRIES) {
+                long delayMillis = BASE_DELAY_MS * (1L << attempt);
+                LOG.info("Retrying search in {} ms due to failure (attempt {}/{})...", delayMillis, attempt + 1, MAX_RETRIES);
+                threadPool
+                    .schedule(
+                        () -> performSearchWithRetry(forecastID, taskId, request, attempt + 1, ExceptionUtil.getErrorMessage(e)),
+                        TimeValue.timeValueMillis(delayMillis),
+                        FORECAST_THREAD_POOL_NAME
+                    );
+            } else {
+                updateTask(forecastID, taskId, TaskState.INIT_TEST_FAILED, ExceptionUtil.getErrorMessage(e));
+            }
+        }));
     }
 }

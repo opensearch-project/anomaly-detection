@@ -898,7 +898,8 @@ public class ModelManagerTests {
             TimeSeriesSettings.HOURLY_MAINTENANCE,
             checkpointWriteQueue,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
 
         modelManager = spy(

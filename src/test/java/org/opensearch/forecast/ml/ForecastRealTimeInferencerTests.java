@@ -33,6 +33,7 @@ import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.Scheduler.ScheduledCancellable;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -82,7 +83,8 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
             mock(ForecastSaveResultStrategy.class),
             cacheProvider,
             threadPool,
-            clock
+            clock,
+            mock(NodeStateManager.class)
         );
 
         // Set up the Config object with an interval duration

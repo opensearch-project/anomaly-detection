@@ -15,6 +15,8 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 
+import java.time.Clock;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
@@ -56,6 +58,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends HandledTransp
     private final TransportService transportService;
     private final ExecuteADResultResponseRecorder recorder;
     private final NodeStateManager nodeStateManager;
+    private Clock clock;
 
     @Inject
     public MockAnomalyDetectorJobTransportActionWithUser(
@@ -85,6 +88,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends HandledTransp
         context = threadContext.stashContext();
         this.recorder = recorder;
         this.nodeStateManager = nodeStateManager;
+        this.clock = Clock.systemDefaultZone();
     }
 
     @Override
@@ -134,7 +138,7 @@ public class MockAnomalyDetectorJobTransportActionWithUser extends HandledTransp
             Settings.EMPTY
         );
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            handler.startConfig(detectorId, detectionDateRange, user, transportService, context, listener);
+            handler.startConfig(detectorId, detectionDateRange, user, transportService, context, clock, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             // Stop detector
             handler.stopConfig(detectorId, historical, user, transportService, listener);

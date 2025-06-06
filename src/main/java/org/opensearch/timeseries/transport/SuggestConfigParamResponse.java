@@ -26,10 +26,12 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
     public static final String INTERVAL_FIELD = "interval";
     public static final String HORIZON_FIELD = "horizon";
     public static final String HISTORY_FIELD = "history";
+    public static final String WINDOW_DELAY_FIELD = "windowDelay";
 
     private IntervalTimeConfiguration interval;
     private Integer horizon;
     private Integer history;
+    private IntervalTimeConfiguration windowDelay;
 
     public IntervalTimeConfiguration getInterval() {
         return interval;
@@ -43,10 +45,20 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
         return history;
     }
 
-    public SuggestConfigParamResponse(IntervalTimeConfiguration interval, Integer horizon, Integer history) {
+    public IntervalTimeConfiguration getWindowDelay() {
+        return windowDelay;
+    }
+
+    public SuggestConfigParamResponse(
+        IntervalTimeConfiguration interval,
+        Integer horizon,
+        Integer history,
+        IntervalTimeConfiguration windowDelay
+    ) {
         this.interval = interval;
         this.horizon = horizon;
         this.history = history;
+        this.windowDelay = windowDelay;
     }
 
     public SuggestConfigParamResponse(StreamInput in) throws IOException {
@@ -58,12 +70,18 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
         }
         this.horizon = in.readOptionalInt();
         this.history = in.readOptionalInt();
+        if (in.readBoolean()) {
+            this.windowDelay = IntervalTimeConfiguration.readFrom(in);
+        } else {
+            this.windowDelay = null;
+        }
     }
 
     public static class Builder {
         protected IntervalTimeConfiguration interval = null;
         protected Integer horizon = null;
         protected Integer history = null;
+        protected IntervalTimeConfiguration windowDelay = null;
 
         public Builder() {}
 
@@ -82,8 +100,13 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
             return this;
         }
 
+        public Builder windowDelay(IntervalTimeConfiguration windowDelay) {
+            this.windowDelay = windowDelay;
+            return this;
+        }
+
         public SuggestConfigParamResponse build() {
-            return new SuggestConfigParamResponse(interval, horizon, history);
+            return new SuggestConfigParamResponse(interval, horizon, history, windowDelay);
         }
     }
 
@@ -97,6 +120,12 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
         }
         out.writeOptionalInt(horizon);
         out.writeOptionalInt(history);
+        if (windowDelay != null) {
+            out.writeBoolean(true);
+            windowDelay.writeTo(out);
+        } else {
+            out.writeBoolean(false);
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -114,6 +143,9 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
         }
         if (history != null) {
             xContentBuilder.field(HISTORY_FIELD, history);
+        }
+        if (windowDelay != null) {
+            xContentBuilder.field(WINDOW_DELAY_FIELD, windowDelay);
         }
 
         return xContentBuilder.endObject();
@@ -133,6 +165,9 @@ public class SuggestConfigParamResponse extends ActionResponse implements ToXCon
         }
         if (otherProfile.getHistory() != null) {
             this.history = otherProfile.getHistory();
+        }
+        if (otherProfile.getWindowDelay() != null) {
+            this.windowDelay = otherProfile.getWindowDelay();
         }
     }
 }

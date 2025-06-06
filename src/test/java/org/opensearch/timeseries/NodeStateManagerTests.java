@@ -44,6 +44,7 @@ import org.opensearch.Version;
 import org.opensearch.action.LatchedActionListener;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.transport.AnomalyResultTests;
 import org.opensearch.cluster.node.DiscoveryNode;
@@ -55,6 +56,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.search.SearchModule;
 import org.opensearch.test.ClusterServiceUtils;
@@ -175,7 +177,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
             }
 
             assertTrue(request != null && listener != null);
-            listener.onResponse(TestHelpers.createGetResponse(detectorToCheck, detectorToCheck.getId(), CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detectorToCheck, detectorToCheck.getId(), ADCommonName.CONFIG_INDEX));
 
             return null;
         }).when(client).get(any(), any(ActionListener.class));
@@ -238,7 +240,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
         String detectorId = setupDetector();
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        stateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(asDetector -> {
+        stateManager.getConfig(detectorId, AnalysisType.AD, true, ActionListener.wrap(asDetector -> {
             assertEquals(detectorToCheck, asDetector.get());
             inProgressLatch.countDown();
         }, exception -> {
@@ -258,7 +260,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
         String detectorId = setupDetector();
         final CountDownLatch inProgressLatch = new CountDownLatch(2);
 
-        stateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(asDetector -> {
+        stateManager.getConfig(detectorId, AnalysisType.AD, true, ActionListener.wrap(asDetector -> {
             assertEquals(detectorToCheck, asDetector.get());
             inProgressLatch.countDown();
         }, exception -> {
@@ -266,7 +268,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
             inProgressLatch.countDown();
         }));
 
-        stateManager.getConfig(detectorId, AnalysisType.AD, ActionListener.wrap(asDetector -> {
+        stateManager.getConfig(detectorId, AnalysisType.AD, true, ActionListener.wrap(asDetector -> {
             assertEquals(detectorToCheck, asDetector.get());
             inProgressLatch.countDown();
         }, exception -> {
@@ -437,7 +439,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
     public void testGetConfigAD() throws IOException, InterruptedException {
         String configId = "123";
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        GetResponse getResponse = TestHelpers.createGetResponse(detector, configId, CommonName.CONFIG_INDEX);
+        GetResponse getResponse = TestHelpers.createGetResponse(detector, configId, ADCommonName.CONFIG_INDEX);
         doAnswer(invocationOnMock -> {
             ((ActionListener<GetResponse>) invocationOnMock.getArguments()[1]).onResponse(getResponse);
             return null;
@@ -477,7 +479,7 @@ public class NodeStateManagerTests extends AbstractTimeSeriesTest {
     public void testGetConfigForecaster() throws IOException, InterruptedException {
         String configId = "123";
         Forecaster forecaster = TestHelpers.randomForecaster();
-        GetResponse getResponse = TestHelpers.createGetResponse(forecaster, configId, CommonName.CONFIG_INDEX);
+        GetResponse getResponse = TestHelpers.createGetResponse(forecaster, configId, ForecastCommonName.CONFIG_INDEX);
         doAnswer(invocationOnMock -> {
             ((ActionListener<GetResponse>) invocationOnMock.getArguments()[1]).onResponse(getResponse);
             return null;

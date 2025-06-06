@@ -48,6 +48,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
@@ -72,6 +73,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.model.TaskType;
 import org.opensearch.timeseries.model.TimeSeriesTask;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.transport.JobResponse;
@@ -517,5 +519,39 @@ public class ForecastTaskManager extends
             transportService,
             listener
         );
+    }
+
+    @Override
+    protected String triageState(Boolean hasResult, String error, Long rcfTotalUpdates) {
+        if (!Strings.isEmpty(error)) {
+            if (error.contains(CommonMessages.COLD_START_EXCEPTION)) {
+                return TaskState.INIT_ERROR.name();
+            } else if (error.contains(CommonMessages.NO_DATA_MSG)) {
+                return TaskState.AWAITING_DATA_TO_RESTART.name();
+            } else {
+                return TaskState.FORECAST_FAILURE.name();
+            }
+        } else if (hasResult != null && hasResult) {
+            return TaskState.RUNNING.name();
+        } else if (rcfTotalUpdates != null && rcfTotalUpdates < TimeSeriesSettings.NUM_MIN_SAMPLES) {
+            return TaskState.AWAITING_DATA_TO_INIT.name();
+        } else {
+            // when we cannot determine if we have recent results, we choose RUNNING as we
+            // are not sure if we are awaiting data or not
+            if (hasResult == null) {
+                return TaskState.RUNNING.name();
+            } else {
+                return TaskState.AWAITING_DATA_TO_RESTART.name();
+            }
+        }
+    }
+
+    @Override
+    protected boolean forbidOverrideChange(String configId, String newState, String oldState) {
+        // When there is error, we trigger cold start.
+        // When cold start continues to run into exceptions, we stop triggering cold start
+        // for the entity for some time.
+        // We don't want to change to await because of no continuous errors generated.
+        return TaskState.isAwaitState(newState) && TaskState.isForecastErrorState(oldState);
     }
 }

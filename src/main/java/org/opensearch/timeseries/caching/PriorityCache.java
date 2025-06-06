@@ -712,13 +712,35 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
 
     @Override
     public long getTotalUpdates(String configId) {
-        return Optional
-            .of(activeEnities)
-            .map(entities -> entities.get(configId))
-            .map(buffer -> buffer.getPriorityTracker().getHighestPriorityEntityId())
-            .map(entityModelIdOptional -> entityModelIdOptional.get())
-            .map(entityModelId -> getTotalUpdates(configId, entityModelId))
-            .orElse(0L);
+        // Check if activeEnities is null
+        if (activeEnities == null) {
+            return 0L;
+        }
+
+        // Fetch the entity from the map
+        CacheBufferType buffer = activeEnities.get(configId);
+        if (buffer == null) {
+            return 0L;
+        }
+
+        // Get the priority tracker
+        PriorityTracker tracker = buffer.getPriorityTracker();
+        if (tracker == null) {
+            return 0L;
+        }
+
+        // Now get highest priority entity ID
+        Optional<String> maybeEntityId = tracker.getHighestPriorityEntityId();
+        if (!maybeEntityId.isPresent()) {
+            return 0L;
+        }
+
+        String entityModelId = maybeEntityId.get();
+
+        // Call the underlying getTotalUpdates
+        long updates = getTotalUpdates(configId, entityModelId);
+
+        return updates;
     }
 
     @Override

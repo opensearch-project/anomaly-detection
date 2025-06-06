@@ -24,6 +24,7 @@ import static org.opensearch.timeseries.TestHelpers.randomFeature;
 import static org.opensearch.timeseries.TestHelpers.randomUser;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
@@ -84,6 +85,7 @@ public class StartHistoricalTests extends AbstractTimeSeriesTest {
     private ADTaskProfileRunner taskProfileRunner;
     private DiscoveryNode node1;
     private ActionListener<JobResponse> listener;
+    private Clock clock;
 
     @BeforeClass
     public static void setOnce() throws IOException {
@@ -170,6 +172,8 @@ public class StartHistoricalTests extends AbstractTimeSeriesTest {
         anomalyResultHandler = mock(ResultBulkIndexingHandler.class);
         adTaskCacheManager = mock(ADTaskCacheManager.class);
 
+        clock = mock(Clock.class);
+
         ExecuteADResultResponseRecorder recorder = new ExecuteADResultResponseRecorder(
             anomalyDetectionIndices,
             anomalyResultHandler,
@@ -178,7 +182,7 @@ public class StartHistoricalTests extends AbstractTimeSeriesTest {
             threadPool,
             client,
             nodeStateManager,
-            adTaskCacheManager,
+            clock,
             32
         );
 
@@ -210,7 +214,7 @@ public class StartHistoricalTests extends AbstractTimeSeriesTest {
         );
         setupGetDetector(detector, client);
 
-        handler.startConfig(detector.getId(), detectionDateRange, randomUser(), transportService, context, listener);
+        handler.startConfig(detector.getId(), detectionDateRange, randomUser(), transportService, context, clock, listener);
         verify(listener, times(1)).onFailure(exceptionCaptor.capture());
     }
 
@@ -227,7 +231,7 @@ public class StartHistoricalTests extends AbstractTimeSeriesTest {
         setupGetDetector(detector, client);
         setupHashRingWithOwningNode();
 
-        handler.startConfig(detector.getId(), detectionDateRange, randomUser(), transportService, context, listener);
+        handler.startConfig(detector.getId(), detectionDateRange, randomUser(), transportService, context, clock, listener);
         verify(adTaskManager, times(1)).forwardRequestToLeadNode(any(), any(), any());
     }
 }

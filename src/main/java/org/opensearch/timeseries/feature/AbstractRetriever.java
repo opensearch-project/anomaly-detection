@@ -88,6 +88,51 @@ public abstract class AbstractRetriever {
             .orElseThrow(() -> new EndRunException("Failed to parse aggregation " + aggregation, true).countedInStats(false));
     }
 
+    /**
+     * If it is feature with a filter, return the doc count for that feature; otherwise, return default count.
+     * @param aggregationToParse
+     * @param defaultCount
+     * @return
+     */
+    protected long parseAggregationDocCount(Aggregation aggregationToParse, long defaultCount) {
+        /* example InternalSingleBucketAggregation: filter aggregation like
+           "t_shirts": {
+                "filter": {
+                    "bool": {
+                        "should": [
+                            {
+                                "term": {
+                                    "issueType": "foo"
+                                }
+                            }
+                            ...
+                            ],
+                            "minimum_should_match": "1",
+                            "boost": 1
+                    }
+                },
+                "aggs": {
+                    "impactUniqueAccounts": {
+                        "aggregation": {
+                            "field": "account"
+                        }
+                    }
+                }
+            }
+        
+            would produce an InternalFilter (a subtype of InternalSingleBucketAggregation) with a sub-aggregation
+            InternalCardinality that is also a SingleValue
+        */
+
+        if (aggregationToParse instanceof InternalSingleBucketAggregation) {
+            InternalSingleBucketAggregation bucket = (InternalSingleBucketAggregation) aggregationToParse;
+            if (bucket != null) {
+                return bucket.getDocCount();
+            }
+        }
+        return defaultCount;
+    }
+
     protected Optional<double[]> parseBucket(MultiBucketsAggregation.Bucket bucket, List<String> featureIds, boolean keepMissingValue) {
         return parseAggregations(Optional.ofNullable(bucket).map(b -> b.getAggregations()), featureIds, keepMissingValue);
     }
@@ -111,6 +156,51 @@ public abstract class AbstractRetriever {
                     return noneNaNOrInfinite ? Optional.of(result) : Optional.empty();
                 }
             });
+    }
+
+    /**
+     * Attempt to extract the per-feature document counts that live inside a
+     * histogram / date-histogram **bucket**.
+     *
+     * <p>The method returns:</p>
+     * <ul>
+     *   <li><strong>{@code Optional.empty()}</strong> when
+     *       <ul>
+     *         <li>the bucket itself is {@code null},</li>
+     *         <li>{@code bucket.getDocCount() == 0}, or</li>
+     *         <li>any feature-specific sub-aggregation (e.g. a
+     *             {@code filter} agg you created for that feature) reports
+     *             {@code doc_count == 0}.</li>
+     *       </ul>
+     *   </li>
+     *   <li><strong>{@code Optional<long[]>}</strong> (one element per
+     *       {@code featureId}) when <em>all</em> counts are non-zero.</li>
+     * </ul>
+     */
+    protected Optional<long[]> extractFeatureDocCounts(MultiBucketsAggregation.Bucket bucket, List<String> featureIds) {
+        return Optional.ofNullable(bucket).flatMap(b -> {
+
+            long parentCount = b.getDocCount();
+            if (parentCount == 0) {
+                return Optional.empty();                  // short-circuit
+            }
+
+            Map<String, Aggregation> subAggs = b.getAggregations().asMap();
+            long[] counts = new long[featureIds.size()];
+
+            for (int i = 0; i < featureIds.size(); i++) {
+                String id = featureIds.get(i);
+                Aggregation agg = subAggs.get(id);
+
+                long count = parseAggregationDocCount(agg, parentCount);
+                if (count == 0) {                         // any zero breaks continuity
+                    return Optional.empty();
+                }
+                counts[i] = count;
+            }
+
+            return Optional.of(counts);
+        });
     }
 
     protected void updateSourceAfterKey(Map<String, Object> afterKey, SearchSourceBuilder search) {

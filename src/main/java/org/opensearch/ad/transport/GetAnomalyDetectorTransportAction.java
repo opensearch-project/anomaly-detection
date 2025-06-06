@@ -162,4 +162,11 @@ public class GetAnomalyDetectorTransportAction extends
         );
     }
 
+    // no need to adjust for AD
+    @Override
+    protected void adjustState(Optional<ADTask> taskOptional, Job job) {
+        // TODO Auto-generated method stub
+
+    }
+
 }

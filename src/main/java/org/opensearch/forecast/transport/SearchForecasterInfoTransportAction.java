@@ -13,6 +13,7 @@ package org.opensearch.forecast.transport;
 
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.timeseries.transport.BaseSearchConfigInfoTransportAction;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
@@ -21,6 +22,6 @@ public class SearchForecasterInfoTransportAction extends BaseSearchConfigInfoTra
 
     @Inject
     public SearchForecasterInfoTransportAction(TransportService transportService, ActionFilters actionFilters, Client client) {
-        super(transportService, actionFilters, client, SearchForecasterInfoAction.NAME);
+        super(transportService, actionFilters, client, SearchForecasterInfoAction.NAME, ForecastCommonName.CONFIG_INDEX);
     }
 }

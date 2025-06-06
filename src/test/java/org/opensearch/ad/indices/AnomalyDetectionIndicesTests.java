@@ -23,7 +23,6 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.indices.IndexManagementIntegTestCase;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
@@ -75,18 +74,18 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
             boolean acknowledged = response.isAcknowledged();
             assertTrue(acknowledged);
         }, failure -> { throw new RuntimeException("should not recreate index"); }));
-        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.CONFIG_INDEX);
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.CONFIG_INDEX);
     }
 
     public void testAnomalyDetectorIndexExistsAndNotRecreate() throws IOException {
         indices.initConfigIndexIfAbsent(TestHelpers.createActionListener(response -> response.isAcknowledged(), failure -> {
             throw new RuntimeException("should not recreate index");
         }));
-        TestHelpers.waitForIndexCreationToComplete(client(), CommonName.CONFIG_INDEX);
-        if (client().admin().indices().prepareExists(CommonName.CONFIG_INDEX).get().isExists()) {
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.CONFIG_INDEX);
+        if (client().admin().indices().prepareExists(ADCommonName.CONFIG_INDEX).get().isExists()) {
             indices.initConfigIndexIfAbsent(TestHelpers.createActionListener(response -> {
-                throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX);
-            }, failure -> { throw new RuntimeException("should not recreate index " + CommonName.CONFIG_INDEX); }));
+                throw new RuntimeException("should not recreate index " + ADCommonName.CONFIG_INDEX);
+            }, failure -> { throw new RuntimeException("should not recreate index " + ADCommonName.CONFIG_INDEX); }));
         }
     }
 

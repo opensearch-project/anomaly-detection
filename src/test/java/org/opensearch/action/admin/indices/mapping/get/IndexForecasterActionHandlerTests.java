@@ -57,6 +57,8 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.forecast.transport.IndexForecasterResponse;
@@ -73,7 +75,6 @@ import org.opensearch.security.spi.resources.sharing.Recipients;
 import org.opensearch.security.spi.resources.sharing.ShareWith;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.rest.handler.AggregationPrep;
 import org.opensearch.transport.TransportService;
@@ -280,7 +281,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                         listener
                             .onResponse(
                                 (Response) TestHelpers
-                                    .createGetResponse(AllocationId.newInitializing(), forecaster.getId(), CommonName.CONFIG_INDEX)
+                                    .createGetResponse(AllocationId.newInitializing(), forecaster.getId(), ForecastCommonName.CONFIG_INDEX)
                             );
                     } catch (IOException e) {
                         LOG.error(e);
@@ -607,7 +608,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                         LOG.info(element);
                     }
                     SearchRequest searchRequest = (SearchRequest) request;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         Histogram histogram = mock(Histogram.class);
                         when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                         Aggregations aggs = new Aggregations(Arrays.asList(histogram));
@@ -726,7 +727,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         BoolQueryBuilder boolQuery = (BoolQueryBuilder) searchRequest.source().query();
                         if (boolQuery.must() != null && boolQuery.must().size() > 0) {
                             // checkConfigNameExists
@@ -860,7 +861,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         BoolQueryBuilder boolQuery = (BoolQueryBuilder) searchRequest.source().query();
                         if (boolQuery.must() != null && boolQuery.must().size() > 0) {
                             // checkConfigNameExists
@@ -1006,7 +1007,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         sections = new SearchResponseSections(
                             new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
                             aggs,
@@ -1138,7 +1139,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         sections = new SearchResponseSections(
                             new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
                             aggs,
@@ -1286,7 +1287,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         sections = new SearchResponseSections(
                             new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
                             aggs,
@@ -1419,7 +1420,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             assertTrue("actual: " + e, e instanceof OpenSearchStatusException);
             assertEquals(
                 "actual: " + e.getMessage(),
-                "Created " + CommonName.CONFIG_INDEX + "with mappings call not acknowledged.",
+                "Created " + ForecastCommonName.CONFIG_INDEX + "with mappings call not acknowledged.",
                 e.getMessage()
             );
             inProgressLatch.countDown();
@@ -1454,7 +1455,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     }
                 } else if (action.equals(GetAction.INSTANCE)) {
                     GetResult notFound = new GetResult(
-                        CommonName.CONFIG_INDEX,       // index name
+                        ForecastIndex.CONFIG.getIndexName(),       // index name
                         forecaster.getId(),            // id
                         UNASSIGNED_SEQ_NO,
                         0,
@@ -1591,7 +1592,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
         verify(mockClient).share(idCaptor.capture(), idxCaptor.capture(), shareWithCaptor.capture(), listenerCaptor.capture());
 
         assertEquals("123", idCaptor.getValue());
-        assertEquals(CommonName.CONFIG_INDEX, idxCaptor.getValue());
+        assertEquals(ForecastIndex.CONFIG.getIndexName(), idxCaptor.getValue());
 
         ShareWith sw = shareWithCaptor.getValue();
         Recipients rec = sw.atAccessLevel(PLACE_HOLDER);

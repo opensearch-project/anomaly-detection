@@ -133,10 +133,10 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
         when(client.threadPool()).thenReturn(threadPool);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
 
         runner = new ADEntityProfileRunner(client, clientUtil, xContentRegistry(), requiredSamples);
@@ -147,8 +147,8 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            if (indexName.equals(ADCommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
                 listener.onResponse(TestHelpers.createGetResponse(job, detector.getId(), CommonName.JOB_INDEX));
             }
@@ -355,8 +355,8 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            if (indexName.equals(ADCommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
                 listener.onFailure(new IndexNotFoundException(CommonName.JOB_INDEX));
             }
@@ -387,8 +387,8 @@ public class EntityProfileRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            if (indexName.equals(ADCommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
             }
 
             return null;

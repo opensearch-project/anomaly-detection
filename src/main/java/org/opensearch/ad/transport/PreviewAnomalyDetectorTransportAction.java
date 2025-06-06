@@ -36,6 +36,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
@@ -56,7 +57,6 @@ import org.opensearch.timeseries.common.exception.ClientException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
@@ -232,7 +232,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         ThreadContext.StoredContext context
     ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
-            GetRequest getRequest = new GetRequest(CommonName.CONFIG_INDEX).id(detectorId);
+            GetRequest getRequest = new GetRequest(ADCommonName.CONFIG_INDEX).id(detectorId);
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, context));
         } else {
             anomalyDetectorRunner

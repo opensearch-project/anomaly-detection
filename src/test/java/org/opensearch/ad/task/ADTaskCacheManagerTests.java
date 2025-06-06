@@ -367,7 +367,8 @@ public class ADTaskCacheManagerTests extends OpenSearchTestCase {
         state = TaskState.STOPPED.name();
         adTaskCacheManager.updateRealtimeTaskCache(detectorId, state, initProgress, error);
         realtimeTaskCache = adTaskCacheManager.getRealtimeTaskCache(detectorId);
-        assertNull(realtimeTaskCache);
+        // we don't remove the cache when it is stopped
+        assertNotNull(realtimeTaskCache);
     }
 
     public void testGetAndDecreaseEntityTaskLanes() throws IOException {

@@ -10,6 +10,8 @@ import static org.opensearch.forecast.constant.ForecastCommonMessages.FAIL_TO_ST
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_REQUEST_TIMEOUT;
 
+import java.time.Clock;
+
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -56,7 +58,8 @@ public class ForecasterJobTransportAction extends
             FAIL_TO_STOP_FORECASTER,
             Forecaster.class,
             forecastIndexJobActionHandler,
-            ForecastIndex.CONFIG.getIndexName()
+            ForecastIndex.CONFIG.getIndexName(),
+            Clock.systemUTC() // inject cannot find clock due to OS limitation
         );
     }
 }

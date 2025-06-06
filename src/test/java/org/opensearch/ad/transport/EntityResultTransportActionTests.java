@@ -205,10 +205,10 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
         stateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         cacheMissEntity = "0.0.0.1";
         cacheMissData = new double[] { 0.1 };
@@ -272,7 +272,8 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             resultSaver,
             provider,
             threadPool,
-            clock
+            clock,
+            mock(NodeStateManager.class)
         );
 
         entityResult = new EntityADResultTransportAction(
@@ -315,10 +316,10 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
     public void testFailtoGetDetector() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
 
@@ -407,7 +408,8 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             resultSaver,
             provider,
             threadPool,
-            clock
+            clock,
+            mock(NodeStateManager.class)
         );
         entityResult = new EntityADResultTransportAction(
             actionFilters,

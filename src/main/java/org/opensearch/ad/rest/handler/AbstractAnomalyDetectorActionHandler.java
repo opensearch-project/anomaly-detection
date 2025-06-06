@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTask;
@@ -181,7 +182,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             maxHCAnomalyDetectors,
             clock,
             settings,
-            ValidationAspect.DETECTOR
+            ValidationAspect.DETECTOR,
+            ADCommonName.CONFIG_INDEX
         );
 
     }

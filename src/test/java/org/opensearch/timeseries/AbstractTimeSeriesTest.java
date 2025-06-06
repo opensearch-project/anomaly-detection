@@ -54,6 +54,7 @@ import org.mockito.MockitoAnnotations;
 import org.opensearch.Version;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorInternalState;
@@ -84,7 +85,6 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ClientUtil;
@@ -547,7 +547,7 @@ public class AbstractTimeSeriesTest extends OpenSearchTestCase {
                 .onResponse(
                     new GetResponse(
                         new GetResult(
-                            CommonName.CONFIG_INDEX,
+                            ADCommonName.CONFIG_INDEX,
                             detector.getId(),
                             UNASSIGNED_SEQ_NO,
                             0,

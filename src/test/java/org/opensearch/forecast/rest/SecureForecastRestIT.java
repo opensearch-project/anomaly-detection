@@ -1519,7 +1519,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         checkSystemIndex(".opensearch-forecast-state");
 
         // case 2: Access config index using forecaster_full_user
-        Response response = searchResultMatchAll(fullClient, ".opendistro-anomaly-detectors");
+        Response response = searchResultMatchAll(fullClient, ".opensearch-forecasters");
         Assert.assertEquals(0, toHits(response).size());
 
         // case 3: Access checkpoint index using forecaster_full_user

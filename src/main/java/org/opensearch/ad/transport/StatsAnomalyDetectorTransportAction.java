@@ -15,6 +15,7 @@ import java.util.List;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.stats.ADStats;
@@ -25,7 +26,6 @@ import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.BaseStatsTransportAction;
 import org.opensearch.timeseries.transport.StatsRequest;
@@ -67,11 +67,11 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
         if ((adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())
             || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName())
             || adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HC_DETECTOR_COUNT.getName()))
-            && clusterService.state().getRoutingTable().hasIndex(CommonName.CONFIG_INDEX)) {
+            && clusterService.state().getRoutingTable().hasIndex(ADCommonName.CONFIG_INDEX)) {
 
             TermsAggregationBuilder termsAgg = AggregationBuilders.terms(DETECTOR_TYPE_AGG).field(AnomalyDetector.DETECTOR_TYPE_FIELD);
             SearchRequest request = new SearchRequest()
-                .indices(CommonName.CONFIG_INDEX)
+                .indices(ADCommonName.CONFIG_INDEX)
                 .source(new SearchSourceBuilder().aggregation(termsAgg).size(0).trackTotalHits(true));
 
             client.search(request, ActionListener.wrap(r -> {

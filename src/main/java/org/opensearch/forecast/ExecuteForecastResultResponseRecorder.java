@@ -5,6 +5,7 @@
 
 package org.opensearch.forecast;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -40,7 +41,7 @@ public class ExecuteForecastResultResponseRecorder extends
         ThreadPool threadPool,
         Client client,
         NodeStateManager nodeStateManager,
-        TaskCacheManager taskCacheManager,
+        Clock clock,
         int rcfMinSamples
     ) {
         super(
@@ -52,8 +53,7 @@ public class ExecuteForecastResultResponseRecorder extends
             TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME,
             client,
             nodeStateManager,
-            taskCacheManager,
-            rcfMinSamples,
+            clock,
             ForecastIndex.RESULT,
             AnalysisType.FORECAST,
             ForecastProfileAction.INSTANCE
@@ -85,11 +85,11 @@ public class ExecuteForecastResultResponseRecorder extends
     }
 
     @Override
-    protected void updateRealtimeTask(ResultResponse<ForecastResult> response, String configId) {
+    protected void updateRealtimeTask(ResultResponse<ForecastResult> response, String configId, Clock clock) {
         if (taskManager.skipUpdateRealtimeTask(configId, response.getError())) {
             return;
         }
 
-        delayedUpdate(response, configId);
+        delayedUpdate(response, configId, clock);
     }
 }

@@ -43,6 +43,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
@@ -56,7 +57,6 @@ import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
@@ -160,7 +160,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
         Deque<Sample> samples = MLUtil.createQueueSamples(1);
         modelState = new ModelState<>(
@@ -203,7 +204,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             samples.peek().getValueList(),
             startTime + coldStartSamples.size() * detector.getIntervalInMilliseconds(),
             entity,
-            "123"
+            // only real time (task id == null) detection follows door keeper rule
+            null
         );
         resetListener();
         entityColdStarter.trainModel(featureRequest, detectorId, modelState, listener);
@@ -386,7 +388,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
 
         Deque<Sample> samples = MLUtil.createQueueSamples(0);
@@ -480,7 +483,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
         Deque<Sample> samples = MLUtil.createQueueSamples(1);
         modelState = new ModelState<ThresholdedRandomCutForest>(
@@ -639,7 +643,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             GetRequest request = invocation.getArgument(0);
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detectorId, ADCommonName.CONFIG_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -709,7 +713,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
 
         Deque<Sample> samples = MLUtil.createQueueSamples(1);
@@ -729,7 +734,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -805,7 +810,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
         modelManager = new ADModelManager(
             mock(ADCheckpointDao.class),
@@ -950,7 +956,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             doAnswer(invocation -> {
                 ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
                 return null;
             }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -1117,6 +1123,7 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             return null;
         }).when(searchFeatureDao).getColdStartSamplesForPeriods(any(), any(), any(), anyBoolean(), eq(AnalysisType.AD), any());
 
+        // with task id, historical detection has no limit
         FeatureRequest featureRequest = new FeatureRequest(
             Instant.now().toEpochMilli(),
             detectorId,
@@ -1126,6 +1133,31 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             minTime + coldStartSamples.size() * detectorInterval * 60000,
             entity,
             "123"
+        );
+        entityColdStarter.trainModel(featureRequest, detectorId, modelState, listener);
+        checkSemaphoreRelease();
+        assertTrue(modelState.getModel().isPresent());
+
+        for (int i = 0; i <= TimeSeriesSettings.COLD_START_DOOR_KEEPER_COUNT_THRESHOLD; i++) {
+            resetListener();
+            modelState = createStateForCacheRelease();
+            entityColdStarter.trainModel(featureRequest, detectorId, modelState, listener);
+            checkSemaphoreRelease();
+        }
+
+        // model is trained as we disable door keeper for historical detection
+        assertTrue(!modelState.getModel().isEmpty());
+
+        // real time has no task id
+        featureRequest = new FeatureRequest(
+            Instant.now().toEpochMilli(),
+            detectorId,
+            RequestPriority.MEDIUM,
+            new double[] { 1.3 },
+            // detectorInterval is of minutes, need to convert to milliseconds
+            minTime + coldStartSamples.size() * detectorInterval * 60000,
+            entity,
+            null
         );
         entityColdStarter.trainModel(featureRequest, detectorId, modelState, listener);
         checkSemaphoreRelease();
@@ -1235,7 +1267,8 @@ public class EntityColdStarterTests extends AbstractCosineDataTest {
             checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-            1
+            1,
+            0
         );
 
         ModelState<ThresholdedRandomCutForest> modelState = createStateForCacheRelease();

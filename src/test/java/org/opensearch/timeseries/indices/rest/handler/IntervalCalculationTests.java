@@ -5,8 +5,12 @@
 
 package org.opensearch.timeseries.indices.rest.handler;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -28,7 +32,6 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
-import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
@@ -50,7 +53,6 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
     private IntervalCalculation intervalCalculation;
     private Clock clock;
     private ActionListener<IntervalTimeConfiguration> mockIntervalListener;
-    private AggregationPrep mockAggregationPrep;
     private Client mockClient;
     private SecurityClientUtil mockClientUtil;
     private User user;
@@ -58,6 +60,7 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
     private IntervalTimeConfiguration mockIntervalConfig;
     private LongBounds mockLongBounds;
     private Config mockConfig;
+    private SearchFeatureDao searchFeatureDao;
 
     @Override
     @Before
@@ -65,7 +68,6 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
         super.setUp();
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         mockIntervalListener = mock(ActionListener.class);
-        mockAggregationPrep = mock(AggregationPrep.class);
         mockClient = mock(Client.class);
         mockClientUtil = mock(SecurityClientUtil.class);
         user = TestHelpers.randomUser();
@@ -73,6 +75,7 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
         mockIntervalConfig = mock(IntervalTimeConfiguration.class);
         mockLongBounds = mock(LongBounds.class);
         mockConfig = mock(Config.class);
+        searchFeatureDao = mock(SearchFeatureDao.class);
 
         intervalCalculation = new IntervalCalculation(
             mockConfig,
@@ -82,7 +85,7 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
             user,
             AnalysisType.AD,
             clock,
-            mock(SearchFeatureDao.class),
+            searchFeatureDao,
             System.currentTimeMillis(),
             mockTopEntity
         );
@@ -92,7 +95,7 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
         long expirationEpochMs = clock.millis() - 1000; // Expired 1 second ago
 
         IntervalRecommendationListener listener = intervalCalculation.new IntervalRecommendationListener(
-            mockIntervalListener, new SearchSourceBuilder(), mockIntervalConfig, expirationEpochMs, mockLongBounds
+            mockIntervalListener, mockIntervalConfig, expirationEpochMs, mockLongBounds
         );
 
         Histogram histogram = mock(Histogram.class);
@@ -126,9 +129,12 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
         SearchResponse mockResponse = mock(SearchResponse.class);
 
         when(mockConfig.getHistoryIntervals()).thenReturn(40);
+        doThrow(IllegalArgumentException.class)
+            .when(searchFeatureDao)
+            .countContinuousShinglesFromHistogramSearch(any(), any(), anyBoolean());
 
         IntervalRecommendationListener listener = intervalCalculation.new IntervalRecommendationListener(
-            mockIntervalListener, new SearchSourceBuilder(), mockIntervalConfig, expirationEpochMs, mockLongBounds
+            mockIntervalListener, mockIntervalConfig, expirationEpochMs, mockLongBounds
         );
 
         listener.onResponse(mockResponse);

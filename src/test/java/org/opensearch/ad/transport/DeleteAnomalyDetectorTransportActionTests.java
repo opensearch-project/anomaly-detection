@@ -26,6 +26,7 @@ import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
@@ -75,7 +76,7 @@ public class DeleteAnomalyDetectorTransportActionTests extends HistoricalAnalysi
     public void testDeleteAnomalyDetectorNotFound() {
         String bogusId = "this-id-does-not-exist";
 
-        client().admin().indices().delete(new DeleteIndexRequest(testIndex, CommonName.CONFIG_INDEX)).actionGet(10_000);
+        client().admin().indices().delete(new DeleteIndexRequest(testIndex, ADIndex.CONFIG.getIndexName())).actionGet(10_000);
 
         DeleteConfigRequest request = new DeleteConfigRequest(bogusId);
         IndexNotFoundException response = expectThrows(

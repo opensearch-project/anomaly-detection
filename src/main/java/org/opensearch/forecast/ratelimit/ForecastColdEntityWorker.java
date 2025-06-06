@@ -24,12 +24,16 @@ import org.opensearch.forecast.ml.ForecastModelManager;
 import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.ForecastTask;
+import org.opensearch.forecast.model.ForecastTaskType;
+import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.ratelimit.ColdEntityWorker;
+import org.opensearch.timeseries.task.TaskCacheManager;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
@@ -49,7 +53,7 @@ import com.amazon.randomcutforest.parkservices.RCFCaster;
  *
  */
 public class ForecastColdEntityWorker extends
-    ColdEntityWorker<RCFCaster, ForecastResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, RCFCasterResult, ForecastModelManager, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker> {
+    ColdEntityWorker<RCFCaster, ForecastResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, RCFCasterResult, ForecastModelManager, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker> {
     public static final String WORKER_NAME = "forecast-cold-entity";
 
     public ForecastColdEntityWorker(

@@ -26,17 +26,21 @@ import org.opensearch.forecast.ml.ForecastModelManager;
 import org.opensearch.forecast.ml.ForecastRealTimeInferencer;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.ForecastTask;
+import org.opensearch.forecast.model.ForecastTaskType;
+import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.ratelimit.CheckpointReadWorker;
+import org.opensearch.timeseries.task.TaskCacheManager;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastCheckpointReadWorker extends
-    CheckpointReadWorker<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, ForecastColdStartWorker, ForecastRealTimeInferencer> {
+    CheckpointReadWorker<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer> {
     public static final String WORKER_NAME = "forecast-checkpoint-read";
 
     public ForecastCheckpointReadWorker(
