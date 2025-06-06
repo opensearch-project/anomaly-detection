@@ -149,7 +149,8 @@ public abstract class ResultWriteWorker<ResultType extends IndexableResult, Resu
 
         ResultType result = resultToRetry.get();
         String id = result.getConfigId();
-        nodeStateManager.getConfig(id, context, onGetConfig(requestToRetry, index, id, result));
+        // not sure if we should cache or not. Don't cache to be safe.
+        nodeStateManager.getConfig(id, context, false, onGetConfig(requestToRetry, index, id, result));
     }
 
     protected Optional<ResultType> getResult(DocWriteRequest<?> request) {

@@ -63,7 +63,6 @@ import org.opensearch.test.transport.MockTransportService;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 
@@ -107,16 +106,16 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
 
     public void createDetectors(List<AnomalyDetector> detectors, boolean createIndexFirst) throws IOException {
         if (createIndexFirst) {
-            createIndex(CommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
+            createIndex(ADCommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
         }
 
         for (AnomalyDetector detector : detectors) {
-            indexDoc(CommonName.CONFIG_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+            indexDoc(ADCommonName.CONFIG_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
         }
     }
 
     public String createDetector(AnomalyDetector detector) throws IOException {
-        return indexDoc(CommonName.CONFIG_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
+        return indexDoc(ADCommonName.CONFIG_INDEX, detector.toXContent(jsonBuilder(), XCONTENT_WITH_TYPE));
     }
 
     public String createADResult(AnomalyResult adResult) throws IOException {
@@ -131,7 +130,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public void createDetectorIndex() throws IOException {
-        createIndex(CommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
+        createIndex(ADCommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
     }
 
     public void createADResultIndex() throws IOException {
@@ -175,7 +174,7 @@ public abstract class ADIntegTestCase extends OpenSearchIntegTestCase {
     }
 
     public AcknowledgedResponse deleteDetectorIndex() {
-        return deleteIndex(CommonName.CONFIG_INDEX);
+        return deleteIndex(ADCommonName.CONFIG_INDEX);
     }
 
     public AcknowledgedResponse deleteIndex(String indexName) {

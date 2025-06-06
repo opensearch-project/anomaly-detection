@@ -173,6 +173,8 @@ public class ForecastResultTransportAction extends HandledTransportAction<Foreca
                     .getConfig(
                         forecastID,
                         AnalysisType.FORECAST,
+                        // only used for real time
+                        true,
                         resultProcessor.onGetConfig(listener, forecastID, request, Optional.of(hcForecasters))
                     );
             } catch (Exception ex) {

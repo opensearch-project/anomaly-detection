@@ -20,7 +20,6 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.forecast.task.ForecastTaskManager;
-import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.transport.TransportService;
 
 public class TaskCacheManager {
@@ -103,25 +102,24 @@ public class TaskCacheManager {
      * 1. If new field value is null, will consider changed needed to this field.
      * 2. will consider the real time task change needed if
      * 1) init progress is larger or the old init progress is null, or
-     * 2) if the state is different, and it is not changing from running to init.
+     * 2) if the state is different, and it is not changing from running to init, or from error to await.
      *  for other fields, as long as field values changed, will consider the realtime
      *  task change needed. We did this so that the init progress or state won't go backwards.
      * 3. If realtime task cache not found, will consider the realtime task change needed.
      *
-     * @param detectorId detector id
+     * @param configId detector id
      * @param newState new task state
      * @param newInitProgress new init progress
      * @param newError new error
      * @return true if realtime task change needed.
      */
-    public boolean isRealtimeTaskChangeNeeded(String detectorId, String newState, Float newInitProgress, String newError) {
-        if (realtimeTaskCaches.containsKey(detectorId)) {
-            RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(detectorId);
+    public boolean isRealtimeTaskChangeNeeded(String configId, String newState, Float newInitProgress, String newError) {
+        if (realtimeTaskCaches.containsKey(configId)) {
+            RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
             boolean stateChangeNeeded = false;
             String oldState = realtimeTaskCache.getState();
-            if (newState != null
-                && !newState.equals(oldState)
-                && !(TaskState.INIT.name().equals(newState) && TaskState.RUNNING.name().equals(oldState))) {
+
+            if (newState != null && !newState.equals(oldState)) {
                 stateChangeNeeded = true;
             }
             boolean initProgressChangeNeeded = false;
@@ -146,7 +144,7 @@ public class TaskCacheManager {
 
     /**
      * Update realtime task cache with new field values. If realtime task cache exist, update it
-     * directly if task is not done; if task is done, remove the detector's realtime task cache.
+     * directly if task is not done.
      *
      * If realtime task cache doesn't exist, will do nothing. Next realtime job run will re-init
      * realtime task cache when it finds task cache not inited yet.
@@ -160,6 +158,7 @@ public class TaskCacheManager {
      */
     public void updateRealtimeTaskCache(String configId, String newState, Float newInitProgress, String newError) {
         RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
+
         if (realtimeTaskCache != null) {
             if (newState != null) {
                 realtimeTaskCache.setState(newState);
@@ -170,13 +169,8 @@ public class TaskCacheManager {
             if (newError != null) {
                 realtimeTaskCache.setError(newError);
             }
-            if (newState != null && !TaskState.NOT_ENDED_STATES.contains(newState)) {
-                // If task is done, will remove its realtime task cache.
-                logger.info("Realtime task done with state {}, remove RT task cache for config ", newState, configId);
-                removeRealtimeTaskCache(configId);
-            }
         } else {
-            logger.debug("Realtime task cache is not inited yet for config {}", configId);
+            logger.info("Realtime task cache is not inited yet for config {}", configId);
         }
     }
 
@@ -204,35 +198,6 @@ public class TaskCacheManager {
             logger.info("Delete realtime cache for config {}", configId);
             realtimeTaskCaches.remove(configId);
         }
-    }
-
-    /**
-     * We query result index to check if there are any result generated for config to tell whether it passed initialization of not.
-     * To avoid repeated query when there is no data, record whether we have done that or not.
-     * @param configId config id
-     */
-    public void markResultIndexQueried(String configId) {
-        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
-        // we initialize a real time cache at the beginning of AnomalyResultTransportAction if it
-        // cannot be found. If the cache is empty, we will return early and wait it for it to be
-        // initialized.
-        if (realtimeTaskCache != null) {
-            realtimeTaskCache.setQueriedResultIndex(true);
-        }
-    }
-
-    /**
-     * We query result index to check if there are any result generated for config to tell whether it passed initialization of not.
-     *
-     * @param configId config id
-     * @return whether we have queried result index or not.
-     */
-    public boolean hasQueriedResultIndex(String configId) {
-        RealtimeTaskCache realtimeTaskCache = realtimeTaskCaches.get(configId);
-        if (realtimeTaskCache != null) {
-            return realtimeTaskCache.hasQueriedResultIndex();
-        }
-        return false;
     }
 
     /**

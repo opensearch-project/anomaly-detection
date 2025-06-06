@@ -291,4 +291,9 @@ public class TimeSeriesSettings {
     public static final int MAX_TRACKING_ENTITIES = 1000000;
 
     public static final String FLATTEN_CUSTOM_RESULT_INDEX_PAINLESS = "scripts/flatten-custom-result-index-painless.txt";
+
+    // ======================================
+    // Suggest setting
+    // ======================================
+    public static final float WINDOW_DELAY_RATIO = 1.2f;
 }

@@ -97,7 +97,8 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
             ADIndex.RESULT.getMapping(),
             xContentRegistry,
             AnomalyDetector::parse,
-            ADCommonName.CUSTOM_RESULT_INDEX_PREFIX
+            ADCommonName.CUSTOM_RESULT_INDEX_PREFIX,
+            ADCommonName.CONFIG_INDEX
         );
 
         this.indexStates = new EnumMap<ADIndex, IndexState>(ADIndex.class);

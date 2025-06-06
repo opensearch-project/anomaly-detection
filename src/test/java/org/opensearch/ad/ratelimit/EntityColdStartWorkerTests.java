@@ -31,6 +31,7 @@ import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -97,7 +98,8 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
             nodeStateManager,
             cacheProvider,
             mock(ADModelManager.class),
-            mock(ADSaveResultStrategy.class)
+            mock(ADSaveResultStrategy.class),
+            mock(ADTaskManager.class)
         );
     }
 

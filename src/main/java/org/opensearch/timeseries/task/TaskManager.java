@@ -118,7 +118,7 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
     protected final ClusterService clusterService;
     protected final Client client;
     protected final String stateIndex;
-    private final List<TaskTypeEnum> realTimeTaskTypes;
+    protected final List<TaskTypeEnum> realTimeTaskTypes;
     private final List<TaskTypeEnum> historicalTaskTypes;
     private final List<TaskTypeEnum> runOnceTaskTypes;
     protected final IndexManagementType indexManagement;
@@ -192,8 +192,8 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
             && Objects.equals(error, realtimeTaskCache.getError());
     }
 
-    public boolean isHCRealtimeTaskStartInitializing(String detectorId) {
-        RealtimeTaskCache realtimeTaskCache = taskCacheManager.getRealtimeTaskCache(detectorId);
+    public boolean isRealtimeTaskStartInitializing(String configId) {
+        RealtimeTaskCache realtimeTaskCache = taskCacheManager.getRealtimeTaskCache(configId);
         return realtimeTaskCache != null
             && realtimeTaskCache.getInitProgress() != null
             && realtimeTaskCache.getInitProgress().floatValue() > 0;
@@ -233,41 +233,56 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
      * @param rcfTotalUpdates rcf total updates
      * @param intervalInMinutes config interval in minutes
      * @param error error
+     * @param coordinatingNode whether this function is called on coordinating node or not
      * @param listener action listener
      */
-    public void updateLatestRealtimeTaskOnCoordinatingNode(
+    public void updateLatestRealtimeTask(
         String configId,
         String state,
         Long rcfTotalUpdates,
         Long intervalInMinutes,
         String error,
+        boolean coordinatingNode,
+        Boolean hasResult,
         ActionListener<UpdateResponse> listener
     ) {
         Float initProgress = null;
         String newState = null;
+        // Check if new state is not null and ignore state calculated from rcf total updates
+        if (state != null) {
+            newState = state;
+        } else {
+            newState = triageState(hasResult, error, rcfTotalUpdates);
+        }
+        error = Optional.ofNullable(error).orElse("");
         // calculate init progress and task state with RCF total updates
         if (intervalInMinutes != null && rcfTotalUpdates != null) {
-            newState = TaskState.INIT.name();
             if (rcfTotalUpdates < TimeSeriesSettings.NUM_MIN_SAMPLES) {
                 initProgress = (float) rcfTotalUpdates / TimeSeriesSettings.NUM_MIN_SAMPLES;
             } else {
-                newState = TaskState.RUNNING.name();
                 initProgress = 1.0f;
             }
         }
-        // Check if new state is not null and override state calculated with rcf total updates
-        if (state != null) {
-            newState = state;
+
+        RealtimeTaskCache realtimeTaskCache = taskCacheManager.getRealtimeTaskCache(configId);
+        String oldState = null;
+        if (realtimeTaskCache != null) {
+            oldState = realtimeTaskCache.getState();
         }
 
-        error = Optional.ofNullable(error).orElse("");
-        if (!taskCacheManager.isRealtimeTaskChangeNeeded(configId, newState, initProgress, error)) {
-            // If task not changed, no need to update, just return
+        // We don't want to change state from running to init.
+        // Also, if task not changed at all, no need to update, just return.
+        if (!taskCacheManager.isRealtimeTaskChangeNeeded(configId, newState, initProgress, error)
+            || forbidOverrideChange(configId, newState, oldState)) {
             listener.onResponse(null);
             return;
         }
         Map<String, Object> updatedFields = new HashMap<>();
-        updatedFields.put(TimeSeriesTask.COORDINATING_NODE_FIELD, clusterService.localNode().getId());
+
+        if (coordinatingNode) {
+            updatedFields.put(TimeSeriesTask.COORDINATING_NODE_FIELD, clusterService.localNode().getId());
+        }
+
         if (initProgress != null) {
             updatedFields.put(TimeSeriesTask.INIT_PROGRESS_FIELD, initProgress);
             updatedFields
@@ -294,6 +309,18 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
             logger.error("Failed to update realtime task for config " + configId, e);
             listener.onFailure(e);
         }));
+    }
+
+    public void updateLatestRealtimeTaskOnCoordinatingNode(
+        String configId,
+        String state,
+        Long rcfTotalUpdates,
+        Long intervalInMinutes,
+        String error,
+        Boolean hasResult,
+        ActionListener<UpdateResponse> listener
+    ) {
+        updateLatestRealtimeTask(configId, state, rcfTotalUpdates, intervalInMinutes, error, true, hasResult, listener);
     }
 
     /**
@@ -370,11 +397,11 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
                 String coordinatingNode = dateRange == null ? null : clusterService.localNode().getId();
                 createNewTask(config, dateRange, runOnce, user, coordinatingNode, initialState, listener);
             } else {
-                logger.error("Failed to update old task's state for detector: {}, response: {} ", config.getId(), r.toString());
+                logger.error("Failed to update old task's state for config: {}, response: {} ", config.getId(), r.toString());
                 listener.onFailure(bulkFailures.get(0).getCause());
             }
         }, e -> {
-            logger.error("Failed to reset old tasks as not latest for detector " + config.getId(), e);
+            logger.error("Failed to reset old tasks as not latest for config " + config.getId(), e);
             listener.onFailure(e);
         }));
     }
@@ -460,7 +487,7 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
                 Map<String, Object> updatedFields = new HashMap<>();
                 updatedFields.put(TimeSeriesTask.STATE_FIELD, state.name());
                 if (error != null) {
-                    updatedFields.put(TimeSeriesTask.ERROR_FIELD, error.getMessage());
+                    updatedFields.put(TimeSeriesTask.ERROR_FIELD, ExceptionUtil.getErrorMessage(error));
                 }
                 ExecutorFunction function = () -> updateTask(adTask.get().getTaskId(), updatedFields, ActionListener.wrap(r -> {
                     if (error == null) {
@@ -1006,6 +1033,37 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
     }
 
     /**
+     * Get task with task id and execute listener.
+     * @param taskId task id
+     * @param listener action listener
+     */
+    public void getTask(String taskId, ActionListener<Optional<TaskClass>> listener) {
+        GetRequest request = new GetRequest(stateIndex, taskId);
+        client.get(request, ActionListener.wrap(r -> {
+            if (r != null && r.isExists()) {
+                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    BiCheckedFunction<XContentParser, String, TaskClass, IOException> parserMethod = getTaskParser();
+                    TaskClass tsTask = parserMethod.apply(parser, r.getId());
+                    listener.onResponse(Optional.ofNullable(tsTask));
+                } catch (Exception e) {
+                    logger.error("Failed to parse task " + r.getId(), e);
+                    listener.onFailure(e);
+                }
+            } else {
+                listener.onResponse(Optional.empty());
+            }
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                listener.onResponse(Optional.empty());
+            } else {
+                logger.error("Failed to get task " + taskId, e);
+                listener.onFailure(e);
+            }
+        }));
+    }
+
+    /**
      * Clean results of deleted config.
      */
     public void cleanResultOfDeletedConfig() {
@@ -1089,4 +1147,14 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
     );
 
     public abstract List<TaskTypeEnum> getTaskTypes(DateRange dateRange, boolean runOnce);
+
+    protected abstract String triageState(Boolean hasResult, String error, Long rcfTotalUpdates);
+
+    /**
+     *
+     * @param configId Config id
+     * @param newState new state
+     * @return Whether we should forbid overriding changes
+     */
+    protected abstract boolean forbidOverrideChange(String configId, String newState, String oldState);
 }

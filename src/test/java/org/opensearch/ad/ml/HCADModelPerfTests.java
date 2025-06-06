@@ -36,12 +36,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.lucene.tests.util.TimeUnits;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.TestHelpers;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.ModelManager;
@@ -107,7 +107,7 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(2);
 
-            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
             return null;
         }).when(clientUtil).asyncRequest(any(GetRequest.class), any(), any(ActionListener.class));
 
@@ -157,7 +157,8 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 checkpointWriteQueue,
                 seed,
                 TimeSeriesSettings.MAX_COLD_START_ROUNDS,
-                1
+                1,
+                0
             );
 
             modelManager = new ADModelManager(

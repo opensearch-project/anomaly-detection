@@ -482,7 +482,7 @@ public class ADBatchTaskRunner {
                 // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
                 adTask.getUser(),
                 client,
-                AnalysisType.AD,
+                AnalysisType.AD, // only meant for AD
                 searchResponseListener
             );
     }
@@ -1005,7 +1005,7 @@ public class ADBatchTaskRunner {
                 // user is the one who started historical detector. Read AnomalyDetectorJobTransportAction.doExecute.
                 adTask.getUser(),
                 client,
-                AnalysisType.AD,
+                AnalysisType.AD, // only meant for AD
                 searchResponseListener
             );
     }
@@ -1342,7 +1342,7 @@ public class ADBatchTaskRunner {
                 function.execute();
             }
         } else if (!adTaskCacheManager.isHistoricalAnalysisCancelledForHC(detectorId, detectorTaskId)) {
-            adTaskManager.getADTask(detectorTaskId, ActionListener.wrap(task -> {
+            adTaskManager.getTask(detectorTaskId, ActionListener.wrap(task -> {
                 if (task.isPresent()) {
                     if (!Objects.equals(task.get().getState(), newState)) {
                         function.execute();

@@ -43,6 +43,7 @@ import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -357,7 +358,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                     if (action.equals(SearchAction.INSTANCE)) {
                         assertTrue(request instanceof SearchRequest);
                         SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                        if (searchRequest.indices()[0].equals(ADCommonName.CONFIG_INDEX)) {
                             listener.onResponse((Response) detectorResponse);
                         } else {
                             listener.onResponse((Response) userIndexResponse);
@@ -441,7 +442,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         int totalHits = 9;
         when(detectorResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
 
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX);
 
         SearchResponse userIndexResponse = mock(SearchResponse.class);
         int userIndexHits = 0;
@@ -460,7 +461,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                     if (action.equals(SearchAction.INSTANCE)) {
                         assertTrue(request instanceof SearchRequest);
                         SearchRequest searchRequest = (SearchRequest) request;
-                        if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                        if (searchRequest.indices()[0].equals(ADCommonName.CONFIG_INDEX)) {
                             listener.onResponse((Response) detectorResponse);
                         } else {
                             listener.onResponse((Response) userIndexResponse);
@@ -566,7 +567,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                         assertTrue(request instanceof SearchRequest);
                         SearchRequest searchRequest = (SearchRequest) request;
                         searchCallCount++;
-                        if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                        if (searchRequest.indices()[0].equals(ADCommonName.CONFIG_INDEX)) {
                             listener.onResponse((Response) detectorResponse);
                         } else if (useConfigInputIndicesResponse
                             && Arrays.equals(searchRequest.indices(), detector.getIndices().toArray(new String[0]))
@@ -660,7 +661,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
         int totalHits = 10;
         AnomalyDetector existingDetector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, null);
         GetResponse getDetectorResponse = TestHelpers
-            .createGetResponse(existingDetector, existingDetector.getId(), CommonName.CONFIG_INDEX);
+            .createGetResponse(existingDetector, existingDetector.getId(), ADCommonName.CONFIG_INDEX);
 
         SearchResponse searchResponse = mock(SearchResponse.class);
         when(searchResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -747,7 +748,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
     public void testTenMultiEntityDetectorsUpdateExistingMultiEntityAd() throws IOException, InterruptedException {
         int totalHits = 10;
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList("a"));
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX);
 
         SearchResponse searchResponse = mock(SearchResponse.class);
         when(searchResponse.getHits()).thenReturn(TestHelpers.createSearchHits(totalHits));
@@ -879,7 +880,7 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                         Instant.now()
                     );
                     try {
-                        listener.onResponse((Response) TestHelpers.createGetResponse(clone, clone.getId(), CommonName.CONFIG_INDEX));
+                        listener.onResponse((Response) TestHelpers.createGetResponse(clone, clone.getId(), ADCommonName.CONFIG_INDEX));
                     } catch (IOException e) {
                         LOG.error(e);
                     }

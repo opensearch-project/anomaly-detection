@@ -37,6 +37,7 @@ import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.caching.DoorKeeper;
 import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
+import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
@@ -44,6 +45,7 @@ import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
@@ -57,7 +59,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 /**
  * The class bootstraps a model by performing a cold start
  */
-public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>>
+public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, IndexableResultType extends IndexableResult>
     implements
         MaintenanceState,
         CleanState {
@@ -91,6 +93,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
     protected final int maxRoundofColdStart;
     protected final String threadPoolName;
     protected final AnalysisType context;
+    protected final int resultMappingVersion;
 
     public ModelColdStart(
         Duration modelTtl,
@@ -110,7 +113,8 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         FeatureManager featureManager,
         int maxRoundofColdStart,
         String threadPoolName,
-        AnalysisType context
+        AnalysisType context,
+        int resultMappingVersion
     ) {
         this.modelTtl = modelTtl;
         this.coolDownMinutes = coolDownMinutes;
@@ -135,6 +139,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         this.maxRoundofColdStart = maxRoundofColdStart;
         this.threadPoolName = threadPoolName;
         this.context = context;
+        this.resultMappingVersion = resultMappingVersion;
     }
 
     @Override
@@ -169,9 +174,10 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         FeatureRequest coldStartRequest,
         String configId,
         ModelState<RCFModelType> modelState,
-        ActionListener<List<Sample>> listener
+        ActionListener<List<IndexableResultType>> listener
     ) {
-        nodeStateManager.getConfig(configId, context, ActionListener.wrap(configOptional -> {
+        // run once does not need to cache
+        nodeStateManager.getConfig(configId, context, !coldStartRequest.isRunOnce(), ActionListener.wrap(configOptional -> {
             if (false == configOptional.isPresent()) {
                 logger.warn(new ParameterizedMessage("Config [{}] is not available.", configId));
                 listener.onFailure(new TimeSeriesException(configId, "fail to find config"));
@@ -217,7 +223,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         FeatureRequest coldStartRequest,
         ModelState<RCFModelType> modelState,
         Config config,
-        ActionListener<List<Sample>> listener
+        ActionListener<List<IndexableResultType>> listener
     ) {
         logger.debug("Trigger cold start for {}", modelId);
 
@@ -234,30 +240,33 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         String configId = config.getId();
         boolean earlyExit = true;
         try {
-            // Won't retry real-time cold start within 60 intervals for an entity
-            // coldStartRequest.getTaskId() == null in real-time cold start
+            if (null == coldStartRequest.getTaskId()) {
+                // Won't retry real-time cold start within 60 intervals for an entity
+                // coldStartRequest.getTaskId() == null in real-time cold start
 
-            DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(configId, id -> {
-                // reset every 60 intervals
-                return new DoorKeeper(
-                    TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
-                    config.getIntervalDuration().multipliedBy(TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ),
-                    clock,
-                    TimeSeriesSettings.COLD_START_DOOR_KEEPER_COUNT_THRESHOLD
-                );
-            });
-
-            if (doorKeeper.appearsMoreThanOrEqualToThreshold(modelId)) {
-                logger
-                    .info(
-                        "Won't retry real-time cold start within {} intervals for model {}",
-                        TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ,
-                        modelId
+                DoorKeeper doorKeeper = doorKeepers.computeIfAbsent(configId, id -> {
+                    // reset every 60 intervals
+                    return new DoorKeeper(
+                        TimeSeriesSettings.DOOR_KEEPER_FOR_COLD_STARTER_MAX_INSERTION,
+                        config.getIntervalDuration().multipliedBy(TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ),
+                        clock,
+                        TimeSeriesSettings.COLD_START_DOOR_KEEPER_COUNT_THRESHOLD
                     );
-                return;
-            }
+                });
 
-            doorKeeper.put(modelId);
+                // only use door keeper when this is for real time
+                if (doorKeeper.appearsMoreThanOrEqualToThreshold(modelId)) {
+                    logger
+                        .info(
+                            "Won't retry real-time cold start within {} intervals for model {}",
+                            TimeSeriesSettings.EXPIRING_VALUE_MAINTENANCE_FREQ,
+                            modelId
+                        );
+                    return;
+                }
+
+                doorKeeper.put(modelId);
+            }
 
             ActionListener<List<Sample>> coldStartCallBack = ActionListener.wrap(trainingData -> {
                 // existing samples might have different interval or duplicated data compared to training data we just grabbed.
@@ -269,7 +278,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                     if (dataSize >= numMinSamples) {
                         // The function trainModelFromDataSegments will save a trained a model. trainModelFromDataSegments is called by
                         // multiple places, so I want to make the saving model implicit just in case I forgot.
-                        List<Sample> processedTrainingData = trainModelFromDataSegments(
+                        List<IndexableResultType> processedTrainingData = trainModelFromDataSegments(
                             trainingData,
                             modelState,
                             config,
@@ -289,7 +298,6 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                     logger.info("Cannot get training data for {}", modelId);
                     listener.onResponse(null);
                 }
-
             }, exception -> {
                 try {
                     logger.error(new ParameterizedMessage("Error while cold start {}", modelId), exception);
@@ -297,11 +305,19 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                     if (ExceptionUtil.isOverloaded(cause)) {
                         logger.error("too many requests");
                         lastThrottledColdStartTime = Instant.now();
-                    } else if (cause instanceof TimeSeriesException || exception instanceof TimeSeriesException) {
+                    } else if (exception instanceof TimeSeriesException) {
                         // e.g., cannot find anomaly detector
-                        nodeStateManager.setException(configId, exception);
+                        nodeStateManager
+                            .setException(
+                                configId,
+                                ((TimeSeriesException) exception).cloneWithMsgPrefix(CommonMessages.COLD_START_EXCEPTION)
+                            );
+                    } else if (cause instanceof TimeSeriesException) {
+                        nodeStateManager
+                            .setException(configId, ((TimeSeriesException) cause).cloneWithMsgPrefix(CommonMessages.COLD_START_EXCEPTION));
                     } else {
-                        nodeStateManager.setException(configId, new TimeSeriesException(configId, cause));
+                        nodeStateManager
+                            .setException(configId, new TimeSeriesException(configId, CommonMessages.COLD_START_EXCEPTION, cause));
                     }
                     listener.onFailure(exception);
                 } catch (Exception e) {
@@ -388,7 +404,13 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         }, listener::onFailure);
 
         nodeStateManager
-            .getConfig(configId, context, new ThreadedActionListener<>(logger, threadPool, threadPoolName, getDetectorListener, false));
+            .getConfig(
+                configId,
+                context,
+                // not run once means it is real time and we want to cache
+                !coldStartRequest.isRunOnce(),
+                new ThreadedActionListener<>(logger, threadPool, threadPoolName, getDetectorListener, false)
+            );
     }
 
     /**
@@ -545,7 +567,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         }
     }
 
-    protected abstract List<Sample> trainModelFromDataSegments(
+    protected abstract List<IndexableResultType> trainModelFromDataSegments(
         List<Sample> dataPoints,
         ModelState<RCFModelType> state,
         Config config,

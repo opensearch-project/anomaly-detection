@@ -91,6 +91,9 @@ public abstract class SingleRequestWorker<RequestType extends QueuedRequest> ext
         BlockingQueue<RequestType> queue = queueOptional.get();
         if (false == queue.isEmpty()) {
             request = queue.poll();
+            if (request != null) {
+                inflightConfigs.add(request.getConfigId());
+            }
         }
 
         if (request == null) {
@@ -99,7 +102,12 @@ public abstract class SingleRequestWorker<RequestType extends QueuedRequest> ext
         }
 
         final ActionListener<Void> handlerWithRelease = ActionListener.wrap(afterProcessCallback);
-        executeRequest(request, handlerWithRelease);
+        final String inflightConfigId = request.getConfigId();
+        executeRequest(request, ActionListener.runAfter(handlerWithRelease, () -> {
+            if (inflightConfigId != null) {
+                inflightConfigs.remove(inflightConfigId);
+            }
+        }));
     }
 
     /**

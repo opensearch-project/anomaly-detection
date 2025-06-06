@@ -7,7 +7,10 @@ package org.opensearch.forecast.transport;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
@@ -18,14 +21,16 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointReadWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.transport.BooleanNodeResponse;
-import org.opensearch.timeseries.transport.BooleanResponse;
+import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.transport.TransportService;
 
 public class ForecastRunOnceProfileTransportAction extends
-    TransportNodesAction<ForecastRunOnceProfileRequest, BooleanResponse, ForecastRunOnceProfileNodeRequest, BooleanNodeResponse> {
+    TransportNodesAction<ForecastRunOnceProfileRequest, ForecastRunOnceProfileResponse, ForecastRunOnceProfileNodeRequest, ForecastRunOnceProfileNodeResponse> {
+    private static final Logger LOG = LogManager.getLogger(ForecastRunOnceProfileTransportAction.class);
     private final ForecastColdStartWorker coldStartWorker;
     private final ForecastCheckpointReadWorker checkpointReadWorker;
+    private final NodeStateManager nodeStateManager;
 
     /**
      * Constructor
@@ -35,6 +40,9 @@ public class ForecastRunOnceProfileTransportAction extends
      * @param transportService TransportService
      * @param actionFilters Action Filters
      * @param settings Node settings accessor
+     * @param coldStartWorker cold start worker
+     * @param checkpointReadWorker checkpoint read worker
+     * @param nodeStateManager node state manager
      */
     @Inject
     public ForecastRunOnceProfileTransportAction(
@@ -44,7 +52,8 @@ public class ForecastRunOnceProfileTransportAction extends
         ActionFilters actionFilters,
         Settings settings,
         ForecastColdStartWorker coldStartWorker,
-        ForecastCheckpointReadWorker checkpointReadWorker
+        ForecastCheckpointReadWorker checkpointReadWorker,
+        NodeStateManager nodeStateManager
     ) {
         super(
             ForecastRunOnceProfileAction.NAME,
@@ -55,19 +64,20 @@ public class ForecastRunOnceProfileTransportAction extends
             ForecastRunOnceProfileRequest::new,
             ForecastRunOnceProfileNodeRequest::new,
             ThreadPool.Names.MANAGEMENT,
-            BooleanNodeResponse.class
+            ForecastRunOnceProfileNodeResponse.class
         );
         this.coldStartWorker = coldStartWorker;
         this.checkpointReadWorker = checkpointReadWorker;
+        this.nodeStateManager = nodeStateManager;
     }
 
     @Override
-    protected BooleanResponse newResponse(
+    protected ForecastRunOnceProfileResponse newResponse(
         ForecastRunOnceProfileRequest request,
-        List<BooleanNodeResponse> responses,
+        List<ForecastRunOnceProfileNodeResponse> responses,
         List<FailedNodeException> failures
     ) {
-        return new BooleanResponse(clusterService.getClusterName(), responses, failures);
+        return new ForecastRunOnceProfileResponse(clusterService.getClusterName(), responses, failures);
     }
 
     @Override
@@ -76,17 +86,26 @@ public class ForecastRunOnceProfileTransportAction extends
     }
 
     @Override
-    protected BooleanNodeResponse newNodeResponse(StreamInput in) throws IOException {
-        return new BooleanNodeResponse(in);
+    protected ForecastRunOnceProfileNodeResponse newNodeResponse(StreamInput in) throws IOException {
+        return new ForecastRunOnceProfileNodeResponse(in);
     }
 
     @Override
-    protected BooleanNodeResponse nodeOperation(ForecastRunOnceProfileNodeRequest request) {
+    protected ForecastRunOnceProfileNodeResponse nodeOperation(ForecastRunOnceProfileNodeRequest request) {
         String configId = request.getConfigId();
+        Optional<Exception> exception = nodeStateManager.fetchExceptionAndClear(configId);
 
-        return new BooleanNodeResponse(
+        if (exception.isPresent()) {
+            LOG.error("Run-once execution failed for config {} on node {}", configId, clusterService.localNode().getId(), exception);
+        }
+
+        return new ForecastRunOnceProfileNodeResponse(
             clusterService.localNode(),
-            coldStartWorker.hasConfigId(configId) || checkpointReadWorker.hasConfigId(configId)
+            coldStartWorker.hasInflightRequest(configId)
+                || checkpointReadWorker.hasInflightRequest(configId)
+                || coldStartWorker.hasConfigIdInQueue(configId)
+                || checkpointReadWorker.hasConfigIdInQueue(configId),
+            exception.isEmpty() ? null : ExceptionUtil.getErrorMessage(exception.get())
         );
     }
 }

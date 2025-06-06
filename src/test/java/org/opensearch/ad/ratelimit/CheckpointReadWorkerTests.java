@@ -67,6 +67,7 @@ import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.threadpool.ThreadPoolStats;
 import org.opensearch.threadpool.ThreadPoolStats.Stats;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
@@ -161,7 +162,8 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             resultWriteStrategy,
             cacheProvider,
             threadPool,
-            mock(Clock.class)
+            mock(Clock.class),
+            mock(NodeStateManager.class)
         );
 
         // Integer.MAX_VALUE makes a huge heap
@@ -765,16 +767,16 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         AnomalyDetector detector2 = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId2, Arrays.asList(categoryField));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector2));
             return null;
-        }).when(nodeStateManager).getConfig(eq(detectorId2), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(eq(detectorId2), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getConfig(eq(detectorId), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(eq(detectorId), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         doAnswer(invocation -> {
             MultiGetItemResponse[] items = new MultiGetItemResponse[2];

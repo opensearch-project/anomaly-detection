@@ -58,7 +58,20 @@ public class MLUtil {
 
     public static Deque<Sample> createQueueSamples(int size) {
         Deque<Sample> res = new ArrayDeque<>();
-        IntStream.range(0, size).forEach(i -> res.offer(new Sample(new double[] { random.nextDouble() }, Instant.now(), Instant.now())));
+        Instant base = Instant.now();                  // t0
+        long stepMillis = 1000;                           // 1 ms between samples; tweak as desired
+
+        IntStream.range(0, size).forEach(i -> {
+            Instant ts = base.plusMillis(i * stepMillis);
+            res
+                .offer(
+                    new Sample(
+                        new double[] { random.nextDouble() },
+                        ts,          // start / event time
+                        ts           // end / record time (same here)
+                    )
+                );
+        });
         return res;
     }
 

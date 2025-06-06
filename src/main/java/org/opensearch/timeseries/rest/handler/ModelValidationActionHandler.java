@@ -5,8 +5,6 @@
 
 package org.opensearch.timeseries.rest.handler;
 
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.CONFIG_BUCKET_MINIMUM_SUCCESS_RATE;
-
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
@@ -14,6 +12,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +41,6 @@ import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
-import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.MergeableList;
 import org.opensearch.timeseries.model.TimeConfiguration;
@@ -171,8 +169,19 @@ public class ModelValidationActionHandler {
                 );
             return;
         }
-        long timeRangeEnd = Math.min(Instant.now().toEpochMilli(), latestTime.get());
-        new IntervalCalculation(config, requestTimeout, client, clientUtil, user, context, clock, searchFeatureDao, timeRangeEnd, topEntity)
+
+        new IntervalCalculation(
+            config,
+            requestTimeout,
+            client,
+            clientUtil,
+            user,
+            context,
+            clock,
+            searchFeatureDao,
+            latestTime.get(),
+            topEntity
+        )
             .findInterval(
                 ActionListener.wrap(interval -> processIntervalRecommendation(interval, latestTime.get(), topEntity), listener::onFailure)
             );
@@ -200,17 +209,12 @@ public class ModelValidationActionHandler {
             // return response with interval recommendation
             listener
                 .onFailure(
-                    new ValidationException(
-                        CommonMessages.INTERVAL_REC + interval.getInterval(),
-                        intervalIssueType,
-                        ValidationAspect.MODEL,
-                        interval
-                    )
+                    new ValidationException(CommonMessages.INTERVAL_REC + interval, intervalIssueType, ValidationAspect.MODEL, interval)
                 );
         }
     }
 
-    private AggregationBuilder getBucketAggregation(long latestTime) {
+    private AggregationBuilder getHistogramAggregation(long latestTime) {
         IntervalTimeConfiguration interval = (IntervalTimeConfiguration) config.getInterval();
         long intervalInMinutes = IntervalTimeConfiguration.getIntervalInMinute(interval);
         if (timeRangeToSearchForConfiguredInterval == null) {
@@ -221,7 +225,7 @@ public class ModelValidationActionHandler {
     }
 
     private void checkRawDataSparsity(long latestTime) {
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getHistogramAggregation(latestTime);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(aggregation).size(0).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
@@ -240,7 +244,7 @@ public class ModelValidationActionHandler {
     }
 
     private void processRawDataResults(SearchResponse response, long latestTime) {
-        if (aggregationPrep.getHistorgramBucketHitRate(response) < TimeSeriesSettings.INTERVAL_BUCKET_MINIMUM_SUCCESS_RATE) {
+        if (searchFeatureDao.countContinuousShinglesFromHistogramSearch(response, config, false) < TimeSeriesSettings.NUM_MIN_SAMPLES) {
             listener
                 .onFailure(
                     new ValidationException(CommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL)
@@ -251,7 +255,7 @@ public class ModelValidationActionHandler {
     }
 
     private void checkDataFilterSparsity(long latestTime) {
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getHistogramAggregation(latestTime);
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(config.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = aggregationPrep.getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
@@ -271,7 +275,7 @@ public class ModelValidationActionHandler {
     }
 
     private void processDataFilterResults(SearchResponse response, long latestTime) {
-        if (aggregationPrep.getHistorgramBucketHitRate(response) < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+        if (searchFeatureDao.countContinuousShinglesFromHistogramSearch(response, config, false) < TimeSeriesSettings.NUM_MIN_SAMPLES) {
             listener
                 .onFailure(
                     new ValidationException(
@@ -310,7 +314,7 @@ public class ModelValidationActionHandler {
         for (Map.Entry<String, Object> entry : topEntity.entrySet()) {
             query.filter(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
         }
-        AggregationBuilder aggregation = getBucketAggregation(latestTime);
+        AggregationBuilder aggregation = getHistogramAggregation(latestTime);
         SearchSourceBuilder searchSourceBuilder = aggregationPrep.getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
@@ -329,7 +333,7 @@ public class ModelValidationActionHandler {
     }
 
     private void processTopEntityResults(SearchResponse response, long latestTime, Map<String, Object> topEntity) {
-        if (aggregationPrep.getHistorgramBucketHitRate(response) < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+        if (searchFeatureDao.countContinuousShinglesFromHistogramSearch(response, config, false) < TimeSeriesSettings.NUM_MIN_SAMPLES) {
             listener
                 .onFailure(
                     new ValidationException(CommonMessages.CATEGORY_FIELD_TOO_SPARSE, ValidationIssueType.CATEGORY, ValidationAspect.MODEL)
@@ -371,15 +375,16 @@ public class ModelValidationActionHandler {
                 CommonMessages.FEATURE_QUERY_TOO_SPARSE,
                 false
             );
-        for (int i = 0; i < config.getFeatureAttributes().size(); i++) {
-            final Feature feature = config.getFeatureAttributes().get(i);
+        List<String> enabledFeatures = config.getEnabledFeatureNames();
+        for (int i = 0; i < enabledFeatures.size(); i++) {
+            final String feature = enabledFeatures.get(i);
             IntervalTimeConfiguration interval = (IntervalTimeConfiguration) config.getInterval();
             SearchRequest searchRequest = aggregationPrep
                 .createSearchRequestForFeature(interval, aggregationPrep.getTimeRangeBounds(interval, latestTime), topEntity, i);
             final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
                 try {
-                    double fullBucketRate = aggregationPrep.getBucketHitRate(response, interval, latestTime);
-                    if (fullBucketRate < CONFIG_BUCKET_MINIMUM_SUCCESS_RATE) {
+                    long bucketHitCount = aggregationPrep.getShingleCount(response);
+                    if (bucketHitCount < TimeSeriesSettings.NUM_MIN_SAMPLES) {
                         multiFeatureQueriesResponseListener
                             .onFailure(
                                 new ValidationException(
@@ -388,14 +393,14 @@ public class ModelValidationActionHandler {
                                     // Need to follow the same convention. This convention has been followed by other cases in
                                     // AbstractTimeSeriesActionHandler.validateConfigFeatures
                                     // like "Feature has an invalid query returning empty aggregated data: max1"
-                                    String.format(Locale.ROOT, "%s: %s", CommonMessages.FEATURE_QUERY_TOO_SPARSE, feature.getName()),
+                                    String.format(Locale.ROOT, "%s: %s", CommonMessages.FEATURE_QUERY_TOO_SPARSE, feature),
                                     ValidationIssueType.FEATURE_ATTRIBUTES,
                                     ValidationAspect.MODEL
                                 )
                             );
                     } else {
                         multiFeatureQueriesResponseListener
-                            .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(new double[] { fullBucketRate }))));
+                            .onResponse(new MergeableList<>(new ArrayList<>(Collections.singletonList(new double[] { 0 }))));
                     }
                 } catch (ValidationException e) {
                     listener.onFailure(e);
@@ -406,6 +411,7 @@ public class ModelValidationActionHandler {
                 multiFeatureQueriesResponseListener
                     .onFailure(new OpenSearchStatusException(CommonMessages.FEATURE_QUERY_TOO_SPARSE, RestStatus.BAD_REQUEST, e));
             });
+
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
             clientUtil
@@ -446,7 +452,7 @@ public class ModelValidationActionHandler {
         // 3. no single configuration during the following checks reduced the bucket success rate below 0.25
         // This means the rate with all configs applied or just raw data was below 0.75 but the rate when checking each configuration at
         // a time was always above 0.25 meaning the best suggestion is to simply ingest more data or change interval since
-        // we have no more insight regarding the root cause of the lower density.
+        // we have no more insight regarding the root cause of )the lower density.
         listener
             .onFailure(new ValidationException(CommonMessages.RAW_DATA_TOO_SPARSE, ValidationIssueType.INDICES, ValidationAspect.MODEL));
     }

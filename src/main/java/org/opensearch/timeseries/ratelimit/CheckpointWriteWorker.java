@@ -157,7 +157,8 @@ public abstract class CheckpointWriteWorker<RCFModelType, IndexType extends Enum
                 return;
             }
 
-            nodeStateManager.getConfig(configId, context, onGetConfig(configId, modelId, modelState, priority));
+            // run once won't write checkpoint. Safe to cache config
+            nodeStateManager.getConfig(configId, context, true, onGetConfig(configId, modelId, modelState, priority));
         }
     }
 
@@ -262,6 +263,7 @@ public abstract class CheckpointWriteWorker<RCFModelType, IndexType extends Enum
 
         }, exception -> { LOG.error(new ParameterizedMessage("fail to get config [{}]", configId), exception); });
 
-        nodeStateManager.getConfig(configId, context, onGetForAll);
+        // run once won't write checkpoint. Safe to cache config
+        nodeStateManager.getConfig(configId, context, true, onGetForAll);
     }
 }

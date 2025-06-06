@@ -57,12 +57,19 @@ public enum TaskState {
     FAILED("Failed"),
     STOPPED("Stopped"),
     FINISHED("Finished"),
+    INIT_ERROR("Error init"),
+    ERROR("Error"),
 
     // Forecast task state
+    AWAITING_DATA_TO_INIT("Awaiting data to init"),
+    AWAITING_DATA_TO_RESTART("Awaiting data to restart"),
     INIT_TEST("Initializing test"),
     TEST_COMPLETE("Test complete"),
     INIT_TEST_FAILED("Initializing test failed"),
-    INACTIVE("Inactive");
+    INACTIVE("Inactive"),
+    INACTIVE_STOPPED("Inactive stopped"),
+    INACTIVE_NOT_STARTED("Inactive not started"),
+    FORECAST_FAILURE("forecast failure");
 
     private final String description;
 
@@ -77,5 +84,20 @@ public enum TaskState {
     }
 
     public static List<String> NOT_ENDED_STATES = ImmutableList
-        .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name(), INIT_TEST.name());
+        .of(
+            TaskState.CREATED.name(),
+            TaskState.INIT.name(),
+            TaskState.RUNNING.name(),
+            INIT_TEST.name(),
+            AWAITING_DATA_TO_INIT.name(),
+            AWAITING_DATA_TO_RESTART.name()
+        );
+
+    public static boolean isAwaitState(String state) {
+        return AWAITING_DATA_TO_INIT.name().equals(state) || AWAITING_DATA_TO_RESTART.name().equals(state);
+    }
+
+    public static boolean isForecastErrorState(String state) {
+        return INIT_ERROR.name().equals(state) || FORECAST_FAILURE.name().equals(state);
+    }
 }

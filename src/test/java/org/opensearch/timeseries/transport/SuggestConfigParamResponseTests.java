@@ -32,7 +32,7 @@ public class SuggestConfigParamResponseTests extends OpenSearchTestCase {
         Integer horizon = 12;
         Integer history = 24;
 
-        SuggestConfigParamResponse originalResponse = new SuggestConfigParamResponse(interval, horizon, history);
+        SuggestConfigParamResponse originalResponse = new SuggestConfigParamResponse(interval, horizon, history, interval);
 
         // Serialize it to a BytesStreamOutput
         BytesStreamOutput out = new BytesStreamOutput();
@@ -57,7 +57,7 @@ public class SuggestConfigParamResponseTests extends OpenSearchTestCase {
         Integer horizon = 12;
         Integer history = 24;
 
-        SuggestConfigParamResponse response = new SuggestConfigParamResponse(interval, horizon, history);
+        SuggestConfigParamResponse response = new SuggestConfigParamResponse(interval, horizon, history, interval);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         response.toXContent(builder);
@@ -82,7 +82,7 @@ public class SuggestConfigParamResponseTests extends OpenSearchTestCase {
         Integer horizon = 12;
         Integer history = 24;
 
-        SuggestConfigParamResponse response = new SuggestConfigParamResponse(interval, horizon, history);
+        SuggestConfigParamResponse response = new SuggestConfigParamResponse(interval, horizon, history, interval);
 
         // Case when other == null
         response.merge(null);
@@ -125,11 +125,11 @@ public class SuggestConfigParamResponseTests extends OpenSearchTestCase {
         Integer horizon = 12;
         Integer history = null; // Initial history is null
 
-        SuggestConfigParamResponse response = new SuggestConfigParamResponse(interval, horizon, history);
+        SuggestConfigParamResponse response = new SuggestConfigParamResponse(interval, horizon, history, interval);
 
         Integer otherHistory = 30;
 
-        SuggestConfigParamResponse otherResponse = new SuggestConfigParamResponse(null, null, otherHistory);
+        SuggestConfigParamResponse otherResponse = new SuggestConfigParamResponse(null, null, otherHistory, interval);
 
         // Before merge, response.history is null
         assertNull(response.getHistory());

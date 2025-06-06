@@ -44,6 +44,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -70,7 +71,6 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.Features;
 import org.opensearch.timeseries.util.RestHandlerUtils;
@@ -119,9 +119,9 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
             .build();
         final Settings.Builder existingSettings = Settings.builder().put(indexSettings).put(IndexMetadata.SETTING_INDEX_UUID, "test2UUID");
-        IndexMetadata indexMetaData = IndexMetadata.builder(CommonName.CONFIG_INDEX).settings(existingSettings).build();
+        IndexMetadata indexMetaData = IndexMetadata.builder(ADCommonName.CONFIG_INDEX).settings(existingSettings).build();
         final Map<String, IndexMetadata> indices = new HashMap<>();
-        indices.put(CommonName.CONFIG_INDEX, indexMetaData);
+        indices.put(ADCommonName.CONFIG_INDEX, indexMetaData);
         ClusterState clusterState = ClusterState.builder(clusterName).metadata(Metadata.builder().indices(indices).build()).build();
         when(clusterService.state()).thenReturn(clusterState);
 
@@ -254,7 +254,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(null, "1234", Instant.now(), Instant.now());
         Settings indexSettings = Settings.builder().put("index.number_of_shards", 5).put("index.number_of_replicas", 1).build();
-        CreateIndexRequest indexRequest = new CreateIndexRequest(CommonName.CONFIG_INDEX, indexSettings);
+        CreateIndexRequest indexRequest = new CreateIndexRequest(ADCommonName.CONFIG_INDEX, indexSettings);
         client().admin().indices().create(indexRequest).actionGet();
         ActionListener<PreviewAnomalyDetectorResponse> previewResponse = new ActionListener<PreviewAnomalyDetectorResponse>() {
             @Override
@@ -296,7 +296,7 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());
 
-        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX);
+        GetResponse getDetectorResponse = TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX);
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
             assertTrue(
@@ -333,11 +333,11 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     public void testPreviewTransportActionWithDetector() throws IOException, InterruptedException {
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         CreateIndexResponse createResponse = TestHelpers
-            .createIndex(client().admin(), CommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
+            .createIndex(client().admin(), ADCommonName.CONFIG_INDEX, ADIndexManagement.getConfigMappings());
         Assert.assertNotNull(createResponse);
 
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
-        IndexRequest indexRequest = new IndexRequest(CommonName.CONFIG_INDEX)
+        IndexRequest indexRequest = new IndexRequest(ADCommonName.CONFIG_INDEX)
             .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE)
             .source(detector.toXContent(XContentFactory.jsonBuilder(), RestHandlerUtils.XCONTENT_WITH_TYPE));
         IndexResponse indexResponse = client().index(indexRequest).actionGet(5_000);

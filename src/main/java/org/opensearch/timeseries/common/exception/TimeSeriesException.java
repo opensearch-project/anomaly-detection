@@ -87,4 +87,42 @@ public class TimeSeriesException extends RuntimeException {
         sb.append(super.toString());
         return sb.toString();
     }
+
+    /**
+     * Clones the current exception with a prefixed message.
+     *
+     * Subclasses must provide a (String configId, String message, Throwable cause) constructor.
+     * If not, this method will fail at runtime.
+     */
+    public TimeSeriesException cloneWithMsgPrefix(String msgPrefix) {
+        String newMessage = msgPrefix + getMessage();
+        // Attempt to create a new instance of the same class using reflection.
+        try {
+            // Test suite TimeSeriesExceptionSubclassTest guarantee that subclasses have the following constructor:
+            // (String configId, String message, Throwable cause)
+            Class<? extends TimeSeriesException> cls = this.getClass();
+            java.lang.reflect.Constructor<? extends TimeSeriesException> ctor = cls
+                .getConstructor(String.class, String.class, Throwable.class);
+
+            TimeSeriesException newEx = ctor.newInstance(this.getConfigId(), newMessage, this.getCause());
+            copyExceptionDetails(this, newEx);
+            return newEx;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException(
+                "Subclass " + this.getClass().getName() + " must provide a (String configId, String message, Throwable cause) constructor.",
+                e
+            );
+        } catch (Exception e) {
+            // Handle other reflection exceptions
+            throw new RuntimeException("Failed to clone exception: " + e.getMessage(), e);
+        }
+    }
+
+    private static void copyExceptionDetails(TimeSeriesException source, TimeSeriesException target) {
+        target.countedInStats(source.isCountedInStats());
+        target.setStackTrace(source.getStackTrace());
+        for (Throwable suppressed : source.getSuppressed()) {
+            target.addSuppressed(suppressed);
+        }
+    }
 }

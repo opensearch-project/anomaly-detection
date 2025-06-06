@@ -212,10 +212,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         when(detector.getId()).thenReturn(adID);
         when(detector.getCategoryFields()).thenReturn(null);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         when(detector.getIntervalInMinutes()).thenReturn(1L);
 
         hashRing = mock(HashRing.class);
@@ -367,7 +367,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             mock(ADSaveResultStrategy.class),
             cacheProvider,
             threadPool,
-            mock(Clock.class)
+            mock(Clock.class),
+            mock(NodeStateManager.class)
         );
     }
 
@@ -628,7 +629,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             mock(ADSaveResultStrategy.class),
             cacheProvider,
             threadPool,
-            mock(Clock.class)
+            mock(Clock.class),
+            mock(NodeStateManager.class)
         );
 
         ADPriorityCache adPriorityCache = mock(ADPriorityCache.class);
@@ -959,10 +961,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         NodeStateManager muteStateManager = mock(NodeStateManager.class);
         when(muteStateManager.isMuted(any(String.class), any(String.class))).thenReturn(true);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(muteStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(muteStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
@@ -1458,10 +1460,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
     public void testAllFeaturesDisabled() throws IOException {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onFailure(new EndRunException(adID, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),

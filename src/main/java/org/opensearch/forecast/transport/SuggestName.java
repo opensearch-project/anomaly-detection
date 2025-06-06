@@ -15,7 +15,8 @@ import org.opensearch.timeseries.constant.CommonMessages;
 public enum SuggestName implements Name {
     INTERVAL(Forecaster.FORECAST_INTERVAL_FIELD),
     HORIZON(Forecaster.HORIZON_FIELD),
-    HISTORY(Forecaster.HISTORY_INTERVAL_FIELD);
+    HISTORY(Forecaster.HISTORY_INTERVAL_FIELD),
+    WINDOW_DELAY(Forecaster.WINDOW_DELAY_FIELD);
 
     private String name;
 
@@ -41,6 +42,8 @@ public enum SuggestName implements Name {
                 return HORIZON;
             case Forecaster.HISTORY_INTERVAL_FIELD:
                 return HISTORY;
+            case Forecaster.WINDOW_DELAY_FIELD:
+                return WINDOW_DELAY;
             default:
                 throw new IllegalArgumentException(CommonMessages.NOT_EXISTENT_SUGGEST_TYPE);
         }

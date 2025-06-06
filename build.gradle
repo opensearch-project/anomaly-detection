@@ -146,9 +146,9 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.12.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.2.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.2.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.2.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.3.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.3.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.3.0'
 
     // we inherit jackson-core from opensearch core
     implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
@@ -188,6 +188,7 @@ dependencies {
 
     opensearchPlugin "org.opensearch.plugin:opensearch-job-scheduler:${opensearch_build}@zip"
     opensearchPlugin "org.opensearch.plugin:opensearch-security:${opensearch_build}@zip"
+    testImplementation 'org.reflections:reflections:0.10.2'
 }
 
 apply plugin: 'java'
@@ -994,9 +995,6 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.ml.Sample',
-        'org.opensearch.timeseries.ratelimit.FeatureRequest',
-        'org.opensearch.ad.transport.ADHCImputeNodeRequest',
         'org.opensearch.timeseries.model.ModelProfileOnNode',
         'org.opensearch.timeseries.transport.ValidateConfigRequest',
         'org.opensearch.timeseries.transport.ResultProcessor.PageListener.1',

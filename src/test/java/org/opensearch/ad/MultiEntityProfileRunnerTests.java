@@ -156,8 +156,8 @@ public class MultiEntityProfileRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+            if (indexName.equals(ADCommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
             } else if (indexName.equals(ADCommonName.DETECTION_STATE_INDEX)) {
                 listener.onResponse(TestHelpers.createGetResponse(result.build(), detector.getId(), ADCommonName.DETECTION_STATE_INDEX));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {

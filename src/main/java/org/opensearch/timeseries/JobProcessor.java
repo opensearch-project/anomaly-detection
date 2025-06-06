@@ -11,6 +11,7 @@
 
 package org.opensearch.timeseries;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,6 +75,7 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
     private String threadPoolName;
     private ActionType<? extends ResultResponse<IndexableResultType>> resultAction;
     private IndexJobActionHandlerType indexJobActionHandler;
+    private Clock clock;
 
     protected JobProcessor(
         AnalysisType analysisType,
@@ -120,6 +122,10 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
         this.indexJobActionHandler = indexJobActionHandler;
     }
 
+    public void setClock(Clock clock) {
+        this.clock = clock;
+    }
+
     public void process(Job jobParameter, JobExecutionContext context) {
         String configId = jobParameter.getName();
 
@@ -135,7 +141,8 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
 
         Runnable runnable = () -> {
             try {
-                nodeStateManager.getConfig(configId, analysisType, ActionListener.wrap(configOptional -> {
+                // real time need to cache
+                nodeStateManager.getConfig(configId, analysisType, true, ActionListener.wrap(configOptional -> {
                     if (!configOptional.isPresent()) {
                         log.error(new ParameterizedMessage("fail to get config [{}]", configId));
                         return;
@@ -553,10 +560,10 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
         boolean releaseLock,
         String taskState,
         ExecuteResultResponseRecorderType recorder,
-        Config detector
+        Config config
     ) {
         try {
-            recorder.indexResultException(detectionStartTime, executionStartTime, errorMessage, taskState, detector);
+            recorder.indexResultException(detectionStartTime, executionStartTime, errorMessage, taskState, config, clock);
         } finally {
             if (releaseLock) {
                 releaseLock(jobParameter, lockService, lock);

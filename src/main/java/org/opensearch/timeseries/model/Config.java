@@ -176,21 +176,30 @@ public abstract class Config implements Writeable, ToXContentObject {
             return;
         }
 
-        if (invalidShingleSizeRange(shingleSize)) {
-            errorMessage = "Shingle size must be a positive integer no larger than "
-                + TimeSeriesSettings.MAX_SHINGLE_SIZE
-                + ". Got "
-                + shingleSize;
-            issueType = ValidationIssueType.SHINGLE_SIZE_FIELD;
+        // shingle size
+        if (failIfOutOfRange(
+            invalidShingleSizeRange(shingleSize),
+            getMinimumShingle(),
+            TimeSeriesSettings.MAX_SHINGLE_SIZE,
+            shingleSize,
+            ValidationIssueType.SHINGLE_SIZE_FIELD,
+            "Suggested shingle size"
+        )) {
             return;
         }
 
-        if (invalidSeasonality(seasonIntervals)) {
-            errorMessage = "Suggested seasonality must be a positive integer no larger than "
-                + TimeSeriesSettings.MAX_SHINGLE_SIZE * 2
-                + ". Got "
-                + seasonIntervals;
-            issueType = ValidationIssueType.SUGGESTED_SEASONALITY_FIELD;
+        // seasonality
+        int minSeasonality = getMinimumShingle() * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO;   // 2× shingle
+        int maxSeasonality = TimeSeriesSettings.MAX_SHINGLE_SIZE * TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO;
+
+        if (failIfOutOfRange(
+            invalidSeasonality(seasonIntervals),
+            minSeasonality,
+            maxSeasonality,
+            seasonIntervals,
+            ValidationIssueType.SUGGESTED_SEASONALITY_FIELD,
+            "Suggested seasonality"
+        )) {
             return;
         }
 
@@ -293,7 +302,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         // If recencyEmphasis is null, use the default value from TimeSeriesSettings
         this.recencyEmphasis = Optional.ofNullable(recencyEmphasis).orElse(TimeSeriesSettings.DEFAULT_RECENCY_EMPHASIS);
         this.seasonIntervals = seasonIntervals;
-        this.historyIntervals = historyIntervals == null ? suggestHistory() : historyIntervals;
+        this.historyIntervals = historyIntervals == null ? getDefaultHistory() : historyIntervals;
         this.customResultIndexMinSize = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinSize;
         this.customResultIndexMinAge = Strings.trimToNull(resultIndex) == null ? null : customResultIndexMinAge;
         this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
@@ -301,7 +310,60 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.lastUIBreakingChangeTime = lastBreakingUIChangeTime;
     }
 
-    public int suggestHistory() {
+    /**
+     * Populates {@link #errorMessage} and {@link #issueType} and signals the caller to
+     * abort further validation when a numeric field lies outside its permitted
+     * inclusive range <code>[min, max]</code>.
+     *
+     * <p>Typical usage:
+     * <pre>{@code
+     * if (failIfOutOfRange(
+     *         invalidShingleSizeRange(shingleSize),
+     *         getMinimumShingle(),
+     *         TimeSeriesSettings.MAX_SHINGLE_SIZE,
+     *         shingleSize,
+     *         ValidationIssueType.SHINGLE_SIZE_FIELD,
+     *         "Suggested shingle size")) {
+     *     return;   // stop validating; state already set
+     * }
+     * }</pre>
+     *
+     * @param invalid        result of a previously-computed boolean check—
+     *                       {@code true} means the value is invalid.
+     * @param min            lowest acceptable value (inclusive).
+     * @param max            highest acceptable value (inclusive).
+     * @param actual         the value supplied by the user; echoed back
+     *                       verbatim in the generated error message.
+     * @param type           the {@link ValidationIssueType} that identifies which
+     *                       configuration field failed validation.
+     * @param label          human-readable field name to use at the start of the
+     *                       error message (e.g.&nbsp;“Suggested shingle size”).
+     *
+     * @return {@code true}  if <strong>invalid</strong> was {@code true} and the
+     *                       method therefore set <code>errorMessage</code> and
+     *                       <code>issueType</code>; callers should immediately
+     *                       <code>return</code> in that case.<br>
+     *         {@code false} if the value is within range and validation can
+     *                       continue.
+     *
+     * @implNote This helper has the side effect of mutating the instance fields
+     *           {@code errorMessage} and {@code issueType}.  It performs no
+     *           validation itself; callers must supply the boolean
+     *           <em>invalid</em> flag, making the method suitable for any kind of
+     *           numerical range check that follows the same error-reporting
+     *           pattern.
+     */
+    private boolean failIfOutOfRange(boolean invalid, int min, int max, Integer actual, ValidationIssueType type, String label) {
+
+        if (!invalid || actual == null) {
+            return false;
+        }
+        errorMessage = String.format(Locale.ROOT, "%s must be between %d and %d. Got %d.", label, min, max, actual);
+        issueType = type;
+        return true;            // signal caller to stop further checks
+    }
+
+    public int getDefaultHistory() {
         return TimeSeriesSettings.NUM_MIN_SAMPLES + this.shingleSize;
     }
 
@@ -822,5 +884,23 @@ public abstract class Config implements Writeable, ToXContentObject {
             .append("customResultIndexTTL", customResultIndexTTL)
             .append("flattenResultIndexMapping", flattenResultIndexMapping)
             .toString();
+    }
+
+    protected static Integer onlyParseNumberValue(XContentParser parser) throws IOException {
+        if (parser.currentToken() == XContentParser.Token.VALUE_NUMBER) {
+            return parser.intValue();
+        }
+        return null;
+    }
+
+    protected static Boolean onlyParseBooleanValue(XContentParser parser) throws IOException {
+        if (parser.currentToken() == XContentParser.Token.VALUE_BOOLEAN) {
+            return parser.booleanValue();
+        }
+        return null;
+    }
+
+    protected int getMinimumShingle() {
+        return 1;
     }
 }

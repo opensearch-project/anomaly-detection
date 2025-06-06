@@ -40,6 +40,8 @@ import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
@@ -51,6 +53,7 @@ import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
@@ -477,7 +480,7 @@ public final class ParseUtils {
      */
     public static User getUserContext(Client client) {
         String userStr = client.threadPool().getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
-        logger.debug("Filtering result by " + userStr);
+        logger.info("Filtering result by " + userStr);
         return User.parse(userStr);
     }
 
@@ -552,8 +555,9 @@ public final class ParseUtils {
         boolean filterByBackendRole,
         Class<ConfigType> configTypeClass
     ) {
-        if (clusterService.state().metadata().indices().containsKey(CommonName.CONFIG_INDEX)) {
-            GetRequest request = new GetRequest(CommonName.CONFIG_INDEX).id(configId);
+        String configIndexName = configTypeClass == AnomalyDetector.class ? ADCommonName.CONFIG_INDEX : ForecastCommonName.CONFIG_INDEX;
+        if (clusterService.state().metadata().indices().containsKey(configIndexName)) {
+            GetRequest request = new GetRequest(configIndexName).id(configId);
             client
                 .get(
                     request,
@@ -576,7 +580,7 @@ public final class ParseUtils {
                         )
                 );
         } else {
-            listener.onFailure(new IndexNotFoundException(CommonName.CONFIG_INDEX));
+            listener.onFailure(new IndexNotFoundException(configIndexName));
         }
     }
 

@@ -711,20 +711,6 @@ public class AnomalyDetector extends Config {
         return rules;
     }
 
-    private static Integer onlyParseNumberValue(XContentParser parser) throws IOException {
-        if (parser.currentToken() == XContentParser.Token.VALUE_NUMBER) {
-            return parser.intValue();
-        }
-        return null;
-    }
-
-    private static Boolean onlyParseBooleanValue(XContentParser parser) throws IOException {
-        if (parser.currentToken() == XContentParser.Token.VALUE_BOOLEAN) {
-            return parser.booleanValue();
-        }
-        return null;
-    }
-
     /**
      * Validates each condition in the list of rules against the list of features.
      * Checks that:

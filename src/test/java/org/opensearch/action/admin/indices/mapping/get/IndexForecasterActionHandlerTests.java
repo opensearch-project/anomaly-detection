@@ -47,6 +47,8 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.index.get.GetResult;
@@ -58,7 +60,6 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.rest.handler.AggregationPrep;
 import org.opensearch.transport.TransportService;
 
@@ -263,7 +264,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                         listener
                             .onResponse(
                                 (Response) TestHelpers
-                                    .createGetResponse(AllocationId.newInitializing(), forecaster.getId(), CommonName.CONFIG_INDEX)
+                                    .createGetResponse(AllocationId.newInitializing(), forecaster.getId(), ForecastCommonName.CONFIG_INDEX)
                             );
                     } catch (IOException e) {
                         LOG.error(e);
@@ -590,7 +591,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                         LOG.info(element);
                     }
                     SearchRequest searchRequest = (SearchRequest) request;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         Histogram histogram = mock(Histogram.class);
                         when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                         Aggregations aggs = new Aggregations(Arrays.asList(histogram));
@@ -709,7 +710,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         BoolQueryBuilder boolQuery = (BoolQueryBuilder) searchRequest.source().query();
                         if (boolQuery.must() != null && boolQuery.must().size() > 0) {
                             // checkConfigNameExists
@@ -843,7 +844,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         BoolQueryBuilder boolQuery = (BoolQueryBuilder) searchRequest.source().query();
                         if (boolQuery.must() != null && boolQuery.must().size() > 0) {
                             // checkConfigNameExists
@@ -989,7 +990,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         sections = new SearchResponseSections(
                             new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
                             aggs,
@@ -1121,7 +1122,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         sections = new SearchResponseSections(
                             new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
                             aggs,
@@ -1269,7 +1270,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
                     when(histogram.getName()).thenReturn(AggregationPrep.AGGREGATION);
                     Aggregations aggs = new Aggregations(Arrays.asList(histogram));
                     SearchResponseSections sections = null;
-                    if (searchRequest.indices()[0].equals(CommonName.CONFIG_INDEX)) {
+                    if (searchRequest.indices()[0].equals(ForecastCommonName.CONFIG_INDEX)) {
                         sections = new SearchResponseSections(
                             new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0),
                             aggs,
@@ -1402,7 +1403,7 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             assertTrue("actual: " + e, e instanceof OpenSearchStatusException);
             assertEquals(
                 "actual: " + e.getMessage(),
-                "Created " + CommonName.CONFIG_INDEX + "with mappings call not acknowledged.",
+                "Created " + ForecastCommonName.CONFIG_INDEX + "with mappings call not acknowledged.",
                 e.getMessage()
             );
             inProgressLatch.countDown();

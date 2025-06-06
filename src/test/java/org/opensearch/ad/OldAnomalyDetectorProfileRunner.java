@@ -93,7 +93,8 @@ public class OldAnomalyDetectorProfileRunner extends
             ProfileName.AD_TASK,
             ADProfileAction.INSTANCE,
             AnomalyDetector::parse,
-            taskProfileRunner
+            taskProfileRunner,
+            ADCommonName.CONFIG_INDEX
         );
     }
 

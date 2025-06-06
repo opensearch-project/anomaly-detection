@@ -38,6 +38,8 @@ import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
+import org.opensearch.timeseries.model.TaskType;
+import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.ratelimit.CheckpointMaintainWorker;
 import org.opensearch.timeseries.ratelimit.CheckpointReadWorker;
 import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
@@ -46,13 +48,15 @@ import org.opensearch.timeseries.ratelimit.FeatureRequest;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.ratelimit.ResultWriteRequest;
 import org.opensearch.timeseries.ratelimit.SaveResultStrategy;
+import org.opensearch.timeseries.task.TaskCacheManager;
+import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.ActionListenerExecutor;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class AbstractSingleStreamResultTransportAction<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriterType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, CheckpointMaintainerType extends CheckpointMaintainWorker, CacheBufferType extends CacheBuffer<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, CheckpointMaintainerType>, PriorityCacheType extends PriorityCache<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, CheckpointMaintainerType, CacheBufferType>, CacheProviderType extends CacheProvider<RCFModelType, PriorityCacheType>, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends RealTimeInferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>, CheckpointReadWorkerType extends CheckpointReadWorker<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, ModelManagerType, CacheType, SaveResultStrategyType, ColdStartWorkerType, InferencerType>, ResultWriteRequestType extends ResultWriteRequest<ResultType>>
+public abstract class AbstractSingleStreamResultTransportAction<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriterType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, CheckpointMaintainerType extends CheckpointMaintainWorker, CacheBufferType extends CacheBuffer<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, CheckpointMaintainerType>, PriorityCacheType extends PriorityCache<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, CheckpointMaintainerType, CacheBufferType>, CacheProviderType extends CacheProvider<RCFModelType, PriorityCacheType>, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ResultType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType>, InferencerType extends RealTimeInferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, ColdStartWorkerType>, CheckpointReadWorkerType extends CheckpointReadWorker<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriterType, ColdStarterType, ModelManagerType, CacheType, SaveResultStrategyType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, ColdStartWorkerType, InferencerType>, ResultWriteRequestType extends ResultWriteRequest<ResultType>>
     extends HandledTransportAction<SingleStreamResultRequest, AcknowledgedResponse> {
     private static final Logger LOG = LogManager.getLogger(AbstractSingleStreamResultTransportAction.class);
     protected CircuitBreakerService circuitBreakerService;
@@ -114,7 +118,14 @@ public abstract class AbstractSingleStreamResultTransportAction<RCFModelType ext
                 listener = ExceptionUtil.wrapListener(listener, exception, configId);
             }
 
-            stateManager.getConfig(configId, analysisType, onGetConfig(listener, configId, request, previousException));
+            // task id equals to null means it is real time and we want to cache
+            stateManager
+                .getConfig(
+                    configId,
+                    analysisType,
+                    request.getTaskId() == null,
+                    onGetConfig(listener, configId, request, previousException)
+                );
         } catch (Exception exception) {
             LOG.error("fail to get result", exception);
             listener.onFailure(exception);

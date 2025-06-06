@@ -61,7 +61,6 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListenerResponseHandler;
-import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.update.UpdateResponse;
@@ -124,6 +123,7 @@ import org.opensearch.timeseries.model.EntityTaskProfile;
 import org.opensearch.timeseries.model.TaskState;
 import org.opensearch.timeseries.model.TaskType;
 import org.opensearch.timeseries.model.TimeSeriesTask;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.StatsNodeResponse;
@@ -1740,36 +1740,6 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
         throw new IllegalArgumentException("Fail to parse to Entity for single flow detector");
     }
 
-    /**
-     * Get AD task with task id and execute listener.
-     * @param taskId task id
-     * @param listener action listener
-     */
-    public void getADTask(String taskId, ActionListener<Optional<ADTask>> listener) {
-        GetRequest request = new GetRequest(DETECTION_STATE_INDEX, taskId);
-        client.get(request, ActionListener.wrap(r -> {
-            if (r != null && r.isExists()) {
-                try (XContentParser parser = createXContentParserFromRegistry(xContentRegistry, r.getSourceAsBytesRef())) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    ADTask adTask = ADTask.parse(parser, r.getId());
-                    listener.onResponse(Optional.ofNullable(adTask));
-                } catch (Exception e) {
-                    logger.error("Failed to parse AD task " + r.getId(), e);
-                    listener.onFailure(e);
-                }
-            } else {
-                listener.onResponse(Optional.empty());
-            }
-        }, e -> {
-            if (e instanceof IndexNotFoundException) {
-                listener.onResponse(Optional.empty());
-            } else {
-                logger.error("Failed to get AD task " + taskId, e);
-                listener.onFailure(e);
-            }
-        }));
-    }
-
     public int getLocalAdUsedBatchTaskSlot() {
         return taskCacheManager.getTotalBatchTaskCount();
     }
@@ -1952,5 +1922,19 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
             transportService,
             listener
         );
+    }
+
+    @Override
+    protected String triageState(Boolean hasResult, String error, Long rcfTotalUpdates) {
+        if (rcfTotalUpdates < TimeSeriesSettings.NUM_MIN_SAMPLES) {
+            return TaskState.INIT.name();
+        } else {
+            return TaskState.RUNNING.name();
+        }
+    }
+
+    @Override
+    protected boolean forbidOverrideChange(String configId, String newState, String oldState) {
+        return TaskState.INIT.name().equals(newState) && TaskState.RUNNING.name().equals(oldState);
     }
 }

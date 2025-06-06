@@ -23,13 +23,14 @@ import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.ml.CheckpointDao;
 import org.opensearch.timeseries.ml.ModelColdStart;
+import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public class BaseDeleteModelTransportAction<RCFModelType extends ThresholdedRandomCutForest, CacheType extends TimeSeriesCache<RCFModelType>, CacheProviderType extends CacheProvider<RCFModelType, CacheType>, TaskCacheManagerType extends TaskCacheManager, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ModelColdStartType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType>>
+public class BaseDeleteModelTransportAction<RCFModelType extends ThresholdedRandomCutForest, CacheType extends TimeSeriesCache<RCFModelType>, CacheProviderType extends CacheProvider<RCFModelType, CacheType>, TaskCacheManagerType extends TaskCacheManager, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, IndexableResultType extends IndexableResult, ModelColdStartType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, IndexableResultType>>
     extends TransportNodesAction<DeleteModelRequest, DeleteModelResponse, DeleteModelNodeRequest, DeleteModelNodeResponse> {
 
     private static final Logger LOG = LogManager.getLogger(BaseDeleteModelTransportAction.class);

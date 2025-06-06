@@ -214,10 +214,15 @@ public class PriorityTracker {
     * @return Get maximum priority entity's Id
     */
     public Optional<String> getHighestPriorityEntityId() {
+        // Start debugging
         if (priorityList.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(priorityList).map(list -> list.last()).map(node -> node.key);
+
+        // If not empty, grab the last node
+        String key = priorityList.last().key;
+
+        return Optional.of(key);
     }
 
     /**

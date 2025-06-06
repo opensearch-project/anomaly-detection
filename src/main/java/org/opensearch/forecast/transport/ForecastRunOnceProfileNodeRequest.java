@@ -7,12 +7,16 @@ package org.opensearch.forecast.transport;
 
 import java.io.IOException;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
-public class ForecastRunOnceProfileNodeRequest extends BaseNodeRequest {
-    private final ForecastRunOnceProfileRequest request;
+public class ForecastRunOnceProfileNodeRequest extends TransportRequest {
+    private ForecastRunOnceProfileRequest request;
+
+    public ForecastRunOnceProfileNodeRequest() {
+        super();
+    }
 
     public ForecastRunOnceProfileNodeRequest(StreamInput in) throws IOException {
         super(in);

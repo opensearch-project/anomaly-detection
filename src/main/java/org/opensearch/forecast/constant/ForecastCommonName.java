@@ -35,6 +35,7 @@ public class ForecastCommonName {
     // The alias of the index in which to write forecast result history. Not a hidden index.
     // Allow users to create dashboard or query freely on top of it.
     public static final String FORECAST_RESULT_INDEX_ALIAS = "opensearch-forecast-results";
+    public static final String CONFIG_INDEX = ".opensearch-forecasters";
 
     // ======================================
     // Used in toXContent

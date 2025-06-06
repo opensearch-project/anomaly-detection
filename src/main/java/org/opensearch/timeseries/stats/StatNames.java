@@ -21,9 +21,9 @@ import java.util.Set;
 public enum StatNames {
     // common stats
     // keep the name the same for bwc
-    CONFIG_INDEX_STATUS("anomaly_detectors_index_status", StatType.TIMESERIES),
     JOB_INDEX_STATUS("anomaly_detection_job_index_status", StatType.TIMESERIES),
     // AD stats
+    AD_CONFIG_INDEX_STATUS("anomaly_detectors_index_status", StatType.TIMESERIES),
     AD_EXECUTE_REQUEST_COUNT("ad_execute_request_count", StatType.AD),
     AD_EXECUTE_FAIL_COUNT("ad_execute_failure_count", StatType.AD),
     AD_HC_EXECUTE_REQUEST_COUNT("ad_hc_execute_request_count", StatType.AD),
@@ -43,6 +43,7 @@ public enum StatNames {
     MODEL_COUNT("model_count", StatType.AD),
     AD_MODEL_CORRUTPION_COUNT("ad_model_corruption_count", StatType.AD),
     // forecast stats
+    FORECAST_CONFIG_INDEX_STATUS("forecasters_index_status", StatType.TIMESERIES),
     FORECAST_EXECUTE_REQUEST_COUNT("forecast_execute_request_count", StatType.FORECAST),
     FORECAST_EXECUTE_FAIL_COUNT("forecast_execute_failure_count", StatType.FORECAST),
     FORECAST_HC_EXECUTE_REQUEST_COUNT("forecast_hc_execute_request_count", StatType.FORECAST),
