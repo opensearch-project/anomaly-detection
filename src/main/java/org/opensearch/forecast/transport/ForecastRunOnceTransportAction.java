@@ -420,7 +420,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                         if (r.isPresent()) {
                             String state = r.get().getState();
                             // If there is no state, update it; otherwise, it might have been set elsewhere (e.g., by ColdStartWorker)
-                            if (Strings.isEmpty(state)) {
+                            if (Strings.isEmpty(state) || TaskState.NOT_ENDED_STATES.contains(state)) {
                                 updateTask(forecastID, taskId, TaskState.INIT_TEST_FAILED, exceptionMsg);
                             }
                         } else {
