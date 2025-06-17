@@ -39,6 +39,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -119,7 +120,9 @@ public class LatestTimeRetriever {
             .getTimeRangeBounds(new IntervalTimeConfiguration(maxIntervalInMinutes, ChronoUnit.MINUTES), latestTimeMillis);
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(config.getTimeField())
             .from(timeRangeBounds.getMin())
-            .to(timeRangeBounds.getMax());
+            .to(timeRangeBounds.getMax())
+            // user index time field might not have epoch_millis format, so we need to format it
+            .format(CommonName.EPOCH_MILLIS_FORMAT);
         AggregationBuilder bucketAggs;
         Map<String, Object> topKeys = new HashMap<>();
         if (config.getCategoryFields().size() == 1) {
