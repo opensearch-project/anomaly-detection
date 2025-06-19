@@ -304,8 +304,10 @@ public class ADColdStart extends
 
         entityState.setLastUsedTime(clock.instant());
 
-        // save to checkpoint
-        checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
+        // save to checkpoint for real time only
+        if (null == taskId) {
+            checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
+        }
 
         return results;
     }

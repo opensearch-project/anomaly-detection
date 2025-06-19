@@ -9,5 +9,5 @@ Compatible with OpenSearch 3.1.0
 ### Bug Fixes
 - Fix incorrect task state handling in ForecastRunOnceTransportAction ([#1489](https://github.com/opensearch-project/anomaly-detection/pull/1489))
 - Fix incorrect task state handling in ForecastRunOnceTransportAction ([#1493](https://github.com/opensearch-project/anomaly-detection/pull/1493))
-
+- Refine cold-start, window delay, and task updates ([#1496](https://github.com/opensearch-project/anomaly-detection/pull/1496))
 
