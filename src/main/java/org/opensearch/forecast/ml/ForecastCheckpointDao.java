@@ -391,7 +391,8 @@ public class ForecastCheckpointDao extends CheckpointDao<RCFCaster, ForecastInde
     private RCFCaster loadRCFCaster(Map<String, Object> checkpoint, String modelId) {
         String model = (String) checkpoint.get(CommonName.FIELD_MODEL);
         if (model == null || model.length() > maxCheckpointBytes) {
-            logger.warn(new ParameterizedMessage("[{}]'s model too large: [{}] bytes", modelId, model.length()));
+            logger
+                .warn(new ParameterizedMessage("[{}]'s model empty or too large: [{}] bytes", modelId, model == null ? 0 : model.length()));
             return null;
         }
         return toRCFCaster(model);

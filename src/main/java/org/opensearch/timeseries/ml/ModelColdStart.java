@@ -233,6 +233,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         }
 
         if (lastThrottledColdStartTime.plus(Duration.ofMinutes(coolDownMinutes)).isAfter(clock.instant())) {
+            logger.info("Still in cool down.");
             listener.onResponse(null);
             return;
         }
@@ -290,8 +291,11 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                         logger.info("Not enough data to train model: {}, currently we have {}", modelId, dataSize);
 
                         trainingData.forEach(modelState::addSample);
-                        // save to checkpoint
-                        checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
+                        // save to checkpoint for real time only
+                        if (null == coldStartRequest.getTaskId()) {
+                            checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
+                        }
+
                         listener.onResponse(null);
                     }
                 } else {
@@ -376,7 +380,6 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                     // [current start, current end] for training. So we fetch training data ending at current start
                     long endTimeMs = coldStartRequest.getDataStartTimeMillis();
                     int numberOfSamples = selectNumberOfSamples(config);
-
                     // we start with round 0
                     getFeatures(
                         listener,

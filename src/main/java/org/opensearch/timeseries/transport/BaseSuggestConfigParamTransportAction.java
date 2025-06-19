@@ -42,7 +42,6 @@ import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.rest.handler.HistorySuggest;
 import org.opensearch.timeseries.rest.handler.IntervalCalculation;
 import org.opensearch.timeseries.rest.handler.LatestTimeRetriever;
-import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
@@ -249,8 +248,44 @@ public abstract class BaseSuggestConfigParamTransportAction extends
                 // we may get future date (e.g., in testing)
                 long currentMillis = clock.millis();
 
+                // ---------------------------------------------------------------------------
+                // Adaptive window-delay calculation
+                // ---------------------------------------------------------------------------
+                // Goal: pick a delay long enough that all data for the current query
+                // window has been ingested, so the config never sees “future gaps”.
+                //
+                // Algorithm
+                // 1. Compute the raw lag (`gapMs`) between now and the newest document.
+                // 2. Convert that lag into whole config-interval “buckets” (ceil).
+                // We use the integer-math identity
+                // ceil(a / b) = (a + b − 1) / b for positive a, b
+                // so we never under-estimate the number of missing buckets.
+                // 3. Add one extra “safety” bucket to cover clock skew / network jitter.
+                // 4. Transform the final bucket count back to milliseconds.
+                //
+                // ---------------------------------------------------------------------------
+
                 if (currentMillis > latestTime.get()) {
-                    windowDelayMillis = (long) Math.ceil((currentMillis - latestTime.get()) * TimeSeriesSettings.WINDOW_DELAY_RATIO);
+
+                    // Milliseconds we are behind real time
+                    long gapMs = currentMillis - latestTime.get();
+
+                    // Length of one bucket (config interval)
+                    long bucketMs = config.getIntervalInMilliseconds();
+
+                    /* Missing buckets (ceiling division)
+                        Example: gap = 15 000 ms, bucket = 10 000 ms
+                        bucketsBehind = (15 000 + 10 000 − 1) / 10 000
+                                      = 24 999 / 10 000
+                                      = 2  ← correct (15 000 ms spans 2 full buckets)
+                    */
+                    long bucketsBehind = (gapMs + bucketMs - 1) / bucketMs;
+
+                    // Always keep one extra bucket as a cushion
+                    long safetyBuckets = 1;
+
+                    // Convert back to milliseconds
+                    windowDelayMillis = (bucketsBehind + safetyBuckets) * bucketMs;
                 }
 
                 // in case windowDelayMillis is small, we want at least 1 minute

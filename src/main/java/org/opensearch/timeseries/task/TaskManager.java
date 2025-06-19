@@ -747,6 +747,8 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         updatedContent.put(TimeSeriesTask.LAST_UPDATE_TIME_FIELD, Instant.now().toEpochMilli());
         updateRequest.doc(updatedContent);
         updateRequest.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+        // OpenSearch will transparently re‑read the doc and retry up to 2 times.
+        updateRequest.retryOnConflict(2);
         client.update(updateRequest, listener);
     }
 
