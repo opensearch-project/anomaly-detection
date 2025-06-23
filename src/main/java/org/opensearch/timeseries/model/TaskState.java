@@ -90,7 +90,8 @@ public enum TaskState {
             TaskState.RUNNING.name(),
             INIT_TEST.name(),
             AWAITING_DATA_TO_INIT.name(),
-            AWAITING_DATA_TO_RESTART.name()
+            AWAITING_DATA_TO_RESTART.name(),
+            FORECAST_FAILURE.name()
         );
 
     public static boolean isAwaitState(String state) {
