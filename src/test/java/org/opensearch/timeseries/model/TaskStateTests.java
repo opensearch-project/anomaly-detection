@@ -31,13 +31,14 @@ public class TaskStateTests extends OpenSearchTestCase {
         List<String> list = TaskState.NOT_ENDED_STATES;
 
         // expected size and membership
-        assertEquals(6, list.size());
+        assertEquals(7, list.size());
         assertTrue(list.contains(TaskState.CREATED.name()));
         assertTrue(list.contains(TaskState.INIT.name()));
         assertTrue(list.contains(TaskState.RUNNING.name()));
         assertTrue(list.contains(TaskState.INIT_TEST.name()));
         assertTrue(list.contains(TaskState.AWAITING_DATA_TO_INIT.name()));
         assertTrue(list.contains(TaskState.AWAITING_DATA_TO_RESTART.name()));
+        assertTrue(list.contains(TaskState.FORECAST_FAILURE.name()));
 
         // an obviously ended state must be absent
         assertFalse(list.contains(TaskState.FINISHED.name()));
