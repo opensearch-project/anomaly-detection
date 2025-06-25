@@ -653,6 +653,14 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
         verify(actionListener, times(1)).onResponse(any());
     }
 
+    public void testTriageStateWithNullRcfTotalUpdates() {
+        Boolean hasResult = true;
+        String error = null;
+        Long rcfTotalUpdates = null;
+        String result = adTaskManager.triageState(hasResult, error, rcfTotalUpdates);
+        assertEquals(TaskState.INIT.name(), result);
+    }
+
     public void testGetLocalADTaskProfilesByDetectorId() {
         doReturn(node1).when(clusterService).localNode();
         when(adTaskCacheManager.isHCTaskRunning(anyString())).thenReturn(true);

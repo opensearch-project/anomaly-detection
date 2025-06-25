@@ -26,9 +26,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.ConcurrentModificationException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.opensearch.OpenSearchStatusException;
@@ -208,5 +211,74 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         // one flush from the original request; and one due to retry
         verify(resultHandler, times(1)).flush(any(), any());
         verify(nodeStateManager, times(1)).setException(eq(detectorId), any(OpenSearchRejectedExecutionException.class));
+    }
+
+    public void testConcurrentModificationException() throws InterruptedException {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            if (runConcurrencyTest()) {
+                fail("ConcurrentModificationException occurred on attempt " + (attempt + 1));
+            }
+            Thread.sleep(5);
+        }
+    }
+
+    private boolean runConcurrencyTest() throws InterruptedException {
+        final int numberOfThreads = 20;
+        final CountDownLatch startLatch = new CountDownLatch(1);
+        final CountDownLatch endLatch = new CountDownLatch(numberOfThreads);
+        final AtomicBoolean exceptionOccurred = new AtomicBoolean(false);
+
+        doAnswer(invocation -> {
+            ActionListener<ResultBulkResponse> listener = invocation.getArgument(1);
+            try {
+                Thread.sleep(5);
+                listener.onResponse(new ResultBulkResponse(Collections.emptyList()));
+            } catch (Exception e) {
+                listener.onFailure(e);
+            }
+            return null;
+        }).when(resultHandler).flush(any(), any());
+
+        doAnswer(invocation -> {
+            Exception e = invocation.getArgument(1);
+            if (e instanceof ConcurrentModificationException) {
+                exceptionOccurred.set(true);
+            }
+            return null;
+        }).when(nodeStateManager).setException(any(), any());
+
+        for (int i = 0; i < numberOfThreads; i++) {
+            Thread thread = new Thread(() -> {
+                try {
+                    startLatch.await();
+                    // Each thread adds requests
+                    for (int j = 0; j < 30; j++) {
+                        try {
+                            String detectorId = "detector-" + (j % 3);
+                            resultWriteQueue
+                                .put(
+                                    new ADResultWriteRequest(
+                                        System.currentTimeMillis() + j,
+                                        detectorId,
+                                        RequestPriority.MEDIUM,
+                                        detectResult,
+                                        null,
+                                        null
+                                    )
+                                );
+                        } catch (ConcurrentModificationException e) {
+                            exceptionOccurred.set(true);
+                            return;
+                        }
+                    }
+                } catch (Exception ignored) {} finally {
+                    endLatch.countDown();
+                }
+            });
+            thread.start();
+        }
+        startLatch.countDown();
+        assertTrue("Test should complete", endLatch.await(30, TimeUnit.SECONDS));
+        return exceptionOccurred.get();
     }
 }
