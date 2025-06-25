@@ -92,7 +92,10 @@ public abstract class SingleRequestWorker<RequestType extends QueuedRequest> ext
         if (false == queue.isEmpty()) {
             request = queue.poll();
             if (request != null) {
-                inflightConfigs.add(request.getConfigId());
+                String configId = request.getConfigId();
+                if (configId != null) {
+                    inflightConfigs.add(configId);
+                }
             }
         }
 
