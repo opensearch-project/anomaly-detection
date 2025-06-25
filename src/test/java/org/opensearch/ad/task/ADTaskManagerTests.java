@@ -654,7 +654,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
     }
 
     public void testTriageStateWithNullRcfTotalUpdates() {
-        Boolean hasResult = true;
+        Boolean hasResult = null;
         String error = null;
         Long rcfTotalUpdates = null;
         String result = adTaskManager.triageState(hasResult, error, rcfTotalUpdates);

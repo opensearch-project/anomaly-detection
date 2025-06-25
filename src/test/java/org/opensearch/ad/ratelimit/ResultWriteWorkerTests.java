@@ -222,8 +222,9 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         }
     }
 
-   private boolean runConcurrencyTest() throws InterruptedException {
-        final int numberOfThreads = 20; final CountDownLatch startLatch = new CountDownLatch(1);
+    private boolean runConcurrencyTest() throws InterruptedException {
+        final int numberOfThreads = 20;
+        final CountDownLatch startLatch = new CountDownLatch(1);
         final CountDownLatch endLatch = new CountDownLatch(numberOfThreads);
         final AtomicBoolean exceptionOccurred = new AtomicBoolean(false);
 
@@ -254,23 +255,23 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
                     for (int j = 0; j < 30; j++) {
                         try {
                             String detectorId = "detector-" + (j % 3);
-                            resultWriteQueue.put(
+                            resultWriteQueue
+                                .put(
                                     new ADResultWriteRequest(
-                                            System.currentTimeMillis() + j,
-                                            detectorId,
-                                            RequestPriority.MEDIUM,
-                                            detectResult,
-                                            null,
-                                            null
+                                        System.currentTimeMillis() + j,
+                                        detectorId,
+                                        RequestPriority.MEDIUM,
+                                        detectResult,
+                                        null,
+                                        null
                                     )
-                            );
+                                );
                         } catch (ConcurrentModificationException e) {
                             exceptionOccurred.set(true);
                             return;
                         }
                     }
-                } catch (Exception ignored) {
-                } finally {
+                } catch (Exception ignored) {} finally {
                     endLatch.countDown();
                 }
             });
@@ -278,6 +279,6 @@ public class ResultWriteWorkerTests extends AbstractRateLimitingTest {
         }
         startLatch.countDown();
         assertTrue("Test should complete", endLatch.await(30, TimeUnit.SECONDS));
-       return exceptionOccurred.get();
+        return exceptionOccurred.get();
     }
 }
