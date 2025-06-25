@@ -371,9 +371,10 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
                 boolean loaded = cacheProvider.get().hostIfPossible(config, restoredModelState);
 
                 if (false == loaded) {
-                    // not in memory. Maybe cold entities or some other entities
-                    // have filled the slot while waiting for loading checkpoints.
-                    checkpointWriteWorker.write(restoredModelState, true, RequestPriority.LOW);
+                    // not in memory. Maybe cold entities or long interval entities
+                    // Save checkpoints.
+                    checkpointWriteWorker
+                        .write(restoredModelState, true, config.isLongInterval() ? RequestPriority.MEDIUM : RequestPriority.LOW);
                 }
             }
 

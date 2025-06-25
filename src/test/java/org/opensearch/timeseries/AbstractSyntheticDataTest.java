@@ -7,17 +7,28 @@ package org.opensearch.timeseries;
 
 import static org.opensearch.timeseries.TestHelpers.toHttpEntity;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Random;
 import java.util.TreeSet;
 
@@ -33,14 +44,15 @@ import org.opensearch.client.RestClient;
 import org.opensearch.client.WarningsHandler;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.timeseries.AbstractSyntheticDataTest.MISSING_MODE;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 
 public class AbstractSyntheticDataTest extends ODFERestTestCase {
@@ -85,6 +97,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
     public static final String RULE_DATASET_NAME = "rule";
     public static final String UNIFORM_DATASET_NAME = "uniform";
     public static int batchSize = 1000;
+    public static String DAILY_INTERVAL_DATA = "daily_interval";
 
     /**
      * In real time AD, we mute a node for a detector if that node keeps returning
@@ -245,6 +258,63 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
             LOG.error("fail to read json array", e);
         }
         return jsonObjects;
+    }
+
+    /**
+     * Reads documents from an <b>NDJSON</b> file that contains alternating
+     * Bulk-API metadata lines and document lines, e.g.<pre>
+     * {"index":{"_id":"id-617"}}
+     * {"timestamp":"2020-11-04 00:00:00","value":1550,"host":"host_1"}
+     * {"index":{"_id":"id-618"}}
+     * {"timestamp":"2020-11-04 00:00:00","value":1860,"host":"host_2"}
+     * </pre>
+     * <p>The method skips every metadata line (those whose first JSON key is
+     * <code>"index"</code>, <code>"create"</code>, <code>"update"</code> or
+     * <code>"delete"</code>) and returns each remaining document as a
+     * {@link com.google.gson.JsonObject}.</p>
+     *
+     * @param datasetFileName resource-path of the NDJSON file
+     * @return list of parsed documents (order preserved)
+     * @throws URISyntaxException  if the file cannot be located on the class-path
+     * @throws IOException        if I/O fails while reading
+     * @throws JsonSyntaxException if any non-blank, non-metadata line is invalid JSON
+     *
+     * <p><b>Note</b>: The entire file is loaded into memory.  For very large
+     * datasets consider replacing the returned list with a streaming consumer.</p>
+     */
+    public static List<JsonObject> readNdJson(String datasetFileName) throws URISyntaxException, IOException, JsonSyntaxException {
+
+        URI uri = Objects
+            .requireNonNull(
+                AbstractSyntheticDataTest.class.getClassLoader().getResource(datasetFileName),
+                "Resource not found: " + datasetFileName
+            )
+            .toURI();
+
+        Path path = Paths.get(uri);
+        List<JsonObject> docs = new ArrayList<>();
+
+        int lineNo = 0;
+        try (BufferedReader br = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                lineNo++;
+                line = line.trim();
+                if (line.isEmpty()) {               // skip blank lines
+                    continue;
+                }
+                if (line.startsWith("{\"index\"")) {
+                    continue;
+                }
+
+                JsonElement parsed = JsonParser.parseString(line);
+                if (!parsed.isJsonObject()) {
+                    throw new JsonSyntaxException("Expected JSON object on data line " + lineNo + ": " + line);
+                }
+                docs.add(parsed.getAsJsonObject());
+            }
+        }
+        return docs;
     }
 
     /**
@@ -537,5 +607,86 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         } else {
             bulkIndexData(data, datasetName, client, mapping, ingestDataSize);
         }
+    }
+
+    /**
+     * Converts a timestamp string to an {@link Instant}.
+     *
+     * <p>Accepted formats & examples:</p>
+     * <ol>
+     *   <li><b>Epoch milliseconds</b> – {@code "1620950400000"} (13 digits)</li>
+     *   <li><b>Epoch seconds</b>      – {@code "1620950400"}    (10 digits)</li>
+     *   <li><b>ISO-8601 instant</b>   – {@code "2021-05-14T00:00:00Z"}</li>
+     *   <li><b>Simple date-time</b>   – {@code "2021-05-14 00:00:00"}</li>
+     * </ol>
+     *
+     * @throws DateTimeParseException if the text matches a pattern but cannot be
+     *                                parsed <em>or</em> if it matches none at all.
+     */
+    private static Instant parseTimestamp(String raw) {
+        String ts = raw.trim();
+
+        /* 1) epoch millis, e.g. "1620950400000" */
+        if (ts.matches("\\d{13}")) {
+            return Instant.ofEpochMilli(Long.parseLong(ts));
+        }
+
+        /* 2) epoch seconds, e.g. "1620950400" */
+        if (ts.matches("\\d{10}")) {
+            return Instant.ofEpochSecond(Long.parseLong(ts));
+        }
+
+        /* 3) ISO-8601 instant, e.g. "2021-05-14T00:00:00Z" */
+        if (ts.contains("T")) {           // simple guard so we only try once
+            return Instant.parse(ts);     // will throw if malformed
+        }
+
+        /* 4) "yyyy-MM-dd HH:mm:ss", e.g. "2021-05-14 00:00:00" */
+        DateTimeFormatter simpleDt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT).withZone(ZoneOffset.UTC);
+
+        return LocalDateTime
+            .parse(ts, simpleDt)   // throws if wrong format
+            .toInstant(ZoneOffset.UTC);
+    }
+
+    /**
+    *
+    * @param datasetName Data set name
+    * @param trainTestSplit the number of rows in training data
+    * @return train time
+    * @throws Exception when failing to ingest data
+    */
+    private static Instant loadNdJsonData(String datasetName, int trainTestSplit, String mapping) throws Exception {
+        RestClient client = client();
+
+        String dataFileName = String.format(Locale.ROOT, "org/opensearch/ad/e2e/data/%s.ndjson", datasetName);
+
+        List<JsonObject> data = readNdJson(dataFileName);
+
+        bulkIndexTrainData(datasetName, data, trainTestSplit, client, mapping);
+        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
+        return parseTimestamp(trainTimeStr);
+    }
+
+    protected static Instant loadDailyIntervalData() throws Exception {
+        int numShards = 1;
+        String replicas = "0-all";
+        String hostField = "host";
+
+        String mapping = String
+            .format(
+                Locale.ROOT,
+                "{ \"settings\": { \"number_of_shards\": %d, \"auto_expand_replicas\": \"%s\" },"
+                    + " \"mappings\": { \"properties\": { "
+                    + "\"timestamp\": { \"type\": \"date\", \"format\": \"yyyy-MM-dd HH:mm:ss\" }, "
+                    + "\"value\": { \"type\": \"float\" }, "
+                    + "\"%s\": { \"type\": \"keyword\" }"
+                    + " } } }",
+                numShards,
+                replicas,
+                hostField
+            );
+        // the file contains 1000 rows of data. Load all of them
+        return loadNdJsonData(DAILY_INTERVAL_DATA, 1000, mapping);
     }
 }
