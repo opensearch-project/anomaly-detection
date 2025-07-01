@@ -113,8 +113,11 @@ public abstract class BatchWorker<RequestType extends QueuedRequest, BatchReques
         if (false == toProcess.isEmpty()) {
             final List<String> inflights = new ArrayList<>();
             for (RequestType request : toProcess) {
-                inflightConfigs.add(request.getConfigId());
-                inflights.add(request.getConfigId());
+                String configId = request.getConfigId();
+                if (configId != null) {
+                    inflightConfigs.add(configId);
+                    inflights.add(configId);
+                }
             }
 
             BatchRequestType batchRequest = toBatchRequest(toProcess);
