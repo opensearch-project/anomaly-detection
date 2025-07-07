@@ -25,6 +25,7 @@ import org.opensearch.forecast.model.ForecastTaskType;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointMaintainWorker;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointReadWorker;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
+import org.opensearch.forecast.ratelimit.ForecastColdEntityWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteRequest;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
@@ -43,7 +44,7 @@ import org.opensearch.transport.TransportService;
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastSingleStreamResultTransportAction extends
-    AbstractSingleStreamResultTransportAction<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastCheckpointMaintainWorker, ForecastCacheBuffer, ForecastPriorityCache, ForecastCacheProvider, ForecastResult, RCFCasterResult, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastResultWriteRequest> {
+    AbstractSingleStreamResultTransportAction<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastCheckpointMaintainWorker, ForecastCacheBuffer, ForecastPriorityCache, ForecastCacheProvider, ForecastResult, RCFCasterResult, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastResultWriteRequest, ForecastColdEntityWorker> {
 
     private static final Logger LOG = LogManager.getLogger(ForecastSingleStreamResultTransportAction.class);
 
@@ -56,7 +57,8 @@ public class ForecastSingleStreamResultTransportAction extends
         NodeStateManager stateManager,
         ForecastCheckpointReadWorker checkpointReadQueue,
         ForecastRealTimeInferencer inferencer,
-        ThreadPool threadPool
+        ThreadPool threadPool,
+        ForecastColdEntityWorker coldEntityWorker
     ) {
         super(
             transportService,
@@ -69,7 +71,8 @@ public class ForecastSingleStreamResultTransportAction extends
             AnalysisType.FORECAST,
             inferencer,
             threadPool,
-            TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME
+            TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME,
+            coldEntityWorker
         );
     }
 
