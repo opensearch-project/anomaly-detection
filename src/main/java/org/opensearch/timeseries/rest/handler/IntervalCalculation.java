@@ -53,7 +53,7 @@ public class IntervalCalculation {
     private final Logger logger = LogManager.getLogger(IntervalCalculation.class);
     // keep ≤256 buckets when searching for minimum interval
     private static final int BUCKET_CAP = 256;
-    public static int MAX_SPLIT_DEPTH = 10;
+    private static final int MAX_SPLIT_DEPTH = 10;
 
     private final AggregationPrep aggregationPrep;
     private final Client client;
@@ -329,6 +329,8 @@ public class IntervalCalculation {
                 || maxAgg == null
                 || Double.isInfinite(minAgg.getValue())
                 || Double.isInfinite(maxAgg.getValue())
+                || Double.isNaN(minAgg.getValue())
+                || Double.isNaN(maxAgg.getValue())
                 || minAgg.getValue() == maxAgg.getValue()) {
                 listener.onResponse(null); // < 2 docs
                 return;

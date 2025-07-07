@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.lucene.search.TotalHits;
-import org.junit.After;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchResponse;
@@ -70,7 +69,6 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
     private LongBounds mockLongBounds;
     private Config mockConfig;
     private SearchFeatureDao searchFeatureDao;
-    private int defaultMaxSplitDepth;
 
     @Override
     @Before
@@ -86,7 +84,6 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
         mockLongBounds = mock(LongBounds.class);
         mockConfig = mock(Config.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
-        defaultMaxSplitDepth = IntervalCalculation.MAX_SPLIT_DEPTH;
 
         intervalCalculation = new IntervalCalculation(
             mockConfig,
@@ -100,12 +97,6 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
             System.currentTimeMillis(),
             mockTopEntity
         );
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        IntervalCalculation.MAX_SPLIT_DEPTH = defaultMaxSplitDepth;
-        super.tearDown();
     }
 
     public void testOnResponseExpirationEpochMsPassed() {
@@ -139,12 +130,11 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
 
     public void testRefineGapFallsBackToAutoDate() {
         intervalCalculation = spy(intervalCalculation);
-        IntervalCalculation.MAX_SPLIT_DEPTH = 5;
         // Stub the runAutoDate method to do nothing, so we can verify it was called.
         doNothing().when(intervalCalculation).runAutoDate(any(), any(), any(), any());
 
         // Call refineGap with depth > MAX_SPLIT_DEPTH
-        intervalCalculation.refineGap(10, -1, new BoolQueryBuilder(), mockIntervalListener, 1, ChronoUnit.MINUTES, "timestamp", 6, 0L, 1L);
+        intervalCalculation.refineGap(10, -1, new BoolQueryBuilder(), mockIntervalListener, 1, ChronoUnit.MINUTES, "timestamp", 11, 0L, 1L);
 
         // Verify that runAutoDate was called
         verify(intervalCalculation, times(1)).runAutoDate(any(), any(), any(), any());
