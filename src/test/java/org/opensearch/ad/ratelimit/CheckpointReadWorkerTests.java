@@ -850,4 +850,38 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();
         assertEquals(1L, ((Long) val).longValue());
     }
+
+    public void testLongIntervalMediumPriority() {
+        AnomalyDetector longIntervalDetector = mock(AnomalyDetector.class);
+        when(longIntervalDetector.isLongInterval()).thenReturn(true);
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(longIntervalDetector));
+            return null;
+        }).when(nodeStateManager).getConfig(eq(detectorId), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
+
+        when(entityCache.hostIfPossible(any(), any())).thenReturn(false);
+
+        regularTestSetUp(new RegularSetUpConfig.Builder().canHostModel(false).build());
+
+        verify(checkpointWriteQueue, times(1)).write(any(), anyBoolean(), eq(RequestPriority.MEDIUM));
+    }
+
+    public void testShortIntervalLowPriority() {
+        AnomalyDetector shortIntervalDetector = mock(AnomalyDetector.class);
+        when(shortIntervalDetector.isLongInterval()).thenReturn(false);
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(shortIntervalDetector));
+            return null;
+        }).when(nodeStateManager).getConfig(eq(detectorId), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
+
+        when(entityCache.hostIfPossible(any(), any())).thenReturn(false);
+
+        regularTestSetUp(new RegularSetUpConfig.Builder().canHostModel(false).build());
+
+        verify(checkpointWriteQueue, times(1)).write(any(), anyBoolean(), eq(RequestPriority.LOW));
+    }
 }

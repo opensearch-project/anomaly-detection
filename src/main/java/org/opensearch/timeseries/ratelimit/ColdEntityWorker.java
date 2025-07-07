@@ -15,7 +15,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -97,9 +96,15 @@ public class ColdEntityWorker<RCFModelType extends ThresholdedRandomCutForest, I
             .addSettingsUpdateConsumer(expectedColdEntityExecutionMillsSetting, it -> this.expectedExecutionTimeInMilliSecsPerRequest = it);
     }
 
+    /**
+     * Cold entity queue may include low-priority entities when memory is insufficient.
+     * Cold entity queue may also include medium-priority entities with longer processing intervals.
+     *
+     * @param requests Cold entity requests
+     * @return return the original one since we don't need to do any conversion.
+     */
     @Override
     protected List<FeatureRequest> transformRequests(List<FeatureRequest> requests) {
-        // guarantee we only send low priority requests
-        return requests.stream().filter(request -> request.getPriority() == RequestPriority.LOW).collect(Collectors.toList());
+        return requests;
     }
 }

@@ -6,6 +6,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased 3.x](https://github.com/opensearch-project/anomaly-detection/compare/3.0...HEAD)
 ### Features
 ### Enhancements
+- Support >1 hr intervals ([#1513](https://github.com/opensearch-project/anomaly-detection/pull/1513))
 
 
 ### Bug Fixes

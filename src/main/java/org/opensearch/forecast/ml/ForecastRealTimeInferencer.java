@@ -46,7 +46,7 @@ public class ForecastRealTimeInferencer extends
         super(
             modelManager,
             stats,
-            StatNames.FORECAST_MODEL_CORRUTPION_COUNT.getName(),
+            StatNames.FORECAST_MODEL_CORRUPTION_COUNT.getName(),
             checkpointDao,
             coldStartWorker,
             resultWriteWorker,
