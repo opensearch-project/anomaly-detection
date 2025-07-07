@@ -10,6 +10,9 @@ import static org.hamcrest.Matchers.containsString;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -51,6 +54,8 @@ import com.google.gson.JsonObject;
  *  - Validate
  *  - Suggest
  *  - update
+ *  - Get
+ *  - Stat
  */
 public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     public static final int MAX_RETRY_TIMES = 200;
@@ -186,6 +191,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
+        assertTrue("actual: " + responseMap, responseMap.get("interval") != null);
         Map<String, Object> suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
         assertEquals(1, (int) suggestions.get("interval"));
         assertEquals("Minutes", suggestions.get("unit"));
@@ -545,9 +551,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     }
 
     /**
-     * Test data interval is larger than 1 hr and we fail to suggest
+     * Test data interval is larger than 1 hr
      */
-    public void testFailToSuggest() throws Exception {
+    public void testLargerThan1hr() throws Exception {
         int trainTestSplit = 100;
         String categoricalField = CITY_NAME;
         GenData dataGenerated = genUniformSingleFeatureData(
@@ -563,7 +569,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
 
         ingestUniformSingleFeatureData(trainTestSplit, dataGenerated.data, UNIFORM_DATASET_NAME, categoricalField);
 
-        // case 1: IntervalCalculation.findMinimumInterval cannot find any data point in the last 40 points and return 1 minute instead.
+        // case 1: history is of 40 points
         // We keep searching and find nothing below 1 hr and then return.
         String forecasterDef = "{\n"
             + "    \"name\": \"Second-Test-Forecaster-4\",\n"
@@ -615,9 +621,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
-        assertEquals("actual response: " + responseMap, 0, responseMap.size());
+        assertEquals("actual response: " + responseMap, 1, responseMap.size());
+        Map<String, Object> suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(70, (int) suggestions.get("interval"));
+        assertEquals("Minutes", suggestions.get("unit"));
 
-        // case 2: IntervalCalculation.findMinimumInterval find an interval larger than 1 hr by going through the last 240 points.
+        // case 2: history is of 240 points.
         // findMinimumInterval returns null and we stop searching further.
         forecasterDef = "{\n"
             + "    \"name\": \"Second-Test-Forecaster-4\",\n"
@@ -670,7 +679,10 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         responseMap = entityAsMap(response);
-        assertEquals(0, responseMap.size());
+        assertEquals(1, responseMap.size());
+        suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(70, (int) suggestions.get("interval"));
+        assertEquals("Minutes", suggestions.get("unit"));
     }
 
     public void testValidate() throws Exception {
@@ -3553,5 +3565,327 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals("actual: " + maxValueHits, 1, maxValueHits.size());
         double maxValue = (double) (maxValueHits.get(0).getSourceAsMap().get(FORECAST_VALUE));
         assertEquals(String.format(Locale.ROOT, "actual: %f, expect: %f", maxValue, largestValue), maxValue, largestValue, 0.001);
+    }
+
+    /**
+     * Test data interval is daily
+     */
+    public void testDailyInterval() throws Exception {
+        loadDailyIntervalData();
+
+        // case 1: suggest
+        String forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"sum1\",\n"
+            + "            \"feature_name\": \"sum1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"sum1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"value\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24\n"
+            + "}";
+
+        String formattedForecaster = String.format(Locale.ROOT, forecasterDef, DAILY_INTERVAL_DATA);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        assertEquals("Suggest failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        assertEquals("actual response: " + responseMap, 4, responseMap.size());
+        Map<String, Object> interval = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(1440, (int) interval.get("interval"));
+        assertEquals("Minutes", interval.get("unit"));
+
+        Map<String, Object> windowDelay = (Map<String, Object>) ((Map<String, Object>) responseMap.get("windowDelay")).get("period");
+        assertEquals("Minutes", windowDelay.get("unit"));
+        int delayMins = (int) windowDelay.get("interval");
+        // Parse the fixed instant in UTC
+        LocalDateTime baseline = LocalDateTime
+            .parse("2021-05-14 00:00:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT));
+
+        Instant baselineUtc = baseline.toInstant(ZoneOffset.UTC);
+        long difference = baselineUtc.until(Instant.now(), ChronoUnit.MINUTES);
+        assertTrue("Delay mismatch: expected ≈%d min, got %d min", Math.abs(delayMins - difference) <= 1440);
+
+        // case 2: validate
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"sum1\",\n"
+            + "            \"feature_name\": \"sum1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"sum1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"value\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 1440,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"category_field\": [\"%s\"]\n"
+            + "}";
+
+        formattedForecaster = String.format(Locale.ROOT, forecasterDef, DAILY_INTERVAL_DATA, delayMins, "host");
+
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, VALIDATE_FORECASTER_MODEL),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        assertEquals("Validate forecaster model failed", RestStatus.OK, TestHelpers.restStatus(response));
+        responseMap = entityAsMap(response);
+        assertEquals("actual validate model response:" + responseMap + ". window delay: " + delayMins, 0, responseMap.size());
+
+        // case 3: test forecaster and status updated
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        String forecasterId = (String) responseMap.get("_id");
+
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+
+        // ─── Initial wait ────────────────────────────────────────────────
+        Thread.sleep(Duration.ofSeconds(20).toMillis());
+
+        final int maxRetries = 6;                    // how many extra tries
+        final Duration extraWait = Duration.ofSeconds(10); // +10 s per retry
+
+        String parsedState = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+
+            // make the request
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+
+            responseMap = entityAsMap(response);
+            parsedState = (String) ((Map<String, Object>) responseMap.get("run_once_task")).get("state");
+
+            // success → stop retrying
+            if ("TEST_COMPLETE".equals(parsedState)) {
+                break;
+            }
+
+            LOG.info("Current state" + parsedState);
+
+            // last attempt and still not RUNNING → fail the test
+            if (attempt == maxRetries) {
+                assertEquals(
+                    String.format(Locale.ROOT, "Expected: %s, got %s after %d retries", "RUNNING", parsedState, maxRetries),
+                    "RUNNING",
+                    parsedState
+                );
+            }
+
+            // wait 10 s more than the previous retry: 10 s, 20 s, 30 s …
+            Thread.sleep(extraWait.plusSeconds(10L * attempt).toMillis());
+        }
+
+        // case 4: start forecaster and status updated
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, START_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(forecasterId, responseMap.get("_id"));
+
+        // ─── Initial wait ────────────────────────────────────────────────
+        Thread.sleep(Duration.ofMinutes(1).toMillis());
+
+        parsedState = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+
+            // make the request
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+
+            responseMap = entityAsMap(response);
+            parsedState = (String) ((Map<String, Object>) responseMap.get("realtime_task")).get("state");
+
+            // success → stop retrying
+            if ("RUNNING".equals(parsedState)) {
+                break;
+            }
+
+            LOG.info("Current state" + parsedState);
+
+            // last attempt and still not RUNNING → fail the test
+            if (attempt == maxRetries) {
+                assertEquals(
+                    String.format(Locale.ROOT, "Expected: %s, got %s after %d retries", "RUNNING", parsedState, maxRetries),
+                    "RUNNING",
+                    parsedState
+                );
+            }
+
+            // wait 10 s more than the previous retry: 10 s, 20 s, 30 s …
+            Thread.sleep(extraWait.plusSeconds(10L * attempt).toMillis());
+        }
+
+        // case 5: stats API
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                String.format(Locale.ROOT, STATS_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        Map<String, Object> nodes = (Map<String, Object>) responseMap.get("nodes");
+
+        String firstKey = null;
+        if (nodes != null && !nodes.isEmpty()) {
+            // Works for any Map implementation
+            firstKey = nodes.keySet().iterator().next();
+        }
+        assertTrue(null != firstKey);
+
+        // node stats
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                String.format(Locale.ROOT, NODE_STATS_FORECASTER, firstKey),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String stateStatus = (String) responseMap.get("forecast_state_index_status");
+        assertTrue(
+            "Expected state status to be green or yellow, but was: " + stateStatus,
+            "yellow".equals(stateStatus) || "green".equals(stateStatus)
+        );
+
+        String configStatus = (String) responseMap.get("forecast_config_index_status");
+        assertTrue(
+            "Expected config status to be green or yellow, but was: " + configStatus,
+            "yellow".equals(configStatus) || "green".equals(configStatus)
+        );
+
+        // forecast_model_corruption_count must be 0 on every node
+        assertTrue(
+            "Expected corruption count == 0 on every node, actual response: " + responseMap,
+            nodes
+                .values()
+                .stream()                               // each node’s stats map
+                .map(v -> (Map<String, Object>) v)
+                .allMatch(n -> ((Number) n.get("forecast_model_corruption_count")).intValue() == 0)
+        );
+
+        // forecast_execute_request_count must be > 0 on at least one node
+        assertTrue(
+            "Expected at least one node with execute-request count > 0, actual response: " + responseMap,
+            anyNodeMatches(nodes, n -> ((Number) n.get("forecast_execute_request_count")).intValue() > 0)
+        );
+
+        // Same pattern for NODE_ONE_STAT_FORECASTER response (nodes from second request)
+        assertTrue(
+            "Expected at least one node with execute-request count > 0, actual response: " + responseMap,
+            anyNodeMatches(nodes, n -> ((Number) n.get("forecast_execute_request_count")).intValue() > 0)
+        );
+    }
+
+    private static boolean anyNodeMatches(Map<String, Object> nodes, java.util.function.Predicate<Map<String, Object>> pred) {
+        if (nodes == null || nodes.isEmpty()) {
+            fail("No node stats present");             // import static org.junit.Assert.fail;
+        }
+        // Each value is itself a Map<String,Object> with the metrics you need
+        return nodes.values().stream().map(v -> (Map<String, Object>) v).anyMatch(pred);
     }
 }

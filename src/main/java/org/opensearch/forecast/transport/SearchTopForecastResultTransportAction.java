@@ -391,7 +391,7 @@ public class SearchTopForecastResultTransportAction extends
             // This same method is used for security handling for the search results action.
             // Since this action
             // is doing fundamentally the same thing, we can reuse the security logic here.
-            logger.info("top forecast request:" + searchRequest);
+            logger.debug("top forecast request:" + searchRequest);
             searchHandler.search(searchRequest, onSearchResponse(request, categoryFields, forecaster, listener));
         }, exception -> {
             logger.error("Failed to get top forecast results", exception);
@@ -407,7 +407,7 @@ public class SearchTopForecastResultTransportAction extends
         ActionListener<SearchTopForecastResultResponse> listener
     ) {
         return ActionListener.wrap(response -> {
-            logger.info("top forecast response:" + response);
+            logger.debug("top forecast response:" + response);
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 // empty result (e.g., cannot find forecasts within [forecast from, forecast from + horizon * interval] range).

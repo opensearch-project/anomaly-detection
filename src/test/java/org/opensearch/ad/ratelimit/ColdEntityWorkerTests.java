@@ -41,7 +41,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     ClusterService clusterService;
     ADColdEntityWorker coldWorker;
     ADCheckpointReadWorker readWorker;
-    FeatureRequest request, request2, invalidRequest;
+    FeatureRequest request, request2, mediumRequest;
     List<FeatureRequest> requests;
 
     @Override
@@ -89,12 +89,12 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
 
         request = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.LOW, new double[] { 0 }, 0, entity, null);
         request2 = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.LOW, new double[] { 0 }, 0, entity2, null);
-        invalidRequest = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, new double[] { 0 }, 0, entity2, null);
+        mediumRequest = new FeatureRequest(Integer.MAX_VALUE, detectorId, RequestPriority.MEDIUM, new double[] { 0 }, 0, entity2, null);
 
         requests = new ArrayList<>();
         requests.add(request);
         requests.add(request2);
-        requests.add(invalidRequest);
+        requests.add(mediumRequest);
 
         doAnswer(invocation -> {
             Runnable runnable = invocation.getArgument(0);
@@ -113,8 +113,8 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     public void testPutRequests() {
         coldWorker.putAll(requests);
 
-        verify(readWorker, times(2)).putAll(any());
-        verify(threadPool, times(2)).schedule(any(), any(), any());
+        verify(readWorker, times(3)).putAll(any());
+        verify(threadPool, times(3)).schedule(any(), any(), any());
     }
 
     /**
@@ -123,7 +123,7 @@ public class ColdEntityWorkerTests extends AbstractRateLimitingTest {
     public void testCheckpointReadPutException() {
         doThrow(RuntimeException.class).when(readWorker).putAll(any());
         coldWorker.putAll(requests);
-        verify(readWorker, times(2)).putAll(any());
+        verify(readWorker, times(3)).putAll(any());
         verify(threadPool, never()).schedule(any(), any(), any());
     }
 

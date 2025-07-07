@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,6 +72,7 @@ import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -833,5 +835,14 @@ public class PriorityCacheTests extends AbstractCacheTest {
         ADCacheBuffer buffer = cache.computeBufferIfAbsent(anomalyDetector, anomalyDetector.getId());
         assertEquals(698336, buffer.getMemoryConsumptionPerModel());
         assertEquals(698336 * dedicatedCacheSize, tracker.getTotalMemoryBytes());
+    }
+
+    public void testHostIfPossibleLongInterval() throws IOException {
+        AnomalyDetector anomalyDetector = TestHelpers.AnomalyDetectorBuilder
+            .newInstance(1)
+            .setDetectionInterval(new IntervalTimeConfiguration(61, ChronoUnit.MINUTES))
+            .build();
+
+        assertFalse(entityCache.hostIfPossible(anomalyDetector, modelState1));
     }
 }

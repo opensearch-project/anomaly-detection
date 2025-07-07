@@ -1229,14 +1229,14 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             .put(StatNames.FORECASTER_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
             .put(StatNames.SINGLE_STREAM_FORECASTER_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
             .put(StatNames.HC_FORECASTER_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
-            .put(StatNames.FORECAST_MODEL_CORRUTPION_COUNT.getName(), new TimeSeriesStat<>(false, new CounterSupplier()))
+            .put(StatNames.FORECAST_MODEL_CORRUPTION_COUNT.getName(), new TimeSeriesStat<>(false, new CounterSupplier()))
             .put(
                 StatNames.MODEL_INFORMATION.getName(),
                 new TimeSeriesStat<>(false, new ForecastModelsOnNodeSupplier(forecastCacheProvider, settings, clusterService))
             )
             .put(
-                StatNames.AD_CONFIG_INDEX_STATUS.getName(),
-                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, ADCommonName.CONFIG_INDEX))
+                StatNames.FORECAST_CONFIG_INDEX_STATUS.getName(),
+                new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, ForecastCommonName.CONFIG_INDEX))
             )
             .put(
                 StatNames.JOB_INDEX_STATUS.getName(),

@@ -7,14 +7,20 @@ package org.opensearch.timeseries.indices.rest.handler;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -28,11 +34,13 @@ import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
+import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
@@ -118,6 +126,50 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
         assertEquals(CommonMessages.TIMEOUT_ON_INTERVAL_REC, validationException.getMessage());
         assertEquals(ValidationIssueType.TIMEOUT, validationException.getType());
         assertEquals(ValidationAspect.MODEL, validationException.getAspect());
+    }
+
+    public void testRefineGapFallsBackToAutoDate() {
+        intervalCalculation = spy(intervalCalculation);
+        // Stub the runAutoDate method to do nothing, so we can verify it was called.
+        doNothing().when(intervalCalculation).runAutoDate(any(), any(), any(), any());
+
+        // Call refineGap with depth > MAX_SPLIT_DEPTH
+        intervalCalculation.refineGap(10, -1, new BoolQueryBuilder(), mockIntervalListener, 1, ChronoUnit.MINUTES, "timestamp", 11, 0L, 1L);
+
+        // Verify that runAutoDate was called
+        verify(intervalCalculation, times(1)).runAutoDate(any(), any(), any(), any());
+    }
+
+    public void testRunAutoDateReturnsCorrectInterval() throws IOException {
+        // Mock the search response for runAutoDate
+        SearchResponse mockSearchResponse = mock(SearchResponse.class);
+        NumericMetricsAggregation.SingleValue mockShortest = mock(NumericMetricsAggregation.SingleValue.class);
+        when(mockShortest.getName()).thenReturn("shortest");
+        // gap of 2.5 minutes (150,000 ms)
+        when(mockShortest.value()).thenReturn(150000.0);
+
+        // Create a real Aggregations object containing our mock
+        Aggregations aggregations = new Aggregations(Arrays.asList(mockShortest));
+        when(mockSearchResponse.getAggregations()).thenReturn(aggregations);
+
+        // Mock the client to return this response
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            listener.onResponse(mockSearchResponse);
+            return null;
+        }).when(mockClient).search(any(), any());
+
+        // Call runAutoDate
+        intervalCalculation.runAutoDate(new BoolQueryBuilder(), mockIntervalListener, ChronoUnit.MINUTES, "timestamp");
+
+        // Capture the result and assert
+        ArgumentCaptor<IntervalTimeConfiguration> captor = ArgumentCaptor.forClass(IntervalTimeConfiguration.class);
+        verify(mockIntervalListener).onResponse(captor.capture());
+
+        IntervalTimeConfiguration result = captor.getValue();
+        // 150000 ms is 2.5 minutes. toCeilMinutes should make it 3.
+        assertEquals(3, result.getInterval());
+        assertEquals(ChronoUnit.MINUTES, result.getUnit());
     }
 
     /**

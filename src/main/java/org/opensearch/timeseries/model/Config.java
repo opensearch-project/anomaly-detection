@@ -903,4 +903,8 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected int getMinimumShingle() {
         return 1;
     }
+
+    public boolean isLongInterval() {
+        return getIntervalDuration().compareTo(TimeSeriesSettings.HOURLY_MAINTENANCE) >= 0;
+    }
 }

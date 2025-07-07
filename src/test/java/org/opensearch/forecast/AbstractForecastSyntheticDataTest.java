@@ -48,6 +48,7 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
     public static final int MAX_RETRY_TIMES = 200;
     protected static final String SUGGEST_INTERVAL_URI;
     protected static final String SUGGEST_INTERVAL_HORIZON_HISTORY_URI;
+    protected static final String SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI;
     protected static final String VALIDATE_FORECASTER;
     protected static final String VALIDATE_FORECASTER_MODEL;
     protected static final String CREATE_FORECASTER;
@@ -61,6 +62,9 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
     protected static final String PROFILE_ALL_FORECASTER;
     protected static final String PROFILE_FORECASTER;
     protected static final String STATS_FORECASTER;
+    protected static final String NODE_STATS_FORECASTER;
+    protected static final String ONE_STAT_FORECASTER;
+    protected static final String NODE_ONE_STAT_FORECASTER;
     protected static final String SEARCH_TASK_FORECASTER;
     protected static final String SEARCH_FORECASTER;
     protected static final String DELETE_FORECASTER;
@@ -87,6 +91,17 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
                 Forecaster.HORIZON_FIELD,
                 Config.HISTORY_INTERVAL_FIELD
             );
+        SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI = String
+            .format(
+                Locale.ROOT,
+                "%s/%s/%s,%s,%s,%s",
+                TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI,
+                SUGGEST,
+                Forecaster.FORECAST_INTERVAL_FIELD,
+                Forecaster.HORIZON_FIELD,
+                Config.HISTORY_INTERVAL_FIELD,
+                Config.WINDOW_DELAY_FIELD
+            );
         VALIDATE_FORECASTER = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, VALIDATE);
         VALIDATE_FORECASTER_MODEL = String
             .format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, VALIDATE, "model");
@@ -103,6 +118,9 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
             .format(Locale.ROOT, "%s/%s/%s?_all=true&pretty", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", PROFILE);
         PROFILE_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s", PROFILE);
         STATS_FORECASTER = String.format(Locale.ROOT, "%s/%s", FORECAST_BASE_URI, STATS);
+        NODE_STATS_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", FORECAST_BASE_URI, "%s", STATS);
+        ONE_STAT_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s", FORECAST_BASE_URI, STATS, "%s");
+        NODE_ONE_STAT_FORECASTER = String.format(Locale.ROOT, "%s/%s/%s/%s", FORECAST_BASE_URI, "%s", STATS, "%s");
         SEARCH_TASK_FORECASTER = String.format(Locale.ROOT, "%s/tasks/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, SEARCH);
         SEARCH_FORECASTER = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, SEARCH);
         DELETE_FORECASTER = String.format(Locale.ROOT, "%s/%s", TimeSeriesAnalyticsPlugin.FORECAST_FORECASTERS_URI, "%s");

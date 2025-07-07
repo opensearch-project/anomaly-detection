@@ -165,6 +165,8 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                     );
             }
 
+            // cold entities has LOW priority, but long interval entities have normal priorities
+            RequestPriority coldEntityPriority = config.isLongInterval() ? RequestPriority.MEDIUM : RequestPriority.LOW;
             for (Entity coldEntity : hotColdEntities.getRight()) {
                 double[] coldEntityValue = cacheMissEntities.get(coldEntity);
                 if (coldEntityValue == null) {
@@ -176,8 +178,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                         new FeatureRequest(
                             System.currentTimeMillis() + config.getIntervalInMilliseconds(),
                             configId,
-                            // cold entities has LOW priority
-                            RequestPriority.LOW,
+                            coldEntityPriority,
                             coldEntityValue,
                             request.getStart(),
                             coldEntity,
