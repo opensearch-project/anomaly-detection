@@ -260,7 +260,8 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
     @Override
     public boolean hostIfPossible(Config config, ModelState<RCFModelType> toUpdate) {
         // Although toUpdate may not have samples or model, we'll continue.
-        if (toUpdate == null) {
+        // larger than 1hr interval, don't cache
+        if (toUpdate == null || config.isLongInterval()) {
             return false;
         }
         String modelId = toUpdate.getModelId();
@@ -349,6 +350,11 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
     public Pair<List<Entity>, List<Entity>> selectUpdateCandidate(Collection<Entity> cacheMissEntities, String configId, Config config) {
         List<Entity> hotEntities = new ArrayList<>();
         List<Entity> coldEntities = new ArrayList<>();
+
+        if (config.isLongInterval()) {
+            // put long interval entities in cold queue as we don't want to cache it
+            return Pair.of(hotEntities, new ArrayList<>(cacheMissEntities));
+        }
 
         CacheBufferType buffer = activeEnities.get(configId);
         if (buffer == null) {

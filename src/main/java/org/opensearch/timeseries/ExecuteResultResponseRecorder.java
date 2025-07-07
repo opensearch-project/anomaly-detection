@@ -161,17 +161,30 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
         profiles.add(ProfileName.INIT_PROGRESS);
         ProfileRequest profileRequest = new ProfileRequest(configId, profiles, dataNodes);
         Runnable profileInitProgress = () -> {
-            client.execute(profileAction, profileRequest, ActionListener.wrap(r -> {
-                log.info("Update latest realtime task for config {}, total updates: {}", configId, r.getTotalUpdates());
-                updateLatestRealtimeTask(
-                    configId,
-                    null,
-                    r.getTotalUpdates(),
-                    response.getConfigIntervalInMinutes(),
-                    response.getError(),
-                    clock
-                );
-            }, e -> { log.error("Failed to update latest realtime task for " + configId, e); }));
+            nodeStateManager.getConfig(configId, analysisType, false, ActionListener.wrap(configOptional -> {
+                if (!configOptional.isPresent()) {
+                    log.warn("fail to get config");
+                    return;
+                }
+
+                Config config = configOptional.get();
+                if (config.isLongInterval()) {
+                    log.info("Update latest realtime task for long-interval config {}", configId);
+                    updateLatestRealtimeTask(configId, null, 0L, response.getConfigIntervalInMinutes(), response.getError(), clock);
+                } else {
+                    client.execute(profileAction, profileRequest, ActionListener.wrap(r -> {
+                        log.info("Update latest realtime task for config {}, total updates: {}", configId, r.getTotalUpdates());
+                        updateLatestRealtimeTask(
+                            configId,
+                            null,
+                            r.getTotalUpdates(),
+                            response.getConfigIntervalInMinutes(),
+                            response.getError(),
+                            clock
+                        );
+                    }, e -> { log.error("Failed to update latest realtime task for " + configId, e); }));
+                }
+            }, e -> log.warn("fail to get config", e)));
         };
         if (!taskManager.isRealtimeTaskStartInitializing(configId)) {
             // real time init progress is 0 may mean this is a newly started detector
@@ -207,7 +220,6 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
 
         hasRecentResult(
             configId,
-            taskState,
             configIntervalInMinutes,
             error,
             clock,
@@ -282,7 +294,6 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
      * for search.
      *
      * @param configId Config id
-     * @param taskState task state
      * @param overrideIntervalMinutes config interval in minutes
      * @param error Error
      * @param clock Clock to get current time
@@ -290,7 +301,6 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
      */
     private void hasRecentResult(
         String configId,
-        String taskState,
         Long overrideIntervalMinutes,
         String error,
         Clock clock,

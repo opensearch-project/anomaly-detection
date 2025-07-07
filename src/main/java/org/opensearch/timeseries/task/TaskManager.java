@@ -246,7 +246,7 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         Boolean hasResult,
         ActionListener<UpdateResponse> listener
     ) {
-        Float initProgress = null;
+
         String newState = null;
         // Check if new state is not null and ignore state calculated from rcf total updates
         if (state != null) {
@@ -256,12 +256,13 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         }
         error = Optional.ofNullable(error).orElse("");
         // calculate init progress and task state with RCF total updates
-        if (intervalInMinutes != null && rcfTotalUpdates != null) {
-            if (rcfTotalUpdates < TimeSeriesSettings.NUM_MIN_SAMPLES) {
-                initProgress = (float) rcfTotalUpdates / TimeSeriesSettings.NUM_MIN_SAMPLES;
-            } else {
-                initProgress = 1.0f;
-            }
+        Float initProgress = null;
+
+        if (hasResult) {
+            initProgress = 1.0f;
+        } else if (intervalInMinutes != null && rcfTotalUpdates != null) {
+            // progress is fraction of the min-sample requirement, capped at 1.0
+            initProgress = Math.min((float) rcfTotalUpdates / TimeSeriesSettings.NUM_MIN_SAMPLES, 1.0f);
         }
 
         RealtimeTaskCache realtimeTaskCache = taskCacheManager.getRealtimeTaskCache(configId);
@@ -624,10 +625,12 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         }, e -> {
             if (e instanceof IndexNotFoundException) {
                 function.accept(new ArrayList<>());
-            } else if (e instanceof SearchPhaseExecutionException && e.getMessage().contains("No mapping found for")) {
-                // state index hasn't finished initialization
+            } else if (e instanceof SearchPhaseExecutionException) {
+                logger.info("Failed to search task for config " + configId, e);
+                // e.getMessage(): "No mapping found for" or "all shards failed" likely due to state index hasn't finished initialization
                 function.accept(new ArrayList<>());
             } else {
+                // unknown exceptions
                 logger.error("Failed to search task for config " + configId, e);
                 listener.onFailure(e);
             }
