@@ -1928,7 +1928,7 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
     protected String triageState(Boolean hasResult, String error, Long rcfTotalUpdates) {
         if (hasResult != null && hasResult) {
             return TaskState.RUNNING.name();
-        } else if (rcfTotalUpdates != null && rcfTotalUpdates < TimeSeriesSettings.NUM_MIN_SAMPLES) {
+        } else if (rcfTotalUpdates == null || rcfTotalUpdates < TimeSeriesSettings.NUM_MIN_SAMPLES) {
             return TaskState.INIT.name();
         } else {
             return TaskState.RUNNING.name();
