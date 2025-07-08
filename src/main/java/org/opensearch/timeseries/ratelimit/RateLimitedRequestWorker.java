@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -249,7 +250,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         this.stateTtl = stateTtl;
         this.nodeStateManager = nodeStateManager;
         this.context = context;
-        this.inflightConfigs = new HashSet<>();
+        this.inflightConfigs = ConcurrentHashMap.newKeySet();
     }
 
     public String getWorkerName() {
