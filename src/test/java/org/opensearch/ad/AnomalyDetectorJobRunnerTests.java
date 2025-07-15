@@ -225,7 +225,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
 
         adJobProcessor.setIndexManagement(anomalyDetectionIndices);
 
-        lockService = new LockService(client, clusterService);
+        lockService = mock(LockService.class);
         doReturn(lockService).when(context).getLockService();
 
         doAnswer(invocation -> {
