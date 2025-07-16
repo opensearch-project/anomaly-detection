@@ -19,6 +19,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
@@ -52,6 +53,8 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
      * @param validationType                  Specified type for validation
      * @param clock                           Clock object to know when to timeout
      * @param settings                        Node settings
+     * @param sdkClient                       remote metadata client
+     * @param tenantId                        tenant id
      */
     public ValidateAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -70,7 +73,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         SearchFeatureDao searchFeatureDao,
         String validationType,
         Clock clock,
-        Settings settings
+        Settings settings,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             clusterService,
@@ -96,7 +101,9 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             validationType,
             true,
             clock,
-            settings
+            settings,
+            sdkClient,
+            tenantId
         );
     }
 }

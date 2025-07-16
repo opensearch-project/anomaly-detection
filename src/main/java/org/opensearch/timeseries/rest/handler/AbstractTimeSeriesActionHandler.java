@@ -12,7 +12,6 @@ import static org.opensearch.timeseries.constant.CommonMessages.TIMESTAMP_VALIDA
 import static org.opensearch.timeseries.indices.IndexManagement.getScripts;
 import static org.opensearch.timeseries.util.ParseUtils.parseAggregators;
 import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
-import static org.opensearch.timeseries.util.RestHandlerUtils.XCONTENT_WITH_TYPE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.isExceptionCausedByInvalidQuery;
 
 import java.io.IOException;
@@ -43,7 +42,6 @@ import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.ingest.DeletePipelineRequest;
 import org.opensearch.action.ingest.PutPipelineRequest;
@@ -71,6 +69,9 @@ import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.remote.metadata.client.PutDataObjectRequest;
+import org.opensearch.remote.metadata.client.SdkClient;
+import org.opensearch.remote.metadata.common.SdkClientUtils;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -181,6 +182,9 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     protected boolean breakingUIChange;
     protected final String configIndexName;
 
+    protected final SdkClient sdkClient;
+    protected final String tenantId;
+
     public AbstractTimeSeriesActionHandler(
         Config config,
         IndexManagement<IndexType> timeSeriesIndices,
@@ -210,7 +214,9 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         Clock clock,
         Settings settings,
         ValidationAspect configValidationAspect,
-        String configIndexName
+        String configIndexName,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         this.config = config;
         this.timeSeriesIndices = timeSeriesIndices;
@@ -241,6 +247,8 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         this.configValidationAspect = configValidationAspect;
         this.breakingUIChange = false;
         this.configIndexName = configIndexName;
+        this.sdkClient = sdkClient;
+        this.tenantId = tenantId;
     }
 
     /**
@@ -1028,14 +1036,15 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected void indexConfig(String id, boolean shouldUseResourceAuthz, ActionListener<T> listener) throws IOException {
         Config copiedConfig = copyConfig(user, config);
-        IndexRequest indexRequest = new IndexRequest(configIndexName)
-            .setRefreshPolicy(refreshPolicy)
-            .source(copiedConfig.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITH_TYPE))
-            .setIfSeqNo(seqNo)
-            .setIfPrimaryTerm(primaryTerm)
-            .timeout(requestTimeout);
+
+        PutDataObjectRequest.Builder putDataRequest = PutDataObjectRequest
+            .builder()
+            .index(configIndexName)
+            .tenantId(tenantId)
+            .dataObject(copiedConfig);
+
         if (StringUtils.isNotBlank(id)) {
-            indexRequest.id(id);
+            putDataRequest.id(id);
         }
         /*
          * We only prepend "forecast-" to the document ID when the config is for a Forecaster.
@@ -1080,53 +1089,65 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
          * a random component for uniqueness.
          */
         else if (config instanceof Forecaster) {
-            indexRequest.id("forecast-" + UUIDs.randomBase64UUID());
+            putDataRequest.id("forecast-" + UUIDs.randomBase64UUID());
         }
+        PutDataObjectRequest putRequest = putDataRequest.build();
 
-        client.index(indexRequest, new ActionListener<IndexResponse>() {
-            @Override
-            public void onResponse(IndexResponse indexResponse) {
-                String errorMsg = checkShardsFailure(indexResponse);
-                if (errorMsg != null) {
-                    listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
-                    return;
-                }
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            sdkClient.putDataObjectAsync(putRequest).whenComplete((r, throwable) -> {
+                context.restore();
+                if (throwable == null) {
+                    try {
+                        IndexResponse indexResponse = IndexResponse.fromXContent(r.parser());
 
-                // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
-                if (shouldUseResourceAuthz) {
-                    // Share with user's backend_roles here before sending response
-                    ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+                        String errorMsg = checkShardsFailure(indexResponse);
+                        if (errorMsg != null) {
+                            listener.onFailure(new OpenSearchStatusException(errorMsg, indexResponse.status()));
+                            return;
+                        }
 
-                    String configId = indexResponse.getId();
-                    String configIndex = indexResponse.getIndex();
-                    Map<Recipient, Set<String>> recipients = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
-                    ShareWith shareWith = new ShareWith(Map.of(PLACE_HOLDER, new Recipients(recipients)));
+                        // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
+                        if (shouldUseResourceAuthz) {
+                            // Share with user's backend_roles here before sending response
+                            ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor
+                                .getInstance()
+                                .getResourceSharingClient();
 
-                    resourceSharingClient.share(configId, configIndex, shareWith, ActionListener.wrap(resourceSharing -> {
-                        logger
-                            .debug(
-                                "Successfully shared config: {} with entities: {}",
-                                config.getName(),
-                                shareWith.atAccessLevel(PLACE_HOLDER)
-                            );
-                        listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
-                    }, listener::onFailure));
+                            String configId = indexResponse.getId();
+                            String configIndex = indexResponse.getIndex();
+                            Map<Recipient, Set<String>> recipients = Map.of(Recipient.BACKEND_ROLES, Set.copyOf(user.getBackendRoles()));
+                            ShareWith shareWith = new ShareWith(Map.of(PLACE_HOLDER, new Recipients(recipients)));
+
+                            resourceSharingClient.share(configId, configIndex, shareWith, ActionListener.wrap(resourceSharing -> {
+                                logger
+                                    .debug(
+                                        "Successfully shared config: {} with entities: {}",
+                                        config.getName(),
+                                        shareWith.atAccessLevel(PLACE_HOLDER)
+                                    );
+                                listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                            }, listener::onFailure));
+                        } else {
+                            // if the feature is disabled, return all resources
+                            listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
+                        }
+                    } catch (IOException e) {
+                        String errorMessage = "Failed to parse index response";
+                        logger.error(errorMessage, e);
+                        listener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.INTERNAL_SERVER_ERROR));
+                    }
                 } else {
-                    // if feature is disabled, return all resources
-                    listener.onResponse(createIndexConfigResponse(indexResponse, copiedConfig));
-                }
-            }
+                    Exception exception = SdkClientUtils.unwrapAndConvertToException(throwable);
+                    logger.warn("Failed to put detector config", exception);
 
-            @Override
-            public void onFailure(Exception e) {
-                logger.warn("Failed to update config", e);
-                if (e.getMessage() != null && e.getMessage().contains("version conflict")) {
-                    listener.onFailure(new IllegalArgumentException("There was a problem updating the config:[" + id + "]"));
-                } else {
-                    listener.onFailure(e);
+                    if (exception.getMessage() != null && exception.getMessage().contains("version conflict")) {
+                        listener.onFailure(new IllegalArgumentException("There was a problem updating the config:[" + id + "]"));
+                    } else {
+                        listener.onFailure(exception);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     protected void onCreateMappingsResponse(CreateIndexResponse response, boolean indexingDryRun, ActionListener<T> listener) {

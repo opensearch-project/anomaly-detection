@@ -21,6 +21,7 @@ import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.forecast.transport.IndexForecasterResponse;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -52,6 +53,8 @@ public class IndexForecasterActionHandler extends AbstractForecasterActionHandle
      * @param method                  Rest Method type
      * @param xContentRegistry        Registry which is used for XContentParser
      * @param user                    User context
+     * @param sdkClient               remote metadata client
+     * @param tenantId                tenant id
      */
     public IndexForecasterActionHandler(
         ClusterService clusterService,
@@ -74,7 +77,9 @@ public class IndexForecasterActionHandler extends AbstractForecasterActionHandle
         User user,
         ForecastTaskManager taskManager,
         SearchFeatureDao searchFeatureDao,
-        Settings settings
+        Settings settings,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             clusterService,
@@ -100,7 +105,9 @@ public class IndexForecasterActionHandler extends AbstractForecasterActionHandle
             null,
             false,
             null,
-            settings
+            settings,
+            sdkClient,
+            tenantId
         );
     }
 }

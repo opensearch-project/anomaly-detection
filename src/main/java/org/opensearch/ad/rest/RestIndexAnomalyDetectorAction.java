@@ -42,6 +42,7 @@ import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.action.RestResponseListener;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.util.TenantAwareHelper;
 import org.opensearch.transport.client.node.NodeClient;
 
 import com.google.common.collect.ImmutableList;
@@ -89,7 +90,10 @@ public class RestIndexAnomalyDetectorAction extends AbstractAnomalyDetectorActio
             detectorId = AnomalyDetector.NO_ID;
         }
 
+        String tenantId = TenantAwareHelper.getTenantID(ADEnabledSetting.isADMultiTenancyEnabled(), request);
+
         IndexAnomalyDetectorRequest indexAnomalyDetectorRequest = new IndexAnomalyDetectorRequest(
+            tenantId,
             detectorId,
             seqNo,
             primaryTerm,

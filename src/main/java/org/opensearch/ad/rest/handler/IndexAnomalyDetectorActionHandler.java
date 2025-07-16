@@ -21,6 +21,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -58,6 +59,8 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
      * @param adTaskManager           AD Task manager
      * @param searchFeatureDao        Search feature dao
      * @param settings                Node settings
+     * @param sdkClient               remote metadata client
+     * @param tenantId                tenant id
      */
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -80,7 +83,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
         User user,
         ADTaskManager adTaskManager,
         SearchFeatureDao searchFeatureDao,
-        Settings settings
+        Settings settings,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             clusterService,
@@ -106,7 +111,9 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
             null,
             false,
             null,
-            settings
+            settings,
+            sdkClient,
+            tenantId
         );
     }
 }

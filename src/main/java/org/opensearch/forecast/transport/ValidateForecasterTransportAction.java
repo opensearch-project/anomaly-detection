@@ -18,6 +18,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.rest.handler.ValidateForecasterActionHandler;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
@@ -43,7 +44,9 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
         ForecastIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             ValidateForecasterAction.NAME,
@@ -57,7 +60,9 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
             transportService,
             searchFeatureDao,
             FORECAST_FILTER_BY_BACKEND_ROLES,
-            ValidationAspect.FORECASTER
+            ValidationAspect.FORECASTER,
+            sdkClient,
+            tenantId
         );
     }
 
@@ -80,7 +85,9 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
             searchFeatureDao,
             request.getValidationType(),
             clock,
-            settings
+            settings,
+            sdkClient,
+            tenantId
         );
     }
 }

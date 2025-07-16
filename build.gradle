@@ -163,6 +163,15 @@ dependencies {
     implementation group: 'io.protostuff', name: 'protostuff-collectionschema', version: '1.8.0'
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.17.0'
 
+    // Multi-tenant SDK Client
+    if (System.getenv('REMOTE_METADATA_SDK_IMPL') == 'ddb-client') {
+        api("org.opensearch:opensearch-remote-metadata-sdk:${opensearch_build}")
+        implementation("org.opensearch:opensearch-remote-metadata-sdk-ddb-client:${opensearch_build}") {
+            exclude group: "jakarta.json", module: "jakarta.json-api"
+        }
+    } else {
+        implementation("org.opensearch:opensearch-remote-metadata-sdk:${opensearch_build}")
+    }
 
     implementation "org.jacoco:org.jacoco.agent:0.8.12"
     implementation ("org.jacoco:org.jacoco.ant:0.8.12") {
@@ -219,8 +228,8 @@ allprojects {
 }
 
 java {
-  targetCompatibility = JavaVersion.VERSION_21
-  sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_21
 }
 
 ext {
@@ -272,6 +281,28 @@ configurations.all {
         force("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
         force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
         force "org.ow2.asm:asm:9.7.1"
+
+        // Additional forced dependencies for remote metadata SDK when using DDB client
+        if (System.getenv('REMOTE_METADATA_SDK_IMPL') == 'ddb-client') {
+            // OpenSearch Java client brings in different versions of the below dependencies.
+            // Needed for runtime in SDK but conflict with OpenSearch 3.x test dependencies.
+            // Jackson dependencies
+            force("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
+            force("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}")
+            force("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${versions.jackson_databind}")
+
+            // OpenSearch client dependencies
+            force("org.opensearch.client:opensearch-rest-client:${opensearch_version}")
+
+            // Jakarta and Eclipse dependencies
+            force("jakarta.json.bind:jakarta.json.bind-api:${jakartaJsonBindVersion}")
+            force("org.eclipse:yasson:${yassonVersion}")
+            force("org.eclipse.parsson:parsson:${parssonVersion}")
+            force("org.glassfish:jakarta.json:${jakartaJsonVersion}")
+
+            // Apache and Commons dependencies
+            force("org.apache.httpcomponents:httpcore:${versions.httpcore}")
+        }
     }
 }
 
@@ -837,7 +868,7 @@ task "${baseName}#mixedClusterTask"(type: RestIntegTestTask) {
     useCluster testClusters."${baseName}0"
     dependsOn "${baseName}#oldVersionClusterTask0"
     doFirst {
-      testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
+        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
     }
     filter {
         includeTestsMatching "org.opensearch.ad.bwc.*IT"
@@ -856,7 +887,7 @@ task "${baseName}#twoThirdsUpgradedClusterTask"(type: RestIntegTestTask) {
     dependsOn "${baseName}#mixedClusterTask"
     useCluster testClusters."${baseName}0"
     doFirst {
-      testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
+        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
     }
     filter {
         includeTestsMatching "org.opensearch.ad.bwc.*IT"
@@ -875,7 +906,7 @@ task "${baseName}#rollingUpgradeClusterTask"(type: RestIntegTestTask) {
     dependsOn "${baseName}#twoThirdsUpgradedClusterTask"
     useCluster testClusters."${baseName}0"
     doFirst {
-      testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
+        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
     }
     filter {
         includeTestsMatching "org.opensearch.ad.bwc.*IT"
@@ -894,7 +925,7 @@ task "${baseName}#fullRestartClusterTask"(type: RestIntegTestTask) {
     dependsOn "${baseName}#oldVersionClusterTask1"
     useCluster testClusters."${baseName}1"
     doFirst {
-      testClusters."${baseName}1".upgradeAllNodesAndPluginsToNextVersion(plugins)
+        testClusters."${baseName}1".upgradeAllNodesAndPluginsToNextVersion(plugins)
     }
     filter {
         includeTestsMatching "org.opensearch.ad.bwc.*IT"

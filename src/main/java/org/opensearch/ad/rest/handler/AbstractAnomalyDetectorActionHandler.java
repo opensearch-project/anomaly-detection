@@ -42,6 +42,7 @@ import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -127,6 +128,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
      * @param isDryRun                Whether handler is dryrun or not
      * @param clock                   clock object to know when to timeout
      * @param settings                Node settings
+     * @param sdkClient               remote metadata client
+     * @param tenantId                tenant id
      */
     public AbstractAnomalyDetectorActionHandler(
         ClusterService clusterService,
@@ -152,7 +155,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
         String validationType,
         boolean isDryRun,
         Clock clock,
-        Settings settings
+        Settings settings,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             anomalyDetector,
@@ -183,7 +188,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             clock,
             settings,
             ValidationAspect.DETECTOR,
-            ADCommonName.CONFIG_INDEX
+            ADCommonName.CONFIG_INDEX,
+            sdkClient,
+            tenantId
         );
 
     }

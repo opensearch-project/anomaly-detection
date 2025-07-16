@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.settings;
 
+import static org.opensearch.remote.metadata.common.CommonValue.*;
+
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -671,4 +673,20 @@ public final class AnomalyDetectorSettings {
     // The reason we need a max is because user could give an arbitrarly large interval where we don't know even
     // with multiplying the interval down how many intervals will be tried.
     public static final int MAX_TIMES_DECREASING_INTERVAL = 10;
+
+    /** This setting sets the remote metadata type */
+    public static final Setting<String> REMOTE_METADATA_TYPE = Setting
+        .simpleString("plugins.anomaly_detection." + REMOTE_METADATA_TYPE_KEY, Setting.Property.NodeScope, Setting.Property.Final);
+
+    /** This setting sets the remote metadata endpoint */
+    public static final Setting<String> REMOTE_METADATA_ENDPOINT = Setting
+        .simpleString("plugins.anomaly_detection." + REMOTE_METADATA_ENDPOINT_KEY, Setting.Property.NodeScope, Setting.Property.Final);
+
+    /** This setting sets the remote metadata region */
+    public static final Setting<String> REMOTE_METADATA_REGION = Setting
+        .simpleString("plugins.anomaly_detection." + REMOTE_METADATA_REGION_KEY, Setting.Property.NodeScope, Setting.Property.Final);
+
+    /** This setting sets the remote metadata service name */
+    public static final Setting<String> REMOTE_METADATA_SERVICE_NAME = Setting
+        .simpleString("plugins.anomaly_detection." + REMOTE_METADATA_SERVICE_NAME_KEY, Setting.Property.NodeScope, Setting.Property.Final);
 }

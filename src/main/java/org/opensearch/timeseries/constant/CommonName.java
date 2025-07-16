@@ -145,4 +145,11 @@ public class CommonName {
     // Format name
     // ======================================
     public static final String EPOCH_MILLIS_FORMAT = "epoch_millis";
+
+    // ======================================
+    // multi-tenant
+    // ======================================
+    /** The field name containing the tenant id */
+    public static final String TENANT_ID_FIELD = "tenant_id";
+    public static final String TENANT_ID_HEADER = "x-tenant-id";
 }

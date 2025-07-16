@@ -44,6 +44,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
@@ -67,6 +68,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
     private final Settings settings;
+    private final SdkClient sdkClient;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -79,7 +81,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        SdkClient sdkClient
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -93,6 +96,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.settings = settings;
+        this.sdkClient = sdkClient;
     }
 
     @Override
@@ -211,6 +215,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
         Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
         Integer maxCategoricalFields = request.getMaxCategoricalFields();
+        String tenantId = request.getTenantId();
 
         storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {
@@ -240,7 +245,9 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                 detectorUser,
                 adTaskManager,
                 searchFeatureDao,
-                settings
+                settings,
+                sdkClient,
+                tenantId
             );
             indexAnomalyDetectorActionHandler.start(listener);
         }, listener);

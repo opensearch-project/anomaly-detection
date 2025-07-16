@@ -42,6 +42,40 @@ public class ADEnabledSetting extends DynamicNumericSetting {
 
     public static final String DOOR_KEEPER_IN_CACHE_ENABLED = "plugins.anomaly_detection.door_keeper_in_cache.enabled";
 
+    /**
+     * Indicates whether multi-tenancy is enabled in Anomaly Detection.
+     *
+     * This is a static setting that must be configured before starting OpenSearch. The corresponding setting {@code plugins.ml_commons.multi_tenancy_enabled} in the ML Commons plugin should match.
+     *
+     * It can be set in the following ways, in priority order:
+     *
+     * <ol>
+     *   <li>As a command-line argument using the <code>-E</code> flag (this overrides other options):
+     *       <pre>
+     *       ./bin/opensearch -Eplugins.anomaly_detection.multi_tenancy_enabled=true
+     *       </pre>
+     *   </li>
+     *   <li>As a system property using <code>OPENSEARCH_JAVA_OPTS</code> (this overrides <code>opensearch.yml</code>):
+     *       <pre>
+     *       export OPENSEARCH_JAVA_OPTS="-Dplugins.anomaly_detection.multi_tenancy_enabled=true"
+     *       ./bin/opensearch
+     *       </pre>
+     *       Or inline when starting OpenSearch:
+     *       <pre>
+     *       OPENSEARCH_JAVA_OPTS="-Dplugins.anomaly_detection.multi_tenancy_enabled=true" ./bin/opensearch
+     *       </pre>
+     *   </li>
+     *   <li>In the <code>opensearch.yml</code> configuration file:
+     *       <pre>
+     *       plugins.anomaly_detection.multi_tenancy_enabled: true
+     *       </pre>
+     *   </li>
+     * </ol>
+     *
+     * After setting this option, a full cluster restart is required for the changes to take effect.
+     */
+    public static final String AD_MULTI_TENANCY_ENABLED = "plugins.anomaly_detection.multi_tenancy_enabled";
+
     public static final Map<String, Setting<?>> settings = unmodifiableMap(new HashMap<String, Setting<?>>() {
         {
             Setting LegacyADEnabledSetting = Setting.boolSetting(LEGACY_OPENDISTRO_AD_ENABLED, true, NodeScope, Dynamic, Deprecated);
@@ -130,5 +164,13 @@ public class ADEnabledSetting extends DynamicNumericSetting {
      */
     public static boolean isDoorKeeperInCacheEnabled() {
         return ADEnabledSetting.getInstance().getSettingValue(ADEnabledSetting.DOOR_KEEPER_IN_CACHE_ENABLED);
+    }
+
+    /**
+     * Whether AD multi-tenancy is enabled or not.
+     * @return whether AD multi-tenancy is enabled.
+     */
+    public static boolean isADMultiTenancyEnabled() {
+        return ADEnabledSetting.getInstance().getSettingValue(ADEnabledSetting.AD_MULTI_TENANCY_ENABLED);
     }
 }
