@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.common.unit.TimeValue;

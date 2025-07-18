@@ -14,7 +14,7 @@ package org.opensearch.timeseries.util;
 import java.util.EnumSet;
 import java.util.concurrent.RejectedExecutionException;
 
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.core.util.Throwables;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
@@ -111,7 +111,7 @@ public class ExceptionUtil {
         } else if (e instanceof OpenSearchException) {
             return ((OpenSearchException) e).getDetailedMessage();
         } else {
-            return ExceptionUtils.getFullStackTrace(e);
+            return ExceptionUtils.getStackTrace(e);
         }
     }
 
