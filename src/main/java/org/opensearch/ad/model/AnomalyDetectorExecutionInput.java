@@ -16,7 +16,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import java.io.IOException;
 import java.time.Instant;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
