@@ -219,6 +219,6 @@ public class SingleStreamModelPerfIT extends AbstractADSyntheticDataTest {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         Thread.sleep(1_000);
-        waitAllSyncheticDataIngested(data.size(), datasetName, client);
+        waitAllSyncheticDataIngestedOrdered(data.size(), datasetName, client);
     }
 }
