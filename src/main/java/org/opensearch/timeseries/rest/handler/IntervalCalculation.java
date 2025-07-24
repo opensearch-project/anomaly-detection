@@ -64,6 +64,8 @@ public class IntervalCalculation {
     private final Map<String, Object> topEntity;
     private final long endMillis;
     private final Config config;
+    // how many intervals to look back when exploring intervals
+    private final int lookBackWindows;
 
     public IntervalCalculation(
         Config config,
@@ -75,7 +77,8 @@ public class IntervalCalculation {
         Clock clock,
         SearchFeatureDao searchFeatureDao,
         long latestTime,
-        Map<String, Object> topEntity
+        Map<String, Object> topEntity,
+        boolean validate
     ) {
         this.aggregationPrep = new AggregationPrep(searchFeatureDao, requestTimeout, config);
         this.client = client;
@@ -86,12 +89,19 @@ public class IntervalCalculation {
         this.topEntity = topEntity;
         this.endMillis = latestTime;
         this.config = config;
+        if (validate) {
+            lookBackWindows = config.getHistoryIntervals();
+        } else {
+            // look back more when history is not finalized yet yet
+            lookBackWindows = config.getDefaultHistory() * 2;
+        }
     }
 
     public void findInterval(ActionListener<IntervalTimeConfiguration> listener) {
         ActionListener<IntervalTimeConfiguration> minimumIntervalListener = ActionListener.wrap(minInterval -> {
+            logger.debug("minimum interval found: {}", minInterval);
             if (minInterval == null) {
-                logger.info("Fail to find minimum interval");
+                logger.debug("Fail to find minimum interval");
                 listener.onResponse(null);
             } else {
                 // starting exploring whether minimum or larger interval satisfy density requirement
@@ -105,7 +115,7 @@ public class IntervalCalculation {
         throws IOException {
 
         try {
-            LongBounds timeStampBounds = aggregationPrep.getTimeRangeBounds(minimumInterval, endMillis);
+            LongBounds timeStampBounds = aggregationPrep.getTimeRangeBounds(minimumInterval, endMillis, lookBackWindows);
             SearchRequest searchRequest = aggregationPrep.createSearchRequest(minimumInterval, timeStampBounds, topEntity, 0);
             ActionListener<IntervalTimeConfiguration> intervalListener = ActionListener
                 .wrap(interval -> listener.onResponse(interval), exception -> {
@@ -120,6 +130,7 @@ public class IntervalCalculation {
             );
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
+            logger.debug("Interval explore search request: {}", searchRequest);
             clientUtil
                 .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
                     searchRequest,
@@ -160,8 +171,10 @@ public class IntervalCalculation {
 
         @Override
         public void onResponse(SearchResponse resp) {
+            logger.debug("interval explorer response: {}", resp);
             try {
                 long shingles = aggregationPrep.getShingleCount(resp);
+                logger.debug("number of shingles: {}", shingles);
 
                 if (shingles >= TimeSeriesSettings.NUM_MIN_SAMPLES) {     // dense enough
                     intervalListener.onResponse(currentIntervalToTry);
@@ -169,11 +182,14 @@ public class IntervalCalculation {
                 }
 
                 if (++attempts > 10) {                                    // retry budget exhausted
+                    logger.debug("number of attempts: {}", attempts);
                     intervalListener.onResponse(null);
                     return;
                 }
 
-                if (clock.millis() > expirationEpochMs) {                          // timeout
+                long nowMillis = clock.millis();
+                if (nowMillis > expirationEpochMs) {                          // timeout
+                    logger.debug("Timed out: now={}, expires={}", nowMillis, expirationEpochMs);
                     intervalListener
                         .onFailure(
                             new ValidationException(
@@ -186,7 +202,8 @@ public class IntervalCalculation {
                 }
 
                 int nextMin = nextNiceInterval((int) currentIntervalToTry.getInterval());
-                if (nextMin == currentIntervalToTry.getInterval()) {           // cannot grow further
+                if (nextMin <= currentIntervalToTry.getInterval()) {           // cannot grow further
+                    logger.debug("Cannot grow interval further: next={}, current={}", nextMin, currentIntervalToTry.getInterval());
                     intervalListener.onResponse(null);
                     return;
                 }
@@ -199,12 +216,14 @@ public class IntervalCalculation {
 
         private void searchWithDifferentInterval(int newIntervalMinuteValue) {
             this.currentIntervalToTry = new IntervalTimeConfiguration(newIntervalMinuteValue, ChronoUnit.MINUTES);
-            this.currentTimeStampBounds = aggregationPrep.getTimeRangeBounds(currentIntervalToTry, endMillis);
+            this.currentTimeStampBounds = aggregationPrep.getTimeRangeBounds(currentIntervalToTry, endMillis, lookBackWindows);
             // using the original context in listener as user roles have no permissions for internal operations like fetching a
             // checkpoint
+            SearchRequest searchRequest = aggregationPrep.createSearchRequest(currentIntervalToTry, currentTimeStampBounds, topEntity, 0);
+            logger.debug("next search request: {}", searchRequest);
             clientUtil
                 .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
-                    aggregationPrep.createSearchRequest(currentIntervalToTry, currentTimeStampBounds, topEntity, 0),
+                    searchRequest,
                     client::search,
                     user,
                     client,
@@ -339,7 +358,7 @@ public class IntervalCalculation {
             long totalDocs = r.getHits().getTotalHits() == null ? 0L : r.getHits().getTotalHits().value();
 
             if (totalDocs < 2) {
-                logger.info("Exit early due to few docs");
+                logger.debug("Exit early due to few docs");
                 listener.onResponse(null);
                 return;
             }
@@ -501,8 +520,9 @@ public class IntervalCalculation {
         src.aggregation(hist);
 
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(src);
+        logger.debug("Minimum interval search request: {}", searchRequest);
         client.search(searchRequest, ActionListener.wrap(resp -> {
-
+            logger.debug("Minimum interval search response: {}", resp);
             double gap = Double.NaN;
             boolean hasEmptyBuckets = false;
             Histogram histogram = resp.getAggregations().get("dyn");
@@ -753,7 +773,7 @@ public class IntervalCalculation {
     /* ------------------------------------------------------------------ */
     private static int nextNiceInterval(int currentMin) {
         for (int step : INTERVAL_LADDER) {
-            if (step >= currentMin) {
+            if (step > currentMin) {
                 return step;
             }
         }
