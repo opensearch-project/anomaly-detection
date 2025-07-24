@@ -51,9 +51,41 @@ public class AggregationPrep {
         this.config = config;
     }
 
+    /**
+     * Returns the time‑range bounds using this detector’s **default history length**
+     * (i.e., the value provided by {@link #getNumberOfSamples()}).
+     *
+     * <p>The method delegates to
+     * {@link #getTimeRangeBounds(IntervalTimeConfiguration, long, int)} and is a
+     * convenience overload for callers that do not need to specify a custom
+     * sample count.</p>
+     *
+     * @param interval   sampling interval configuration (e.g., “5m”, “1h”)
+     * @param endMillis  exclusive upper bound of the time range, expressed in epoch ms
+     * @return           {@code LongBounds} where {@code getMin()} is the computed
+     *                   start time and {@code getMax()} equals {@code endMillis}
+     */
     public LongBounds getTimeRangeBounds(IntervalTimeConfiguration interval, long endMillis) {
+        return getTimeRangeBounds(interval, endMillis, getNumberOfSamples());
+    }
+
+    /**
+     * Returns the time‑range bounds using an **explicitly supplied history length**.
+     *
+     * <p>The start time is computed as {@code endMillis − (numberOfSamples × interval)}.
+     * Use this overload when the caller wants full control over how many historical
+     * samples are considered in the query window.</p>
+     *
+     * @param interval         sampling interval configuration (e.g., “5m”, “1h”)
+     * @param endMillis        exclusive upper bound of the time range, expressed in epoch ms
+     * @param numberOfSamples  number of historical samples to include; must be &gt; 0
+     * @return                 {@code LongBounds} with {@code getMin()} equal to the
+     *                         calculated start time and {@code getMax()} equal to {@code endMillis}
+     * @throws IllegalArgumentException if {@code numberOfSamples} is non‑positive
+     */
+    public LongBounds getTimeRangeBounds(IntervalTimeConfiguration interval, long endMillis, int numberOfSamples) {
         long intervalInMillis = IntervalTimeConfiguration.getIntervalInMinute(interval) * 60000;
-        Long startMillis = endMillis - (getNumberOfSamples() * intervalInMillis);
+        Long startMillis = endMillis - (numberOfSamples * intervalInMillis);
         return new LongBounds(startMillis, endMillis);
     }
 

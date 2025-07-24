@@ -59,6 +59,8 @@ public class LatestTimeRetriever {
     private final User user;
     private final AnalysisType context;
     private final SearchFeatureDao searchFeatureDao;
+    // whether we should convert future date to now if future data exists
+    private final boolean convertFutureDatetoNow;
 
     public LatestTimeRetriever(
         Config config,
@@ -67,7 +69,8 @@ public class LatestTimeRetriever {
         Client client,
         User user,
         AnalysisType context,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        boolean convertFutureDatetoNow
     ) {
         this.config = config;
         this.aggregationPrep = new AggregationPrep(searchFeatureDao, requestTimeout, config);
@@ -76,6 +79,7 @@ public class LatestTimeRetriever {
         this.user = user;
         this.context = context;
         this.searchFeatureDao = searchFeatureDao;
+        this.convertFutureDatetoNow = convertFutureDatetoNow;
     }
 
     /**
@@ -93,6 +97,10 @@ public class LatestTimeRetriever {
                 long timeRangeEnd = latestTime.get();
                 if (currentEpochMillis < timeRangeEnd) {
                     logger.info(new ParameterizedMessage("Future date is detected: [{}]", latestTime.get()));
+                    if (convertFutureDatetoNow) {
+                        logger.info("Convert future date to now");
+                        timeRangeEnd = currentEpochMillis;
+                    }
                 }
 
                 if (config.isHighCardinality()) {

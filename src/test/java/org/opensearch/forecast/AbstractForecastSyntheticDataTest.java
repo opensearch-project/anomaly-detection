@@ -20,13 +20,16 @@ import static org.opensearch.timeseries.util.RestHandlerUtils.TOP_FORECASTS;
 import static org.opensearch.timeseries.util.RestHandlerUtils.VALIDATE;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.http.ParseException;
+import org.apache.http.HttpEntity;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Response;
@@ -57,7 +60,7 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
     protected static final String STOP_FORECASTER;
     protected static final String UPDATE_FORECASTER;
     protected static final String SEARCH_RESULTS;
-    protected static final String GET_FORECASTER;
+    public static final String GET_FORECASTER;
     protected static final String TOP_FORECASTER;
     protected static final String PROFILE_ALL_FORECASTER;
     protected static final String PROFILE_FORECASTER;
@@ -190,4 +193,75 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
         return Arrays.asList(searchResponse.getHits().getHits());
     }
 
+    /**
+     * Poll the forecaster’s task‑state until it equals {@code expectedState},
+     * or fail after {@code maxRetries}.  Typical usage:
+     *
+     * <pre>{@code
+     * waitForState(forecasterId,
+     *              "run_once_task",    // or "realtime_task"
+     *              "TEST_COMPLETE",    // or "RUNNING", "STOPPED", …
+     *              Duration.ofSeconds(20), // initial wait before 1st poll
+     *              6);                     // extra polls (20 s, then +10 s each)
+     * }</pre>
+     *
+     * @param forecasterId   ID returned from the Create‑Forecaster API
+     * @param taskJsonField  "run_once_task" or "realtime_task"
+     * @param expectedState  state string to wait for
+     * @param firstWait      time to sleep **before** the very first GET
+     * @param maxRetries     how many extra polls to perform (each +10 s)
+     * @param client restFul client
+     *
+     * @throws AssertionError  if the forecaster never reaches {@code expectedState}
+     * @throws Exception       on I/O problems calling OpenSearch
+     */
+    public static void waitForState(
+        String forecasterId,
+        String taskJsonField,
+        String expectedState,
+        Duration firstWait,
+        int maxRetries,
+        RestClient client
+    ) throws Exception {
+
+        // ── initial wait ─────────────────────────────────────────────────
+        Thread.sleep(firstWait.toMillis());
+
+        final Duration extraWait = Duration.ofSeconds(10);
+
+        String state = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+
+            // GET /_plugins/_forecasting/forecasters/<id>
+            Response resp = TestHelpers
+                .makeRequest(
+                    client,
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+
+            Map<String, Object> rsp = entityAsMap(resp);
+
+            if (rsp.get(taskJsonField) != null) {
+                state = (String) ((Map<?, ?>) rsp.get(taskJsonField)).get("state");
+                if (expectedState.equals(state)) {
+                    return;
+                }
+            }
+
+            /* last attempt? → fail */
+            if (attempt == maxRetries) {
+                throw new AssertionError(
+                    String.format(Locale.ROOT, "Expected state %s but saw %s after %d retries", expectedState, state, maxRetries)
+                );
+            }
+
+            /* otherwise wait a bit longer & retry */
+            Thread.sleep(extraWait.plusSeconds(10L * attempt).toMillis());
+        }
+    }
 }

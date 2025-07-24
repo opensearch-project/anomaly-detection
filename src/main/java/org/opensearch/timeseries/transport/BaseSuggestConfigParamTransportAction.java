@@ -126,7 +126,9 @@ public abstract class BaseSuggestConfigParamTransportAction extends
             client,
             user,
             context,
-            searchFeatureDao
+            searchFeatureDao,
+            // simulate run once and real time scenario where we operate relative to now
+            true
         );
 
         ActionListener<Pair<Optional<Long>, Map<String, Object>>> latestTimeListener = ActionListener.wrap(latestEntityAttributes -> {
@@ -142,7 +144,8 @@ public abstract class BaseSuggestConfigParamTransportAction extends
                     clock,
                     searchFeatureDao,
                     latestTime.get(),
-                    latestEntityAttributes.getRight()
+                    latestEntityAttributes.getRight(),
+                    false
                 );
                 intervalCalculation
                     .findInterval(
@@ -237,7 +240,9 @@ public abstract class BaseSuggestConfigParamTransportAction extends
             client,
             user,
             context,
-            searchFeatureDao
+            searchFeatureDao,
+            // if future date is found, just set window delay to 0
+            false
         );
         ActionListener<Pair<Optional<Long>, Map<String, Object>>> latestTimeListener = ActionListener.wrap(latestEntityAttributes -> {
             Optional<Long> latestTime = latestEntityAttributes.getLeft();

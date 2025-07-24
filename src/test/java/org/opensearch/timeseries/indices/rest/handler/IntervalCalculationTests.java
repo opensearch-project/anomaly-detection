@@ -95,7 +95,8 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
             clock,
             searchFeatureDao,
             System.currentTimeMillis(),
-            mockTopEntity
+            mockTopEntity,
+            false
         );
     }
 

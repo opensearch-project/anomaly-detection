@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -31,10 +32,13 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.TreeSet;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpHeaders;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.ParseException;
+import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.opensearch.client.Request;
@@ -46,6 +50,8 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -56,6 +62,8 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 
 public class AbstractSyntheticDataTest extends ODFERestTestCase {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     public enum MISSING_MODE {
         MISSING_TIMESTAMP, // missing all entities in a timestamps
         MISSING_ENTITY, // missing single entity，
@@ -99,6 +107,63 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
     public static int batchSize = 1000;
     public static String DAILY_INTERVAL_DATA = "daily_interval";
 
+    /** The anchor used by the original sample‑data loader */
+    private static final Instant ORIGINAL_MARKER = Instant.parse("2018-08-01T00:00:00Z");
+
+    /** How much to shift every timestamp so ORIGINAL_MARKER → now() */
+    private static Duration computeDelta() {
+        return Duration.between(ORIGINAL_MARKER, Instant.now());
+    }
+
+    /** Mapping for opensearch_dashboards_sample_data_logs (identical to field_mappings.ts) */
+    public static final String SAMPLE_LOGS_MAPPING_JSON = "{\n"
+        + "  \"settings\": {\n"
+        + "    \"number_of_shards\": 1,\n"
+        + "    \"auto_expand_replicas\": \"0-all\"\n"
+        + "  },\n"
+        + "  \"mappings\": {\n"
+        + "    \"properties\": {\n"
+        + "      \"request\":  { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"geo\": {\n"
+        + "        \"properties\": {\n"
+        + "          \"srcdest\":    { \"type\": \"keyword\" },\n"
+        + "          \"src\":        { \"type\": \"keyword\" },\n"
+        + "          \"dest\":       { \"type\": \"keyword\" },\n"
+        + "          \"coordinates\":{ \"type\": \"geo_point\" }\n"
+        + "        }\n"
+        + "      },\n"
+        + "      \"utc_time\": { \"type\": \"date\" },\n"
+        + "      \"url\":      { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"message\":  { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"host\":     { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"clientip\": { \"type\": \"ip\" },\n"
+        + "      \"response\": { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"machine\": {\n"
+        + "        \"properties\": {\n"
+        + "          \"ram\": { \"type\": \"long\" },\n"
+        + "          \"os\":  { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } }\n"
+        + "        }\n"
+        + "      },\n"
+        + "      \"agent\":    { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"bytes\":    { \"type\": \"long\" },\n"
+        + "      \"tags\":     { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"referer\":  { \"type\": \"keyword\" },\n"
+        + "      \"ip\":       { \"type\": \"ip\" },\n"
+        + "      \"timestamp\":{ \"type\": \"date\" },\n"
+        + "      \"@timestamp\":{ \"type\": \"alias\", \"path\": \"timestamp\" },\n"
+        + "      \"phpmemory\":{ \"type\": \"long\" },\n"
+        + "      \"memory\":   { \"type\": \"double\" },\n"
+        + "      \"extension\":{ \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"event\": {\n"
+        + "        \"properties\": {\n"
+        + "          \"dataset\": { \"type\": \"keyword\" }\n"
+        + "        }\n"
+        + "      },\n"
+        + "      \"index\":    { \"type\": \"text\",  \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } }\n"
+        + "    }\n"
+        + "  }\n"
+        + "}";               // end SAMPLE_LOGS_MAPPING_JSON
+
     /**
      * In real time AD, we mute a node for a detector if that node keeps returning
      * ResourceNotFoundException (5 times in a row).  This is a problem for batch mode
@@ -125,8 +190,20 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         adminClient().performRequest(request);
     }
 
-    public static void waitAllSyncheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
-        int maxWaitCycles = 3;
+    /**
+     * Waits until all synthetic data has been ingested.
+     * Assumes data is sorted and each document has an incrementing ID,
+     * meaning later documents have larger timestamps.
+     *
+     * @param expectedSize The expected number of documents (the highest timestamp ID expected).
+     * @param datasetName  The name of the index containing the dataset.
+     * @param client       The client used to execute queries.
+     * @throws Exception   If any error occurs during querying or waiting for ingestion.
+     */
+    public static void waitAllSyncheticDataIngestedOrdered(int expectedSize, String datasetName, RestClient client) throws Exception {
+        // every 1000 documents wait for one cycle
+        // at least 3 times
+        int maxWaitCycles = Math.max(3, expectedSize / 1000);
         do {
             Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
             request
@@ -134,23 +211,24 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                     String
                         .format(
                             Locale.ROOT,
-                            "{\"query\": {"
-                                + "        \"match_all\": {}"
-                                + "    },"
-                                + "    \"size\": 1,"
-                                + "    \"sort\": ["
-                                + "       {"
-                                + "         \"timestamp\": {"
-                                + "           \"order\": \"desc\""
-                                + "         }"
-                                + "       }"
-                                + "   ]}"
+                            "{"
+                                + "  \"track_total_hits\": true,"
+                                + "  \"query\": { \"match_all\": {} },"
+                                + "  \"size\": 1,"
+                                + "  \"sort\": ["
+                                + "    {"
+                                + "      \"timestamp\": { \"order\": \"desc\" }"
+                                + "    }"
+                                + "  ]"
+                                + "}"
                         )
                 );
+
             // Make sure all of the test data has been ingested
             JsonArray hits = getHits(client, request);
             LOG.info("Latest synthetic data:" + hits);
             if (hits != null && hits.size() == 1 && isIdExpected(expectedSize, hits)) {
+                LOG.info("Found hit {}", expectedSize);
                 break;
             } else {
                 request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
@@ -158,6 +236,43 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
             }
             Thread.sleep(1_000);
         } while (maxWaitCycles-- >= 0);
+        if (maxWaitCycles <= 0) {
+            LOG.info("Cannot find hit {}", expectedSize);
+        }
+    }
+
+    public static void waitAllSyntheticDataIngested(int expectedSize, String datasetName, RestClient client) throws Exception {
+
+        // one refresh‑and‑recheck cycle per 1 000 docs, but at least 3 cycles
+        int maxWaitCycles = Math.max(3, expectedSize / 1_000);
+
+        // Build the search request body once
+        String body = "{"
+            + "  \"track_total_hits\": true,"
+            + "  \"size\": 0,"                         // we only need the count
+            + "  \"query\": { \"match_all\": {} }"
+            + "}";
+
+        do {
+            // Search
+            Request search = new Request("POST", String.format(Locale.ROOT, "/%s/_search", datasetName));
+            search.setJsonEntity(body);
+
+            Response resp = client.performRequest(search);
+
+            if (isTotalHits(resp, expectedSize)) {
+                LOG.info("Found all {} synthetic docs", expectedSize);
+                return;                               // done
+            }
+
+            // Refresh index and wait a bit before retrying
+            Request refresh = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
+            client.performRequest(refresh);
+
+            Thread.sleep(1_000);
+        } while (maxWaitCycles-- > 0);
+
+        LOG.warn("Timed out waiting for {} synthetic docs (still missing some)", expectedSize);
     }
 
     private static boolean isIdExpected(int expectedSize, JsonArray hits) {
@@ -173,6 +288,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
 
     public static JsonArray getHits(RestClient client, Request request) throws IOException {
         Response response = client.performRequest(request);
+        LOG.info("response: " + entityAsMap(response));
         return parseHits(response);
     }
 
@@ -211,7 +327,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         Thread.sleep(1_000);
-        waitAllSyncheticDataIngested(trainTestSplit, datasetName, client);
+        waitAllSyncheticDataIngestedOrdered(trainTestSplit, datasetName, client);
     }
 
     public static void createIndex(String datasetName, RestClient client, String mapping) throws IOException, InterruptedException {
@@ -231,7 +347,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
     /**
      * Read data from a json array file up to a specified size
      * @param datasetFileName data set file name
-     * @param size the limit of json elements to read
+     * @param limit the limit of json elements to read
      * @return the read JsonObject list
      * @throws URISyntaxException when failing to find datasetFileName
      * @throws Exception when there is a parsing error.
@@ -582,7 +698,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
             }
         }
 
-        waitAllSyncheticDataIngested(data.size(), datasetName, client);
+        waitAllSyncheticDataIngestedOrdered(data.size(), datasetName, client);
         LOG.info("data ingestion complete");
     }
 
@@ -688,5 +804,82 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
             );
         // the file contains 1000 rows of data. Load all of them
         return loadNdJsonData(DAILY_INTERVAL_DATA, 1000, mapping);
+    }
+
+    /** Bulk-indexes every document from <code>logs.json.gz</code>. */
+    protected Instant loadSampleLogsData(String dataSet) throws Exception {
+
+        RestClient client = client();
+        createIndex(dataSet, client, SAMPLE_LOGS_MAPPING_JSON);
+
+        try (
+            BufferedReader br = new BufferedReader(
+                new InputStreamReader(
+                    new GZIPInputStream(
+                        AbstractSyntheticDataTest.class.getClassLoader().getResourceAsStream("org/opensearch/ad/e2e/data/logs.json.gz")
+                    ),
+                    StandardCharsets.UTF_8
+                )
+            )
+        ) {
+
+            StringBuilder bulk = new StringBuilder();
+            String line;
+            int id = 0;
+            Instant lastTs = null;
+            final Duration delta = computeDelta();
+
+            while ((line = br.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                JsonObject doc = JsonParser.parseString(line).getAsJsonObject();
+
+                /* shift both `timestamp` and `utc_time` */
+                for (String tf : List.of("timestamp", "utc_time")) {
+                    Instant original = Instant.parse(doc.get(tf).getAsString());
+                    Instant shifted = original.plus(delta);
+                    doc.addProperty(tf, shifted.toString());   // ISO‑8601 w/ Z
+                    lastTs = shifted;                            // remember newest
+                }
+
+                bulk.append("{\"index\":{\"_index\":\"").append(dataSet).append("\",\"_id\":\"").append(id++).append("\"}}\n");
+                bulk.append(doc.toString()).append('\n');
+            }
+
+            LOG.info("last timestamp {} in id {}", lastTs, id - 1);
+
+            TestHelpers
+                .makeRequest(
+                    client,
+                    "POST",
+                    "_bulk?refresh=wait_for",
+                    null,
+                    toHttpEntity(bulk.toString()),
+                    ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Dashboards"))
+                );
+
+            waitAllSyntheticDataIngested(id, dataSet, client);
+            return lastTs;
+        }
+    }
+
+    /**
+     * @param response  REST response returned by the low‑level client
+     * @param expected  the exact hit count you expect
+     * @return          true if hits.total.value == expected, false otherwise
+     * @throws ParseException
+     */
+    public static boolean isTotalHits(Response response, int expected) throws IOException, ParseException {
+        // Convert the HTTP entity to a JsonNode tree
+        String json = EntityUtils.toString(response.getEntity());
+        JsonNode root = MAPPER.readTree(json);
+
+        // Navigate to hits.total.value (returns -1 if any link is missing)
+        int actual = root.path("hits").path("total").path("value").asInt(-1);
+
+        // Compare
+        return actual >= expected;
     }
 }
