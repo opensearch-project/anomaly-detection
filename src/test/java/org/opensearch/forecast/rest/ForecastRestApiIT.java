@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpStatus;
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.opensearch.client.Response;
@@ -3889,5 +3890,149 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         }
         // Each value is itself a Map<String,Object> with the metrics you need
         return nodes.values().stream().map(v -> (Map<String, Object>) v).anyMatch(pred);
+    }
+
+    public void testSampleLogs() throws Exception {
+
+        String dataSet = "opensearch_dashboards_sample_data_logs";
+        String minimalForecaster = "{ \"name\":\""
+            + "a"
+            + "\", "
+            + "  \"description\":\"\", "
+            + "  \"indices\":[\""
+            + dataSet
+            + "\"], "
+            + "  \"filter_query\":{\"match_all\":{}}, "
+            + "  \"time_field\":\"timestamp\" }";
+
+        /* │── index + data ──────────────────────────────────────────── */
+        loadSampleLogsData(dataSet);
+
+        /* │── suggest: interval only ───────────────────────────────── */
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", SUGGEST_INTERVAL_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(minimalForecaster), null);
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
+
+        Map<String, Object> rsp = entityAsMap(response);
+        int intervalM = ((Number) ((Map<?, ?>) ((Map<?, ?>) rsp.get("interval")).get("period")).get("interval")).intValue();
+        assertTrue("interval must be > 0", intervalM > 0);
+
+        /* │── suggest: interval + horizon + history + windowDelay ──── */
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(minimalForecaster),
+                null
+            );
+        rsp = entityAsMap(response);
+        assertTrue("interval must be > 0", intervalM > 0);
+        assertEquals(24, ((Number) rsp.get("horizon")).intValue());
+        int history = ((Number) rsp.get("history")).intValue();
+        assertTrue("history must be > 0", history > 0);
+        int windowDelay = ((Number) ((Map<?, ?>) ((Map<?, ?>) rsp.get("windowDelay")).get("period")).get("interval")).intValue();
+        assertTrue("window delay must be >= 0", windowDelay >= 0);
+
+        /* │── validate (no issues) ─────────────────────────────────── */
+        Response validateRsp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                VALIDATE_FORECASTER_MODEL,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(fullSampleLogForecasterDefinition(dataSet, intervalM, history, windowDelay)),
+                null
+            );
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(validateRsp));
+        Map<String, Object> validateResp = entityAsMap(validateRsp);
+        assertTrue("actual: " + validateResp, validateResp.isEmpty());
+
+        /* │── run-once until TEST_COMPLETE ─────────────────────────── */
+        String forecasterId = createSampleLogForecaster(dataSet, intervalM, history, windowDelay);
+
+        TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+
+        waitForState(forecasterId, "run_once_task", "TEST_COMPLETE", Duration.ofSeconds(20), 6, client());
+
+        /* │── start realtime until RUNNING ─────────────────────────── */
+        TestHelpers
+            .makeRequest(client(), "POST", String.format(Locale.ROOT, START_FORECASTER, forecasterId), null, (HttpEntity) null, null);
+        waitForState(forecasterId, "realtime_task", "RUNNING", Duration.ofSeconds(60), 6, client());
+    }
+
+    /** Builds & creates a full forecaster, returns its id. */
+    private String createSampleLogForecaster(String dataSet, int interval, int history, int windowDelay) throws Exception {
+
+        String body = fullSampleLogForecasterDefinition(dataSet, interval, history, windowDelay);
+
+        Response rsp = TestHelpers.makeRequest(client(), "POST", CREATE_FORECASTER, null, TestHelpers.toHttpEntity(body), null);
+        assertEquals(HttpStatus.SC_CREATED, rsp.getStatusLine().getStatusCode());
+        return entityAsMap(rsp).get("_id").toString();
+    }
+
+    /** Complete forecaster JSON matching user’s step 6. */
+    private String fullSampleLogForecasterDefinition(String dataSet, int interval, int history, int windowDelay) {
+        long nowMillis = Instant.now().toEpochMilli();
+        String featureName = "a";
+        String featureField = "bytes";
+
+        return "{\n"
+            + "  \"name\":\""
+            + featureName
+            + "\",\n"
+            + "  \"description\":\"\",\n"
+            + "  \"time_field\":\"timestamp\",\n"
+            + "  \"indices\":[\""
+            + dataSet
+            + "\"],\n"
+            + "  \"filter_query\":{\"match_all\":{\"boost\":1.0}},\n"
+            + "  \"window_delay\":{\"period\":{\"interval\":"
+            + windowDelay
+            + ",\"unit\":\"Minutes\"}},\n"
+            + "  \"shingle_size\":8,\n"
+            + "  \"schema_version\":0,\n"
+            + "  \"feature_attributes\":[{\n"
+            + "     \"feature_id\":\""
+            + featureName
+            + "\",\n"
+            + "     \"feature_name\":\""
+            + featureName
+            + "\",\n"
+            + "     \"feature_enabled\":true,\n"
+            + "     \"aggregation_query\":{\""
+            + featureName
+            + "\":{\"sum\":{\"field\":\""
+            + featureField
+            + "\"}}}\n"
+            + "  }],\n"
+            + "  \"recency_emphasis\":2560,\n"
+            + "  \"history\":"
+            + history
+            + ",\n"
+            + "  \"ui_metadata\":{ \"features\":{ \""
+            + featureName
+            + "\":{ \"aggregationBy\":\"sum\", \"aggregationOf\":\""
+            + featureField
+            + "\", \"featureType\":\"simple_aggs\" } }, \"filters\":[] },\n"
+            + "  \"last_update_time\":"
+            + nowMillis
+            + ",\n"
+            + "  \"forecast_interval\":{\"period\":{\"interval\":"
+            + interval
+            + ",\"unit\":\"Minutes\"}},\n"
+            + "  \"horizon\":"
+            + 24
+            + "\n"
+            + "}";
     }
 }
