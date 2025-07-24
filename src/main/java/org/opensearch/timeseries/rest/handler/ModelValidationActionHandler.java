@@ -130,7 +130,17 @@ public class ModelValidationActionHandler {
         this.context = context;
         // calculate the bounds in a lazy manner
         this.timeRangeToSearchForConfiguredInterval = null;
-        this.latestTimeRetriever = new LatestTimeRetriever(config, requestTimeout, clientUtil, client, user, context, searchFeatureDao);
+        // validate window delay depends on detection of future date (which will set window delay to 0)
+        this.latestTimeRetriever = new LatestTimeRetriever(
+            config,
+            requestTimeout,
+            clientUtil,
+            client,
+            user,
+            context,
+            searchFeatureDao,
+            false
+        );
         this.intervalIssueType = intervalIssueType;
         this.aggregationPrep = new AggregationPrep(searchFeatureDao, requestTimeout, config);
     }
@@ -180,7 +190,8 @@ public class ModelValidationActionHandler {
             clock,
             searchFeatureDao,
             latestTime.get(),
-            topEntity
+            topEntity,
+            true
         )
             .findInterval(
                 ActionListener.wrap(interval -> processIntervalRecommendation(interval, latestTime.get(), topEntity), listener::onFailure)
