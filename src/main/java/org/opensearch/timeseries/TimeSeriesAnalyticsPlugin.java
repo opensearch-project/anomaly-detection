@@ -16,20 +16,17 @@ import static org.opensearch.ad.constant.ADCommonName.ANOMALY_RESULT_INDEX_ALIAS
 import static org.opensearch.ad.constant.ADCommonName.CHECKPOINT_INDEX_NAME;
 import static org.opensearch.ad.constant.ADCommonName.DETECTION_STATE_INDEX;
 import static org.opensearch.ad.indices.ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN;
-import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_COOLDOWN_MINUTES;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.*;
 import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_CHECKPOINT_INDEX_NAME;
 import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_STATE_INDEX;
+import static org.opensearch.remote.metadata.common.CommonValue.*;
 import static org.opensearch.timeseries.constant.CommonName.JOB_INDEX;
+import static org.opensearch.timeseries.constant.CommonName.TENANT_ID_FIELD;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -269,6 +266,8 @@ import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
+import org.opensearch.remote.metadata.client.SdkClient;
+import org.opensearch.remote.metadata.client.impl.SdkClientFactory;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
@@ -506,6 +505,27 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
         this.nodeFilter = new DiscoveryNodeFilterer(clusterService);
         this.clusterService = clusterService;
         Imputer imputer = new LinearUniformImputer(true);
+
+        // Create SdkClient for tenant-aware operations
+        SdkClient sdkClient = SdkClientFactory
+            .createSdkClient(
+                client,
+                xContentRegistry,
+                // Configure for tenant-aware operations when multi-tenancy is enabled
+                ADEnabledSetting.isADMultiTenancyEnabled()
+                    ? Map
+                        .ofEntries(
+                            Map.entry(REMOTE_METADATA_TYPE_KEY, REMOTE_METADATA_TYPE.get(settings)),
+                            Map.entry(REMOTE_METADATA_ENDPOINT_KEY, REMOTE_METADATA_ENDPOINT.get(settings)),
+                            Map.entry(REMOTE_METADATA_REGION_KEY, REMOTE_METADATA_REGION.get(settings)),
+                            Map.entry(REMOTE_METADATA_SERVICE_NAME_KEY, REMOTE_METADATA_SERVICE_NAME.get(settings)),
+                            Map.entry(TENANT_AWARE_KEY, "true"),
+                            Map.entry(TENANT_ID_FIELD_KEY, TENANT_ID_FIELD)
+                        )
+                    : Collections.emptyMap(),
+                // Use generic thread pool for SDK operations
+                client.threadPool().executor(ThreadPool.Names.GENERIC)
+            );
 
         JvmService jvmService = new JvmService(environment.settings());
         RandomCutForestMapper rcfMapper = new RandomCutForestMapper();
@@ -1409,7 +1429,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 forecastTaskCacheManager,
                 forecastSaveResultStrategy,
                 new ForecastTaskProfileRunner(),
-                forecastInferencer
+                forecastInferencer,
+                sdkClient
             );
     }
 
@@ -1556,6 +1577,11 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 AnomalyDetectorSettings.DELETE_AD_RESULT_WHEN_DELETE_DETECTOR,
                 // stats/profile API
                 AnomalyDetectorSettings.AD_MAX_MODEL_SIZE_PER_NODE,
+                // multi-tenant
+                REMOTE_METADATA_TYPE,
+                REMOTE_METADATA_ENDPOINT,
+                REMOTE_METADATA_REGION,
+                REMOTE_METADATA_SERVICE_NAME,
                 // ======================================
                 // Forecast settings
                 // ======================================

@@ -119,7 +119,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao
+            searchFeatureDao,
+            null
         );
         task = mock(Task.class);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
@@ -167,6 +168,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         }).when(client).search(any(SearchRequest.class), any());
 
         request = new IndexAnomalyDetectorRequest(
+            "123456789012:collectionA",
             "1234",
             4567,
             7890,
@@ -218,8 +220,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao
-
+            searchFeatureDao,
+            null
         );
         transportAction.doExecute(task, request, response);
     }
@@ -244,7 +246,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao
+            searchFeatureDao,
+            null
         );
         transportAction.doExecute(task, request, response);
     }

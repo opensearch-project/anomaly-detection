@@ -24,6 +24,7 @@ import org.opensearch.rest.RestRequest;
 
 public class IndexAnomalyDetectorRequest extends ActionRequest {
 
+    private String tenantId;
     private String detectorID;
     private long seqNo;
     private long primaryTerm;
@@ -40,6 +41,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
 
     public IndexAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
+        tenantId = in.readOptionalString();
         detectorID = in.readString();
         seqNo = in.readLong();
         primaryTerm = in.readLong();
@@ -54,6 +56,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     }
 
     public IndexAnomalyDetectorRequest(
+        String tenantId,
         String detectorID,
         long seqNo,
         long primaryTerm,
@@ -67,6 +70,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         Integer maxCategoricalFields
     ) {
         super();
+        this.tenantId = tenantId;
         this.detectorID = detectorID;
         this.seqNo = seqNo;
         this.primaryTerm = primaryTerm;
@@ -78,6 +82,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
         this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
         this.maxCategoricalFields = maxCategoricalFields;
+    }
+
+    public String getTenantId() {
+        return tenantId;
     }
 
     public String getDetectorID() {
@@ -127,6 +135,7 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
+        out.writeOptionalString(tenantId);
         out.writeString(detectorID);
         out.writeLong(seqNo);
         out.writeLong(primaryTerm);

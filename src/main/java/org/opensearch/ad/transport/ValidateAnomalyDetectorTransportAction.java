@@ -24,6 +24,7 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
@@ -49,7 +50,9 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
         ADIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             ValidateAnomalyDetectorAction.NAME,
@@ -63,7 +66,9 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
             transportService,
             searchFeatureDao,
             AD_FILTER_BY_BACKEND_ROLES,
-            ValidationAspect.DETECTOR
+            ValidationAspect.DETECTOR,
+            sdkClient,
+            tenantId
         );
     }
 
@@ -86,7 +91,9 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
             searchFeatureDao,
             request.getValidationType(),
             clock,
-            settings
+            settings,
+            sdkClient,
+            tenantId
         );
     }
 }

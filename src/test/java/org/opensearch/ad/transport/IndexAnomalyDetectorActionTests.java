@@ -50,6 +50,7 @@ public class IndexAnomalyDetectorActionTests extends OpenSearchSingleNodeTestCas
         BytesStreamOutput out = new BytesStreamOutput();
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
         IndexAnomalyDetectorRequest request = new IndexAnomalyDetectorRequest(
+            "123456789012:collectionA",
             "1234",
             4321,
             5678,

@@ -39,6 +39,7 @@ import org.opensearch.forecast.model.ForecastTaskType;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.forecast.transport.IndexForecasterResponse;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -142,6 +143,8 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
      * @param isDryRun                Whether handler is dryrun or not
      * @param clock                   clock object to know when to timeout
      * @param settings                Node settings
+     * @param sdkClient               remote metadata client
+     * @param tenantId                tenant id
      */
     public AbstractForecasterActionHandler(
         ClusterService clusterService,
@@ -167,7 +170,9 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
         String validationType,
         boolean isDryRun,
         Clock clock,
-        Settings settings
+        Settings settings,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             forecaster,
@@ -198,7 +203,9 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
             clock,
             settings,
             ValidationAspect.FORECASTER,
-            ForecastCommonName.CONFIG_INDEX
+            ForecastCommonName.CONFIG_INDEX,
+            sdkClient,
+            tenantId
         );
     }
 

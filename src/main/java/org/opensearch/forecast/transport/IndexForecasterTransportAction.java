@@ -45,6 +45,7 @@ import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
 import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
@@ -66,6 +67,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
     private final SearchFeatureDao searchFeatureDao;
     private final ForecastTaskManager taskManager;
     private final Settings settings;
+    private final SdkClient sdkClient;
+    private final String tenantId;
 
     @Inject
     public IndexForecasterTransportAction(
@@ -78,7 +81,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         ForecastIndexManagement forecastIndices,
         NamedXContentRegistry xContentRegistry,
         SearchFeatureDao searchFeatureDao,
-        ForecastTaskManager taskManager
+        ForecastTaskManager taskManager,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(IndexForecasterAction.NAME, transportService, actionFilters, IndexForecasterRequest::new);
         this.client = client;
@@ -92,6 +97,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         this.searchFeatureDao = searchFeatureDao;
         this.taskManager = taskManager;
         this.settings = settings;
+        this.sdkClient = sdkClient;
+        this.tenantId = tenantId;
     }
 
     @Override
@@ -221,7 +228,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
                 forecastUser,
                 taskManager,
                 searchFeatureDao,
-                settings
+                settings,
+                sdkClient,
+                tenantId
             );
             indexForecasterActionHandler.start(listener);
         }, listener);

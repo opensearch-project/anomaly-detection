@@ -115,7 +115,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             null,
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -177,7 +179,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             null,
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -242,7 +246,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             null,
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -319,7 +325,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -385,7 +393,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -459,7 +469,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -557,7 +569,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -668,7 +682,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -802,7 +818,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -946,7 +964,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -1076,7 +1096,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -1208,7 +1230,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -1357,7 +1381,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             mock(ForecastTaskManager.class),
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -1410,7 +1436,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             null,
             null,
             searchFeatureDao,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -1557,7 +1585,9 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             user,
             null,
             searchFeatureDao,
-            testSettings
+            testSettings,
+            null,
+            "123456789012:collectionA"
         );
 
         ResourceSharingClient mockClient = mock(ResourceSharingClient.class);

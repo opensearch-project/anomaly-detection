@@ -175,7 +175,9 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             searchFeatureDao,
             ValidationAspect.DETECTOR.getName(),
             clock,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -232,7 +234,9 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             searchFeatureDao,
             "",
             clock,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {
@@ -295,7 +299,9 @@ public class ValidateAnomalyDetectorActionHandlerTests extends AbstractTimeSerie
             searchFeatureDao,
             ValidationAspect.DETECTOR.getName(),
             clock,
-            settings
+            settings,
+            null,
+            "123456789012:collectionA"
         );
         PlainActionFuture<ValidateConfigResponse> future = PlainActionFuture.newFuture();
         handler.start(future);

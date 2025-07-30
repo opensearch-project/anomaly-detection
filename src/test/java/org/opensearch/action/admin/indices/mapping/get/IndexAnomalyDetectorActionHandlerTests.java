@@ -185,7 +185,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
     }
 
@@ -236,7 +238,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -317,7 +321,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -406,7 +412,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -509,7 +517,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -633,7 +643,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -725,7 +737,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -812,7 +826,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -914,7 +930,9 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
             null,
             adTaskManager,
             searchFeatureDao,
-            Settings.EMPTY
+            Settings.EMPTY,
+            null,
+            "123456789012:collectionA"
         );
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         handler.start(ActionListener.wrap(r -> {

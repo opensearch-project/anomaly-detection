@@ -13,6 +13,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.rest.RestRequest.Method;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
@@ -68,7 +69,9 @@ public class ValidateForecasterActionHandler extends AbstractForecasterActionHan
         SearchFeatureDao searchFeatureDao,
         String validationType,
         Clock clock,
-        Settings settings
+        Settings settings,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(
             clusterService,
@@ -94,7 +97,9 @@ public class ValidateForecasterActionHandler extends AbstractForecasterActionHan
             validationType,
             true,
             clock,
-            settings
+            settings,
+            sdkClient,
+            tenantId
         );
     }
 

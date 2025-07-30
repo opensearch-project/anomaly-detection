@@ -24,6 +24,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.remote.metadata.client.SdkClient;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
@@ -58,6 +59,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected Clock clock;
     protected Settings settings;
     protected ValidationAspect validationAspect;
+    protected SdkClient sdkClient;
+    protected String tenantId;
 
     public BaseValidateConfigTransportAction(
         String actionName,
@@ -71,7 +74,9 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         TransportService transportService,
         SearchFeatureDao searchFeatureDao,
         Setting<Boolean> filterByBackendRoleSetting,
-        ValidationAspect validationAspect
+        ValidationAspect validationAspect,
+        SdkClient sdkClient,
+        String tenantId
     ) {
         super(actionName, transportService, actionFilters, ValidateConfigRequest::new);
         this.client = client;
@@ -85,6 +90,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.clock = Clock.systemUTC();
         this.settings = settings;
         this.validationAspect = validationAspect;
+        this.sdkClient = sdkClient;
+        this.tenantId = tenantId;
     }
 
     @Override
