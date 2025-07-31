@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -338,8 +340,18 @@ public class IntervalCalculation {
             .aggregation(AggregationBuilders.max("max_ts").field(TS_FIELD));
 
         SearchRequest boundsReq = new SearchRequest(config.getIndices().toArray(new String[0])).source(boundsSrc);
+        logger.debug("Min and max timestamp request: {}", boundsReq);
+        final ActionListener<SearchResponse> boundsRequestListener = ActionListener.wrap(r -> {
+            logger.debug("Min and max timestamp response: {}", r);
 
-        client.search(boundsReq, ActionListener.wrap(r -> {
+            // Fail earlier if we aren't able to get any bounds from the query
+            if (r.getTotalShards() == 0 || r.getSuccessfulShards() == 0) {
+                String errorMsg = String
+                    .format(Locale.ROOT, CommonMessages.NO_SHARDS_FOUND_IN_INDEX, Arrays.toString(config.getIndices().toArray()));
+                logger.error(errorMsg);
+                listener.onFailure(new ValidationException(errorMsg, ValidationIssueType.INDICES, ValidationAspect.MODEL));
+                return;
+            }
 
             Min minAgg = r.getAggregations().get("min_ts");
             Max maxAgg = r.getAggregations().get("max_ts");
@@ -379,8 +391,21 @@ public class IntervalCalculation {
             }
 
             refineGap(initBucketMins, -1, baseFilter, listener, MIN_BUCKET_WIDTH_MINS, ChronoUnit.MINUTES, TS_FIELD, 0, minMs, maxMs);
+        }, e -> {
+            logger.error(e.getMessage(), e);
+            listener.onFailure(e);
 
-        }, listener::onFailure));
+        });
+
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                boundsReq,
+                client::search,
+                user,
+                client,
+                context,
+                boundsRequestListener
+            );
     }
 
     /* ----------------------------------------------------------------------
@@ -521,11 +546,11 @@ public class IntervalCalculation {
 
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(src);
         logger.debug("Minimum interval search request: {}", searchRequest);
-        client.search(searchRequest, ActionListener.wrap(resp -> {
-            logger.debug("Minimum interval search response: {}", resp);
+        final ActionListener<SearchResponse> minIntervalSearchListener = ActionListener.wrap(r -> {
+            logger.debug("Minimum interval search response: {}", r);
             double gap = Double.NaN;
             boolean hasEmptyBuckets = false;
-            Histogram histogram = resp.getAggregations().get("dyn");
+            Histogram histogram = r.getAggregations().get("dyn");
             if (histogram != null) {
                 List<? extends Histogram.Bucket> buckets = histogram.getBuckets();
                 int firstNonEmpty = -1;
@@ -614,8 +639,20 @@ public class IntervalCalculation {
             }
 
             refineGap(nextBucketMins, nextDir, baseFilter, listener, minBucketMins, returnUnit, tsField, depth + 1, sliceMinMs, sliceMaxMs);
+        }, e -> {
+            logger.error(e.getMessage(), e);
+            listener.onFailure(e);
+        });
 
-        }, listener::onFailure));
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                user,
+                client,
+                context,
+                minIntervalSearchListener
+            );
     }
 
     /**
@@ -652,7 +689,8 @@ public class IntervalCalculation {
             .aggregation(PipelineAggregatorBuilders.minBucket("shortest", "auto>gap"));
 
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(src);
-        client.search(searchRequest, ActionListener.wrap(r -> {
+
+        final ActionListener<SearchResponse> autoDateSearchListener = ActionListener.wrap(r -> {
             NumericMetricsAggregation.SingleValue v = r.getAggregations().get("shortest");
             if (v == null || Double.isNaN(v.value())) {
                 listener.onResponse(null);
@@ -664,7 +702,21 @@ public class IntervalCalculation {
             } else {
                 listener.onResponse(null);
             }
-        }, listener::onFailure));
+        }, e -> {
+            logger.error(e.getMessage(), e);
+            listener.onFailure(e);
+        });
+
+        clientUtil
+            .<SearchRequest, SearchResponse>asyncRequestWithInjectedSecurity(
+                searchRequest,
+                client::search,
+                user,
+                client,
+                context,
+                autoDateSearchListener
+            );
+
     }
 
     /**
