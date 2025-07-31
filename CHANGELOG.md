@@ -12,6 +12,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Bug Fixes
 - Fixing concurrency bug on writer ([#1508](https://github.com/opensearch-project/anomaly-detection/pull/1508))
 - fix(forecast): advance past current interval & anchor on now ([#1528](https://github.com/opensearch-project/anomaly-detection/pull/1528))
+- Changing search calls on interval calculation ([#1535](https://github.com/opensearch-project/anomaly-detection/pull/1535))
 
 ### Infrastructure
 ### Documentation

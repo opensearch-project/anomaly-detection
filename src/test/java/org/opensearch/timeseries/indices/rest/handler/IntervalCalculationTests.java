@@ -23,14 +23,19 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchResponseSections;
 import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -41,8 +46,11 @@ import org.opensearch.search.aggregations.bucket.histogram.Histogram;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
 import org.opensearch.search.aggregations.metrics.NumericMetricsAggregation;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
@@ -61,7 +69,6 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
     private IntervalCalculation intervalCalculation;
     private Clock clock;
     private ActionListener<IntervalTimeConfiguration> mockIntervalListener;
-    private Client mockClient;
     private SecurityClientUtil mockClientUtil;
     private User user;
     private Map<String, Object> mockTopEntity;
@@ -70,25 +77,42 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
     private Config mockConfig;
     private SearchFeatureDao searchFeatureDao;
 
+    @Mock
+    private Client client;
+
+    @Mock
+    private ThreadPool threadPool;
+
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        MockitoAnnotations.initMocks(this);
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         mockIntervalListener = mock(ActionListener.class);
-        mockClient = mock(Client.class);
-        mockClientUtil = mock(SecurityClientUtil.class);
+        mockClientUtil = new SecurityClientUtil(mock(NodeStateManager.class), Settings.EMPTY);
         user = TestHelpers.randomUser();
         mockTopEntity = mock(Map.class);
         mockIntervalConfig = mock(IntervalTimeConfiguration.class);
         mockLongBounds = mock(LongBounds.class);
         mockConfig = mock(Config.class);
         searchFeatureDao = mock(SearchFeatureDao.class);
+        ExecutorService executorService = mock(ExecutorService.class);
+        when(threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)).thenReturn(executorService);
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(executorService).execute(any(Runnable.class));
+
+        ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
+        when(threadPool.getThreadContext()).thenReturn(threadContext);
+        when(client.threadPool()).thenReturn(threadPool);
 
         intervalCalculation = new IntervalCalculation(
             mockConfig,
             mock(TimeValue.class),
-            mockClient,
+            client,
             mockClientUtil,
             user,
             AnalysisType.AD,
@@ -158,7 +182,7 @@ public class IntervalCalculationTests extends OpenSearchTestCase {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
             listener.onResponse(mockSearchResponse);
             return null;
-        }).when(mockClient).search(any(), any());
+        }).when(client).search(any(), any());
 
         // Call runAutoDate
         intervalCalculation.runAutoDate(new BoolQueryBuilder(), mockIntervalListener, ChronoUnit.MINUTES, "timestamp");
