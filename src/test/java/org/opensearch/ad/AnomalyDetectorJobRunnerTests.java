@@ -779,7 +779,7 @@ public class AnomalyDetectorJobRunnerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).search(any(), any(ActionListener.class));
 
-        // use a unmocked adTaskCacheManager to test the value of hasQueriedResultIndex has changed
+        // use an unmocked adTaskCacheManager to test the value of hasQueriedResultIndex has changed
         Settings settings = Settings
             .builder()
             .put(AnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE.getKey(), 2)
