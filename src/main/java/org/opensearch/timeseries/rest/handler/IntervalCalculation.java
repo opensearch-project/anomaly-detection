@@ -336,7 +336,7 @@ public class IntervalCalculation {
                 return;
             }
 
-            long totalDocs = r.getHits().getTotalHits() == null ? 0L : r.getHits().getTotalHits().value();
+            long totalDocs = r.getHits().getTotalHits() == null ? 0L : r.getHits().getTotalHits().value;
 
             if (totalDocs < 2) {
                 logger.info("Exit early due to few docs");
