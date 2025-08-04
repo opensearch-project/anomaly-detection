@@ -6,7 +6,6 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -104,19 +103,12 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String errorMessage = rawPath.endsWith(RestHandlerUtils.START_JOB) ? failtoStartMsg : failtoStopMsg;
         ActionListener<JobResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
-        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
-
         // By the time request reaches here, the user permissions are validated by the Security plugin.
         User user = ParseUtils.getUserContext(client);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                user,
-                configIndexName,
-                configId,
-                shouldEvaluateWithNewAuthz,
-                listener,
+                settings,
                 args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(

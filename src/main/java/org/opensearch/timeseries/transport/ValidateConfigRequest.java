@@ -15,15 +15,18 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.DocRequest;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.model.Config;
 
-public class ValidateConfigRequest extends ActionRequest {
+public class ValidateConfigRequest extends ActionRequest implements DocRequest {
 
     private final AnalysisType context;
     private final Config config;
@@ -119,5 +122,18 @@ public class ValidateConfigRequest extends ActionRequest {
 
     public Integer getMaxCategoricalFields() {
         return maxCategoricalFields;
+    }
+
+    @Override
+    public String index() {
+        if (context.isAD()) {
+            return ADIndex.CONFIG.getIndexName();
+        }
+        return ForecastIndex.CONFIG.getIndexName();
+    }
+
+    @Override
+    public String id() {
+        return config.getId();
     }
 }

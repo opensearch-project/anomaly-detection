@@ -22,6 +22,7 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
@@ -37,7 +38,7 @@ public class AnomalyResultRequest extends ResultRequest {
     }
 
     public AnomalyResultRequest(String adID, long start, long end) {
-        super(adID, start, end);
+        super(adID, ADIndex.CONFIG.getIndexName(), start, end);
     }
 
     @Override

@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.cluster.service.ClusterService;
@@ -65,7 +66,13 @@ public class RestAnomalyDetectorJobAction extends RestJobAction {
         String rawPath = request.rawPath();
         DateRange detectionDateRange = parseInputDateRange(request);
 
-        JobRequest anomalyDetectorJobRequest = new JobRequest(detectorId, detectionDateRange, historical, rawPath);
+        JobRequest anomalyDetectorJobRequest = new JobRequest(
+            detectorId,
+            ADIndex.CONFIG.getIndexName(),
+            detectionDateRange,
+            historical,
+            rawPath
+        );
 
         return channel -> client
             .execute(AnomalyDetectorJobAction.INSTANCE, anomalyDetectorJobRequest, new RestToXContentListener<>(channel));

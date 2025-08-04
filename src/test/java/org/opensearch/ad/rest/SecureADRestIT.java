@@ -399,7 +399,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Response response = startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), elkClient);
         MatcherAssert.assertThat(response.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
         // User elk should also be able to stop detector
-        stopAnomalyDetector(aliceDetector.getId(), elkClient, true);
+        response = stopAnomalyDetector(aliceDetector.getId(), elkClient, true);
+        assertEquals(200, response.getStatusLine().getStatusCode());
 
         // User Cat has AD full access, but is part of different backend role so Cat should not be able to stop
         // Alice detector

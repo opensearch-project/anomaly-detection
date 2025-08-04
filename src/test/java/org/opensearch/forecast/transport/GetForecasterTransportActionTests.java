@@ -31,6 +31,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.ForecastTask;
 import org.opensearch.forecast.model.ForecastTaskType;
 import org.opensearch.forecast.settings.ForecastSettings;
@@ -83,7 +84,7 @@ public class GetForecasterTransportActionTests extends AbstractTimeSeriesTest {
         );
 
         // Act
-        GetConfigRequest request = new GetConfigRequest(configID, 0L, true, true, "", "", true, null);
+        GetConfigRequest request = new GetConfigRequest(configID, ForecastIndex.CONFIG.getIndexName(), 0L, true, true, "", "", true, null);
         getForecaster.getExecute(request, listener);
 
         // Assert

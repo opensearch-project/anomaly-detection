@@ -15,14 +15,16 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.DocRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.rest.RestRequest;
 
-public class IndexForecasterRequest extends ActionRequest {
+public class IndexForecasterRequest extends ActionRequest implements DocRequest {
     private String forecastID;
     private long seqNo;
     private long primaryTerm;
@@ -140,5 +142,15 @@ public class IndexForecasterRequest extends ActionRequest {
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    @Override
+    public String index() {
+        return ForecastIndex.CONFIG.getIndexName();
+    }
+
+    @Override
+    public String id() {
+        return forecastID;
     }
 }

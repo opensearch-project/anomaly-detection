@@ -34,6 +34,7 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -134,7 +135,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
     public void testDeleteADTransportAction_FailDeleteResponse() {
         future = mock(PlainActionFuture.class);
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         setupMocks(true, true, false, false);
 
         action.doExecute(mock(Task.class), request, future);
@@ -145,7 +146,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
     public void testDeleteADTransportAction_NullAnomalyDetector() {
         future = mock(PlainActionFuture.class);
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         setupMocks(true, false, false, false);
 
         action.doExecute(mock(Task.class), request, future);
@@ -155,7 +156,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
     public void testDeleteADTransportAction_DeleteResponseException() {
         future = mock(PlainActionFuture.class);
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         setupMocks(true, false, true, false);
 
         action.doExecute(mock(Task.class), request, future);
@@ -176,7 +177,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
         }).when(adTaskManager).getAndExecuteOnLatestConfigLevelTask(eq("1234"), any(), any(), eq(transportService), eq(true), any());
 
         future = mock(PlainActionFuture.class);
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         setupMocks(false, false, false, false);
 
         action.doExecute(mock(Task.class), request, future);
@@ -186,7 +187,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
     public void testDeleteADTransportAction_JobRunning() {
         when(clusterService.state()).thenReturn(createClusterState());
         future = mock(PlainActionFuture.class);
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         setupMocks(false, false, false, false);
 
         action.doExecute(mock(Task.class), request, future);
@@ -196,7 +197,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
     public void testDeleteADTransportAction_GetResponseException() {
         when(clusterService.state()).thenReturn(createClusterState());
         future = mock(PlainActionFuture.class);
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         setupMocks(false, false, false, true);
 
         action.doExecute(mock(Task.class), request, future);

@@ -25,6 +25,7 @@ import org.junit.Test;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
@@ -87,7 +88,7 @@ public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testDeleteRequest() throws IOException {
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
@@ -98,7 +99,7 @@ public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
 
     @Test
     public void testEmptyDeleteRequest() {
-        DeleteConfigRequest request = new DeleteConfigRequest("");
+        DeleteConfigRequest request = new DeleteConfigRequest("", ADIndex.CONFIG.getIndexName());
         ActionRequestValidationException exception = request.validate();
         Assert.assertNotNull(exception);
     }
@@ -107,14 +108,14 @@ public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
     public void testTransportActionWithAdIndex() {
         // DeleteResponse is not called because detector ID will not exist
         createIndex(".opendistro-anomaly-detector-jobs");
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         action.doExecute(mock(Task.class), request, response);
     }
 
     @Test
     public void testTransportActionWithoutAdIndex() throws IOException {
         // DeleteResponse is not called because detector ID will not exist
-        DeleteConfigRequest request = new DeleteConfigRequest("1234");
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
         action.doExecute(mock(Task.class), request, response);
     }
 }

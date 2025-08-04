@@ -30,6 +30,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.mock.plugin.MockReindexPlugin;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
@@ -220,14 +221,14 @@ public abstract class HistoricalAnalysisIntegTestCase extends ADIntegTestCase {
         AnomalyDetector detector = TestHelpers
             .randomDetector(ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
         String detectorId = createDetector(detector);
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
         JobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         return getADTask(response.getId());
     }
 
     public ADTask startHistoricalAnalysis(String detectorId, Instant startTime, Instant endTime) throws IOException {
         DateRange dateRange = new DateRange(startTime, endTime);
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
         JobResponse response = client().execute(AnomalyDetectorJobAction.INSTANCE, request).actionGet(10000);
         return getADTask(response.getId());
     }

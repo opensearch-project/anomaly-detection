@@ -39,6 +39,7 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.mock.transport.MockAnomalyDetectorJobAction;
 import org.opensearch.ad.model.ADTask;
@@ -132,7 +133,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         AnomalyDetector detector = TestHelpers
             .randomDetector(ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
         String detectorId = createDetector(detector);
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
         Client nodeClient = getDataNodeClient();
         if (nodeClient != null) {
             JobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100000);
@@ -154,7 +155,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
                 ImmutableList.of(categoryField)
             );
         String detectorId = createDetector(detector);
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
         Client nodeClient = getDataNodeClient();
 
         if (nodeClient != null) {
@@ -199,7 +200,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
                 ImmutableList.of(categoryField, ipField)
             );
         String detectorId = createDetector(detector);
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
         Client nodeClient = getDataNodeClient();
 
         if (nodeClient != null) {
@@ -267,7 +268,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         AnomalyDetector detector = TestHelpers
             .randomDetector(ImmutableList.of(maxValueFeature()), testIndex, detectionIntervalInMinutes, timeField);
         String detectorId = createDetector(detector);
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request);
         client().execute(AnomalyDetectorJobAction.INSTANCE, request);
 
@@ -295,7 +296,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         long count = countDocs(ADCommonName.DETECTION_STATE_INDEX);
         assertEquals(states.size(), count);
 
-        JobRequest request = new JobRequest(detectorId, dateRange, true, START_JOB);
+        JobRequest request = new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, true, START_JOB);
 
         AtomicReference<JobResponse> response = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -379,11 +380,11 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     }
 
     private JobRequest startDetectorJobRequest(String detectorId, DateRange dateRange) {
-        return new JobRequest(detectorId, dateRange, false, START_JOB);
+        return new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), dateRange, false, START_JOB);
     }
 
     private JobRequest stopDetectorJobRequest(String detectorId, boolean historical) {
-        return new JobRequest(detectorId, null, historical, STOP_JOB);
+        return new JobRequest(detectorId, ADIndex.CONFIG.getIndexName(), null, historical, STOP_JOB);
     }
 
     public void testStopRealtimeDetector() throws IOException {
@@ -471,7 +472,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     }
 
     private GetConfigRequest taskProfileRequest(String detectorId) throws IOException {
-        return new GetConfigRequest(detectorId, Versions.MATCH_ANY, false, false, "", PROFILE, true, null);
+        return new GetConfigRequest(detectorId, ADIndex.CONFIG.getIndexName(), Versions.MATCH_ANY, false, false, "", PROFILE, true, null);
     }
 
     private long getExecutingADTask() {

@@ -42,6 +42,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.FilterBy;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.ForecastResultBucket;
@@ -113,6 +114,7 @@ public class SearchTopForecastResultTransportAction extends
     protected void doExecute(Task task, SearchTopForecastResultRequest request, ActionListener<SearchTopForecastResultResponse> listener) {
         GetConfigRequest getForecasterRequest = new GetConfigRequest(
             request.getForecasterId(),
+            ForecastIndex.CONFIG.getIndexName(),
             // The default version value used in
             // org.opensearch.rest.action.RestActions.parseVersion()
             -3L,

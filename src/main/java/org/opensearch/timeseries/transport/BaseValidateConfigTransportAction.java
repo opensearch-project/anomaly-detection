@@ -6,6 +6,8 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
 import java.util.*;
@@ -91,7 +93,13 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected void doExecute(Task task, ValidateConfigRequest request, ActionListener<ValidateConfigResponse> listener) {
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener));
+            verifyResourceAccessAndProcessRequest(
+                settings,
+                args -> validateExecute(request, user, context, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener)),
+                new Object[] {}
+            );
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

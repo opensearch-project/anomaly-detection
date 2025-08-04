@@ -15,14 +15,16 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.DocRequest;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.rest.RestRequest;
 
-public class IndexAnomalyDetectorRequest extends ActionRequest {
+public class IndexAnomalyDetectorRequest extends ActionRequest implements DocRequest {
 
     private String detectorID;
     private long seqNo;
@@ -143,5 +145,15 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    @Override
+    public String index() {
+        return ADIndex.CONFIG.getIndexName();
+    }
+
+    @Override
+    public String id() {
+        return detectorID;
     }
 }

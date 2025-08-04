@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
@@ -83,7 +84,7 @@ public class GetAnomalyDetectorTransportActionTests extends AbstractTimeSeriesTe
         );
 
         // Act
-        GetConfigRequest request = new GetConfigRequest(configID, 0L, true, true, "", "", true, null);
+        GetConfigRequest request = new GetConfigRequest(configID, ADIndex.CONFIG.getIndexName(), 0L, true, true, "", "", true, null);
         getForecaster.getExecute(request, listener);
 
         // Assert
@@ -137,7 +138,7 @@ public class GetAnomalyDetectorTransportActionTests extends AbstractTimeSeriesTe
         );
 
         // Act
-        GetConfigRequest request = new GetConfigRequest(configID, 0L, true, true, "", "", true, null);
+        GetConfigRequest request = new GetConfigRequest(configID, ADIndex.CONFIG.getIndexName(), 0L, true, true, "", "", true, null);
         getForecaster.getExecute(request, listener);
 
         // Assert

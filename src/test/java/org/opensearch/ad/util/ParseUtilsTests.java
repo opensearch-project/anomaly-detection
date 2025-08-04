@@ -11,7 +11,6 @@
 
 package org.opensearch.ad.util;
 
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
 import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
@@ -39,6 +38,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.util.ParseUtils;
 
 import com.google.common.collect.ImmutableList;
@@ -337,25 +337,15 @@ public class ParseUtilsTests extends OpenSearchTestCase {
     }
 
     public void testShouldUseNewAuthz() {
-        Settings settings = Settings
-            .builder()
-            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true)
-            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, true)
-            .build();
+        ResourceSharingClientAccessor.getInstance().setResourceSharingClient(resourceSharingClient);
+
+        Settings settings = Settings.builder().put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         assertTrue(ParseUtils.shouldUseResourceAuthz(settings));
 
-        settings = Settings
-            .builder()
-            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), false)
-            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, true)
-            .build();
+        settings = Settings.builder().put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), false).build();
         assertFalse(ParseUtils.shouldUseResourceAuthz(settings));
 
-        settings = Settings
-            .builder()
-            .put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true)
-            .put(OPENSEARCH_RESOURCE_SHARING_ENABLED, false)
-            .build();
+        settings = Settings.builder().put(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         assertFalse(ParseUtils.shouldUseResourceAuthz(settings));
 
     }

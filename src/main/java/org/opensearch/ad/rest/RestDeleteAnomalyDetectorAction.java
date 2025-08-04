@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.DeleteAnomalyDetectorAction;
 import org.opensearch.rest.BaseRestHandler;
@@ -50,7 +51,7 @@ public class RestDeleteAnomalyDetectorAction extends BaseRestHandler {
         }
 
         String detectorId = request.param(DETECTOR_ID);
-        DeleteConfigRequest deleteAnomalyDetectorRequest = new DeleteConfigRequest(detectorId);
+        DeleteConfigRequest deleteAnomalyDetectorRequest = new DeleteConfigRequest(detectorId, ADIndex.CONFIG.getIndexName());
         return channel -> client
             .execute(DeleteAnomalyDetectorAction.INSTANCE, deleteAnomalyDetectorRequest, new RestToXContentListener<>(channel));
     }
