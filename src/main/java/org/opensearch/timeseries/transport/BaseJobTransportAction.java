@@ -56,7 +56,6 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final String failtoStopMsg;
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
-    private final String configIndexName;
     private final Clock clock;
 
     public BaseJobTransportAction(
@@ -73,7 +72,6 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStopMsg,
         Class<? extends Config> configClass,
         IndexJobActionHandlerType indexJobActionHandlerType,
-        String configIndexName,
         Clock clock
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
@@ -89,7 +87,6 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.failtoStopMsg = failtoStopMsg;
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
-        this.configIndexName = configIndexName;
         this.clock = clock;
     }
 
