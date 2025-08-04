@@ -30,6 +30,12 @@ public class CommonName {
     public static final String DATE_TYPE = "date";
     public static final String DATE_NANOS_TYPE = "date_nanos";
 
+    // ======================================
+    // Index name
+    // ======================================
+    // config index. We are reusing ad detector index.
+    public static final String CONFIG_INDEX = ".opendistro-anomaly-detectors";
+
     // job index. We are reusing ad job index.
     public static final String JOB_INDEX = ".opendistro-anomaly-detector-jobs";
 
