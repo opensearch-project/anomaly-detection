@@ -48,7 +48,6 @@ import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.forecast.constant.ForecastCommonName;
-import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.index.get.GetResult;

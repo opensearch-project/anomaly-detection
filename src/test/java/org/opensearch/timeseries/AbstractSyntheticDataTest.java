@@ -36,8 +36,8 @@ import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpHeaders;
-import org.apache.http.message.BasicHeader;
 import org.apache.http.ParseException;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
