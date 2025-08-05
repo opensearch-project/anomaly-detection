@@ -27,6 +27,7 @@ import org.junit.Before;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateResponse;
+import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -53,7 +54,6 @@ import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.transport.TransportService;
-import org.opensearch.transport.client.Client;
 
 public class ForecastTaskManagerTests extends AbstractTimeSeriesTest {
 

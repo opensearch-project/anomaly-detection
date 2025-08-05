@@ -65,7 +65,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
-import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;

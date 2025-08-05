@@ -42,23 +42,17 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import javax.net.ssl.SSLEngine;
 
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
-import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
-import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
-import org.apache.hc.core5.function.Factory;
-import org.apache.hc.core5.http.Header;
-import org.apache.hc.core5.http.HttpEntity;
-import org.apache.hc.core5.http.HttpHeaders;
-import org.apache.hc.core5.http.HttpHost;
-import org.apache.hc.core5.http.message.BasicHeader;
-import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
-import org.apache.hc.core5.reactor.ssl.TlsDetails;
-import org.apache.hc.core5.ssl.SSLContextBuilder;
-import org.apache.hc.core5.util.Timeout;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.junit.After;
@@ -171,7 +165,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @After
     protected void wipeAllODFEIndices() throws IOException {
         Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-        MediaType xContentType = MediaType.fromMediaType(response.getEntity().getContentType());
+        MediaType xContentType = MediaType.fromMediaType(response.getEntity().getContentType().getValue());
         try (
             XContentParser parser = xContentType
                 .xContent()
@@ -215,27 +209,13 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 .orElseThrow(() -> new RuntimeException("password is missing"));
             BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             final AuthScope anyScope = new AuthScope(null, -1);
-            credentialsProvider.setCredentials(anyScope, new UsernamePasswordCredentials(userName, password.toCharArray()));
+            credentialsProvider.setCredentials(anyScope, new UsernamePasswordCredentials(userName, password));
             try {
-                final TlsStrategy tlsStrategy = ClientTlsStrategyBuilder
-                    .create()
-                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                    .setSslContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build())
-                    // See https://issues.apache.org/jira/browse/HTTPCLIENT-2219
-                    .setTlsDetailsFactory(new Factory<SSLEngine, TlsDetails>() {
-                        @Override
-                        public TlsDetails create(final SSLEngine sslEngine) {
-                            return new TlsDetails(sslEngine.getSession(), sslEngine.getApplicationProtocol());
-                        }
-                    })
-                    .build();
-                final PoolingAsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder
-                    .create()
-                    .setMaxConnPerRoute(DEFAULT_MAX_CONN_PER_ROUTE)
-                    .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
-                    .setTlsStrategy(tlsStrategy)
-                    .build();
-                return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider).setConnectionManager(connectionManager);
+                return httpClientBuilder
+                    .setDefaultCredentialsProvider(credentialsProvider)
+                    // disable the certificate since our testing cluster just uses the default security configuration
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .setSSLContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -244,12 +224,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         final String socketTimeoutString = settings.get(CLIENT_SOCKET_TIMEOUT);
         final TimeValue socketTimeout = TimeValue
             .parseTimeValue(socketTimeoutString == null ? "60s" : socketTimeoutString, CLIENT_SOCKET_TIMEOUT);
-        builder.setRequestConfigCallback(conf -> {
-            Timeout timeout = Timeout.ofMilliseconds(Math.toIntExact(socketTimeout.getMillis()));
-            conf.setConnectTimeout(timeout);
-            conf.setResponseTimeout(timeout);
-            return conf;
-        });
+        builder.setRequestConfigCallback(conf -> conf.setSocketTimeout(Math.toIntExact(socketTimeout.getMillis())));
         if (settings.hasValue(CLIENT_PATH_PREFIX)) {
             builder.setPathPrefix(settings.get(CLIENT_PATH_PREFIX));
         }
