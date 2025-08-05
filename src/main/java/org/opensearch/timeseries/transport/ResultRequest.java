@@ -62,6 +62,7 @@ public abstract class ResultRequest extends ActionRequest implements ToXContentO
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configId);
+        out.writeString(configIndex);
         out.writeLong(start);
         out.writeLong(end);
     }

@@ -86,6 +86,7 @@ public class JobRequest extends ActionRequest implements DocRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configID);
+        out.writeString(configIndex);
         out.writeString(rawPath);
         if (dateRange != null) {
             out.writeBoolean(true);

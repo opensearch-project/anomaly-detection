@@ -48,6 +48,7 @@ public class DeleteConfigRequest extends ActionRequest implements DocRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configID);
+        out.writeString(configIndex);
     }
 
     @Override
