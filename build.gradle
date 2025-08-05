@@ -73,10 +73,10 @@ buildscript {
 
     repositories {
         mavenLocal()
-        maven { url "https://central.sonatype.com/repository/maven-snapshots/" }
-        maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+        maven { url = "https://central.sonatype.com/repository/maven-snapshots/" }
+        maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
         mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" }
+        maven { url = "https://plugins.gradle.org/m2/" }
     }
 
     dependencies {
@@ -85,7 +85,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.netflix.nebula.ospackage' version "11.11.1"
+    id 'com.netflix.nebula.ospackage' version "12.1.0"
     id "com.diffplug.spotless" version "6.25.0"
     id 'java-library'
     id 'org.gradle.test-retry' version '1.6.0'
@@ -118,11 +118,11 @@ tasks.withType(AbstractArchiveTask).configureEach {
 
 repositories {
     mavenLocal()
-    maven { url "https://central.sonatype.com/repository/maven-snapshots/" }
-    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+    maven { url = "https://central.sonatype.com/repository/maven-snapshots/" }
+    maven { url = "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
-    maven { url "https://plugins.gradle.org/m2/" }
-    maven { url "https://ci.opensearch.org/ci/dbc/snapshots/lucene/" }
+    maven { url = "https://plugins.gradle.org/m2/" }
+    maven { url = "https://ci.opensearch.org/ci/dbc/snapshots/lucene/" }
 }
 configurations {
     zipArchive
@@ -244,9 +244,9 @@ ext {
 }
 
 opensearchplugin {
-    name 'opensearch-anomaly-detection'
-    description 'OpenSearch anomaly detector plugin'
-    classname 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
+    name = 'opensearch-anomaly-detection'
+    description = 'OpenSearch anomaly detector plugin'
+    classname = 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
     extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true']
 }
 
@@ -303,8 +303,8 @@ publishing {
             name = "Snapshots"
             url = "https://central.sonatype.com/repository/maven-snapshots/"
             credentials {
-                username "$System.env.SONATYPE_USERNAME"
-                password "$System.env.SONATYPE_PASSWORD"
+                username = "$System.env.SONATYPE_USERNAME"
+                password = "$System.env.SONATYPE_PASSWORD"
             }
         }
     }
@@ -1063,21 +1063,20 @@ afterEvaluate {
             into opensearchplugin.name
         }
 
-        user 'root'
-        permissionGroup 'root'
-        fileMode 0644
-        dirMode 0755
+        user = 'root'
+        permissionGroup = 'root'
+        fileMode = 0644
+        dirMode = 0755
 
         requires('opensearch', versions.opensearch, EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'
         prefix '/usr'
-
-        license 'ASL-2.0'
-        maintainer 'OpenSearch <opensearch@amazon.com>'
-        url 'https://opensearch.org/downloads.html'
-        summary '''
+        license = 'ASL-2.0'
+        maintainer = 'OpenSearch <opensearch@amazon.com>'
+        url = 'https://opensearch.org/downloads.html'
+        summary = '''
          Anomaly Detection plugin for OpenSearch.
          Reference documentation can be found at https://opensearch.org/docs/monitoring-plugins/ad/index/.
     '''.stripIndent().replace('\n', ' ').trim()
