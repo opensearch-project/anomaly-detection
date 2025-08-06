@@ -4,6 +4,7 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.2.0
 
 ### Enhancements
 * Support >1 hr intervals ([#1513](https://github.com/opensearch-project/anomaly-detection/pull/1513))
+* Onboards to centralized resource access control for detectors and forecasters ([#1533](https://github.com/opensearch-project/anomaly-detection/pull/1533))
 
 ### Bug Fixes
 * Fixing concurrency bug on writer ([#1508](https://github.com/opensearch-project/anomaly-detection/pull/1508))
