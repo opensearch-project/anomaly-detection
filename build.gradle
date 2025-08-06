@@ -793,7 +793,7 @@ task prepareBwcTests {
     doLast {
         plugins = [
                 provider(jobSchedulerFile),
-                project.getObjects().fileProperty().value(project.tasks.bundlePlugin.archiveFile)
+                objects.fileProperty().value(tasks.bundlePlugin.archiveFile)
         ]
     }
 }
