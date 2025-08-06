@@ -163,8 +163,8 @@ dependencies {
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.18.0'
 
 
-    implementation "org.jacoco:org.jacoco.agent:0.8.12"
-    implementation ("org.jacoco:org.jacoco.ant:0.8.12") {
+    implementation "org.jacoco:org.jacoco.agent:0.8.13"
+    implementation ("org.jacoco:org.jacoco.ant:0.8.13") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'
         exclude group: 'org.ow2.asm', module: 'asm'
         exclude group: 'org.ow2.asm', module: 'asm-tree'
@@ -213,7 +213,7 @@ allprojects {
     version = "${opensearch_build}"
 
     plugins.withId('jacoco') {
-        jacoco.toolVersion = '0.8.12'
+        jacoco.toolVersion = '0.8.13'
     }
 }
 
@@ -375,6 +375,7 @@ integTest {
     systemProperty "https", System.getProperty("https")
     systemProperty "user", System.getProperty("user")
     systemProperty "password", System.getProperty("password")
+    systemProperty "resource_sharing.enabled", System.getProperty("resource_sharing.enabled")
 
     // Only rest case can run with remote cluster
     if (System.getProperty("tests.rest.cluster") != null) {
