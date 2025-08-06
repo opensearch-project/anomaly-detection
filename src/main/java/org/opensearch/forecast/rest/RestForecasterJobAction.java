@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.forecast.constant.ForecastCommonMessages;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.forecast.transport.ForecasterJobAction;
 import org.opensearch.rest.RestRequest;
@@ -47,7 +48,7 @@ public class RestForecasterJobAction extends RestJobAction {
             DateRange dateRange = parseInputDateRange(request);
 
             // false means we don't support backtesting and thus no need to stop backtesting
-            JobRequest forecasterJobRequest = new JobRequest(forecasterId, dateRange, false, rawPath);
+            JobRequest forecasterJobRequest = new JobRequest(forecasterId, ForecastIndex.CONFIG.getIndexName(), dateRange, false, rawPath);
 
             return channel -> client.execute(ForecasterJobAction.INSTANCE, forecasterJobRequest, new RestToXContentListener<>(channel));
         } catch (IllegalArgumentException e) {

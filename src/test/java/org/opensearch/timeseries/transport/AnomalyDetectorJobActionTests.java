@@ -24,6 +24,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.AnomalyDetectorJobAction;
@@ -78,7 +79,13 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
             mock(ADIndexJobActionHandler.class)
         );
         task = mock(Task.class);
-        request = new JobRequest("1234", new DateRange(Instant.ofEpochMilli(4567), Instant.ofEpochMilli(7890)), true, "_start");
+        request = new JobRequest(
+            "1234",
+            ADIndex.CONFIG.getIndexName(),
+            new DateRange(Instant.ofEpochMilli(4567), Instant.ofEpochMilli(7890)),
+            true,
+            "_start"
+        );
         response = new ActionListener<JobResponse>() {
             @Override
             public void onResponse(JobResponse adResponse) {
@@ -103,6 +110,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     public void testStopAdJobTransportAction() {
         JobRequest stopRequest = new JobRequest(
             "1234",
+            ADIndex.CONFIG.getIndexName(),
             new DateRange(Instant.ofEpochMilli(4567), Instant.ofEpochMilli(7890)),
             true,
             "_stop"
@@ -119,7 +127,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     @Test
     public void testAdJobRequest() throws IOException {
         DateRange detectionDateRange = new DateRange(Instant.MIN, Instant.now());
-        request = new JobRequest("1234", detectionDateRange, false, "_start");
+        request = new JobRequest("1234", ADIndex.CONFIG.getIndexName(), detectionDateRange, false, "_start");
 
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
@@ -131,7 +139,7 @@ public class AnomalyDetectorJobActionTests extends OpenSearchIntegTestCase {
     @Test
     public void testAdJobRequest_NullDetectionDateRange() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
-        request = new JobRequest("1234", "_start");
+        request = new JobRequest("1234", ADIndex.CONFIG.getIndexName(), "_start");
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
         JobRequest newRequest = new JobRequest(input);

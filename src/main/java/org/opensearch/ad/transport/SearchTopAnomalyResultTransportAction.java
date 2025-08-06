@@ -31,6 +31,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.AnomalyResultBucket;
@@ -220,6 +221,7 @@ public class SearchTopAnomalyResultTransportAction extends
 
         GetConfigRequest getAdRequest = new GetConfigRequest(
             request.getId(),
+            ADIndex.CONFIG.getIndexName(),
             // The default version value used in org.opensearch.rest.action.RestActions.parseVersion()
             -3L,
             false,

@@ -16,6 +16,7 @@ import java.util.Collection;
 
 import org.junit.Assert;
 import org.mockito.Mockito;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorProfile;
@@ -54,7 +55,17 @@ public class GetAnomalyDetectorActionTests extends OpenSearchSingleNodeTestCase 
 
     public void testGetRequest() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
-        GetConfigRequest request = new GetConfigRequest("1234", 4321, false, false, "nonempty", "", false, null);
+        GetConfigRequest request = new GetConfigRequest(
+            "1234",
+            ADIndex.CONFIG.getIndexName(),
+            4321,
+            false,
+            false,
+            "nonempty",
+            "",
+            false,
+            null
+        );
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
         GetConfigRequest newRequest = new GetConfigRequest(input);

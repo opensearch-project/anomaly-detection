@@ -6,6 +6,7 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
@@ -59,6 +60,7 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     protected Clock clock;
     protected AnalysisType context;
     protected final Set<String> allSuggestParamStrs;
+    private final Settings settings;
 
     public BaseSuggestConfigParamTransportAction(
         String actionName,
@@ -82,13 +84,20 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         this.searchFeatureDao = searchFeatureDao;
         List<SuggestName> allSuggestParams = Arrays.asList(SuggestName.values());
         this.allSuggestParamStrs = Name.getListStrs(allSuggestParams);
+        this.settings = settings;
     }
 
     @Override
     protected void doExecute(Task task, SuggestConfigParamRequest request, ActionListener<SuggestConfigParamResponse> listener) {
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            resolveUserAndExecute(user, listener, () -> suggestExecute(request, user, context, listener));
+            verifyResourceAccessAndProcessRequest(
+                settings,
+                args -> suggestExecute(request, user, context, listener),
+                new Object[] {},
+                (fallbackArgs) -> resolveUserAndExecute(user, listener, () -> suggestExecute(request, user, context, listener)),
+                new Object[] {}
+            );
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

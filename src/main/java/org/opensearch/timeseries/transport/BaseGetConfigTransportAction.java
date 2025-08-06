@@ -8,7 +8,6 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -170,16 +169,9 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         User user = ParseUtils.getUserContext(client);
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
 
-        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
-
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                user,
-                configIndexName,
-                configID,
-                shouldEvaluateWithNewAuthz,
-                listener,
+                settings,
                 args -> getExecute(getConfigRequest, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(

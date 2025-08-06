@@ -17,15 +17,17 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.DocRequest;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.timeseries.model.Entity;
 
-public class GetConfigRequest extends ActionRequest {
+public class GetConfigRequest extends ActionRequest implements DocRequest {
 
     private String configID;
+    private String configIndex;
     private long version;
     private boolean returnJob;
     private boolean returnTask;
@@ -37,6 +39,7 @@ public class GetConfigRequest extends ActionRequest {
     public GetConfigRequest(StreamInput in) throws IOException {
         super(in);
         configID = in.readString();
+        configIndex = in.readString();
         version = in.readLong();
         returnJob = in.readBoolean();
         returnTask = in.readBoolean();
@@ -49,7 +52,8 @@ public class GetConfigRequest extends ActionRequest {
     }
 
     public GetConfigRequest(
-        String detectorID,
+        String configId,
+        String configIndex,
         long version,
         boolean returnJob,
         boolean returnTask,
@@ -59,7 +63,8 @@ public class GetConfigRequest extends ActionRequest {
         Entity entity
     ) {
         super();
-        this.configID = detectorID;
+        this.configID = configId;
+        this.configIndex = configIndex;
         this.version = version;
         this.returnJob = returnJob;
         this.returnTask = returnTask;
@@ -105,6 +110,7 @@ public class GetConfigRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configID);
+        out.writeString(configIndex);
         out.writeLong(version);
         out.writeBoolean(returnJob);
         out.writeBoolean(returnTask);
@@ -135,7 +141,17 @@ public class GetConfigRequest extends ActionRequest {
                 return new GetConfigRequest(input);
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("failed to parse ActionRequest into GetAnomalyDetectorRequest", e);
+            throw new IllegalArgumentException("failed to parse ActionRequest into GetConfigRequest", e);
         }
+    }
+
+    @Override
+    public String index() {
+        return configIndex;
+    }
+
+    @Override
+    public String id() {
+        return configID;
     }
 }

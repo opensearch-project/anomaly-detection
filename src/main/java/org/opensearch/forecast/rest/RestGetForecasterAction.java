@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.forecast.constant.ForecastCommonMessages;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.forecast.transport.GetForecasterAction;
 import org.opensearch.rest.BaseRestHandler;
@@ -63,6 +64,7 @@ public class RestGetForecasterAction extends BaseRestHandler {
             boolean all = request.paramAsBoolean("_all", false);
             GetConfigRequest getForecasterRequest = new GetConfigRequest(
                 forecasterId,
+                ForecastIndex.CONFIG.getIndexName(),
                 RestActions.parseVersion(request),
                 returnJob,
                 returnTask,

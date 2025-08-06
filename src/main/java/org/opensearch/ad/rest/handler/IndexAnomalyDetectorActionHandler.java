@@ -37,27 +37,27 @@ public class IndexAnomalyDetectorActionHandler extends AbstractAnomalyDetectorAc
     /**
      * Constructor function.
      *
-     * @param clusterService          ClusterService
-     * @param client                  ES node client that executes actions on the local node
-     * @param clientUtil              AD client util
-     * @param transportService        ES transport service
-     * @param anomalyDetectionIndices anomaly detector index manager
-     * @param detectorId              detector identifier
-     * @param seqNo                   sequence number of last modification
-     * @param primaryTerm             primary term of last modification
-     * @param refreshPolicy           refresh policy
-     * @param anomalyDetector         anomaly detector instance
-     * @param requestTimeout          request time out configuration
+     * @param clusterService           ClusterService
+     * @param client                   ES node client that executes actions on the local node
+     * @param clientUtil               AD client util
+     * @param transportService         ES transport service
+     * @param anomalyDetectionIndices  anomaly detector index manager
+     * @param detectorId               detector identifier
+     * @param seqNo                    sequence number of last modification
+     * @param primaryTerm              primary term of last modification
+     * @param refreshPolicy            refresh policy
+     * @param anomalyDetector          anomaly detector instance
+     * @param requestTimeout           request time out configuration
      * @param maxSingleStreamDetectors max single-stream anomaly detectors allowed
-     * @param maxHCDetectors          max HC detectors allowed
-     * @param maxFeatures             max features allowed per detector
-     * @param maxCategoricalFields    max number of categorical fields
-     * @param method                  Rest Method type
-     * @param xContentRegistry        Registry which is used for XContentParser
-     * @param user                    User context
-     * @param adTaskManager           AD Task manager
-     * @param searchFeatureDao        Search feature dao
-     * @param settings                Node settings
+     * @param maxHCDetectors           max HC detectors allowed
+     * @param maxFeatures              max features allowed per detector
+     * @param maxCategoricalFields     max number of categorical fields
+     * @param method                   Rest Method type
+     * @param xContentRegistry         Registry which is used for XContentParser
+     * @param user                     User context
+     * @param adTaskManager            AD Task manager
+     * @param searchFeatureDao         Search feature dao
+     * @param settings                 Node settings
      */
     public IndexAnomalyDetectorActionHandler(
         ClusterService clusterService,

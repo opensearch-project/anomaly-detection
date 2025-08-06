@@ -58,7 +58,6 @@ public class ForecasterJobTransportAction extends
             FAIL_TO_STOP_FORECASTER,
             Forecaster.class,
             forecastIndexJobActionHandler,
-            ForecastIndex.CONFIG.getIndexName(),
             Clock.systemUTC() // inject cannot find clock due to OS limitation
         );
     }

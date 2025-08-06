@@ -29,6 +29,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.HistoricalAnalysisIntegTestCase;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorType;
@@ -148,7 +149,17 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         deleteIndexIfExists(ALL_AD_RESULTS_INDEX_PATTERN);
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
 
-        GetConfigRequest profileRequest = new GetConfigRequest("foo", Versions.MATCH_ANY, true, false, "", "", false, null);
+        GetConfigRequest profileRequest = new GetConfigRequest(
+            "foo",
+            ADIndex.CONFIG.getIndexName(),
+            Versions.MATCH_ANY,
+            true,
+            false,
+            "",
+            "",
+            false,
+            null
+        );
 
         OpenSearchStatusException exception = expectThrows(
             OpenSearchStatusException.class,
@@ -204,7 +215,17 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
             return null;
         }).when(clientSpy).execute(any(GetAnomalyDetectorAction.class), any(), any());
 
-        GetConfigRequest profileRequest = new GetConfigRequest(detectorId, Versions.MATCH_ANY, true, false, "", "", false, null);
+        GetConfigRequest profileRequest = new GetConfigRequest(
+            detectorId,
+            ADIndex.CONFIG.getIndexName(),
+            Versions.MATCH_ANY,
+            true,
+            false,
+            "",
+            "",
+            false,
+            null
+        );
 
         GetAnomalyDetectorResponse response = adClient.getDetectorProfile(profileRequest).actionGet(10000);
 

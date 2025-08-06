@@ -23,6 +23,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.forecast.constant.ForecastCommonMessages;
 import org.opensearch.forecast.constant.ForecastCommonName;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.transport.ResultRequest;
@@ -35,7 +36,7 @@ public class ForecastResultRequest extends ResultRequest {
     }
 
     public ForecastResultRequest(String forecastID, long start, long end) {
-        super(forecastID, start, end);
+        super(forecastID, ForecastIndex.CONFIG.getIndexName(), start, end);
     }
 
     @Override

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.forecast.constant.ForecastCommonMessages;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.forecast.transport.DeleteForecasterAction;
 import org.opensearch.rest.BaseRestHandler;
@@ -42,7 +43,7 @@ public class RestDeleteForecasterAction extends BaseRestHandler {
 
         try {
             String forecasterId = request.param(FORECASTER_ID);
-            DeleteConfigRequest deleteForecasterRequest = new DeleteConfigRequest(forecasterId);
+            DeleteConfigRequest deleteForecasterRequest = new DeleteConfigRequest(forecasterId, ForecastIndex.CONFIG.getIndexName());
             return channel -> client
                 .execute(DeleteForecasterAction.INSTANCE, deleteForecasterRequest, new RestToXContentListener<>(channel));
         } catch (IllegalArgumentException e) {

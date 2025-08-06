@@ -14,8 +14,6 @@ package org.opensearch.timeseries.util;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.search.aggregations.AggregationBuilders.dateRange;
 import static org.opensearch.search.aggregations.AggregatorFactories.VALID_AGG_NAME;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED;
-import static org.opensearch.security.spi.resources.FeatureConfigConstants.OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
 import static org.opensearch.timeseries.settings.TimeSeriesSettings.MAX_BATCH_TASK_PIECE_SIZE;
 
@@ -53,7 +51,6 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.ParsingException;
-import org.opensearch.core.common.Strings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
@@ -77,7 +74,6 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -708,51 +704,28 @@ public final class ParseUtils {
      */
     public static boolean shouldUseResourceAuthz(Settings settings) {
         boolean filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
-        boolean isResourceSharingFeatureEnabled = settings
-            .getAsBoolean(OPENSEARCH_RESOURCE_SHARING_ENABLED, OPENSEARCH_RESOURCE_SHARING_ENABLED_DEFAULT);
+        boolean isResourceSharingFeatureEnabled = ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
         return isResourceSharingFeatureEnabled && filterByEnabled;
     }
 
     /**
      * Verifies whether the user has permission to access the resource.
-     * @param requestedUser user from request
-     * @param configIndex index where config is stored
-     * @param configId config id
-     * @param shouldEvaluateWithNewAuthz true only if resource-sharing feature and filter_by_backend role, both are enabled.
-     * @param listener action listener
+     * @param settings to parse filter_by_backend_role setting.
      * @param onSuccess consumer function to execute if user has permission
      * @param successArgs arguments to pass to the consumer function
      * @param fallbackOn501 consumer function to execute if user does not have permission
      * @param fallbackArgs arguments to pass to the consumer function
      */
     public static void verifyResourceAccessAndProcessRequest(
-        User requestedUser,
-        String configIndex,
-        String configId,
-        boolean shouldEvaluateWithNewAuthz,
-        ActionListener<? extends ActionResponse> listener,
+        Settings settings,
         Consumer<Object[]> onSuccess,
         Object[] successArgs,
         Consumer<Object[]> fallbackOn501,
         Object[] fallbackArgs
     ) {
-        // TODO: Remove this feature flag check once feature is GA, as it will be enabled by default
-        // detectorId will be null when this is a create request and so we don't need resource authz check
-        if (shouldEvaluateWithNewAuthz && !Strings.isNullOrEmpty(configId)) {
-            ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
-            resourceSharingClient.verifyAccess(configId, configIndex, ActionListener.wrap(isAuthorized -> {
-                if (!isAuthorized) {
-                    listener
-                        .onFailure(
-                            new OpenSearchStatusException(
-                                "User " + requestedUser.getName() + " is not authorized to access config: " + configId,
-                                RestStatus.FORBIDDEN
-                            )
-                        );
-                    return;
-                }
-                onSuccess.accept(successArgs);
-            }, listener::onFailure));
+        // Resource access will be auto-evaluated
+        if (shouldUseResourceAuthz(settings)) {
+            onSuccess.accept(successArgs);
         } else {
             fallbackOn501.accept(fallbackArgs);
         }

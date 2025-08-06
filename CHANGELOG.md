@@ -7,6 +7,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Features
 ### Enhancements
 - Support >1 hr intervals ([#1513](https://github.com/opensearch-project/anomaly-detection/pull/1513))
+- Onboards to centralized resource access control for detectors and forecasters ([#1533](https://github.com/opensearch-project/anomaly-detection/pull/1533))
 
 
 ### Bug Fixes

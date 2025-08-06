@@ -14,12 +14,14 @@ package org.opensearch.timeseries.transport;
 import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
+import org.opensearch.action.DocRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
 
-public abstract class ResultRequest extends ActionRequest implements ToXContentObject {
+public abstract class ResultRequest extends ActionRequest implements ToXContentObject, DocRequest {
     protected String configId;
+    protected String configIndex;
     // time range start and end. Unit: epoch milliseconds
     protected long start;
     protected long end;
@@ -27,13 +29,15 @@ public abstract class ResultRequest extends ActionRequest implements ToXContentO
     public ResultRequest(StreamInput in) throws IOException {
         super(in);
         configId = in.readString();
+        configIndex = in.readString();
         start = in.readLong();
         end = in.readLong();
     }
 
-    public ResultRequest(String configID, long start, long end) {
+    public ResultRequest(String configID, String configIndex, long start, long end) {
         super();
         this.configId = configID;
+        this.configIndex = configIndex;
         this.start = start;
         this.end = end;
     }
@@ -58,7 +62,18 @@ public abstract class ResultRequest extends ActionRequest implements ToXContentO
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configId);
+        out.writeString(configIndex);
         out.writeLong(start);
         out.writeLong(end);
+    }
+
+    @Override
+    public String id() {
+        return configId;
+    }
+
+    @Override
+    public String index() {
+        return configIndex;
     }
 }

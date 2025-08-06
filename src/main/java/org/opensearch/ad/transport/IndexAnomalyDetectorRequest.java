@@ -144,4 +144,5 @@ public class IndexAnomalyDetectorRequest extends ActionRequest {
     public ActionRequestValidationException validate() {
         return null;
     }
+
 }

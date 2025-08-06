@@ -8,7 +8,6 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_DELETE_CONFIG;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -116,16 +115,9 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         User user = ParseUtils.getUserContext(client);
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_CONFIG);
 
-        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
-
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                user,
-                configIndexName,
-                configId,
-                shouldEvaluateWithNewAuthz,
-                listener,
+                settings,
                 (args) -> deleteConfigIfNotRunning(configId, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(

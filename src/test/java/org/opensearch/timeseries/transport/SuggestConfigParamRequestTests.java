@@ -12,12 +12,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Before;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -82,6 +84,8 @@ public class SuggestConfigParamRequestTests extends OpenSearchTestCase {
         assertEquals(detector, deserializedDetector);
         assertEquals(param, deserializedRequest.getParam());
         assertEquals(requestTimeout, deserializedRequest.getRequestTimeout());
+
+        assertEquals(ADIndex.CONFIG.getIndexName(), deserializedRequest.index());
     }
 
     /**
@@ -114,6 +118,8 @@ public class SuggestConfigParamRequestTests extends OpenSearchTestCase {
         assertEquals(forecaster, deserializedForecaster);
         assertEquals(param, deserializedRequest.getParam());
         assertEquals(requestTimeout, deserializedRequest.getRequestTimeout());
+
+        assertEquals(ForecastIndex.CONFIG.getIndexName(), deserializedRequest.index());
     }
 
     // Helper methods to create test instances of AnomalyDetector and Forecaster

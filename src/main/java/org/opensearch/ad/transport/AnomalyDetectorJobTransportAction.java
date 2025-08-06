@@ -63,7 +63,6 @@ public class AnomalyDetectorJobTransportAction extends
             FAIL_TO_STOP_DETECTOR,
             AnomalyDetector.class,
             adIndexJobActionHandler,
-            ADIndex.CONFIG.getIndexName(),
             Clock.systemUTC() // inject cannot find clock due to OS limitation
         );
     }

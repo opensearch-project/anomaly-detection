@@ -17,23 +17,27 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.DocRequest;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.timeseries.constant.CommonMessages;
 
-public class DeleteConfigRequest extends ActionRequest {
+public class DeleteConfigRequest extends ActionRequest implements DocRequest {
 
     private String configID;
+    private String configIndex;
 
     public DeleteConfigRequest(StreamInput in) throws IOException {
         super(in);
         this.configID = in.readString();
+        this.configIndex = in.readString();
     }
 
-    public DeleteConfigRequest(String detectorID) {
+    public DeleteConfigRequest(String configId, String configIndex) {
         super();
-        this.configID = detectorID;
+        this.configID = configId;
+        this.configIndex = configIndex;
     }
 
     public String getConfigID() {
@@ -44,6 +48,7 @@ public class DeleteConfigRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configID);
+        out.writeString(configIndex);
     }
 
     @Override
@@ -53,5 +58,15 @@ public class DeleteConfigRequest extends ActionRequest {
             validationException = addValidationError(CommonMessages.CONFIG_ID_MISSING_MSG, validationException);
         }
         return validationException;
+    }
+
+    @Override
+    public String index() {
+        return configIndex;
+    }
+
+    @Override
+    public String id() {
+        return configID;
     }
 }

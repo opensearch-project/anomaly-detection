@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
@@ -66,7 +67,17 @@ public class AnomalyDetectionClientTests {
 
     @Test
     public void getDetectorProfile() {
-        GetConfigRequest profileRequest = new GetConfigRequest("foo", Versions.MATCH_ANY, true, false, "", "", false, null);
+        GetConfigRequest profileRequest = new GetConfigRequest(
+            "foo",
+            ADIndex.CONFIG.getIndexName(),
+            Versions.MATCH_ANY,
+            true,
+            false,
+            "",
+            "",
+            false,
+            null
+        );
         assertEquals(profileResponse, anomalyDetectionClient.getDetectorProfile(profileRequest).actionGet());
     }
 

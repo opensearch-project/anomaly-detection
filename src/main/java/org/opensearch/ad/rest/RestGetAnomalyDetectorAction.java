@@ -22,6 +22,7 @@ import java.util.Locale;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonMessages;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.ADEnabledSetting;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.rest.BaseRestHandler;
@@ -64,6 +65,7 @@ public class RestGetAnomalyDetectorAction extends BaseRestHandler {
         boolean all = request.paramAsBoolean("_all", false);
         GetConfigRequest getConfigRequest = new GetConfigRequest(
             detectorId,
+            ADIndex.CONFIG.getIndexName(),
             RestActions.parseVersion(request),
             returnJob,
             returnTask,

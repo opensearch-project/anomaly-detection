@@ -17,7 +17,6 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 import static org.opensearch.timeseries.util.ParseUtils.getConfig;
 import static org.opensearch.timeseries.util.ParseUtils.getUserContext;
-import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -38,7 +37,6 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.rest.handler.IndexForecasterActionHandler;
@@ -102,16 +100,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         String errorMessage = method == RestRequest.Method.PUT ? FAIL_TO_UPDATE_FORECASTER : FAIL_TO_CREATE_FORECASTER;
         ActionListener<IndexForecasterResponse> listener = wrapRestActionListener(actionListener, errorMessage);
 
-        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
-
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                user,
-                ForecastIndex.CONFIG.getIndexName(),
-                forecasterId,
-                shouldEvaluateWithNewAuthz,
-                listener,
+                settings,
                 (args) -> forecastExecute(request, user, (Forecaster) args[0], context, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(

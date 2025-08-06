@@ -15,7 +15,6 @@ import static org.opensearch.forecast.settings.ForecastSettings.MAX_HC_FORECASTE
 import static org.opensearch.forecast.settings.ForecastSettings.MAX_SINGLE_STREAM_FORECASTERS;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.util.HashMap;
@@ -166,16 +165,10 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     protected void doExecute(Task task, ForecastResultRequest request, ActionListener<ForecastResultResponse> listener) {
         String forecastID = request.getConfigId();
         User user = ParseUtils.getUserContext(client);
-        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                user,
-                ForecastIndex.CONFIG.getIndexName(),
-                forecastID,
-                shouldEvaluateWithNewAuthz,
-                listener,
+                settings,
                 args -> executeRunOnce(forecastID, request, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(

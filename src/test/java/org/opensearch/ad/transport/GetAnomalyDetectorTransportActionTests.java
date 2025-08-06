@@ -26,6 +26,7 @@ import org.junit.*;
 import org.mockito.Mockito;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.ADTaskProfileRunner;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -128,13 +129,33 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
     @Test
     public void testGetTransportAction() throws IOException {
-        GetConfigRequest getAnomalyDetectorRequest = new GetConfigRequest("1234", 4321, false, false, "nonempty", "", false, null);
+        GetConfigRequest getAnomalyDetectorRequest = new GetConfigRequest(
+            "1234",
+            ADIndex.CONFIG.getIndexName(),
+            4321,
+            false,
+            false,
+            "nonempty",
+            "",
+            false,
+            null
+        );
         action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 
     @Test
     public void testGetTransportActionWithReturnJob() throws IOException {
-        GetConfigRequest getAnomalyDetectorRequest = new GetConfigRequest("1234", 4321, true, false, "", "abcd", false, null);
+        GetConfigRequest getAnomalyDetectorRequest = new GetConfigRequest(
+            "1234",
+            ADIndex.CONFIG.getIndexName(),
+            4321,
+            true,
+            false,
+            "",
+            "abcd",
+            false,
+            null
+        );
         action.doExecute(task, getAnomalyDetectorRequest, response);
     }
 
@@ -146,7 +167,17 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
     @Test
     public void testGetAnomalyDetectorRequest() throws IOException {
-        GetConfigRequest request = new GetConfigRequest("1234", 4321, true, false, "", "abcd", false, entity);
+        GetConfigRequest request = new GetConfigRequest(
+            "1234",
+            ADIndex.CONFIG.getIndexName(),
+            4321,
+            true,
+            false,
+            "",
+            "abcd",
+            false,
+            entity
+        );
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();
@@ -158,7 +189,7 @@ public class GetAnomalyDetectorTransportActionTests extends OpenSearchSingleNode
 
     @Test
     public void testGetAnomalyDetectorRequestNoEntityValue() throws IOException {
-        GetConfigRequest request = new GetConfigRequest("1234", 4321, true, false, "", "abcd", false, null);
+        GetConfigRequest request = new GetConfigRequest("1234", ADIndex.CONFIG.getIndexName(), 4321, true, false, "", "abcd", false, null);
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput input = out.bytes().streamInput();

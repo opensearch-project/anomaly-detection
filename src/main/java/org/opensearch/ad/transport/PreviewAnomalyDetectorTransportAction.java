@@ -17,7 +17,6 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_ANOMALY_FEA
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.MAX_CONCURRENT_PREVIEW;
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
-import static org.opensearch.timeseries.util.ParseUtils.shouldUseResourceAuthz;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -37,7 +36,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -111,17 +109,10 @@ public class PreviewAnomalyDetectorTransportAction extends
         User user = ParseUtils.getUserContext(client);
         ActionListener<PreviewAnomalyDetectorResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_PREVIEW_DETECTOR);
 
-        // TODO: Remove following and any other conditional check, post GA for Resource Authz.
-        boolean shouldEvaluateWithNewAuthz = shouldUseResourceAuthz(settings);
-
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
-                user,
-                ADIndex.CONFIG.getIndexName(),
-                detectorId,
-                shouldEvaluateWithNewAuthz,
-                listener,
+                settings,
                 args -> previewExecute(request, context, listener),
                 new Object[] {},
                 (fallbackArgs) -> resolveUserAndExecute(

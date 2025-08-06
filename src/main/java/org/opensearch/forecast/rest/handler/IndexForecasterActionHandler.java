@@ -35,23 +35,23 @@ public class IndexForecasterActionHandler extends AbstractForecasterActionHandle
     /**
      * Constructor function.
      *
-     * @param clusterService          ClusterService
-     * @param client                  OS node client that executes actions on the local node
-     * @param transportService        OS transport service
-     * @param forecastIndices         forecast index manager
-     * @param forecasterId            forecaster identifier
-     * @param seqNo                   sequence number of last modification
-     * @param primaryTerm             primary term of last modification
-     * @param refreshPolicy           refresh policy
-     * @param forecaster              forecaster instance
-     * @param requestTimeout          request time out configuration
-     * @param maxSingleStreamForecasters     max single-stream forecasters allowed
-     * @param maxHCForecasters        max HC forecasters allowed
-     * @param maxForecastFeatures     max features allowed per forecaster
-     * @param maxCategoricalFields    max number of categorical fields
-     * @param method                  Rest Method type
-     * @param xContentRegistry        Registry which is used for XContentParser
-     * @param user                    User context
+     * @param clusterService             ClusterService
+     * @param client                     OS node client that executes actions on the local node
+     * @param transportService           OS transport service
+     * @param forecastIndices            forecast index manager
+     * @param forecasterId               forecaster identifier
+     * @param seqNo                      sequence number of last modification
+     * @param primaryTerm                primary term of last modification
+     * @param refreshPolicy              refresh policy
+     * @param forecaster                 forecaster instance
+     * @param requestTimeout             request time out configuration
+     * @param maxSingleStreamForecasters max single-stream forecasters allowed
+     * @param maxHCForecasters           max HC forecasters allowed
+     * @param maxForecastFeatures        max features allowed per forecaster
+     * @param maxCategoricalFields       max number of categorical fields
+     * @param method                     Rest Method type
+     * @param xContentRegistry           Registry which is used for XContentParser
+     * @param user                       User context
      */
     public IndexForecasterActionHandler(
         ClusterService clusterService,

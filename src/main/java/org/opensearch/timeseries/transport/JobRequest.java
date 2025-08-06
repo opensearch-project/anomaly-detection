@@ -15,13 +15,15 @@ import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
+import org.opensearch.action.DocRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.timeseries.model.DateRange;
 
-public class JobRequest extends ActionRequest {
+public class JobRequest extends ActionRequest implements DocRequest {
 
     private String configID;
+    private String configIndex;
     // data start/end time. See ADBatchTaskRunner.getDateRangeOfSourceData.
     private DateRange dateRange;
     private boolean historical;
@@ -30,6 +32,7 @@ public class JobRequest extends ActionRequest {
     public JobRequest(StreamInput in) throws IOException {
         super(in);
         configID = in.readString();
+        configIndex = in.readString();
         rawPath = in.readString();
         if (in.readBoolean()) {
             dateRange = new DateRange(in);
@@ -37,8 +40,8 @@ public class JobRequest extends ActionRequest {
         historical = in.readBoolean();
     }
 
-    public JobRequest(String detectorID, String rawPath) {
-        this(detectorID, null, false, rawPath);
+    public JobRequest(String detectorID, String configIndex, String rawPath) {
+        this(detectorID, configIndex, null, false, rawPath);
     }
 
     /**
@@ -50,13 +53,14 @@ public class JobRequest extends ActionRequest {
      * null.
      *
      * @param configID config identifier
-     * @param dateRange analysis date range
+     * @param dateRange analysis date range-
      * @param historical historical analysis or not
      * @param rawPath raw request path
      */
-    public JobRequest(String configID, DateRange dateRange, boolean historical, String rawPath) {
+    public JobRequest(String configID, String configIndex, DateRange dateRange, boolean historical, String rawPath) {
         super();
         this.configID = configID;
+        this.configIndex = configIndex;
         this.dateRange = dateRange;
         this.historical = historical;
         this.rawPath = rawPath;
@@ -82,6 +86,7 @@ public class JobRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeString(configID);
+        out.writeString(configIndex);
         out.writeString(rawPath);
         if (dateRange != null) {
             out.writeBoolean(true);
@@ -95,5 +100,15 @@ public class JobRequest extends ActionRequest {
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    @Override
+    public String index() {
+        return configIndex;
+    }
+
+    @Override
+    public String id() {
+        return configID;
     }
 }

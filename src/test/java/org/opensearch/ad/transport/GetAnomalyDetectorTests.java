@@ -39,6 +39,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.ADTaskProfileRunner;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -146,7 +147,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_/_profile";
 
-        request = new GetConfigRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entity);
+        request = new GetConfigRequest(detectorId, ADIndex.CONFIG.getIndexName(), 0L, false, false, typeStr, rawPath, false, entity);
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
@@ -171,7 +172,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_/_profile";
 
-        request = new GetConfigRequest(detectorId, 0L, false, false, typeStr, rawPath, false, entity);
+        request = new GetConfigRequest(detectorId, ADIndex.CONFIG.getIndexName(), 0L, false, false, typeStr, rawPath, false, entity);
 
         future = new PlainActionFuture<>();
         action.doExecute(null, request, future);
@@ -209,7 +210,7 @@ public class GetAnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         rawPath = "_opendistro/_anomaly_detection/detectors/T4c3dXUBj-2IZN7itix_";
 
-        request = new GetConfigRequest(detectorId, 0L, false, true, typeStr, rawPath, false, entity);
+        request = new GetConfigRequest(detectorId, ADIndex.CONFIG.getIndexName(), 0L, false, true, typeStr, rawPath, false, entity);
         future = new PlainActionFuture<>();
         action.getExecute(request, future);
 
