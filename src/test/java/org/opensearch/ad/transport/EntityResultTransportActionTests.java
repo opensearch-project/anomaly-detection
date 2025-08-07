@@ -16,10 +16,10 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -84,6 +84,7 @@ import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.constant.CommonValue;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.TimeSeriesStat;
 import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
@@ -205,10 +206,10 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(detectorId, Arrays.asList(field));
         stateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         cacheMissEntity = "0.0.0.1";
         cacheMissData = new double[] { 0.1 };
@@ -272,7 +273,8 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             resultSaver,
             provider,
             threadPool,
-            clock
+            clock,
+            mock(NodeStateManager.class)
         );
 
         entityResult = new EntityADResultTransportAction(
@@ -315,10 +317,10 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
     public void testFailtoGetDetector() {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.empty());
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
 
@@ -407,7 +409,8 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             resultSaver,
             provider,
             threadPool,
-            clock
+            clock,
+            mock(NodeStateManager.class)
         );
         entityResult = new EntityADResultTransportAction(
             actionFilters,
@@ -433,5 +436,54 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         verify(entityColdStartQueue, times(1)).put(any());
         Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();
         assertEquals(1L, ((Long) val).longValue());
+    }
+
+    public void testLongIntervalColdEntityMediumPriority() {
+        AnomalyDetector longIntervalDetector = mock(AnomalyDetector.class);
+        when(longIntervalDetector.isLongInterval()).thenReturn(true);
+        when(longIntervalDetector.getId()).thenReturn(detectorId);
+        when(longIntervalDetector.getCategoryFields()).thenReturn(detector.getCategoryFields());
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(longIntervalDetector));
+            return null;
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
+
+        List<Entity> coldEntities = new ArrayList<>();
+        coldEntities.add(cacheMissEntityObj);
+        when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
+
+        PlainActionFuture<AcknowledgedResponse> future = new PlainActionFuture<>();
+        entityResult.doExecute(null, request, future);
+        future.actionGet(timeoutMs);
+
+        verify(coldEntityQueue).putAll(argThat(requests -> {
+            return requests.size() == 1 && requests.get(0).getPriority() == RequestPriority.MEDIUM;
+        }));
+    }
+
+    public void testShortIntervalColdEntityLowPriority() {
+        AnomalyDetector shortIntervalDetector = mock(AnomalyDetector.class);
+        when(shortIntervalDetector.isLongInterval()).thenReturn(false);
+        when(shortIntervalDetector.getId()).thenReturn(detectorId);
+        when(shortIntervalDetector.getCategoryFields()).thenReturn(detector.getCategoryFields());
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(shortIntervalDetector));
+            return null;
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
+
+        List<Entity> coldEntities = new ArrayList<>();
+        coldEntities.add(cacheMissEntityObj);
+        when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
+
+        PlainActionFuture<AcknowledgedResponse> future = new PlainActionFuture<>();
+        entityResult.doExecute(null, request, future);
+        future.actionGet(timeoutMs);
+
+        verify(coldEntityQueue)
+            .putAll(argThat(requests -> { return requests.size() == 1 && requests.get(0).getPriority() == RequestPriority.LOW; }));
     }
 }

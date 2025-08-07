@@ -13,6 +13,7 @@ package org.opensearch.ad;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.ADTask;
@@ -71,7 +72,8 @@ public class AnomalyDetectorProfileRunner extends
             ProfileName.AD_TASK,
             ADProfileAction.INSTANCE,
             AnomalyDetector::parse,
-            taskProfileRunner
+            taskProfileRunner,
+            ADCommonName.CONFIG_INDEX
         );
     }
 

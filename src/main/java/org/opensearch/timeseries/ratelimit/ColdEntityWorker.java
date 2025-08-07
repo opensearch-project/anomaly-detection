@@ -15,7 +15,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
@@ -33,10 +32,14 @@ import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.model.IndexableResult;
+import org.opensearch.timeseries.model.TaskType;
+import org.opensearch.timeseries.model.TimeSeriesTask;
+import org.opensearch.timeseries.task.TaskCacheManager;
+import org.opensearch.timeseries.task.TaskManager;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public class ColdEntityWorker<RCFModelType extends ThresholdedRandomCutForest, IndexableResultType extends IndexableResult, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, RCFResultType extends IntermediateResult<IndexableResultType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType, CacheType, IndexableResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends RealTimeInferencer<RCFModelType, IndexableResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>, CheckpointReadWorkerType extends CheckpointReadWorker<RCFModelType, IndexableResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, CacheType, SaveResultStrategyType, ColdStartWorkerType, InferencerType>>
+public class ColdEntityWorker<RCFModelType extends ThresholdedRandomCutForest, IndexableResultType extends IndexableResult, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, RCFResultType extends IntermediateResult<IndexableResultType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, IndexableResultType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, RCFResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType, CacheType, IndexableResultType, RCFResultType, ModelManagerType, SaveResultStrategyType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType>, InferencerType extends RealTimeInferencer<RCFModelType, IndexableResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, ColdStartWorkerType>, CheckpointReadWorkerType extends CheckpointReadWorker<RCFModelType, IndexableResultType, RCFResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, CacheType, SaveResultStrategyType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, ColdStartWorkerType, InferencerType>>
     extends ScheduledWorker<FeatureRequest, FeatureRequest> {
 
     public ColdEntityWorker(
@@ -93,9 +96,15 @@ public class ColdEntityWorker<RCFModelType extends ThresholdedRandomCutForest, I
             .addSettingsUpdateConsumer(expectedColdEntityExecutionMillsSetting, it -> this.expectedExecutionTimeInMilliSecsPerRequest = it);
     }
 
+    /**
+     * Cold entity queue may include low-priority entities when memory is insufficient.
+     * Cold entity queue may also include medium-priority entities with longer processing intervals.
+     *
+     * @param requests Cold entity requests
+     * @return return the original one since we don't need to do any conversion.
+     */
     @Override
     protected List<FeatureRequest> transformRequests(List<FeatureRequest> requests) {
-        // guarantee we only send low priority requests
-        return requests.stream().filter(request -> request.getPriority() == RequestPriority.LOW).collect(Collectors.toList());
+        return requests;
     }
 }

@@ -12,7 +12,11 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
 public class ForecastRunOnceProfileNodeRequest extends BaseNodeRequest {
-    private final ForecastRunOnceProfileRequest request;
+    private ForecastRunOnceProfileRequest request;
+
+    public ForecastRunOnceProfileNodeRequest() {
+        super();
+    }
 
     public ForecastRunOnceProfileNodeRequest(StreamInput in) throws IOException {
         super(in);

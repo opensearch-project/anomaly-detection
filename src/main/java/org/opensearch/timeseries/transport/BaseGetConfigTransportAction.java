@@ -255,7 +255,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                             }
                         }
                         getConfigAndJob(configID, returnJob, returnTask, realtimeTask, historicalTask, listener);
-                    }, transportService, true, 2, listener);
+                    }, transportService, false, 2, listener); // false means not reset task state to stopped state
                 } else {
                     getConfigAndJob(configID, returnJob, returnTask, Optional.empty(), Optional.empty(), listener);
                 }
@@ -329,6 +329,10 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                         }
                     }
                 }
+
+                adjustState(realtimeTask, job);
+                adjustState(historicalTask, job);
+
                 listener
                     .onResponse(
                         createResponse(
@@ -499,6 +503,8 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
             }
         }, exception -> { listener.onFailure(exception); });
     }
+
+    protected abstract void adjustState(Optional<TaskClass> taskOptional, Job job);
 
     protected abstract EntityProfileRunnerType createEntityProfileRunner(
         Client client,

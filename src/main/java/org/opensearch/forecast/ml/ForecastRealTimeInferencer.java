@@ -14,18 +14,23 @@ import org.opensearch.forecast.caching.ForecastPriorityCache;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.ForecastTask;
+import org.opensearch.forecast.model.ForecastTaskType;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
+import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
+import org.opensearch.timeseries.task.TaskCacheManager;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastRealTimeInferencer extends
-    RealTimeInferencer<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastSaveResultStrategy, ForecastPriorityCache, ForecastColdStartWorker> {
+    RealTimeInferencer<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastSaveResultStrategy, ForecastPriorityCache, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker> {
 
     public ForecastRealTimeInferencer(
         ForecastModelManager modelManager,
@@ -35,19 +40,21 @@ public class ForecastRealTimeInferencer extends
         ForecastSaveResultStrategy resultWriteWorker,
         ForecastCacheProvider cache,
         ThreadPool threadPool,
-        Clock clock
+        Clock clock,
+        NodeStateManager manage
     ) {
         super(
             modelManager,
             stats,
-            StatNames.FORECAST_MODEL_CORRUTPION_COUNT.getName(),
+            StatNames.FORECAST_MODEL_CORRUPTION_COUNT.getName(),
             checkpointDao,
             coldStartWorker,
             resultWriteWorker,
             cache,
             threadPool,
             FORECAST_THREAD_POOL_NAME,
-            clock
+            clock,
+            manage
         );
     }
 

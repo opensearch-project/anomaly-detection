@@ -65,6 +65,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.common.exception.JsonPathNotFoundException;
@@ -77,6 +78,7 @@ import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.DetectorInternalState;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
+import org.opensearch.ad.ratelimit.ADColdEntityWorker;
 import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADResultWriteRequest;
 import org.opensearch.ad.ratelimit.ADResultWriteWorker;
@@ -129,6 +131,7 @@ import org.opensearch.timeseries.stats.TimeSeriesStat;
 import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
 import org.opensearch.timeseries.transport.ResultProcessor;
 import org.opensearch.timeseries.transport.ResultResponse;
+import org.opensearch.timeseries.transport.SingleStreamResultRequest;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.NodeNotConnectedException;
 import org.opensearch.transport.RemoteTransportException;
@@ -212,10 +215,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         when(detector.getId()).thenReturn(adID);
         when(detector.getCategoryFields()).thenReturn(null);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         when(detector.getIntervalInMinutes()).thenReturn(1L);
 
         hashRing = mock(HashRing.class);
@@ -367,7 +370,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             mock(ADSaveResultStrategy.class),
             cacheProvider,
             threadPool,
-            mock(Clock.class)
+            mock(Clock.class),
+            mock(NodeStateManager.class)
         );
     }
 
@@ -408,7 +412,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -531,7 +536,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
 
         TransportService realTransportService = testNodes[0].transportService;
@@ -587,7 +593,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -628,7 +635,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             mock(ADSaveResultStrategy.class),
             cacheProvider,
             threadPool,
-            mock(Clock.class)
+            mock(Clock.class),
+            mock(NodeStateManager.class)
         );
 
         ADPriorityCache adPriorityCache = mock(ADPriorityCache.class);
@@ -651,7 +659,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -781,7 +790,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         new ThresholdResultTransportAction(actionFilters, testNodes[1].transportService, normalModelManager);
 
@@ -828,7 +838,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -907,7 +918,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
@@ -959,10 +971,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         NodeStateManager muteStateManager = mock(NodeStateManager.class);
         when(muteStateManager.isMuted(any(String.class), any(String.class))).thenReturn(true);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(muteStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(muteStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
             transportService,
@@ -998,7 +1010,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
 
@@ -1252,7 +1265,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             checkpointReadQueue,
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
     }
 
@@ -1405,7 +1419,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             stateManager,
             mock(ADCheckpointReadWorker.class),
             inferencer,
-            threadPool
+            threadPool,
+            mock(ADColdEntityWorker.class)
         );
         new ThresholdResultTransportAction(new ActionFilters(Collections.emptySet()), transportService, normalModelManager);
 
@@ -1458,10 +1473,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
     @SuppressWarnings("unchecked")
     public void testAllFeaturesDisabled() throws IOException {
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onFailure(new EndRunException(adID, CommonMessages.ALL_FEATURES_DISABLED_ERR_MSG, true));
             return null;
-        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
         AnomalyResultTransportAction action = new AnomalyResultTransportAction(
             new ActionFilters(Collections.emptySet()),
@@ -1650,5 +1665,145 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         AnomalyResultResponse response = listener.actionGet(10000L);
         assertEquals(Double.NaN, response.getAnomalyGrade(), 0.001);
         verify(featureQuery, never()).getColdStartData(any(AnomalyDetector.class), any(ActionListener.class));
+    }
+
+    public void testLongIntervalColdEntityQueue() throws InterruptedException {
+        AnomalyDetector longIntervalDetector = mock(AnomalyDetector.class);
+        when(longIntervalDetector.isLongInterval()).thenReturn(true);
+        when(longIntervalDetector.getId()).thenReturn(adID);
+        when(longIntervalDetector.getEnabledFeatureIds()).thenReturn(Collections.singletonList(featureId));
+        when(longIntervalDetector.getEnabledFeatureNames()).thenReturn(Collections.singletonList(featureName));
+        when(longIntervalDetector.getCategoryFields()).thenReturn(null);
+        when(longIntervalDetector.getIntervalInMinutes()).thenReturn(1L);
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(longIntervalDetector));
+            return null;
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
+
+        ADColdEntityWorker coldEntityWorker = mock(ADColdEntityWorker.class);
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            inProgress.countDown();
+            return null;
+        }).when(coldEntityWorker).put(any(FeatureRequest.class));
+
+        new ADSingleStreamResultTransportAction(
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            adCircuitBreakerService,
+            cacheProvider,
+            stateManager,
+            checkpointReadQueue,
+            inferencer,
+            threadPool,
+            coldEntityWorker
+        );
+
+        SingleStreamResultRequest request = new SingleStreamResultRequest(adID, "modelId", 100, 200, new double[] { 1.0 }, null);
+        PlainActionFuture<AcknowledgedResponse> listener = new PlainActionFuture<>();
+
+        transportService
+            .sendRequest(
+                clusterService.state().nodes().getLocalNode(),
+                ADSingleStreamResultAction.NAME,
+                request,
+                new TransportResponseHandler<AcknowledgedResponse>() {
+                    @Override
+                    public AcknowledgedResponse read(StreamInput in) throws IOException {
+                        return new AcknowledgedResponse(in);
+                    }
+
+                    @Override
+                    public void handleResponse(AcknowledgedResponse response) {
+                        listener.onResponse(response);
+                    }
+
+                    @Override
+                    public void handleException(TransportException exp) {
+                        listener.onFailure(exp);
+                    }
+
+                    @Override
+                    public String executor() {
+                        return ThreadPool.Names.GENERIC;
+                    }
+                }
+            );
+
+        inProgress.await(30, TimeUnit.SECONDS);
+        verify(coldEntityWorker, times(1)).put(any(FeatureRequest.class));
+        verify(checkpointReadQueue, never()).put(any(FeatureRequest.class));
+    }
+
+    public void testShortIntervalCheckpointQueue() throws InterruptedException {
+        AnomalyDetector shortIntervalDetector = mock(AnomalyDetector.class);
+        when(shortIntervalDetector.isLongInterval()).thenReturn(false);
+        when(shortIntervalDetector.getId()).thenReturn(adID);
+        when(shortIntervalDetector.getEnabledFeatureIds()).thenReturn(Collections.singletonList(featureId));
+        when(shortIntervalDetector.getEnabledFeatureNames()).thenReturn(Collections.singletonList(featureName));
+        when(shortIntervalDetector.getCategoryFields()).thenReturn(null);
+        when(shortIntervalDetector.getIntervalInMinutes()).thenReturn(1L);
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(shortIntervalDetector));
+            return null;
+        }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
+
+        ADColdEntityWorker coldEntityWorker = mock(ADColdEntityWorker.class);
+        CountDownLatch inProgress = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            inProgress.countDown();
+            return null;
+        }).when(checkpointReadQueue).put(any(FeatureRequest.class));
+
+        new ADSingleStreamResultTransportAction(
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            adCircuitBreakerService,
+            cacheProvider,
+            stateManager,
+            checkpointReadQueue,
+            inferencer,
+            threadPool,
+            coldEntityWorker
+        );
+
+        SingleStreamResultRequest request = new SingleStreamResultRequest(adID, "modelId", 100, 200, new double[] { 1.0 }, null);
+        PlainActionFuture<AcknowledgedResponse> listener = new PlainActionFuture<>();
+
+        transportService
+            .sendRequest(
+                clusterService.state().nodes().getLocalNode(),
+                ADSingleStreamResultAction.NAME,
+                request,
+                new TransportResponseHandler<AcknowledgedResponse>() {
+                    @Override
+                    public AcknowledgedResponse read(StreamInput in) throws IOException {
+                        return new AcknowledgedResponse(in);
+                    }
+
+                    @Override
+                    public void handleResponse(AcknowledgedResponse response) {
+                        listener.onResponse(response);
+                    }
+
+                    @Override
+                    public void handleException(TransportException exp) {
+                        listener.onFailure(exp);
+                    }
+
+                    @Override
+                    public String executor() {
+                        return ThreadPool.Names.GENERIC;
+                    }
+                }
+            );
+
+        inProgress.await(30, TimeUnit.SECONDS);
+        verify(checkpointReadQueue, times(1)).put(any(FeatureRequest.class));
+        verify(coldEntityWorker, never()).put(any(FeatureRequest.class));
     }
 }

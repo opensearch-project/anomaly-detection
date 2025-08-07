@@ -8,7 +8,9 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
 
 import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.rest.handler.HistorySuggest;
 import org.opensearch.timeseries.rest.handler.IntervalCalculation;
 import org.opensearch.timeseries.rest.handler.LatestTimeRetriever;
 import org.opensearch.timeseries.util.ParseUtils;
@@ -110,7 +113,12 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         }
     }
 
-    protected void suggestInterval(Config config, User user, TimeValue timeout, ActionListener<SuggestConfigParamResponse> listener) {
+    protected void suggestInterval(
+        Config config,
+        User user,
+        TimeValue timeout,
+        ActionListener<Pair<IntervalTimeConfiguration, Map<String, Object>>> listener
+    ) {
         LatestTimeRetriever latestTimeRetriever = new LatestTimeRetriever(
             config,
             timeout,
@@ -118,14 +126,11 @@ public abstract class BaseSuggestConfigParamTransportAction extends
             client,
             user,
             context,
-            searchFeatureDao
+            searchFeatureDao,
+            // simulate run once and real time scenario where we operate relative to now
+            true
         );
 
-        ActionListener<IntervalTimeConfiguration> intervalSuggestionListener = ActionListener
-            .wrap(
-                interval -> listener.onResponse(new SuggestConfigParamResponse.Builder().interval(interval).build()),
-                listener::onFailure
-            );
         ActionListener<Pair<Optional<Long>, Map<String, Object>>> latestTimeListener = ActionListener.wrap(latestEntityAttributes -> {
             Optional<Long> latestTime = latestEntityAttributes.getLeft();
             if (latestTime.isPresent()) {
@@ -139,9 +144,17 @@ public abstract class BaseSuggestConfigParamTransportAction extends
                     clock,
                     searchFeatureDao,
                     latestTime.get(),
-                    latestEntityAttributes.getRight()
+                    latestEntityAttributes.getRight(),
+                    false
                 );
-                intervalCalculation.findInterval(intervalSuggestionListener);
+                intervalCalculation
+                    .findInterval(
+                        ActionListener
+                            .wrap(
+                                interval -> listener.onResponse(Pair.of(interval, latestEntityAttributes.getRight())),
+                                listener::onFailure
+                            )
+                    );
             } else {
                 listener.onFailure(new TimeSeriesException("Empty data. Cannot find a good interval."));
             }
@@ -154,8 +167,145 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         latestTimeRetriever.checkIfHC(latestTimeListener);
     }
 
-    protected void suggestHistory(Config config, ActionListener<SuggestConfigParamResponse> listener) {
-        listener.onResponse(new SuggestConfigParamResponse.Builder().history(config.suggestHistory()).build());
+    protected void suggestHistory(
+        Config config,
+        User user,
+        TimeValue timeout,
+        boolean suggestInterval,
+        ActionListener<SuggestConfigParamResponse> listener
+    ) {
+        // if interval provided
+        // if suggesting Interval is required, first go to suggestInterval call.
+        if (!suggestInterval && config.getInterval() != null) {
+            IntervalTimeConfiguration interval = new IntervalTimeConfiguration(config.getIntervalInMinutes(), ChronoUnit.MINUTES);
+            HistorySuggest historySuggest = new HistorySuggest(
+                config,
+                user,
+                searchFeatureDao,
+                interval,
+                // No entity information is provided, so we need to return an empty map.
+                // This may result in less accurate historical data due to the lack of context.
+                // Additionally, it could lead to inefficiencies by requiring more processing cycles to analyze past data.
+                new HashMap<String, Object>(),
+                clock
+            );
+            historySuggest
+                .suggestHistory(
+                    ActionListener
+                        .wrap(
+                            historyResponse -> listener
+                                .onResponse(
+                                    new SuggestConfigParamResponse.Builder()
+                                        .history(historyResponse.getHistory())
+                                        .interval(interval)
+                                        .build()
+                                ),
+                            listener::onFailure
+                        )
+                );
+            return;
+        }
+        suggestInterval(config, user, timeout, ActionListener.wrap(intervalEntity -> {
+            HistorySuggest historySuggest = new HistorySuggest(
+                config,
+                user,
+                searchFeatureDao,
+                intervalEntity.getLeft(),
+                intervalEntity.getRight(),
+                clock
+            );
+            historySuggest
+                .suggestHistory(
+                    ActionListener
+                        .wrap(
+                            historyResponse -> listener
+                                .onResponse(
+                                    new SuggestConfigParamResponse.Builder()
+                                        .history(historyResponse.getHistory())
+                                        .interval(intervalEntity.getLeft())
+                                        .build()
+                                ),
+                            listener::onFailure
+                        )
+                );
+        }, listener::onFailure));
+
+    }
+
+    protected void suggestWindowDelay(Config config, User user, TimeValue timeout, ActionListener<SuggestConfigParamResponse> listener) {
+        LatestTimeRetriever latestTimeRetriever = new LatestTimeRetriever(
+            config,
+            timeout,
+            clientUtil,
+            client,
+            user,
+            context,
+            searchFeatureDao,
+            // if future date is found, just set window delay to 0
+            false
+        );
+        ActionListener<Pair<Optional<Long>, Map<String, Object>>> latestTimeListener = ActionListener.wrap(latestEntityAttributes -> {
+            Optional<Long> latestTime = latestEntityAttributes.getLeft();
+            if (latestTime.isPresent()) {
+                // default is 1 minute. If we use 0, validation might give window delay error as
+                // it might have a slightly larger current time than latest time
+                long windowDelayMillis = 0;
+                // we may get future date (e.g., in testing)
+                long currentMillis = clock.millis();
+
+                // ---------------------------------------------------------------------------
+                // Adaptive window-delay calculation
+                // ---------------------------------------------------------------------------
+                // Goal: pick a delay long enough that all data for the current query
+                // window has been ingested, so the config never sees “future gaps”.
+                //
+                // Algorithm
+                // 1. Compute the raw lag (`gapMs`) between now and the newest document.
+                // 2. Convert that lag into whole config-interval “buckets” (ceil).
+                // We use the integer-math identity
+                // ceil(a / b) = (a + b − 1) / b for positive a, b
+                // so we never under-estimate the number of missing buckets.
+                // 3. Add one extra “safety” bucket to cover clock skew / network jitter.
+                // 4. Transform the final bucket count back to milliseconds.
+                //
+                // ---------------------------------------------------------------------------
+
+                if (currentMillis > latestTime.get()) {
+
+                    // Milliseconds we are behind real time
+                    long gapMs = currentMillis - latestTime.get();
+
+                    // Length of one bucket (config interval)
+                    long bucketMs = config.getIntervalInMilliseconds();
+
+                    /* Missing buckets (ceiling division)
+                        Example: gap = 15 000 ms, bucket = 10 000 ms
+                        bucketsBehind = (15 000 + 10 000 − 1) / 10 000
+                                      = 24 999 / 10 000
+                                      = 2  ← correct (15 000 ms spans 2 full buckets)
+                    */
+                    long bucketsBehind = (gapMs + bucketMs - 1) / bucketMs;
+
+                    // Always keep one extra bucket as a cushion
+                    long safetyBuckets = 1;
+
+                    // Convert back to milliseconds
+                    windowDelayMillis = (bucketsBehind + safetyBuckets) * bucketMs;
+                }
+
+                // in case windowDelayMillis is small, we want at least 1 minute
+                listener
+                    .onResponse(
+                        new SuggestConfigParamResponse.Builder()
+                            .windowDelay(new IntervalTimeConfiguration((long) Math.ceil(windowDelayMillis / 60000.0), ChronoUnit.MINUTES))
+                            .build()
+                    );
+            } else {
+                listener.onFailure(new TimeSeriesException("Cannot find a good window delay."));
+            }
+        }, listener::onFailure);
+
+        latestTimeRetriever.checkIfHC(latestTimeListener);
     }
 
     public abstract void suggestExecute(

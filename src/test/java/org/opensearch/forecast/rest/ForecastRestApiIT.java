@@ -10,6 +10,9 @@ import static org.hamcrest.Matchers.containsString;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -21,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.opensearch.client.Response;
@@ -51,6 +55,8 @@ import com.google.gson.JsonObject;
  *  - Validate
  *  - Suggest
  *  - update
+ *  - Get
+ *  - Stat
  */
 public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     public static final int MAX_RETRY_TIMES = 200;
@@ -186,6 +192,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
+        assertTrue("actual: " + responseMap, responseMap.get("interval") != null);
         Map<String, Object> suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
         assertEquals(1, (int) suggestions.get("interval"));
         assertEquals("Minutes", suggestions.get("unit"));
@@ -310,7 +317,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(15, horizonSuggestions);
 
         int historySuggestions = ((Integer) responseMap.get("history"));
-        assertEquals(37, historySuggestions);
+        assertEquals(199, historySuggestions);
 
         // case 4: no feature is ok
         forecasterDef = "{\n"
@@ -545,9 +552,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     }
 
     /**
-     * Test data interval is larger than 1 hr and we fail to suggest
+     * Test data interval is larger than 1 hr
      */
-    public void testFailToSuggest() throws Exception {
+    public void testLargerThan1hr() throws Exception {
         int trainTestSplit = 100;
         String categoricalField = CITY_NAME;
         GenData dataGenerated = genUniformSingleFeatureData(
@@ -560,9 +567,10 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             -1,
             50
         );
+
         ingestUniformSingleFeatureData(trainTestSplit, dataGenerated.data, UNIFORM_DATASET_NAME, categoricalField);
 
-        // case 1: IntervalCalculation.findMinimumInterval cannot find any data point in the last 40 points and return 1 minute instead.
+        // case 1: history is of 40 points
         // We keep searching and find nothing below 1 hr and then return.
         String forecasterDef = "{\n"
             + "    \"name\": \"Second-Test-Forecaster-4\",\n"
@@ -614,9 +622,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
-        assertEquals(0, responseMap.size());
+        assertEquals("actual response: " + responseMap, 1, responseMap.size());
+        Map<String, Object> suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(70, (int) suggestions.get("interval"));
+        assertEquals("Minutes", suggestions.get("unit"));
 
-        // case 2: IntervalCalculation.findMinimumInterval find an interval larger than 1 hr by going through the last 240 points.
+        // case 2: history is of 240 points.
         // findMinimumInterval returns null and we stop searching further.
         forecasterDef = "{\n"
             + "    \"name\": \"Second-Test-Forecaster-4\",\n"
@@ -669,7 +680,10 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         assertEquals("Suggest forecaster interval failed", RestStatus.OK, TestHelpers.restStatus(response));
         responseMap = entityAsMap(response);
-        assertEquals(0, responseMap.size());
+        assertEquals(1, responseMap.size());
+        suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(70, (int) suggestions.get("interval"));
+        assertEquals("Minutes", suggestions.get("unit"));
     }
 
     public void testValidate() throws Exception {
@@ -987,7 +1001,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         Map<String, Object> responseMap = entityAsMap(response);
         Map<String, Object> validation = (Map<String, Object>) ((Map<String, Object>) responseMap.get("model")).get("forecast_interval");
         assertEquals(
-            "The selected interval might collect sparse data. Consider changing interval length to: 10",
+            "The selected interval might collect sparse data. Consider changing interval length to: 10 minutes",
             validation.get("message")
         );
         Map<String, Object> suggested = (Map<String, Object>) ((Map<String, Object>) validation.get("suggested_value")).get("period");
@@ -2107,16 +2121,17 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertTrue(forecastFrom != -1);
 
         // top forecast verification
-        minConfidenceIntervalVerification(forecasterId, forecastFrom);
-        maxConfidenceIntervalVerification(forecasterId, forecastFrom);
-        minForecastValueVerification(forecasterId, forecastFrom);
-        maxForecastValueVerification(forecasterId, forecastFrom);
-        distanceToThresholdGreaterThan(forecasterId, forecastFrom);
-        distanceToThresholdGreaterThanEqual(forecasterId, forecastFrom);
-        distanceToThresholdLessThan(forecasterId, forecastFrom);
-        distanceToThresholdLessThanEqual(forecasterId, forecastFrom);
-        customMaxForecastValue(forecasterId, forecastFrom);
-        customMinForecastValue(forecasterId, forecastFrom);
+        // our interval is 10 minutes, thus 600000 milliseconds
+        minConfidenceIntervalVerification(forecasterId, forecastFrom, 600000);
+        maxConfidenceIntervalVerification(forecasterId, forecastFrom, 600000);
+        minForecastValueVerification(forecasterId, forecastFrom, 600000);
+        maxForecastValueVerification(forecasterId, forecastFrom, 600000);
+        distanceToThresholdGreaterThan(forecasterId, forecastFrom, 600000);
+        distanceToThresholdGreaterThanEqual(forecasterId, forecastFrom, 600000);
+        distanceToThresholdLessThan(forecasterId, forecastFrom, 600000);
+        distanceToThresholdLessThanEqual(forecasterId, forecastFrom, 600000);
+        customMaxForecastValue(forecasterId, forecastFrom, 600000);
+        customMinForecastValue(forecasterId, forecastFrom, 600000);
         topForecastSizeVerification(forecasterId, forecastFrom);
 
         // case 2: cannot run once while forecaster is started
@@ -2163,7 +2178,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(forecasterId, responseMap.get("_id"));
     }
 
-    private void maxForecastValueVerification(String forecasterId, long forecastFrom) throws IOException {
+    private void maxForecastValueVerification(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
@@ -2213,8 +2228,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -2230,6 +2246,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "    ]\n"
                     + "}",
                 forecastFrom,
+                forecastFrom + intervalMillis,
                 FORECAST_VALUE
             );
 
@@ -2241,7 +2258,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(String.format(Locale.ROOT, "actual: %f, expect: %f", maxValue, largestValue), maxValue, largestValue, 0.001);
     }
 
-    private void minForecastValueVerification(String forecasterId, long forecastFrom) throws IOException {
+    private void minForecastValueVerification(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
@@ -2292,8 +2309,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -2309,6 +2327,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "    ]\n"
                     + "}",
                 forecastFrom,
+                forecastFrom + intervalMillis,
                 FORECAST_VALUE
             );
 
@@ -2360,7 +2379,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         return smallestValue;
     }
 
-    private void maxConfidenceIntervalVerification(String forecasterId, long forecastFrom) throws IOException {
+    private void maxConfidenceIntervalVerification(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
@@ -2415,8 +2434,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -2432,6 +2452,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "    ]\n"
                     + "}",
                 forecastFrom,
+                forecastFrom + intervalMillis,
                 CONFIDENCE_INTERVAL_WIDTH
             );
 
@@ -2440,7 +2461,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         List<SearchHit> maxConfidenceIntervalHits = toHits(maxConfidenceIntervalResponse);
         assertEquals("actual: " + maxConfidenceIntervalHits, 1, maxConfidenceIntervalHits.size());
         double maxWidth = (double) (maxConfidenceIntervalHits.get(0).getSourceAsMap().get(CONFIDENCE_INTERVAL_WIDTH));
-        assertEquals(String.format(Locale.ROOT, "actual: %f, expect: %f", maxWidth, largestWidth), maxWidth, largestWidth, 0.001);
+        assertEquals(maxWidth, largestWidth, 0.001);
     }
 
     private void validateKeyValue(
@@ -2518,7 +2539,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         return isDesc(parsedBuckets, previousWidth, regions, largestWidth, valueKey, "region", "regionName", expectedRegions);
     }
 
-    private void minConfidenceIntervalVerification(String forecasterId, long forecastFrom) throws IOException {
+    private void minConfidenceIntervalVerification(String forecasterId, long forecastFrom, long intervalInMillis) throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest = String
@@ -2571,8 +2592,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -2588,6 +2610,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "    ]\n"
                     + "}",
                 forecastFrom,
+                forecastFrom + intervalInMillis,
                 CONFIDENCE_INTERVAL_WIDTH
             );
 
@@ -2912,11 +2935,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(responseMap.get("last_update_time"), responseMap.get("last_ui_breaking_change_time"));
     }
 
-    private void distanceToThresholdGreaterThan(String forecasterId, long forecastFrom) throws IOException {
-        distanceToThresholdGreaterTemplate(forecasterId, forecastFrom, false);
+    private void distanceToThresholdGreaterThan(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
+        distanceToThresholdGreaterTemplate(forecasterId, forecastFrom, false, intervalMillis);
     }
 
-    private void distanceToThresholdGreaterTemplate(String forecasterId, long forecastFrom, boolean equal) throws IOException {
+    private void distanceToThresholdGreaterTemplate(String forecasterId, long forecastFrom, boolean equal, long intervalMillis)
+        throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
@@ -2980,8 +3004,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -2997,7 +3022,8 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "    ]\n"
                     + "}",
                 equal ? "gte" : "gt",
-                forecastFrom
+                forecastFrom,
+                forecastFrom + intervalMillis
             );
 
         Response maxDistanceResponse = TestHelpers
@@ -3008,22 +3034,23 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(String.format(Locale.ROOT, "actual: %f, expect: %f", maxValue, largestValue), maxValue, largestValue, 0.001);
     }
 
-    private void distanceToThresholdGreaterThanEqual(String forecasterId, long forecastFrom) throws IOException {
-        distanceToThresholdGreaterTemplate(forecasterId, forecastFrom, true);
+    private void distanceToThresholdGreaterThanEqual(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
+        distanceToThresholdGreaterTemplate(forecasterId, forecastFrom, true, intervalMillis);
     }
 
-    private void distanceToThresholdLessThan(String forecasterId, long forecastFrom) throws IOException {
-        distanceToThresholdLessTemplate(forecasterId, forecastFrom, false);
+    private void distanceToThresholdLessThan(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
+        distanceToThresholdLessTemplate(forecasterId, forecastFrom, false, intervalMillis);
     }
 
-    private void distanceToThresholdLessTemplate(String forecasterId, long forecastFrom, boolean equal) throws IOException {
+    private void distanceToThresholdLessTemplate(String forecasterId, long forecastFrom, boolean equal, long intervalMillis)
+        throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
         List<Object> parsedBuckets;
         double previousWidth;
         Set<String> cities;
-        int threshold = 7000;
+        int threshold = 8000;
         topForcastRequest = String
             .format(
                 Locale.ROOT,
@@ -3082,8 +3109,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -3099,7 +3127,8 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "    ]\n"
                     + "}",
                 equal ? "lte" : "lt",
-                forecastFrom
+                forecastFrom,
+                forecastFrom + intervalMillis
             );
 
         Response maxDistanceResponse = TestHelpers
@@ -3110,19 +3139,19 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals(String.format(Locale.ROOT, "actual: %f, expect: %f", maxValue, smallestValue), maxValue, smallestValue, 0.001);
     }
 
-    private void distanceToThresholdLessThanEqual(String forecasterId, long forecastFrom) throws IOException {
-        distanceToThresholdLessTemplate(forecasterId, forecastFrom, true);
+    private void distanceToThresholdLessThanEqual(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
+        distanceToThresholdLessTemplate(forecasterId, forecastFrom, true, intervalMillis);
     }
 
-    private void customMaxForecastValue(String forecasterId, long forecastFrom) throws IOException {
-        customForecastValueTemplate(forecasterId, forecastFrom, true);
+    private void customMaxForecastValue(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
+        customForecastValueTemplate(forecasterId, forecastFrom, true, intervalMillis);
     }
 
-    private void customMinForecastValue(String forecasterId, long forecastFrom) throws IOException {
-        customForecastValueTemplate(forecasterId, forecastFrom, false);
+    private void customMinForecastValue(String forecasterId, long forecastFrom, long intervalMillis) throws IOException {
+        customForecastValueTemplate(forecasterId, forecastFrom, false, intervalMillis);
     }
 
-    private void customForecastValueTemplate(String forecasterId, long forecastFrom, boolean max) throws IOException {
+    private void customForecastValueTemplate(String forecasterId, long forecastFrom, boolean max, long intervalMillis) throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
@@ -3232,8 +3261,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -3244,7 +3274,8 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                 FORECAST_VALUE,          // First %s
                 max ? "desc" : "asc",    // Second %s
                 CITY_NAME,               // Third %s
-                forecastFrom            // %d
+                forecastFrom,            // %d
+                forecastFrom + intervalMillis            // %d
             );
 
         Response maxValueResponse = TestHelpers
@@ -3358,8 +3389,8 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertTrue(forecastFrom != -1);
 
         // top forecast verification
-        customForecastValueDoubleCategories(forecasterId, forecastFrom, true, taskId);
-        customForecastValueDoubleCategories(forecasterId, forecastFrom, false, taskId);
+        customForecastValueDoubleCategories(forecasterId, forecastFrom, true, taskId, 600000);
+        customForecastValueDoubleCategories(forecasterId, forecastFrom, false, taskId, 600000);
     }
 
     private void topForecastSizeVerification(String forecasterId, long forecastFrom) throws IOException {
@@ -3394,8 +3425,13 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertTrue("actual content: " + parsedBuckets, parsedBuckets.size() == 1);
     }
 
-    private void customForecastValueDoubleCategories(String forecasterId, long forecastFrom, boolean max, String taskId)
-        throws IOException {
+    private void customForecastValueDoubleCategories(
+        String forecasterId,
+        long forecastFrom,
+        boolean max,
+        String taskId,
+        long intervalMillis
+    ) throws IOException {
         Response response;
         Map<String, Object> responseMap;
         String topForcastRequest;
@@ -3507,8 +3543,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                     + "                    \"range\": {\n"
                     + "                        \"data_end_time\": {\n"
                     + "                            \"from\": %d,\n"
-                    + "                            \"to\": null,\n"
-                    + "                            \"include_lower\": true\n"
+                    + "                            \"to\": %d,\n"
+                    + "                            \"include_lower\": true,\n"
+                    + "                            \"include_upper\": false\n"
                     + "                        }\n"
                     + "                    }\n"
                     + "                }\n"
@@ -3519,7 +3556,8 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
                 FORECAST_VALUE,          // First %s
                 max ? "desc" : "asc",    // Second %s
                 "region",               // Third %s
-                forecastFrom            // %d
+                forecastFrom,            // %d
+                forecastFrom + intervalMillis // %d
             );
 
         Response maxValueResponse = TestHelpers
@@ -3528,5 +3566,471 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals("actual: " + maxValueHits, 1, maxValueHits.size());
         double maxValue = (double) (maxValueHits.get(0).getSourceAsMap().get(FORECAST_VALUE));
         assertEquals(String.format(Locale.ROOT, "actual: %f, expect: %f", maxValue, largestValue), maxValue, largestValue, 0.001);
+    }
+
+    /**
+     * Test data interval is daily
+     */
+    public void testDailyInterval() throws Exception {
+        loadDailyIntervalData();
+
+        // case 1: suggest
+        String forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"sum1\",\n"
+            + "            \"feature_name\": \"sum1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"sum1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"value\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24\n"
+            + "}";
+
+        String formattedForecaster = String.format(Locale.ROOT, forecasterDef, DAILY_INTERVAL_DATA);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        assertEquals("Suggest failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        assertEquals("actual response: " + responseMap, 4, responseMap.size());
+        Map<String, Object> interval = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(1440, (int) interval.get("interval"));
+        assertEquals("Minutes", interval.get("unit"));
+
+        Map<String, Object> windowDelay = (Map<String, Object>) ((Map<String, Object>) responseMap.get("windowDelay")).get("period");
+        assertEquals("Minutes", windowDelay.get("unit"));
+        int delayMins = (int) windowDelay.get("interval");
+        // Parse the fixed instant in UTC
+        LocalDateTime baseline = LocalDateTime
+            .parse("2021-05-14 00:00:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT));
+
+        Instant baselineUtc = baseline.toInstant(ZoneOffset.UTC);
+        long difference = baselineUtc.until(Instant.now(), ChronoUnit.MINUTES);
+        assertTrue("Delay mismatch: expected ≈%d min, got %d min", Math.abs(delayMins - difference) <= 1440);
+
+        // case 2: validate
+        forecasterDef = "{\n"
+            + "    \"name\": \"Second-Test-Forecaster-4\",\n"
+            + "    \"description\": \"ok rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"sum1\",\n"
+            + "            \"feature_name\": \"sum1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"sum1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"value\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 1440,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"category_field\": [\"%s\"]\n"
+            + "}";
+
+        formattedForecaster = String.format(Locale.ROOT, forecasterDef, DAILY_INTERVAL_DATA, delayMins, "host");
+
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, VALIDATE_FORECASTER_MODEL),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        assertEquals("Validate forecaster model failed", RestStatus.OK, TestHelpers.restStatus(response));
+        responseMap = entityAsMap(response);
+        assertEquals("actual validate model response:" + responseMap + ". window delay: " + delayMins, 0, responseMap.size());
+
+        // case 3: test forecaster and status updated
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        String forecasterId = (String) responseMap.get("_id");
+
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+
+        // ─── Initial wait ────────────────────────────────────────────────
+        Thread.sleep(Duration.ofSeconds(20).toMillis());
+
+        final int maxRetries = 6;                    // how many extra tries
+        final Duration extraWait = Duration.ofSeconds(10); // +10 s per retry
+
+        String parsedState = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+
+            // make the request
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+
+            responseMap = entityAsMap(response);
+            parsedState = (String) ((Map<String, Object>) responseMap.get("run_once_task")).get("state");
+
+            // success → stop retrying
+            if ("TEST_COMPLETE".equals(parsedState)) {
+                break;
+            }
+
+            LOG.info("Current state" + parsedState);
+
+            // last attempt and still not RUNNING → fail the test
+            if (attempt == maxRetries) {
+                assertEquals(
+                    String.format(Locale.ROOT, "Expected: %s, got %s after %d retries", "RUNNING", parsedState, maxRetries),
+                    "RUNNING",
+                    parsedState
+                );
+            }
+
+            // wait 10 s more than the previous retry: 10 s, 20 s, 30 s …
+            Thread.sleep(extraWait.plusSeconds(10L * attempt).toMillis());
+        }
+
+        // case 4: start forecaster and status updated
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, START_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        assertEquals(forecasterId, responseMap.get("_id"));
+
+        // ─── Initial wait ────────────────────────────────────────────────
+        Thread.sleep(Duration.ofMinutes(1).toMillis());
+
+        parsedState = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+
+            // make the request
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+
+            responseMap = entityAsMap(response);
+            parsedState = (String) ((Map<String, Object>) responseMap.get("realtime_task")).get("state");
+
+            // success → stop retrying
+            if ("RUNNING".equals(parsedState)) {
+                break;
+            }
+
+            LOG.info("Current state" + parsedState);
+
+            // last attempt and still not RUNNING → fail the test
+            if (attempt == maxRetries) {
+                assertEquals(
+                    String.format(Locale.ROOT, "Expected: %s, got %s after %d retries", "RUNNING", parsedState, maxRetries),
+                    "RUNNING",
+                    parsedState
+                );
+            }
+
+            // wait 10 s more than the previous retry: 10 s, 20 s, 30 s …
+            Thread.sleep(extraWait.plusSeconds(10L * attempt).toMillis());
+        }
+
+        // case 5: stats API
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                String.format(Locale.ROOT, STATS_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        Map<String, Object> nodes = (Map<String, Object>) responseMap.get("nodes");
+
+        String firstKey = null;
+        if (nodes != null && !nodes.isEmpty()) {
+            // Works for any Map implementation
+            firstKey = nodes.keySet().iterator().next();
+        }
+        assertTrue(null != firstKey);
+
+        // node stats
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "GET",
+                String.format(Locale.ROOT, NODE_STATS_FORECASTER, firstKey),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String stateStatus = (String) responseMap.get("forecast_state_index_status");
+        assertTrue(
+            "Expected state status to be green or yellow, but was: " + stateStatus,
+            "yellow".equals(stateStatus) || "green".equals(stateStatus)
+        );
+
+        String configStatus = (String) responseMap.get("forecast_config_index_status");
+        assertTrue(
+            "Expected config status to be green or yellow, but was: " + configStatus,
+            "yellow".equals(configStatus) || "green".equals(configStatus)
+        );
+
+        // forecast_model_corruption_count must be 0 on every node
+        assertTrue(
+            "Expected corruption count == 0 on every node, actual response: " + responseMap,
+            nodes
+                .values()
+                .stream()                               // each node’s stats map
+                .map(v -> (Map<String, Object>) v)
+                .allMatch(n -> ((Number) n.get("forecast_model_corruption_count")).intValue() == 0)
+        );
+
+        // forecast_execute_request_count must be > 0 on at least one node
+        assertTrue(
+            "Expected at least one node with execute-request count > 0, actual response: " + responseMap,
+            anyNodeMatches(nodes, n -> ((Number) n.get("forecast_execute_request_count")).intValue() > 0)
+        );
+
+        // Same pattern for NODE_ONE_STAT_FORECASTER response (nodes from second request)
+        assertTrue(
+            "Expected at least one node with execute-request count > 0, actual response: " + responseMap,
+            anyNodeMatches(nodes, n -> ((Number) n.get("forecast_execute_request_count")).intValue() > 0)
+        );
+    }
+
+    private static boolean anyNodeMatches(Map<String, Object> nodes, java.util.function.Predicate<Map<String, Object>> pred) {
+        if (nodes == null || nodes.isEmpty()) {
+            fail("No node stats present");             // import static org.junit.Assert.fail;
+        }
+        // Each value is itself a Map<String,Object> with the metrics you need
+        return nodes.values().stream().map(v -> (Map<String, Object>) v).anyMatch(pred);
+    }
+
+    public void testSampleLogs() throws Exception {
+
+        String dataSet = "opensearch_dashboards_sample_data_logs";
+        String minimalForecaster = "{ \"name\":\""
+            + "a"
+            + "\", "
+            + "  \"description\":\"\", "
+            + "  \"indices\":[\""
+            + dataSet
+            + "\"], "
+            + "  \"filter_query\":{\"match_all\":{}}, "
+            + "  \"time_field\":\"timestamp\" }";
+
+        /* │── index + data ──────────────────────────────────────────── */
+        loadSampleLogsData(dataSet);
+
+        /* │── suggest: interval only ───────────────────────────────── */
+        Response response = TestHelpers
+            .makeRequest(client(), "POST", SUGGEST_INTERVAL_URI, ImmutableMap.of(), TestHelpers.toHttpEntity(minimalForecaster), null);
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
+
+        Map<String, Object> rsp = entityAsMap(response);
+        int intervalM = ((Number) ((Map<?, ?>) ((Map<?, ?>) rsp.get("interval")).get("period")).get("interval")).intValue();
+        assertTrue("interval must be > 0", intervalM > 0);
+
+        /* │── suggest: interval + horizon + history + windowDelay ──── */
+        response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(minimalForecaster),
+                null
+            );
+        rsp = entityAsMap(response);
+        assertTrue("interval must be > 0", intervalM > 0);
+        assertEquals(24, ((Number) rsp.get("horizon")).intValue());
+        int history = ((Number) rsp.get("history")).intValue();
+        assertTrue("history must be > 0", history > 0);
+        int windowDelay = ((Number) ((Map<?, ?>) ((Map<?, ?>) rsp.get("windowDelay")).get("period")).get("interval")).intValue();
+        assertTrue("window delay must be >= 0", windowDelay >= 0);
+
+        /* │── validate (no issues) ─────────────────────────────────── */
+        Response validateRsp = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                VALIDATE_FORECASTER_MODEL,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(fullSampleLogForecasterDefinition(dataSet, intervalM, history, windowDelay)),
+                null
+            );
+        assertEquals(RestStatus.OK, TestHelpers.restStatus(validateRsp));
+        Map<String, Object> validateResp = entityAsMap(validateRsp);
+        assertTrue("actual: " + validateResp, validateResp.isEmpty());
+
+        /* │── run-once until TEST_COMPLETE ─────────────────────────── */
+        String forecasterId = createSampleLogForecaster(dataSet, intervalM, history, windowDelay);
+
+        TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+
+        waitForState(forecasterId, "run_once_task", "TEST_COMPLETE", Duration.ofSeconds(20), 6, client());
+
+        /* │── start realtime until RUNNING ─────────────────────────── */
+        TestHelpers
+            .makeRequest(client(), "POST", String.format(Locale.ROOT, START_FORECASTER, forecasterId), null, (HttpEntity) null, null);
+        waitForState(forecasterId, "realtime_task", "RUNNING", Duration.ofSeconds(60), 6, client());
+    }
+
+    /** Builds & creates a full forecaster, returns its id. */
+    private String createSampleLogForecaster(String dataSet, int interval, int history, int windowDelay) throws Exception {
+
+        String body = fullSampleLogForecasterDefinition(dataSet, interval, history, windowDelay);
+
+        Response rsp = TestHelpers.makeRequest(client(), "POST", CREATE_FORECASTER, null, TestHelpers.toHttpEntity(body), null);
+        assertEquals(HttpStatus.SC_CREATED, rsp.getStatusLine().getStatusCode());
+        return entityAsMap(rsp).get("_id").toString();
+    }
+
+    /** Complete forecaster JSON matching user’s step 6. */
+    private String fullSampleLogForecasterDefinition(String dataSet, int interval, int history, int windowDelay) {
+        long nowMillis = Instant.now().toEpochMilli();
+        String featureName = "a";
+        String featureField = "bytes";
+
+        return "{\n"
+            + "  \"name\":\""
+            + featureName
+            + "\",\n"
+            + "  \"description\":\"\",\n"
+            + "  \"time_field\":\"timestamp\",\n"
+            + "  \"indices\":[\""
+            + dataSet
+            + "\"],\n"
+            + "  \"filter_query\":{\"match_all\":{\"boost\":1.0}},\n"
+            + "  \"window_delay\":{\"period\":{\"interval\":"
+            + windowDelay
+            + ",\"unit\":\"Minutes\"}},\n"
+            + "  \"shingle_size\":8,\n"
+            + "  \"schema_version\":0,\n"
+            + "  \"feature_attributes\":[{\n"
+            + "     \"feature_id\":\""
+            + featureName
+            + "\",\n"
+            + "     \"feature_name\":\""
+            + featureName
+            + "\",\n"
+            + "     \"feature_enabled\":true,\n"
+            + "     \"aggregation_query\":{\""
+            + featureName
+            + "\":{\"sum\":{\"field\":\""
+            + featureField
+            + "\"}}}\n"
+            + "  }],\n"
+            + "  \"recency_emphasis\":2560,\n"
+            + "  \"history\":"
+            + history
+            + ",\n"
+            + "  \"ui_metadata\":{ \"features\":{ \""
+            + featureName
+            + "\":{ \"aggregationBy\":\"sum\", \"aggregationOf\":\""
+            + featureField
+            + "\", \"featureType\":\"simple_aggs\" } }, \"filters\":[] },\n"
+            + "  \"last_update_time\":"
+            + nowMillis
+            + ",\n"
+            + "  \"forecast_interval\":{\"period\":{\"interval\":"
+            + interval
+            + ",\"unit\":\"Minutes\"}},\n"
+            + "  \"horizon\":"
+            + 24
+            + "\n"
+            + "}";
     }
 }

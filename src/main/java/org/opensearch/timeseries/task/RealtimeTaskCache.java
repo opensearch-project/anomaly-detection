@@ -38,17 +38,12 @@ public class RealtimeTaskCache {
     // interval in milliseconds.
     private long intervalInMillis;
 
-    // we query result index to check if there are any result generated for detector to tell whether it passed initialization of not.
-    // To avoid repeated query when there is no data, record whether we have done that or not.
-    private boolean queriedResultIndex;
-
     public RealtimeTaskCache(String state, Float initProgress, String error, long detectorIntervalInMillis) {
         this.state = state;
         this.initProgress = initProgress;
         this.error = error;
         this.lastJobRunTime = Instant.now().toEpochMilli();
         this.intervalInMillis = detectorIntervalInMillis;
-        this.queriedResultIndex = false;
     }
 
     public String getState() {
@@ -77,14 +72,6 @@ public class RealtimeTaskCache {
 
     public void setLastJobRunTime(long lastJobRunTime) {
         this.lastJobRunTime = lastJobRunTime;
-    }
-
-    public boolean hasQueriedResultIndex() {
-        return queriedResultIndex;
-    }
-
-    public void setQueriedResultIndex(boolean queriedResultIndex) {
-        this.queriedResultIndex = queriedResultIndex;
     }
 
     public boolean expired() {

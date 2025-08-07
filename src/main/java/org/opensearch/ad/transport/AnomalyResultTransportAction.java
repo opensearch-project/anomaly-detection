@@ -192,7 +192,7 @@ public class AnomalyResultTransportAction extends HandledTransportAction<ActionR
             }
             try {
                 nodeStateManager
-                    .getConfig(adID, AnalysisType.AD, resultProcessor.onGetConfig(listener, adID, request, Optional.of(hcDetectors)));
+                    .getConfig(adID, AnalysisType.AD, true, resultProcessor.onGetConfig(listener, adID, request, Optional.of(hcDetectors)));
             } catch (Exception ex) {
                 ResultProcessor.handleExecuteException(ex, listener, adID);
             }

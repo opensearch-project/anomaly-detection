@@ -43,14 +43,14 @@ public class SecurityClientUtil {
      * @param <Response> ActionResponse
      * @param request request body
      * @param consumer request method, functional interface to operate as a client request like client::get
-     * @param detectorId Detector id
+     * @param configId Config id
      * @param client OpenSearch client
      * @param listener needed to handle response
      */
     public <Request extends ActionRequest, Response extends ActionResponse> void asyncRequestWithInjectedSecurity(
         Request request,
         BiConsumer<Request, ActionListener<Response>> consumer,
-        String detectorId,
+        String configId,
         Client client,
         AnalysisType context,
         ActionListener<Response> listener
@@ -58,7 +58,7 @@ public class SecurityClientUtil {
         ThreadContext threadContext = client.threadPool().getThreadContext();
         try (
             TimeSeriesSafeSecurityInjector injectSecurity = new TimeSeriesSafeSecurityInjector(
-                detectorId,
+                configId,
                 settings,
                 threadContext,
                 nodeStateManager,

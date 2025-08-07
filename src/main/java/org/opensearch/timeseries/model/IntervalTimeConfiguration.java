@@ -17,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Set;
 
+import org.apache.logging.log4j.util.Strings;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -108,7 +109,7 @@ public class IntervalTimeConfiguration extends TimeConfiguration {
     @Generated
     @Override
     public String toString() {
-        return "IntervalTimeConfiguration [interval=" + interval + ", unit=" + unit + "]";
+        return interval + " " + Strings.toRootLowerCase(unit.name());
     }
 
     public long getInterval() {

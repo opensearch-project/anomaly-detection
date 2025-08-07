@@ -12,6 +12,7 @@
 package org.opensearch.ad.transport;
 
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -27,6 +28,6 @@ public class SearchAnomalyDetectorInfoTransportAction extends BaseSearchConfigIn
         Client client,
         ClusterService clusterService
     ) {
-        super(transportService, actionFilters, client, SearchAnomalyDetectorInfoAction.NAME);
+        super(transportService, actionFilters, client, SearchAnomalyDetectorInfoAction.NAME, ADCommonName.CONFIG_INDEX);
     }
 }

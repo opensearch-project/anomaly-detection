@@ -13,14 +13,18 @@ package org.opensearch.ad.ml;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.IgnoreSimilarExtractor.ThresholdArrays;
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
@@ -34,10 +38,13 @@ import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.ModelUtil;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.amazon.randomcutforest.config.ForestMode;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 /**
@@ -45,7 +52,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  *
  */
 public class ADColdStart extends
-    ModelColdStart<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker> {
+    ModelColdStart<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, AnomalyResult> {
     private static final Logger logger = LogManager.getLogger(ADColdStart.class);
 
     /**
@@ -87,7 +94,8 @@ public class ADColdStart extends
         ADCheckpointWriteWorker checkpointWriteWorker,
         long rcfSeed,
         int maxRoundofColdStart,
-        int coolDownMinutes
+        int coolDownMinutes,
+        int resultSchemaVersion
     ) {
         super(
             modelTtl,
@@ -107,7 +115,8 @@ public class ADColdStart extends
             featureManager,
             maxRoundofColdStart,
             TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
-            AnalysisType.AD
+            AnalysisType.AD,
+            resultSchemaVersion
         );
     }
 
@@ -126,7 +135,8 @@ public class ADColdStart extends
         Duration modelTtl,
         ADCheckpointWriteWorker checkpointWriteQueue,
         int maxRoundofColdStart,
-        int coolDownMinutes
+        int coolDownMinutes,
+        int resultSchemaVersion
     ) {
         this(
             clock,
@@ -144,7 +154,8 @@ public class ADColdStart extends
             checkpointWriteQueue,
             -1,
             maxRoundofColdStart,
-            coolDownMinutes
+            coolDownMinutes,
+            resultSchemaVersion
         );
     }
 
@@ -158,7 +169,7 @@ public class ADColdStart extends
      * training data in result index so that the frontend can plot it.
      */
     @Override
-    protected List<Sample> trainModelFromDataSegments(
+    protected List<AnomalyResult> trainModelFromDataSegments(
         List<Sample> pointSamples,
         ModelState<ThresholdedRandomCutForest> entityState,
         Config config,
@@ -185,6 +196,7 @@ public class ADColdStart extends
             .numberOfTrees(numberOfTrees)
             .timeDecay(config.getTimeDecay())
             .transformDecay(config.getTimeDecay())
+            // allow enough samples before emitting scores to park service
             .outputAfter(Math.max(shingleSize, numMinSamples))
             .initialAcceptFraction(initialAcceptFraction)
             .parallelExecutionEnabled(false)
@@ -221,21 +233,83 @@ public class ADColdStart extends
         // use build instead of new TRCF(Builder) because build method did extra validation and initialization
         ThresholdedRandomCutForest trcf = rcfBuilder.build();
 
+        // Prepare for sequential processing
+        double[][] sequentialData = new double[pointSamples.size()][];
+        long[] timestamps = new long[pointSamples.size()];
+        List<Pair<Instant, Instant>> sequentialTime = new ArrayList<>();
+
+        // Convert the list of Sample objects into a 2D array + a parallel list of time pairs
         for (int i = 0; i < pointSamples.size(); i++) {
             Sample dataSample = pointSamples.get(i);
             double[] dataValue = dataSample.getValueList();
-            // We don't keep missing values during cold start as the actual data may not be reconstructed during the early stage.
-            trcf.process(dataValue, dataSample.getDataEndTime().getEpochSecond());
+
+            sequentialData[i] = dataValue;
+            timestamps[i] = dataSample.getDataEndTime().getEpochSecond();
+            // Store start and end times together
+            sequentialTime.add(Pair.of(dataSample.getDataStartTime(), dataSample.getDataEndTime()));
+        }
+
+        // Process data in one go. We need the timestamps for STREAMING_IMPUTE mode
+        final List<AnomalyDescriptor> descriptors;
+        try {
+            descriptors = trcf.processSequentially(sequentialData, timestamps, x -> true);
+        } catch (Exception e) {
+            // e.g., out of order timestamps
+            logger.error("Error while running processSequentially", e);
+            // abort and return no results if the sequence processing fails
+            return null;
+        }
+        // Check for size mismatch
+        if (descriptors.size() != sequentialTime.size()) {
+            logger
+                .warn(
+                    "processSequentially returned a different size than expected: got [{}], expected [{}].",
+                    descriptors.size(),
+                    sequentialTime.size()
+                );
+            return null;
+        }
+
+        // Build anomaly results from sequential descriptors
+        List<AnomalyResult> results = new ArrayList<>();
+        for (int i = 0; i < descriptors.size(); i++) {
+            AnomalyDescriptor descriptor = descriptors.get(i);
+            double[] dataValue = sequentialData[i];
+            Pair<Instant, Instant> time = sequentialTime.get(i);
+
+            // Convert the descriptor into a thresholding result, or anomaly result
+            ThresholdingResult thresholdingResult = ModelUtil.toResult(trcf.getForest(), descriptor, dataValue, false, config);
+
+            Instant now = Instant.now();
+            results
+                .addAll(
+                    thresholdingResult
+                        .toIndexableResults(
+                            config,
+                            time.getLeft(),            // Data start time
+                            time.getRight(),           // Data end time
+                            now,
+                            now,
+                            ParseUtils.getFeatureData(dataValue, config),
+                            entityState.getEntity(),
+                            resultMappingVersion,
+                            entityState.getModelId(),
+                            taskId,
+                            null
+                        )
+                );
         }
 
         entityState.setModel(trcf);
 
         entityState.setLastUsedTime(clock.instant());
 
-        // save to checkpoint
-        checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
+        // save to checkpoint for real time only
+        if (null == taskId) {
+            checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
+        }
 
-        return pointSamples;
+        return results;
     }
 
     public static void applyRule(ThresholdedRandomCutForest.Builder rcfBuilder, AnomalyDetector detector) {

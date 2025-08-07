@@ -34,12 +34,12 @@ public class CrossClusterConfigUtilsTests extends OpenSearchTestCase {
     public void setup() {
         // Initialize the mock clients
         mockClient = mock(NodeClient.class);
-        localClusterName = "localCluster";
+        localClusterName = "localCluster#local";
         remoteClusterName = "remoteCluster";
     }
 
     public void testGetClientForClusterLocalCluster() {
-        Client result = CrossClusterConfigUtils.getClientForCluster(localClusterName, mockClient, localClusterName);
+        Client result = CrossClusterConfigUtils.getClientForCluster(localClusterName, mockClient, "localCluster");
         assertEquals(mockClient, result);
         verify(mockClient, never()).getRemoteClusterClient(anyString());
     }
@@ -62,8 +62,20 @@ public class CrossClusterConfigUtilsTests extends OpenSearchTestCase {
 
         assertEquals(3, result.size());
         assertEquals(Arrays.asList("index1"), result.get("remoteCluster"));
-        assertEquals(Arrays.asList("index2"), result.get("localCluster"));
+        assertEquals(Arrays.asList("index2"), result.get("localCluster#local"));
         assertEquals(Arrays.asList("index2"), result.get("remoteCluster2"));
+    }
+
+    public void testSeparateClusterIndexesWithSameRemoteClusterName() {
+        List<String> indexes = Arrays.asList("opensearch:index1", "index2");
+        ClusterService mockClusterService = mock(ClusterService.class);
+        when(mockClusterService.getClusterName()).thenReturn(new ClusterName("opensearch"));
+
+        HashMap<String, List<String>> result = CrossClusterConfigUtils.separateClusterIndexes(indexes, mockClusterService);
+
+        assertEquals(2, result.size());
+        assertEquals(Arrays.asList("index1"), result.get("opensearch"));
+        assertEquals(Arrays.asList("index2"), result.get("opensearch#local"));
     }
 
     public void testParseClusterAndIndexName_WithClusterAndIndex() {

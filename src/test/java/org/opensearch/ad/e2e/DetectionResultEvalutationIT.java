@@ -74,7 +74,10 @@ public class DetectionResultEvalutationIT extends AbstractADSyntheticDataTest {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("model", responseMap);
-        assertEquals(CommonMessages.INTERVAL_REC + recDetectorIntervalMinutes, messageMap.get("detection_interval").get("message"));
+        assertEquals(
+            CommonMessages.INTERVAL_REC + recDetectorIntervalMinutes + " minutes",
+            messageMap.get("detection_interval").get("message")
+        );
     }
 
     public void testValidationWindowDelayRecommendation() throws Exception {

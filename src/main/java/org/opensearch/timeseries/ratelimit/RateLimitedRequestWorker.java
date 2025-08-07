@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -182,6 +183,8 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     // is to separate requests from different detectors and fairly process requests
     // from each detector.
     protected final ConcurrentSkipListMap<String, RequestQueue> requestQueues;
+    // store config ids with in-flight requests with expired time
+    protected final Set<String> inflightConfigs;
     private String lastSelectedRequestQueueId;
     protected Random random;
     private CircuitBreakerService circuitBreakerService;
@@ -247,6 +250,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         this.stateTtl = stateTtl;
         this.nodeStateManager = nodeStateManager;
         this.context = context;
+        this.inflightConfigs = ConcurrentHashMap.newKeySet();
     }
 
     public String getWorkerName() {
@@ -543,6 +547,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         if (requests == null || requests.isEmpty()) {
             return;
         }
+
         try {
             for (RequestType request : requests) {
                 putOnly(request);
@@ -554,6 +559,28 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
         }
     }
 
+    /**
+     * Drives one round of request handling for this worker.
+     *
+     * <p><b>No infinite recursion:</b> {@code process()} may call
+     * {@link #triggerProcess()} which, in turn, schedules {@code execute(…)}.
+     * The callback passed to {@code execute} eventually invokes {@code process()}
+     * again, but <i>only</i> after one of two conditions breaks the chain:
+     * <ol>
+     *   <li>{@code getRequests(batchSize)} returns an empty list &nbsp;→&nbsp;
+     *       {@code emptyQueueCallback.run()} executes, <em>not</em> the
+     *       {@code afterProcessCallback}, so no further {@code process()} is
+     *       scheduled.</li>
+     *   <li>A cooldown is still in effect &nbsp;→&nbsp; this method schedules a
+     *       one-shot task via {@code threadPool.schedule(…)} instead of an
+     *       immediate recursive call, so each iteration starts on a <em>fresh</em>
+     *       stack frame.</li>
+     * </ol>
+     *
+     * Because at least one of these exits is guaranteed after every queue drain or
+     * cooldown check, the recursion depth is bounded and the JVM stack cannot grow
+     * without limit.
+     */
     protected void process() {
         if (random.nextInt(maintenanceFreqConstant) == 1) {
             maintenance();
@@ -585,9 +612,9 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     /**
      *
      * @param configId Config Id
-     * @return whether there is any unfinished request belonging to a configId
+     * @return whether there is any request in request queue belonging to a configId
      */
-    public boolean hasConfigId(String configId) {
+    public boolean hasConfigIdInQueue(String configId) {
         for (Map.Entry<String, RequestQueue> requestQueueEntry : requestQueues.entrySet()) {
             String requestId = requestQueueEntry.getKey();
             if (requestId.equals(RequestPriority.LOW.name()) || requestId.equals(RequestPriority.HIGH.name())) {
@@ -597,12 +624,16 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                 }
             } else {
                 // requestId is config Id
-                if (requestId.equals(configId)) {
+                if (!requestQueueEntry.getValue().isEmpty()) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    public boolean hasInflightRequest(String configId) {
+        return inflightConfigs.contains(configId);
     }
 
     /**

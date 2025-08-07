@@ -76,6 +76,7 @@ import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateResponse;
 import org.opensearch.ad.ADTaskProfileRunner;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.mock.model.MockSimpleLog;
 import org.opensearch.ad.model.ADTask;
@@ -537,7 +538,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).get(any(), any());
 
-        adTaskManager.getADTask(taskId, actionListener);
+        adTaskManager.getTask(taskId, actionListener);
         verify(actionListener, times(1)).onResponse(eq(Optional.empty()));
     }
 
@@ -564,7 +565,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).get(any(), any());
 
-        adTaskManager.getADTask(taskId, actionListener);
+        adTaskManager.getTask(taskId, actionListener);
         verify(actionListener, times(1)).onResponse(eq(Optional.empty()));
     }
 
@@ -578,7 +579,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).get(any(), any());
 
-        adTaskManager.getADTask(taskId, actionListener);
+        adTaskManager.getTask(taskId, actionListener);
         verify(actionListener, times(1)).onResponse(eq(Optional.empty()));
     }
 
@@ -592,7 +593,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).get(any(), any());
 
-        adTaskManager.getADTask(taskId, actionListener);
+        adTaskManager.getTask(taskId, actionListener);
         verify(actionListener, times(1)).onFailure(any());
     }
 
@@ -620,7 +621,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).get(any(), any());
 
-        adTaskManager.getADTask(taskId, actionListener);
+        adTaskManager.getTask(taskId, actionListener);
         verify(actionListener, times(1)).onResponse(any());
     }
 
@@ -646,9 +647,18 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
                 rcfTotalUpdates,
                 detectorIntervalInMinutes,
                 error,
+                true,
                 actionListener
             );
         verify(actionListener, times(1)).onResponse(any());
+    }
+
+    public void testTriageStateWithNullRcfTotalUpdates() {
+        Boolean hasResult = null;
+        String error = null;
+        Long rcfTotalUpdates = null;
+        String result = adTaskManager.triageState(hasResult, error, rcfTotalUpdates);
+        assertEquals(TaskState.INIT.name(), result);
     }
 
     public void testGetLocalADTaskProfilesByDetectorId() {
@@ -1464,7 +1474,7 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> responseListener = invocation.getArgument(1);
             GetResponse response = new GetResponse(
                 new GetResult(
-                    CommonName.CONFIG_INDEX,
+                    ADCommonName.CONFIG_INDEX,
                     detectorId,
                     UNASSIGNED_SEQ_NO,
                     0,

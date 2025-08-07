@@ -180,13 +180,209 @@ public class SearchTopForecastResultTransportAction extends
                 throw new IllegalArgumentException("Size must be a positive integer");
             }
 
-            // Generating the search request which will contain the generated query
+            /* Generating the search request which will contain the generated query
+               Example query:
+            
+            MAX_CONFIDENCE_INTERVAL_WIDTH:
+            ```
+            {
+                "size": 0,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "range": {
+                                    "data_end_time": {
+                                        "from": 1714577942116,
+                                        "to": 1714578542116,
+                                        "include_lower": true,
+                                        "include_upper": false,
+                                        "boost": 1
+                                    }
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "forecast_value",
+                                    "boost": 1
+                                }
+                            },
+                            {
+                                "term": {
+                                    "horizon_index": {
+                                        "value": 24,
+                                        "boost": 1
+                                    }
+                                }
+                            },
+                            {
+                                "term": {
+                                    "task_id": {
+                                        "value": "3XvS_pYBq3NQruYpErOs",
+                                        "boost": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "adjust_pure_negative": true,
+                        "boost": 1
+                    }
+                },
+                "track_total_hits": -1,
+                "aggregations": {
+                    "term_agg": {
+                        "terms": {
+                            "field": "entity_id",
+                            "size": 5,
+                            "min_doc_count": 1,
+                            "shard_min_doc_count": 0,
+                            "show_term_doc_count_error": false,
+                            "order": [
+                                {
+                                    "MAX_CONFIDENCE_INTERVAL_WIDTH": "desc"
+                                },
+                                {
+                                    "_key": "asc"
+                                }
+                            ]
+                        },
+                        "aggregations": {
+                            "MAX_CONFIDENCE_INTERVAL_WIDTH": {
+                                "max": {
+                                    "field": "confidence_interval_width"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ```
+            
+            DISTANCE_TO_THRESHOLD_VALUE:
+            ```
+            Request:
+            {
+                "size": 0,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "range": {
+                                    "data_end_time": {
+                                        "from": 1714576779221,
+                                        "to": 1714577379221,
+                                        "include_lower": true,
+                                        "include_upper": false,
+                                        "boost": 1
+                                    }
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "field": "forecast_value",
+                                    "boost": 1
+                                }
+                            },
+                            {
+                                "range": {
+                                    "forecast_value": {
+                                        "from": null,
+                                        "to": 7000,
+                                        "include_lower": true,
+                                        "include_upper": true,
+                                        "boost": 1
+                                    }
+                                }
+                            },
+                            {
+                                "term": {
+                                    "task_id": {
+                                        "value": "aTePMZcBZk7_vSaJPLkG",
+                                        "boost": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "adjust_pure_negative": true,
+                        "boost": 1
+                    }
+                },
+                "track_total_hits": -1,
+                "aggregations": {
+                    "term_agg": {
+                        "terms": {
+                            "field": "entity_id",
+                            "size": 5,
+                            "min_doc_count": 1,
+                            "shard_min_doc_count": 0,
+                            "show_term_doc_count_error": false,
+                            "order": [
+                                {
+                                    "DISTANCE_TO_THRESHOLD_VALUE": "asc"
+                                },
+                                {
+                                    "_key": "asc"
+                                }
+                            ]
+                        },
+                        "aggregations": {
+                            "DISTANCE_TO_THRESHOLD_VALUE": {
+                                "min": {
+                                    "field": "forecast_value"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            response:
+            {
+                "took": 8,
+                "timed_out": false,
+                "terminated_early": true,
+                "_shards": {
+                    "total": 1,
+                    "successful": 1,
+                    "skipped": 0,
+                    "failed": 0
+                },
+                "hits": {
+                    "max_score": null,
+                    "hits": []
+                },
+                "aggregations": {
+                    "term_agg": {
+                        "doc_count_error_upper_bound": 0,
+                        "sum_other_doc_count": 0,
+                        "buckets": [
+                            {
+                                "key": "forecast-E-vaxv98R4mafucShDt9Pg_entity_VRpz7ZMSS8npZWtQ-hjdbQ",
+                                "doc_count": 24,
+                                "DISTANCE_TO_THRESHOLD_VALUE": {
+                                    "value": 5633.09
+                                }
+                            },
+                            {
+                                "key": "forecast-E-vaxv98R4mafucShDt9Pg_entity_f3GX1evYZiD7tOuC1wl3JQ",
+                                "doc_count": 2,
+                                "DISTANCE_TO_THRESHOLD_VALUE": {
+                                    "value": 6959.3076
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            ```
+            */
             SearchRequest searchRequest = generateQuery(request, forecaster);
 
             // Adding search over any custom result indices
             if (!Strings.isNullOrEmpty(forecaster.getCustomResultIndexPattern())) {
                 searchRequest.indices(forecaster.getCustomResultIndexPattern());
             }
+
             // Utilizing the existing search() from SearchHandler to handle security
             // permissions. Both user role
             // and backend role filtering is handled in there, and any error will be
@@ -195,6 +391,7 @@ public class SearchTopForecastResultTransportAction extends
             // This same method is used for security handling for the search results action.
             // Since this action
             // is doing fundamentally the same thing, we can reuse the security logic here.
+            logger.debug("top forecast request:" + searchRequest);
             searchHandler.search(searchRequest, onSearchResponse(request, categoryFields, forecaster, listener));
         }, exception -> {
             logger.error("Failed to get top forecast results", exception);
@@ -210,6 +407,7 @@ public class SearchTopForecastResultTransportAction extends
         ActionListener<SearchTopForecastResultResponse> listener
     ) {
         return ActionListener.wrap(response -> {
+            logger.debug("top forecast response:" + response);
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {
                 // empty result (e.g., cannot find forecasts within [forecast from, forecast from + horizon * interval] range).
@@ -461,7 +659,9 @@ public class SearchTopForecastResultTransportAction extends
     }
 
     /**
-     * Adding the date filter (needed regardless of filter by type)
+     * Adding the date filter (needed regardless of filter by type).
+     * It is in the range of [forecastFrom, forecastFrom+interval).
+     *
      * @param request top forecaster request
      * @return filter for date
      */

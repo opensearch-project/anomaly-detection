@@ -52,12 +52,16 @@ import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IndexableResult;
+import org.opensearch.timeseries.model.TaskType;
+import org.opensearch.timeseries.model.TimeSeriesTask;
+import org.opensearch.timeseries.task.TaskCacheManager;
+import org.opensearch.timeseries.task.TaskManager;
 import org.opensearch.timeseries.util.ActionListenerExecutor;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType>, InferencerType extends RealTimeInferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, ColdStartWorkerType>>
+public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRandomCutForest, ResultType extends IndexableResult, RCFResultType extends IntermediateResult<ResultType>, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ResultType>, ModelManagerType extends ModelManager<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType>, CacheType extends TimeSeriesCache<RCFModelType>, SaveResultStrategyType extends SaveResultStrategy<ResultType, RCFResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ColdStartWorkerType extends ColdStartWorker<RCFModelType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, CacheType, ResultType, RCFResultType, ModelManagerType, SaveResultStrategyType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType>, InferencerType extends RealTimeInferencer<RCFModelType, ResultType, RCFResultType, IndexType, IndexManagementType, CheckpointType, CheckpointWriteWorkerType, ColdStarterType, ModelManagerType, SaveResultStrategyType, CacheType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, ColdStartWorkerType>>
     extends BatchWorker<FeatureRequest, MultiGetRequest, MultiGetResponse> {
 
     private static final Logger LOG = LogManager.getLogger(CheckpointReadWorker.class);
@@ -175,6 +179,7 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
             for (MultiGetItemResponse itemResponse : itemResponses) {
                 String modelId = itemResponse.getId();
                 if (itemResponse.isFailed()) {
+
                     final Exception failure = itemResponse.getFailure().getFailure();
                     if (failure instanceof IndexNotFoundException) {
                         for (FeatureRequest origRequest : toProcess) {
@@ -253,6 +258,7 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
             }
             processCheckpointIteration(0, toProcess, successfulRequests, retryableRequests);
         }, exception -> {
+            LOG.warn("Exception while processing checkpoints", exception);
             if (ExceptionUtil.isOverloaded(exception)) {
                 LOG.error("too many get model checkpoint requests or shard not available");
                 setCoolDownStart();
@@ -297,6 +303,7 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
 
                 if (null == modelState) {
                     // checkpoint is not available (e.g., too big or corrupted); cold start again
+                    // a long history can cause some entity not being able to initialized in time.
                     coldStartWorker.put(origRequest);
                     return;
                 }
@@ -305,6 +312,7 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
                     .getConfig(
                         configId,
                         context,
+                        true,
                         processIterationUsingConfig(
                             origRequest,
                             i,
@@ -363,9 +371,10 @@ public abstract class CheckpointReadWorker<RCFModelType extends ThresholdedRando
                 boolean loaded = cacheProvider.get().hostIfPossible(config, restoredModelState);
 
                 if (false == loaded) {
-                    // not in memory. Maybe cold entities or some other entities
-                    // have filled the slot while waiting for loading checkpoints.
-                    checkpointWriteWorker.write(restoredModelState, true, RequestPriority.LOW);
+                    // not in memory. Maybe cold entities or long interval entities
+                    // Save checkpoints.
+                    checkpointWriteWorker
+                        .write(restoredModelState, true, config.isLongInterval() ? RequestPriority.MEDIUM : RequestPriority.LOW);
                 }
             }
 

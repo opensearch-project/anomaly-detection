@@ -9,9 +9,7 @@ import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_COLD_ST
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayDeque;
-import java.util.Optional;
 import java.util.Random;
 
 import org.opensearch.cluster.service.ClusterService;
@@ -25,6 +23,9 @@ import org.opensearch.forecast.ml.ForecastColdStart;
 import org.opensearch.forecast.ml.ForecastModelManager;
 import org.opensearch.forecast.ml.RCFCasterResult;
 import org.opensearch.forecast.model.ForecastResult;
+import org.opensearch.forecast.model.ForecastTask;
+import org.opensearch.forecast.model.ForecastTaskType;
+import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -32,17 +33,14 @@ import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
-import org.opensearch.timeseries.ml.Sample;
-import org.opensearch.timeseries.model.Config;
-import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.ratelimit.ColdStartWorker;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
-import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.task.TaskCacheManager;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastColdStartWorker extends
-    ColdStartWorker<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastPriorityCache, ForecastResult, RCFCasterResult, ForecastModelManager, ForecastSaveResultStrategy> {
+    ColdStartWorker<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastPriorityCache, ForecastResult, RCFCasterResult, ForecastModelManager, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager> {
     public static final String WORKER_NAME = "forecast-hc-cold-start";
 
     public ForecastColdStartWorker(
@@ -65,7 +63,8 @@ public class ForecastColdStartWorker extends
         NodeStateManager nodeStateManager,
         ForecastPriorityCache cacheProvider,
         ForecastModelManager forecastModelManager,
-        ForecastSaveResultStrategy saveStrategy
+        ForecastSaveResultStrategy saveStrategy,
+        ForecastTaskManager taskManager
     ) {
         super(
             WORKER_NAME,
@@ -91,7 +90,8 @@ public class ForecastColdStartWorker extends
             cacheProvider,
             AnalysisType.FORECAST,
             forecastModelManager,
-            saveStrategy
+            saveStrategy,
+            taskManager
         );
     }
 
@@ -106,23 +106,6 @@ public class ForecastColdStartWorker extends
             0,
             coldStartRequest.getEntity(),
             new ArrayDeque<>()
-        );
-    }
-
-    @Override
-    protected ForecastResult createIndexableResult(Config config, String taskId, String modelId, Sample entry, Optional<Entity> entity) {
-        return new ForecastResult(
-            config.getId(),
-            taskId,
-            ParseUtils.getFeatureData(entry.getValueList(), config),
-            entry.getDataStartTime(),
-            entry.getDataEndTime(),
-            Instant.now(),
-            Instant.now(),
-            "",
-            entity,
-            config.getUser(),
-            config.getSchemaVersion()
         );
     }
 }

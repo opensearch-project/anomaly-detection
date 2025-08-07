@@ -50,6 +50,7 @@ import org.opensearch.timeseries.model.ConfigState;
 import org.opensearch.timeseries.model.InitProgressProfile;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.ModelProfileOnNode;
 import org.opensearch.timeseries.model.ProfileName;
 import org.opensearch.timeseries.model.TaskType;
 import org.opensearch.timeseries.model.TimeSeriesTask;
@@ -66,6 +67,7 @@ import org.opensearch.transport.TransportService;
 
 public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskProfileType extends TaskProfile<TaskClass>, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, ConfigProfileType extends ConfigProfile<TaskClass, TaskProfileType>, ProfileActionType extends ActionType<ProfileResponse>, TaskProfileRunnerType extends TaskProfileRunner<TaskClass, TaskProfileType>>
     extends AbstractProfileRunner {
+
     private final Logger logger = LogManager.getLogger(ProfileRunner.class);
     protected Client client;
     protected SecurityClientUtil clientUtil;
@@ -82,6 +84,7 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
     protected TaskProfileRunnerType taskProfileRunner;
     protected ProfileActionType profileAction;
     protected BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser;
+    protected String configIndexName;
 
     public ProfileRunner(
         Client client,
@@ -98,7 +101,8 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
         ProfileName taskProfile,
         ProfileActionType profileAction,
         BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser,
-        TaskProfileRunnerType taskProfileRunner
+        TaskProfileRunnerType taskProfileRunner,
+        String configIndexName
     ) {
         super(requiredSamples);
         this.client = client;
@@ -119,6 +123,7 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
         this.profileAction = profileAction;
         this.configParser = configParser;
         this.taskProfileRunner = taskProfileRunner;
+        this.configIndexName = configIndexName;
     }
 
     public void profile(String configId, ActionListener<ConfigProfileType> listener, Set<ProfileName> profilesToCollect) {
@@ -134,7 +139,7 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
         Set<ProfileName> profilesToCollect,
         ActionListener<ConfigProfileType> listener
     ) {
-        GetRequest getConfigRequest = new GetRequest(CommonName.CONFIG_INDEX, configId);
+        GetRequest getConfigRequest = new GetRequest(configIndexName, configId);
         client.get(getConfigRequest, ActionListener.wrap(getConfigResponse -> {
             if (getConfigResponse != null && getConfigResponse.isExists()) {
                 try (
@@ -375,8 +380,31 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
     ) {
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
         ProfileRequest profileRequest = new ProfileRequest(config.getId(), profiles, dataNodes);
-        client.execute(profileAction, profileRequest, onModelResponse(config, profiles, job, listener));// get init
-                                                                                                        // progress
+        if (config.isLongInterval()) {
+            ConfigProfileType.Builder<TaskClass, TaskProfileType> profile = createProfileBuilder();
+            if (profiles.contains(ProfileName.COORDINATING_NODE)) {
+                profile.coordinatingNode("");
+            }
+            if (profiles.contains(ProfileName.TOTAL_SIZE_IN_BYTES)) {
+                profile.totalSizeInBytes(0L);
+            }
+            if (profiles.contains(ProfileName.MODELS)) {
+                profile.modelProfile(new ModelProfileOnNode[0]);
+                profile.modelCount(0);
+            }
+            if (config.isHighCardinality() && profiles.contains(ProfileName.ACTIVE_ENTITIES)) {
+                profile.activeEntities(0L);
+            }
+
+            // only need to do it for models in priority cache. Single stream and HC are the same logic
+            if (profiles.contains(ProfileName.INIT_PROGRESS) || profiles.contains(ProfileName.STATE)) {
+                profileStateRelated(job, profiles, 0L, profile, config, listener);
+            } else {
+                listener.onResponse(profile.build());
+            }
+        } else {
+            client.execute(profileAction, profileRequest, onModelResponse(config, profiles, job, listener));
+        }
     }
 
     private ActionListener<ProfileResponse> onModelResponse(
@@ -402,10 +430,9 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
                 profile.activeEntities(profileResponse.getActiveEntities());
             }
 
-            // only need to do it for models in priority cache. AD single stream analysis has a
-            // different workflow to determine state and init progress
+            // only need to do it for models in priority cache. Single stream and HC are the same logic.
             if (profilesToCollect.contains(ProfileName.INIT_PROGRESS) || profilesToCollect.contains(ProfileName.STATE)) {
-                profileStateRelated(job, profilesToCollect, profileResponse, profile, config, listener);
+                profileStateRelated(job, profilesToCollect, profileResponse.getTotalUpdates(), profile, config, listener);
             } else {
                 listener.onResponse(profile.build());
             }
@@ -415,20 +442,19 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
     private void profileStateRelated(
         Job job,
         Set<ProfileName> profilesToCollect,
-        ProfileResponse profileResponse,
+        Long totalUpdates,
         ConfigProfileType.Builder<TaskClass, TaskProfileType> profileBuilder,
         Config config,
         MultiResponsesDelegateActionListener<ConfigProfileType> listener
     ) {
         if (job.isEnabled()) {
-            if (profileResponse.getTotalUpdates() < requiredSamples) {
+            if (totalUpdates < requiredSamples) {
                 // need to double check for an HC analysis
                 // since what ProfileResponse returns is the highest priority entity currently in memory, but
                 // another entity might have already been initialized and sit somewhere else (in memory or on disk).
                 long enabledTime = job.getEnabledTime().toEpochMilli();
-                long totalUpdates = profileResponse.getTotalUpdates();
                 ProfileUtil
-                    .confirmRealtimeInitStatus(
+                    .confirmRealtimeResultStatus(
                         config,
                         enabledTime,
                         client,

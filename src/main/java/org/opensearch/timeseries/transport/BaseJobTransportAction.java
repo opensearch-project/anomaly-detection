@@ -8,6 +8,8 @@ package org.opensearch.timeseries.transport;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
+import java.time.Clock;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
@@ -53,6 +55,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final String failtoStopMsg;
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
+    private final Clock clock;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -67,7 +70,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStartMsg,
         String failtoStopMsg,
         Class<? extends Config> configClass,
-        IndexJobActionHandlerType indexJobActionHandlerType
+        IndexJobActionHandlerType indexJobActionHandlerType,
+        Clock clock
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
         this.transportService = transportService;
@@ -82,6 +86,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.failtoStopMsg = failtoStopMsg;
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
+        this.clock = clock;
     }
 
     @Override
@@ -102,7 +107,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
                 configId,
                 filterByEnabled,
                 listener,
-                (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context),
+                (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
                 client,
                 clusterService,
                 xContentRegistry,
@@ -122,10 +127,11 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String rawPath,
         TimeValue requestTimeout,
         User user,
-        ThreadContext.StoredContext context
+        ThreadContext.StoredContext context,
+        Clock clock
     ) {
         if (rawPath.endsWith(RestHandlerUtils.START_JOB)) {
-            indexJobActionHandlerType.startConfig(configId, dateRange, user, transportService, context, listener);
+            indexJobActionHandlerType.startConfig(configId, dateRange, user, transportService, context, clock, listener);
         } else if (rawPath.endsWith(RestHandlerUtils.STOP_JOB)) {
             indexJobActionHandlerType.stopConfig(configId, historical, user, transportService, listener);
         }

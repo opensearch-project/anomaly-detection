@@ -158,10 +158,10 @@ public class SearchFeatureDaoTests {
         when(client.threadPool()).thenReturn(threadPool);
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, settings);
         searchFeatureDao = spy(new SearchFeatureDao(client, xContent, clientUtil, settings, null, TimeSeriesSettings.NUM_SAMPLES_PER_TREE));
 

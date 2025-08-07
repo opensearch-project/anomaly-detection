@@ -1,0 +1,12 @@
+{
+   "attributes": {
+     "title": "Number of Blocked Requests",
+     "visState": "{\"title\":\"Number of Blocked Requests\",\"type\":\"metric\",\"params\":{\"addTooltip\":true,\"addLegend\":false,\"type\":\"metric\",\"metric\":{\"percentageMode\":false,\"useRanges\":false,\"colorSchema\":\"Green to Red\",\"metricColorMode\":\"None\",\"colorsRange\":[{\"from\":0,\"to\":10000}],\"labels\":{\"show\":false},\"invertColors\":false,\"style\":{\"bgFill\":\"#000\",\"bgColor\":false,\"labelColor\":false,\"subText\":\"\",\"fontSize\":30}}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}}]}",
+     "uiStateJSON": "{}",
+     "description": "",
+     "version": 1,
+     "kibanaSavedObjectMeta": {
+       "searchSourceJSON": "{\"index\":\"awswaf\",\"query\":{\"query\":\"action:BLOCK\",\"language\":\"lucene\"},\"filter\":[]}"
+     }
+    }
+}

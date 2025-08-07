@@ -13,12 +13,17 @@ package org.opensearch.forecast.ml;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
+import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.threadpool.ThreadPool;
@@ -33,15 +38,19 @@ import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.ModelUtil;
+import org.opensearch.timeseries.util.ParseUtils;
 
 import com.amazon.randomcutforest.config.ForestMode;
 import com.amazon.randomcutforest.config.Precision;
 import com.amazon.randomcutforest.config.TransformMethod;
+import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
+import com.amazon.randomcutforest.parkservices.ForecastDescriptor;
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 import com.amazon.randomcutforest.parkservices.config.Calibration;
 
 public class ForecastColdStart extends
-    ModelColdStart<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker> {
+    ModelColdStart<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastResult> {
 
     private static final Logger logger = LogManager.getLogger(ForecastColdStart.class);
 
@@ -60,7 +69,8 @@ public class ForecastColdStart extends
         int coolDownMinutes,
         long rcfSeed,
         int defaultTrainSamples,
-        int maxRoundofColdStart
+        int maxRoundofColdStart,
+        int resultSchemaVersion
     ) {
         // 1 means we sample all real data if possible
         super(
@@ -81,12 +91,13 @@ public class ForecastColdStart extends
             featureManager,
             maxRoundofColdStart,
             TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME,
-            AnalysisType.FORECAST
+            AnalysisType.FORECAST,
+            resultSchemaVersion
         );
     }
 
     @Override
-    protected List<Sample> trainModelFromDataSegments(
+    protected List<ForecastResult> trainModelFromDataSegments(
         List<Sample> pointSamples,
         ModelState<RCFCaster> modelState,
         Config config,
@@ -116,6 +127,7 @@ public class ForecastColdStart extends
             .internalShinglingEnabled(true)
             .precision(Precision.FLOAT_32)
             .anomalyRate(1 - this.thresholdMinPvalue)
+            // allow enough samples before emitting scores to park service
             .outputAfter(Math.max(shingleSize, numMinSamples))
             .calibration(Calibration.MINIMAL)
             .timeDecay(config.getTimeDecay())
@@ -141,10 +153,61 @@ public class ForecastColdStart extends
 
         RCFCaster caster = casterBuilder.build();
 
+        List<Pair<Instant, Instant>> sequentialTime = new ArrayList<>();
+        double[][] sequentialData = new double[pointSamples.size()][firstPoint.length];
+        long[] timestamps = new long[pointSamples.size()];
         for (int i = 0; i < pointSamples.size(); i++) {
             Sample dataSample = pointSamples.get(i);
             double[] dataValue = dataSample.getValueList();
-            caster.process(dataValue, dataSample.getDataEndTime().getEpochSecond());
+            timestamps[i] = dataSample.getDataEndTime().getEpochSecond();
+            sequentialData[i] = dataValue;
+            sequentialTime.add(Pair.of(dataSample.getDataStartTime(), dataSample.getDataEndTime()));
+        }
+
+        List<ForecastResult> res = new ArrayList<>();
+        final List<AnomalyDescriptor> descriptors;
+        try {
+            descriptors = caster.processSequentially(sequentialData, timestamps, x -> true);
+        } catch (Exception e) {
+            // e.g., out of order timestamps
+            logger.error("Error while running processSequentially", e);
+            // abort and return no results if the sequence processing fails
+            return null;
+        }
+
+        if (descriptors.size() != sequentialTime.size()) {
+            logger
+                .warn(
+                    new ParameterizedMessage(
+                        "processSequentially returns different size than expected, got [{}], expecting [{}].",
+                        descriptors.size(),
+                        sequentialTime.size()
+                    )
+                );
+            return null;
+        }
+
+        Instant now = Instant.now();
+        for (int i = 0; i < descriptors.size(); i++) {
+            Pair<Instant, Instant> time = sequentialTime.get(i);
+            ForecastDescriptor descriptor = (ForecastDescriptor) descriptors.get(i);
+            double[] dataValue = sequentialData[i];
+            RCFCasterResult casterResult = ModelUtil.toResult(caster.getForest(), descriptor, dataValue, false);
+            List<ForecastResult> resultI = casterResult
+                .toIndexableResults(
+                    config,
+                    time.getLeft(),
+                    time.getRight(),
+                    now,
+                    now,
+                    ParseUtils.getFeatureData(dataValue, config),
+                    modelState.getEntity(),
+                    resultMappingVersion,
+                    modelState.getModelId(),
+                    taskId,
+                    null
+                );
+            res.addAll(resultI);
         }
 
         modelState.setModel(caster);
@@ -153,6 +216,7 @@ public class ForecastColdStart extends
         if (null == taskId) {
             checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
         }
-        return pointSamples;
+
+        return res;
     }
 }

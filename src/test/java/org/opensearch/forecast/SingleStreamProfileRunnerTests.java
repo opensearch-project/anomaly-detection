@@ -147,8 +147,8 @@ public class SingleStreamProfileRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(forecaster, forecaster.getId(), CommonName.CONFIG_INDEX));
+            if (indexName.equals(ForecastCommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(forecaster, forecaster.getId(), ForecastCommonName.CONFIG_INDEX));
             } else if (indexName.equals(ForecastIndex.STATE.getIndexName())) {
                 listener.onResponse(TestHelpers.createGetResponse(task, forecaster.getId(), ForecastIndex.STATE.getIndexName()));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {
@@ -346,8 +346,8 @@ public class SingleStreamProfileRunnerTests extends AbstractTimeSeriesTest {
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
             String indexName = request.index();
-            if (indexName.equals(CommonName.CONFIG_INDEX)) {
-                listener.onResponse(TestHelpers.createGetResponse(forecaster, forecaster.getId(), CommonName.CONFIG_INDEX));
+            if (indexName.equals(ForecastCommonName.CONFIG_INDEX)) {
+                listener.onResponse(TestHelpers.createGetResponse(forecaster, forecaster.getId(), ForecastCommonName.CONFIG_INDEX));
             } else if (indexName.equals(ForecastIndex.STATE.getIndexName())) {
                 listener.onResponse(TestHelpers.createGetResponse(task, forecaster.getId(), ForecastIndex.STATE.getIndexName()));
             } else if (indexName.equals(CommonName.JOB_INDEX)) {

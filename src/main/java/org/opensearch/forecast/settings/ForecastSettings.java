@@ -389,5 +389,5 @@ public final class ForecastSettings {
     // ======================================
     // ML
     // ======================================
-    public static final int MINIMUM_SHINLE_SIZE = 4;
+    public static final int MINIMUM_SHINGLE_SIZE = 4;
 }

@@ -11,6 +11,8 @@
 
 package org.opensearch.timeseries;
 
+import static org.opensearch.client.RestClientBuilder.DEFAULT_MAX_CONN_PER_ROUTE;
+import static org.opensearch.client.RestClientBuilder.DEFAULT_MAX_CONN_TOTAL;
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_ENABLED;
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH;
 import static org.opensearch.commons.ConfigConstants.OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD;
@@ -38,6 +40,7 @@ import javax.management.ObjectName;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
+import javax.net.ssl.SSLEngine;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -204,8 +207,9 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             String password = Optional
                 .ofNullable(System.getProperty("password"))
                 .orElseThrow(() -> new RuntimeException("password is missing"));
-            CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-            credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(userName, password));
+            BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+            final AuthScope anyScope = new AuthScope(null, -1);
+            credentialsProvider.setCredentials(anyScope, new UsernamePasswordCredentials(userName, password));
             try {
                 return httpClientBuilder
                     .setDefaultCredentialsProvider(credentialsProvider)

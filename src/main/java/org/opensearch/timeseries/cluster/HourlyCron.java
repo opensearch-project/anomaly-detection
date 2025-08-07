@@ -14,10 +14,10 @@ package org.opensearch.timeseries.cluster;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
-import org.opensearch.ad.transport.CronAction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.timeseries.transport.CronAction;
 import org.opensearch.timeseries.transport.CronRequest;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 

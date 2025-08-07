@@ -39,21 +39,53 @@ import org.opensearch.timeseries.model.ValidationIssueType;
 public class AggregationPrep {
     protected static final Logger logger = LogManager.getLogger(AggregationPrep.class);
 
-    private SearchFeatureDao dateRangeHelper;
+    private SearchFeatureDao searchFeatureDao;
     private Config config;
     TimeValue requestTimeout;
 
     public static final String AGGREGATION = "agg";
 
-    public AggregationPrep(SearchFeatureDao dateRangeHelper, TimeValue requestTimeout, Config config) {
-        this.dateRangeHelper = dateRangeHelper;
+    public AggregationPrep(SearchFeatureDao searchFeatureDao, TimeValue requestTimeout, Config config) {
+        this.searchFeatureDao = searchFeatureDao;
         this.requestTimeout = requestTimeout;
         this.config = config;
     }
 
+    /**
+     * Returns the time‑range bounds using this detector’s **default history length**
+     * (i.e., the value provided by {@link #getNumberOfSamples()}).
+     *
+     * <p>The method delegates to
+     * {@link #getTimeRangeBounds(IntervalTimeConfiguration, long, int)} and is a
+     * convenience overload for callers that do not need to specify a custom
+     * sample count.</p>
+     *
+     * @param interval   sampling interval configuration (e.g., “5m”, “1h”)
+     * @param endMillis  exclusive upper bound of the time range, expressed in epoch ms
+     * @return           {@code LongBounds} where {@code getMin()} is the computed
+     *                   start time and {@code getMax()} equals {@code endMillis}
+     */
     public LongBounds getTimeRangeBounds(IntervalTimeConfiguration interval, long endMillis) {
+        return getTimeRangeBounds(interval, endMillis, getNumberOfSamples());
+    }
+
+    /**
+     * Returns the time‑range bounds using an **explicitly supplied history length**.
+     *
+     * <p>The start time is computed as {@code endMillis − (numberOfSamples × interval)}.
+     * Use this overload when the caller wants full control over how many historical
+     * samples are considered in the query window.</p>
+     *
+     * @param interval         sampling interval configuration (e.g., “5m”, “1h”)
+     * @param endMillis        exclusive upper bound of the time range, expressed in epoch ms
+     * @param numberOfSamples  number of historical samples to include; must be &gt; 0
+     * @return                 {@code LongBounds} with {@code getMin()} equal to the
+     *                         calculated start time and {@code getMax()} equal to {@code endMillis}
+     * @throws IllegalArgumentException if {@code numberOfSamples} is non‑positive
+     */
+    public LongBounds getTimeRangeBounds(IntervalTimeConfiguration interval, long endMillis, int numberOfSamples) {
         long intervalInMillis = IntervalTimeConfiguration.getIntervalInMinute(interval) * 60000;
-        Long startMillis = endMillis - (getNumberOfSamples() * intervalInMillis);
+        Long startMillis = endMillis - (numberOfSamples * intervalInMillis);
         return new LongBounds(startMillis, endMillis);
     }
 
@@ -61,35 +93,18 @@ public class AggregationPrep {
         return config.getHistoryIntervals();
     }
 
-    public double getBucketHitRate(SearchResponse response, IntervalTimeConfiguration currentInterval, long endMillis) {
+    public long getShingleCount(SearchResponse response) {
         // as feature query might contain filter, use feature query as we do in cold start
         if (config.getEnabledFeatureIds() != null && config.getEnabledFeatureIds().size() > 0) {
-            List<Optional<double[]>> features = dateRangeHelper.parseColdStartSampleResp(response, false, config);
-            return features.stream().filter(Optional::isPresent).count() / getNumberOfSamples();
+            return searchFeatureDao.countContinuousShinglesFromDateRangeSearch(response, config);
         } else {
-            return getHistorgramBucketHitRate(response);
+            return searchFeatureDao.countContinuousShinglesFromHistogramSearch(response, config, false);
         }
-    }
-
-    public double getHistorgramBucketHitRate(SearchResponse response) {
-        int numberOfSamples = getNumberOfSamples();
-        if (numberOfSamples == 0) {
-            return 0;
-        }
-        Histogram histogram = validateAndRetrieveHistogramAggregation(response);
-        if (histogram == null || histogram.getBuckets() == null) {
-            logger.warn("Empty histogram buckets");
-            return 0;
-        }
-        // getBuckets returns non-empty bucket (e.g., doc_count > 0)
-        int bucketCount = histogram.getBuckets().size();
-
-        return bucketCount / numberOfSamples;
     }
 
     public List<Long> getTimestamps(SearchResponse response) {
         if (config.getEnabledFeatureIds() != null && config.getEnabledFeatureIds().size() > 0) {
-            return dateRangeHelper.parseColdStartSampleTimestamp(response, false, config);
+            return searchFeatureDao.parseColdStartSampleTimestamp(response, false, config);
         } else {
             Histogram aggregate = validateAndRetrieveHistogramAggregation(response);
             // In all cases, when the specified end time does not exist, the actual end time is the closest available time after the
@@ -108,17 +123,18 @@ public class AggregationPrep {
     public SearchRequest createSearchRequest(
         IntervalTimeConfiguration currentInterval,
         LongBounds currentTimeStampBounds,
-        Map<String, Object> topEntity
+        Map<String, Object> topEntity,
+        int histogramMinDocCount
     ) {
         if (config.getEnabledFeatureIds() != null && config.getEnabledFeatureIds().size() > 0) {
-            List<Entry<Long, Long>> ranges = dateRangeHelper
+            List<Entry<Long, Long>> ranges = searchFeatureDao
                 .getTrainSampleRanges(
                     currentInterval,
                     currentTimeStampBounds.getMin(),
                     currentTimeStampBounds.getMax(),
                     getNumberOfSamples()
                 );
-            return dateRangeHelper
+            return searchFeatureDao
                 .createColdStartFeatureSearchRequest(
                     config,
                     ranges,
@@ -128,7 +144,8 @@ public class AggregationPrep {
             return composeHistogramQuery(
                 topEntity,
                 (int) IntervalTimeConfiguration.getIntervalInMinute(currentInterval),
-                currentTimeStampBounds
+                currentTimeStampBounds,
+                histogramMinDocCount
             );
         }
     }
@@ -139,15 +156,84 @@ public class AggregationPrep {
         Map<String, Object> topEntity,
         int featureIndex
     ) {
+        /*
+         * Example request:
+         {
+                "size": 0,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "match_all": {
+                                    "boost": 1
+                                }
+                            }
+                        ],
+                        "adjust_pure_negative": true,
+                        "boost": 1
+                    }
+                },
+                "aggregations": {
+                    "date_range": {
+                        "date_range": {
+                            "field": "timestamp",
+                            "format": "epoch_millis",
+                            "ranges": [
+                                {
+                                    "from": 1714557000000,
+                                    "to": 1714557600000
+                                },
+                                ...
+                                {
+                                    "from": 1714580400000,
+                                    "to": 1714581000000
+                                }
+                            ],
+                            "keyed": false
+                        },
+                        "aggregations": {
+                            "max1": {
+                                "filter": {
+                                    "bool": {
+                                        "must": [
+                                            {
+                                                "range": {
+                                                    "timestamp": {
+                                                        "from": null,
+                                                        "to": 1714539000000,
+                                                        "include_lower": true,
+                                                        "include_upper": false,
+                                                        "boost": 1
+                                                    }
+                                                }
+                                            }
+                                        ],
+                                        "adjust_pure_negative": true,
+                                        "boost": 1
+                                    }
+                                },
+                                "aggregations": {
+                                    "max1": {
+                                        "max": {
+                                            "field": "visitCount"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+         */
         if (config.getEnabledFeatureIds() != null && config.getEnabledFeatureIds().size() > 0) {
-            List<Entry<Long, Long>> ranges = dateRangeHelper
+            List<Entry<Long, Long>> ranges = searchFeatureDao
                 .getTrainSampleRanges(
                     currentInterval,
                     currentTimeStampBounds.getMin(),
                     currentTimeStampBounds.getMax(),
                     getNumberOfSamples()
                 );
-            return dateRangeHelper
+            return searchFeatureDao
                 .createColdStartFeatureSearchRequestForSingleFeature(
                     config,
                     ranges,
@@ -166,7 +252,12 @@ public class AggregationPrep {
             : -1L;
     }
 
-    public SearchRequest composeHistogramQuery(Map<String, Object> topEntity, int intervalInMinutes, LongBounds timeStampBounds) {
+    public SearchRequest composeHistogramQuery(
+        Map<String, Object> topEntity,
+        int intervalInMinutes,
+        LongBounds timeStampBounds,
+        int minimumDocCount
+    ) {
         AggregationBuilder aggregation = getHistogramAggregation(intervalInMinutes, timeStampBounds);
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(config.getFilterQuery());
         if (config.isHighCardinality()) {
@@ -185,7 +276,7 @@ public class AggregationPrep {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(query)
             .aggregation(aggregation)
-            .size(0)
+            .size(minimumDocCount)
             .timeout(requestTimeout);
         return new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
     }
@@ -214,7 +305,7 @@ public class AggregationPrep {
         return AggregationBuilders
             .dateHistogram(AggregationPrep.AGGREGATION)
             .field(config.getTimeField())
-            .minDocCount(1)
+            .minDocCount(0)
             .hardBounds(timeStampBound)
             .fixedInterval(DateHistogramInterval.minutes(intervalInMinutes));
     }

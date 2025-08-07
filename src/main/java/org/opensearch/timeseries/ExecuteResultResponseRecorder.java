@@ -5,6 +5,7 @@
 
 package org.opensearch.timeseries;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -17,9 +18,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.update.UpdateResponse;
-import org.opensearch.ad.constant.ADCommonMessages;
-import org.opensearch.ad.transport.RCFPollingAction;
-import org.opensearch.ad.transport.RCFPollingRequest;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.unit.TimeValue;
@@ -60,8 +58,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
     private String threadPoolName;
     private Client client;
     private NodeStateManager nodeStateManager;
-    private TaskCacheManager taskCacheManager;
-    private int rcfMinSamples;
+    private Clock clock;
     protected IndexType resultIndex;
     private AnalysisType analysisType;
     private ProfileActionType profileAction;
@@ -75,8 +72,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
         String threadPoolName,
         Client client,
         NodeStateManager nodeStateManager,
-        TaskCacheManager taskCacheManager,
-        int rcfMinSamples,
+        Clock clock,
         IndexType resultIndex,
         AnalysisType analysisType,
         ProfileActionType profileAction
@@ -89,8 +85,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
         this.threadPoolName = threadPoolName;
         this.client = client;
         this.nodeStateManager = nodeStateManager;
-        this.taskCacheManager = taskCacheManager;
-        this.rcfMinSamples = rcfMinSamples;
+        this.clock = clock;
         this.resultIndex = resultIndex;
         this.analysisType = analysisType;
         this.profileAction = profileAction;
@@ -105,7 +100,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
         String configId = config.getId();
         try {
             if (!response.shouldSave()) {
-                updateRealtimeTask(response, configId);
+                updateRealtimeTask(response, configId, clock);
                 return;
             }
             IntervalTimeConfiguration windowDelay = (IntervalTimeConfiguration) config.getWindowDelay();
@@ -123,7 +118,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                     dataStartTime,
                     dataEndTime,
                     executionStartTime,
-                    Instant.now(),
+                    clock.instant(),
                     indexManagement.getSchemaVersion(resultIndex),
                     user,
                     response.getError()
@@ -141,7 +136,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                             exception -> log.error(String.format(Locale.ROOT, "Fail to bulk for %s", configId), exception)
                         )
                 );
-            updateRealtimeTask(response, configId);
+            updateRealtimeTask(response, configId, clock);
         } catch (EndRunException e) {
             throw e;
         } catch (Exception e) {
@@ -158,25 +153,46 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
      *
      * @param response response returned from executing AnomalyResultAction
      * @param configId config Id
+     * @param clock clock to get current time
      */
-    protected void delayedUpdate(ResultResponse<IndexableResultType> response, String configId) {
+    protected void delayedUpdate(ResultResponse<IndexableResultType> response, String configId, Clock clock) {
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
         Set<ProfileName> profiles = new HashSet<>();
         profiles.add(ProfileName.INIT_PROGRESS);
         ProfileRequest profileRequest = new ProfileRequest(configId, profiles, dataNodes);
-        Runnable profileHCInitProgress = () -> {
-            client.execute(profileAction, profileRequest, ActionListener.wrap(r -> {
-                log.debug("Update latest realtime task for config {}, total updates: {}", configId, r.getTotalUpdates());
-                updateLatestRealtimeTask(configId, null, r.getTotalUpdates(), response.getConfigIntervalInMinutes(), response.getError());
-            }, e -> { log.error("Failed to update latest realtime task for " + configId, e); }));
+        Runnable profileInitProgress = () -> {
+            nodeStateManager.getConfig(configId, analysisType, false, ActionListener.wrap(configOptional -> {
+                if (!configOptional.isPresent()) {
+                    log.warn("fail to get config");
+                    return;
+                }
+
+                Config config = configOptional.get();
+                if (config.isLongInterval()) {
+                    log.info("Update latest realtime task for long-interval config {}", configId);
+                    updateLatestRealtimeTask(configId, null, 0L, response.getConfigIntervalInMinutes(), response.getError(), clock);
+                } else {
+                    client.execute(profileAction, profileRequest, ActionListener.wrap(r -> {
+                        log.info("Update latest realtime task for config {}, total updates: {}", configId, r.getTotalUpdates());
+                        updateLatestRealtimeTask(
+                            configId,
+                            null,
+                            r.getTotalUpdates(),
+                            response.getConfigIntervalInMinutes(),
+                            response.getError(),
+                            clock
+                        );
+                    }, e -> { log.error("Failed to update latest realtime task for " + configId, e); }));
+                }
+            }, e -> log.warn("fail to get config", e)));
         };
-        if (!taskManager.isHCRealtimeTaskStartInitializing(configId)) {
+        if (!taskManager.isRealtimeTaskStartInitializing(configId)) {
             // real time init progress is 0 may mean this is a newly started detector
             // Delay real time cache update by one minute. If we are in init status, the delay may give the model training time to
             // finish. We can change the detector running immediately instead of waiting for the next interval.
-            threadPool.schedule(profileHCInitProgress, new TimeValue(60, TimeUnit.SECONDS), threadPoolName);
+            threadPool.schedule(profileInitProgress, new TimeValue(60, TimeUnit.SECONDS), threadPoolName);
         } else {
-            profileHCInitProgress.run();
+            profileInitProgress.run();
         }
     }
 
@@ -185,12 +201,12 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
         String taskState,
         Long rcfTotalUpdates,
         Long configIntervalInMinutes,
-        String error
+        String error,
+        Clock clock
     ) {
-        // Don't need info as this will be printed repeatedly in each interval
         ActionListener<UpdateResponse> listener = ActionListener.wrap(r -> {
             if (r != null) {
-                log.debug("Updated latest realtime task successfully for config {}, taskState: {}", configId, taskState);
+                log.info("Updated latest realtime task successfully for config {}, taskState: {}", configId, taskState);
             }
         }, e -> {
             if ((e instanceof ResourceNotFoundException) && e.getMessage().contains(CommonMessages.CAN_NOT_FIND_LATEST_TASK)) {
@@ -202,38 +218,38 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
             }
         });
 
-        // rcfTotalUpdates is null when we save exception messages
-        if (!taskCacheManager.hasQueriedResultIndex(configId) && rcfTotalUpdates != null && rcfTotalUpdates < rcfMinSamples) {
-            // confirm the total updates number since it is possible that we have already had results after job enabling time
-            // If yes, total updates should be at least rcfMinSamples so that the init progress reaches 100%.
-            confirmTotalRCFUpdatesFound(
-                configId,
-                taskState,
-                rcfTotalUpdates,
-                configIntervalInMinutes,
-                error,
-                ActionListener
-                    .wrap(
-                        r -> taskManager
-                            .updateLatestRealtimeTaskOnCoordinatingNode(configId, taskState, r, configIntervalInMinutes, error, listener),
-                        e -> {
-                            log.error("Fail to confirm rcf update", e);
-                            taskManager
-                                .updateLatestRealtimeTaskOnCoordinatingNode(
-                                    configId,
-                                    taskState,
-                                    rcfTotalUpdates,
-                                    configIntervalInMinutes,
-                                    error,
-                                    listener
-                                );
-                        }
-                    )
-            );
-        } else {
-            taskManager
-                .updateLatestRealtimeTaskOnCoordinatingNode(configId, taskState, rcfTotalUpdates, configIntervalInMinutes, error, listener);
-        }
+        hasRecentResult(
+            configId,
+            configIntervalInMinutes,
+            error,
+            clock,
+            ActionListener
+                .wrap(
+                    r -> taskManager
+                        .updateLatestRealtimeTaskOnCoordinatingNode(
+                            configId,
+                            taskState,
+                            rcfTotalUpdates,
+                            configIntervalInMinutes,
+                            error,
+                            r,
+                            listener
+                        ),
+                    e -> {
+                        log.error("Fail to confirm rcf update", e);
+                        taskManager
+                            .updateLatestRealtimeTaskOnCoordinatingNode(
+                                configId,
+                                taskState,
+                                rcfTotalUpdates,
+                                configIntervalInMinutes,
+                                error,
+                                null,
+                                listener
+                            );
+                    }
+                )
+        );
     }
 
     /**
@@ -245,13 +261,15 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
      * @param errorMessage Error message to record
      * @param taskState task state (e.g., stopped)
      * @param config config accessor
+     * @param clock clock to get current time
      */
     public void indexResultException(
         Instant executeStartTime,
         Instant executeEndTime,
         String errorMessage,
         String taskState,
-        Config config
+        Config config,
+        Clock clock
     ) {
         String configId = config.getId();
         try {
@@ -264,85 +282,66 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
             String resultIndexOrAlias = config.getCustomResultIndexOrAlias();
             resultHandler.index(resultToSave, configId, resultIndexOrAlias);
 
-            if (errorMessage.contains(ADCommonMessages.NO_MODEL_ERR_MSG) && !config.isHighCardinality()) {
-                // single stream detector raises ResourceNotFoundException containing ADCommonMessages.NO_CHECKPOINT_ERR_MSG
-                // when there is no checkpoint.
-                // Delay real time cache update by one minute so we will have trained models by then and update the state
-                // document accordingly.
-                threadPool.schedule(() -> {
-                    RCFPollingRequest request = new RCFPollingRequest(configId);
-                    client.execute(RCFPollingAction.INSTANCE, request, ActionListener.wrap(rcfPollResponse -> {
-                        long totalUpdates = rcfPollResponse.getTotalUpdates();
-                        // if there are updates, don't record failures
-                        updateLatestRealtimeTask(
-                            configId,
-                            taskState,
-                            totalUpdates,
-                            config.getIntervalInMinutes(),
-                            totalUpdates > 0 ? "" : errorMessage
-                        );
-                    }, e -> {
-                        log.error("Fail to execute RCFRollingAction", e);
-                        updateLatestRealtimeTask(configId, taskState, null, null, errorMessage);
-                    }));
-                }, new TimeValue(60, TimeUnit.SECONDS), threadPoolName);
-            } else {
-                updateLatestRealtimeTask(configId, taskState, null, null, errorMessage);
-            }
-
+            updateLatestRealtimeTask(configId, taskState, null, null, errorMessage, clock);
         } catch (Exception e) {
             log.error("Failed to index anomaly result for " + configId, e);
         }
     }
 
-    private void confirmTotalRCFUpdatesFound(
+    /**
+     * Check whether result index has results in the past two intervals. We don't check for one interval
+     * considering there might be refresh/flush time between writing result and result being available
+     * for search.
+     *
+     * @param configId Config id
+     * @param overrideIntervalMinutes config interval in minutes
+     * @param error Error
+     * @param clock Clock to get current time
+     * @param listener Callback to return whether any result has been generated in the past two intervals.
+     */
+    private void hasRecentResult(
         String configId,
-        String taskState,
-        Long rcfTotalUpdates,
-        Long configIntervalInMinutes,
+        Long overrideIntervalMinutes,
         String error,
-        ActionListener<Long> listener
+        Clock clock,
+        ActionListener<Boolean> listener
     ) {
-        nodeStateManager.getConfig(configId, analysisType, ActionListener.wrap(configOptional -> {
+        // run once does not need to cache
+        nodeStateManager.getConfig(configId, analysisType, false, ActionListener.wrap(configOptional -> {
             if (!configOptional.isPresent()) {
                 listener.onFailure(new TimeSeriesException(configId, "fail to get config"));
                 return;
             }
-            nodeStateManager.getJob(configId, ActionListener.wrap(jobOptional -> {
-                if (!jobOptional.isPresent()) {
-                    listener.onFailure(new TimeSeriesException(configId, "fail to get job"));
-                    return;
-                }
 
-                ProfileUtil
-                    .confirmRealtimeInitStatus(
-                        configOptional.get(),
-                        jobOptional.get().getEnabledTime().toEpochMilli(),
-                        client,
-                        analysisType,
-                        ActionListener.wrap(searchResponse -> {
-                            ActionListener.completeWith(listener, () -> {
-                                SearchHits hits = searchResponse.getHits();
-                                Long correctedTotalUpdates = rcfTotalUpdates;
-                                if (hits.getTotalHits().value > 0L) {
-                                    // correct the number if we have already had results after job enabling time
-                                    // so that the detector won't stay initialized
-                                    correctedTotalUpdates = Long.valueOf(rcfMinSamples);
-                                }
-                                taskCacheManager.markResultIndexQueried(configId);
-                                return correctedTotalUpdates;
-                            });
-                        }, exception -> {
-                            if (ExceptionUtil.isIndexNotAvailable(exception)) {
-                                // anomaly result index is not created yet
-                                taskCacheManager.markResultIndexQueried(configId);
-                                listener.onResponse(0L);
-                            } else {
-                                listener.onFailure(exception);
+            Config config = configOptional.get();
+
+            long intervalMinutes = overrideIntervalMinutes != null ? overrideIntervalMinutes : config.getIntervalInMinutes();
+
+            ProfileUtil
+                .confirmRealtimeResultStatus(
+                    config,
+                    clock.millis() - 2 * intervalMinutes * 60000,
+                    client,
+                    analysisType,
+                    ActionListener.wrap(searchResponse -> {
+                        ActionListener.completeWith(listener, () -> {
+                            SearchHits hits = searchResponse.getHits();
+                            Boolean hasResult = false;
+                            if (hits.getTotalHits().value > 0L) {
+                                // true if we have already had results after job enabling time
+                                hasResult = true;
                             }
-                        })
-                    );
-            }, e -> listener.onFailure(new TimeSeriesException(configId, "fail to get job"))));
+                            return hasResult;
+                        });
+                    }, exception -> {
+                        if (ExceptionUtil.isIndexNotAvailable(exception)) {
+                            // result index is not created yet
+                            listener.onResponse(false);
+                        } else {
+                            listener.onFailure(exception);
+                        }
+                    })
+                );
         }, e -> listener.onFailure(new TimeSeriesException(configId, "fail to get config"))));
     }
 
@@ -356,5 +355,5 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
     );
 
     // protected abstract void updateRealtimeTask(ResultResponseType response, String configId);
-    protected abstract void updateRealtimeTask(ResultResponse<IndexableResultType> response, String configId);
+    protected abstract void updateRealtimeTask(ResultResponse<IndexableResultType> response, String configId, Clock clock);
 }

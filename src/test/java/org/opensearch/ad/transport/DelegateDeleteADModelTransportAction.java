@@ -50,7 +50,6 @@ public class DelegateDeleteADModelTransportAction extends DeleteADModelTransport
             actionFilters,
             nodeStateManager,
             modelManager,
-            featureManager,
             cache,
             adTaskCacheManager,
             coldStarter

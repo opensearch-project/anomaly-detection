@@ -103,10 +103,10 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
         detector = TestHelpers.randomAnomalyDetectorWithInterval(new IntervalTimeConfiguration(detectorIntervalMin, ChronoUnit.MINUTES));
         NodeStateManager nodeStateManager = mock(NodeStateManager.class);
         doAnswer(invocation -> {
-            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(2);
+            ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
             listener.onResponse(Optional.of(detector));
             return null;
-        }).when(nodeStateManager).getConfig(anyString(), eq(AnalysisType.AD), any(ActionListener.class));
+        }).when(nodeStateManager).getConfig(anyString(), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
         clientUtil = new SecurityClientUtil(nodeStateManager, Settings.EMPTY);
         oldRunner = new OldAnomalyDetectorProfileRunner(
             client,
@@ -124,13 +124,13 @@ public class AnomalyDetectorProfileRunnerTests extends AbstractProfileRunnerTest
             GetRequest request = (GetRequest) args[0];
             ActionListener<GetResponse> listener = (ActionListener<GetResponse>) args[1];
 
-            if (request.index().equals(CommonName.CONFIG_INDEX)) {
+            if (request.index().equals(ADCommonName.CONFIG_INDEX)) {
                 switch (detectorStatus) {
                     case EXIST:
-                        listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), CommonName.CONFIG_INDEX));
+                        listener.onResponse(TestHelpers.createGetResponse(detector, detector.getId(), ADCommonName.CONFIG_INDEX));
                         break;
                     case INDEX_NOT_EXIST:
-                        listener.onFailure(new IndexNotFoundException(CommonName.CONFIG_INDEX));
+                        listener.onFailure(new IndexNotFoundException(ADCommonName.CONFIG_INDEX));
                         break;
                     case NO_DOC:
                         when(detectorGetReponse.isExists()).thenReturn(false);

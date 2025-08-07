@@ -17,6 +17,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -146,9 +147,11 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
      * 1. If job doesn't exist, create new job.
      * 2. If job exists: a). if job enabled, return error message; b). if job disabled, enable job.
      * @param config config accessor
+     * @param transportService transport service
+     * @param clock clock to get current time
      * @param listener Listener to send responses
      */
-    public void startJob(Config config, TransportService transportService, ActionListener<JobResponse> listener) {
+    public void startJob(Config config, TransportService transportService, Clock clock, ActionListener<JobResponse> listener) {
         // this start listener is created & injected throughout the job handler so that whenever the job response is received,
         // there's the extra step of trying to index results and update detector state with a 60s delay.
         ActionListener<JobResponse> startListener = ActionListener.wrap(r -> {
@@ -162,17 +165,16 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
                     executionEndTime.toEpochMilli()
                 );
                 client.execute(resultAction, getRequest, ActionListener.wrap(response -> {
-
                     recorder.indexResult(executionStartTime, executionEndTime, response, config);
                 }, exception -> {
-
                     recorder
                         .indexResultException(
                             executionStartTime,
                             executionEndTime,
                             Throwables.getStackTraceAsString(exception),
                             null,
-                            config
+                            config,
+                            clock
                         );
                 }));
             } catch (Exception ex) {
@@ -185,14 +187,14 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
         if (!indexManagement.doesJobIndexExist()) {
             indexManagement.initJobIndex(ActionListener.wrap(response -> {
                 if (response.isAcknowledged()) {
-                    logger.info("Created {} with mappings.", CommonName.CONFIG_INDEX);
+                    logger.info("Created {} with mappings.", CommonName.JOB_INDEX);
                     createJob(config, transportService, startListener);
                 } else {
-                    logger.warn("Created {} with mappings call not acknowledged.", CommonName.CONFIG_INDEX);
+                    logger.warn("Created {} with mappings call not acknowledged.", CommonName.JOB_INDEX);
                     startListener
                         .onFailure(
                             new OpenSearchStatusException(
-                                "Created " + CommonName.CONFIG_INDEX + " with mappings call not acknowledged.",
+                                "Created " + CommonName.JOB_INDEX + " with mappings call not acknowledged.",
                                 RestStatus.INTERNAL_SERVER_ERROR
                             )
                         );
@@ -511,6 +513,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
      * @param user user
      * @param transportService transport service
      * @param context thread context
+     * @param clock Clock to get current time
      * @param listener action listener
      */
     public void startConfig(
@@ -519,6 +522,7 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
         User user,
         TransportService transportService,
         ThreadContext.StoredContext context,
+        Clock clock,
         ActionListener<JobResponse> listener
     ) {
         // upgrade index mapping
@@ -537,14 +541,14 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
             }
             String resultIndex = config.get().getCustomResultIndexOrAlias();
             if (resultIndex == null) {
-                startRealtimeOrHistoricalAnalysis(dateRange, user, transportService, listener, config);
+                startRealtimeOrHistoricalAnalysis(dateRange, user, transportService, listener, config, clock);
                 return;
             }
             context.restore();
             indexManagement
                 .initCustomResultIndexAndExecute(
                     resultIndex,
-                    () -> startRealtimeOrHistoricalAnalysis(dateRange, user, transportService, listener, config),
+                    () -> startRealtimeOrHistoricalAnalysis(dateRange, user, transportService, listener, config, clock),
                     listener
                 );
 
@@ -566,12 +570,13 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
         User user,
         TransportService transportService,
         ActionListener<JobResponse> listener,
-        Optional<? extends Config> config
+        Optional<? extends Config> config,
+        Clock clock
     ) {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (dateRange == null) {
                 // start realtime job
-                startJob(config.get(), transportService, listener);
+                startJob(config.get(), transportService, clock, listener);
             } else {
                 // start historical analysis task
                 taskManager.startHistorical(config.get(), dateRange, user, transportService, listener);

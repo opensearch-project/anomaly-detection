@@ -73,10 +73,10 @@ public class BaseStatsNodesTransportAction extends
 
     @Override
     protected StatsNodeResponse nodeOperation(StatsNodeRequest request) {
-        return createADStatsNodeResponse(request.getADStatsRequest());
+        return createStatsNodeResponse(request.getADStatsRequest());
     }
 
-    protected StatsNodeResponse createADStatsNodeResponse(StatsRequest statsRequest) {
+    protected StatsNodeResponse createStatsNodeResponse(StatsRequest statsRequest) {
         Map<String, Object> statValues = new HashMap<>();
         Set<String> statsToBeRetrieved = statsRequest.getStatsToBeRetrieved();
 

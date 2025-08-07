@@ -122,7 +122,7 @@ public class ADHCImputeTransportAction extends
     @Override
     protected ADHCImputeNodeResponse nodeOperation(ADHCImputeNodeRequest nodeRequest) {
         String configId = nodeRequest.getRequest().getConfigId();
-        nodeStateManager.getConfig(configId, AnalysisType.AD, ActionListenerExecutor.wrap(configOptional -> {
+        nodeStateManager.getConfig(configId, AnalysisType.AD, true, ActionListenerExecutor.wrap(configOptional -> {
             if (configOptional.isEmpty()) {
                 LOG.warn(String.format(Locale.ROOT, "cannot find config %s", configId));
                 return;

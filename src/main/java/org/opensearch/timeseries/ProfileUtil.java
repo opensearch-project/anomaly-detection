@@ -29,17 +29,18 @@ import org.opensearch.timeseries.model.Config;
 
 public class ProfileUtil {
     /**
-     * Create search request to check if we have at least 1 anomaly score larger than 0 after AD job enabled time.
+     * Create search request to check if we have at least 1 anomaly score larger than 0 after start time.
+     * For example, when startTime is AD job enabled time, we check if model has been initialized ever.
      * Note this function is only meant to check for status of real time analysis.
      *
      * @param detectorId detector id
-     * @param enabledTime the time when AD job is enabled in milliseconds
+     * @param startTime startTime the time when we start searching for result (e.g., enabledTime: the time when AD job is enabled in milliseconds)
      * @return the search request
      */
-    private static SearchRequest createADRealtimeInittedEverRequest(String detectorId, long enabledTime, String resultIndex) {
+    private static SearchRequest createADRealtimeResultRequest(String detectorId, long startTime, String resultIndex) {
         BoolQueryBuilder filterQuery = new BoolQueryBuilder();
         filterQuery.filter(QueryBuilders.termQuery(AnomalyResult.DETECTOR_ID_FIELD, detectorId));
-        filterQuery.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(enabledTime));
+        filterQuery.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(startTime));
         filterQuery.filter(QueryBuilders.rangeQuery(AnomalyResult.ANOMALY_SCORE_FIELD).gt(0));
         // Historical analysis result also stored in result index, which has non-null task_id.
         // For realtime detection result, we should filter task_id == null
@@ -57,17 +58,18 @@ public class ProfileUtil {
     }
 
     /**
-     * Create search request to check if we have at least 1 forecast after AD job enabled time.
+     * Create search request to check if we have at least 1 forecast after start time.
+     * For example, when startTime is forecast, job enabled time, we check if model has been initialized ever.
      * Note this function is only meant to check for status of real time analysis.
      *
      * @param forecasterId forecaster id
-     * @param enabledTime the time when forecast job is enabled in milliseconds
+     * @param startTime the time when we start searching for result (e.g., enabledTime: the time when forecast job is enabled in milliseconds)
      * @return the search request
      */
-    private static SearchRequest createForecastRealtimeInittedEverRequest(String forecasterId, long enabledTime, String resultIndex) {
+    private static SearchRequest createForecastRealtimeResultEverRequest(String forecasterId, long startTime, String resultIndex) {
         BoolQueryBuilder filterQuery = new BoolQueryBuilder();
         filterQuery.filter(QueryBuilders.termQuery(ForecastCommonName.FORECASTER_ID_KEY, forecasterId));
-        filterQuery.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(enabledTime));
+        filterQuery.filter(QueryBuilders.rangeQuery(CommonName.EXECUTION_END_TIME_FIELD).gte(startTime));
         ExistsQueryBuilder forecastsExistFilter = QueryBuilders.existsQuery(ForecastResult.VALUE_FIELD);
         filterQuery.must(forecastsExistFilter);
         // Historical/run-once analysis result also stored in result index, which has non-null task_id.
@@ -85,22 +87,18 @@ public class ProfileUtil {
         return request;
     }
 
-    public static void confirmRealtimeInitStatus(
+    public static void confirmRealtimeResultStatus(
         Config config,
-        long enabledTime,
+        long startTime,
         Client client,
         AnalysisType analysisType,
         ActionListener<SearchResponse> listener
     ) {
         SearchRequest searchLatestResult = null;
         if (analysisType.isAD()) {
-            searchLatestResult = createADRealtimeInittedEverRequest(config.getId(), enabledTime, config.getCustomResultIndexPattern());
+            searchLatestResult = createADRealtimeResultRequest(config.getId(), startTime, config.getCustomResultIndexPattern());
         } else if (analysisType.isForecast()) {
-            searchLatestResult = createForecastRealtimeInittedEverRequest(
-                config.getId(),
-                enabledTime,
-                config.getCustomResultIndexPattern()
-            );
+            searchLatestResult = createForecastRealtimeResultEverRequest(config.getId(), startTime, config.getCustomResultIndexPattern());
         } else {
             throw new IllegalArgumentException("Analysis type is not supported, type: : " + analysisType);
         }

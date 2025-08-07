@@ -13,11 +13,16 @@ import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.ADTask;
+import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
+import org.opensearch.ad.task.ADTaskCacheManager;
+import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
@@ -25,7 +30,7 @@ import org.opensearch.timeseries.stats.Stats;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
 public class ADRealTimeInferencer extends
-    RealTimeInferencer<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADSaveResultStrategy, ADPriorityCache, ADColdStartWorker> {
+    RealTimeInferencer<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADSaveResultStrategy, ADPriorityCache, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, ADColdStartWorker> {
 
     public ADRealTimeInferencer(
         ADModelManager modelManager,
@@ -35,7 +40,8 @@ public class ADRealTimeInferencer extends
         ADSaveResultStrategy resultWriteWorker,
         ADCacheProvider cache,
         ThreadPool threadPool,
-        Clock clock
+        Clock clock,
+        NodeStateManager stateManager
     ) {
         super(
             modelManager,
@@ -47,7 +53,8 @@ public class ADRealTimeInferencer extends
             cache,
             threadPool,
             AD_THREAD_POOL_NAME,
-            clock
+            clock,
+            stateManager
         );
     }
 

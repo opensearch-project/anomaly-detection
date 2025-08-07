@@ -62,8 +62,8 @@ public class ADStatsNodesTransportAction extends BaseStatsNodesTransportAction {
     }
 
     @Override
-    protected StatsNodeResponse createADStatsNodeResponse(StatsRequest adStatsRequest) {
-        Map<String, Object> statValues = super.createADStatsNodeResponse(adStatsRequest).getStatsMap();
+    protected StatsNodeResponse createStatsNodeResponse(StatsRequest adStatsRequest) {
+        Map<String, Object> statValues = super.createStatsNodeResponse(adStatsRequest).getStatsMap();
         Set<String> statsToBeRetrieved = adStatsRequest.getStatsToBeRetrieved();
 
         if (statsToBeRetrieved.contains(InternalStatNames.JVM_HEAP_USAGE.getName())) {

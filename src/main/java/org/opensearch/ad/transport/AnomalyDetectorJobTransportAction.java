@@ -16,6 +16,8 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_STOP_DETECTOR;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
 
+import java.time.Clock;
+
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
 import org.opensearch.ad.indices.ADIndex;
@@ -60,7 +62,8 @@ public class AnomalyDetectorJobTransportAction extends
             FAIL_TO_START_DETECTOR,
             FAIL_TO_STOP_DETECTOR,
             AnomalyDetector.class,
-            adIndexJobActionHandler
+            adIndexJobActionHandler,
+            Clock.systemUTC() // inject cannot find clock due to OS limitation
         );
     }
 }

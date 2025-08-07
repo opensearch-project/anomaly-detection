@@ -316,7 +316,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
     public void tearDown() throws Exception {
         super.tearDown();
         // delete index will clear search context, this can avoid in-flight contexts error
-        deleteIndexIfExists(CommonName.CONFIG_INDEX);
+        deleteIndexIfExists(ADCommonName.CONFIG_INDEX);
         deleteIndexIfExists(ADCommonName.DETECTION_STATE_INDEX);
     }
 

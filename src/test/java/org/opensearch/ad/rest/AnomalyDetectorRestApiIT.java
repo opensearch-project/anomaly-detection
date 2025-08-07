@@ -49,7 +49,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
@@ -279,19 +278,59 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         String featureName = (String) firstFeature.get("feature_name");
         Double featureValue = ((Number) firstFeature.get("data")).doubleValue();
 
-        // Validate flattened result index mappings
-        Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", expectedFlattenedIndex, ImmutableMap.of(), "", null);
-        Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
+        // ------------------------------------------------------------------
+        // Validate flattened result index mappings (up to 3 attempts)
+        // ------------------------------------------------------------------
+        final int mappingRetries = 3;     // 1 initial try + 2 more
+        final int mappingRetryInterval = 1_000; // milliseconds
 
-        String indexKey = flattenedResultIndex.keySet().stream().findFirst().orElse(null);
-        Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
-        Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+        /*
+         * We retry the mapping validation because there can be a race condition.
+         * The anomaly detection plugin updates the result index mapping asynchronously
+         * when a new feature is first seen. If this test asserts on the mapping
+         * before the background update task completes, it can fail with an error like:
+         * "Flattened field 'feature_data_...' does not exist".
+         * The test framework may also report lingering tasks like:
+         * "There are still tasks running after this test... [indices:data/write/bulk]".
+         * This loop ensures we wait for the asynchronous update to finish.
+         */
+        boolean mappingValidated = false;
+        AssertionError lastError = null;
 
-        assertEquals("Dynamic field is not set to true", "true", mappings.get("dynamic").toString());
-
-        Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
         String expectedFieldKey = "feature_data_" + featureName;
-        assertTrue("Flattened field '" + expectedFieldKey + "' does not exist", properties.containsKey(expectedFieldKey));
+        for (int attempt = 1; attempt <= mappingRetries; attempt++) {
+            try {
+                Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", expectedFlattenedIndex, ImmutableMap.of(), "", null);
+                Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
+
+                String indexKey = flattenedResultIndex.keySet().stream().findFirst().orElse(null);
+                Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
+                Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+
+                // 1️⃣ dynamic must be true
+                assertEquals("Dynamic field is not set to true", "true", mappings.get("dynamic").toString());
+
+                // 2️⃣ per-feature flattened field must exist
+                Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+                assertTrue("Flattened field '" + expectedFieldKey + "' does not exist", properties.containsKey(expectedFieldKey));
+
+                // If we get here, mapping is as expected ─ break the retry loop
+                mappingValidated = true;
+                break;
+
+            } catch (AssertionError ae) {
+                lastError = ae;
+                if (attempt < mappingRetries) {
+                    Thread.sleep(mappingRetryInterval);   // wait, then retry
+                }
+            }
+        }
+
+        // After retries, surface the original failure if still invalid
+        if (!mappingValidated && lastError != null) {
+            throw lastError;
+        }
 
         // Search against flattened result index and validate value
         Response searchFlattenResultIndexResponse = TestHelpers
@@ -827,7 +866,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getLastBreakingUIChangeTime()
         );
 
-        deleteIndexWithAdminClient(CommonName.CONFIG_INDEX);
+        deleteIndexWithAdminClient(ADCommonName.CONFIG_INDEX);
 
         TestHelpers
             .assertFailWith(
@@ -1798,9 +1837,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
-        String errorMessage = "Shingle size must be a positive integer no larger than "
-            + TimeSeriesSettings.MAX_SHINGLE_SIZE
-            + ". Got 2000";
+        String errorMessage = "Suggested shingle size must be between 1 and " + TimeSeriesSettings.MAX_SHINGLE_SIZE + ". Got 2000.";
         assertEquals("shingle size error message", errorMessage, messageMap.get("shingle_size").get("message"));
     }
 

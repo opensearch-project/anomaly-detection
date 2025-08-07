@@ -8,7 +8,6 @@ package org.opensearch.forecast.transport;
 import java.io.IOException;
 
 import org.opensearch.action.support.nodes.BaseNodesRequest;
-import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
@@ -20,13 +19,14 @@ public class ForecastRunOnceProfileRequest extends BaseNodesRequest<ForecastRunO
         configId = in.readString();
     }
 
-    /**
-     * Constructor
-     *
-     * @param configId config id
-     */
-    public ForecastRunOnceProfileRequest(String configId, DiscoveryNode... nodes) {
-        super(nodes);
+    /*Important to have this constructor. Otherwise, OS silently ignore the broadcast request.*/
+    public ForecastRunOnceProfileRequest() {
+        super((String[]) null);
+    }
+
+    /*Important to have this constructor. Otherwise, OS silently ignore the broadcast request.*/
+    public ForecastRunOnceProfileRequest(String configId, String... nodesIds) {
+        super(nodesIds);
         this.configId = configId;
     }
 

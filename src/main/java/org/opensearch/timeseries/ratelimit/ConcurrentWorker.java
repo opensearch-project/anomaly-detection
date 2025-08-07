@@ -137,6 +137,9 @@ public abstract class ConcurrentWorker<RequestType extends QueuedRequest> extend
     @Override
     protected void triggerProcess() {
         threadPool.executor(threadPoolName).execute(() -> {
+            // it is possible that while process() is running, related detector/forecaster gets stopped.
+            // If restarted, the detector/forecaster won't actual until the previous process() finishes
+            // and release the semaphore. Since real-time will retry in each interval. This is fine.
             if (permits.tryAcquire()) {
                 try {
                     lastExecuteTime = clock.instant();

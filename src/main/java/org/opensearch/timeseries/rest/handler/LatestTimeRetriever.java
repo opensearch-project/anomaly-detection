@@ -5,10 +5,12 @@
 
 package org.opensearch.timeseries.rest.handler;
 
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -16,19 +18,20 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
-import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.opensearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.opensearch.search.aggregations.bucket.histogram.LongBounds;
@@ -37,6 +40,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
@@ -55,6 +59,8 @@ public class LatestTimeRetriever {
     private final User user;
     private final AnalysisType context;
     private final SearchFeatureDao searchFeatureDao;
+    // whether we should convert future date to now if future data exists
+    private final boolean convertFutureDatetoNow;
 
     public LatestTimeRetriever(
         Config config,
@@ -63,7 +69,8 @@ public class LatestTimeRetriever {
         Client client,
         User user,
         AnalysisType context,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        boolean convertFutureDatetoNow
     ) {
         this.config = config;
         this.aggregationPrep = new AggregationPrep(searchFeatureDao, requestTimeout, config);
@@ -72,6 +79,7 @@ public class LatestTimeRetriever {
         this.user = user;
         this.context = context;
         this.searchFeatureDao = searchFeatureDao;
+        this.convertFutureDatetoNow = convertFutureDatetoNow;
     }
 
     /**
@@ -84,12 +92,29 @@ public class LatestTimeRetriever {
         searchFeatureDao.getLatestDataTime(user, config, Optional.empty(), context, ActionListener.wrap(latestTime -> {
             if (latestTime.isEmpty()) {
                 listener.onResponse(Pair.of(Optional.empty(), Collections.emptyMap()));
-            } else if (config.isHighCardinality()) {
-                getTopEntity(listener, latestTime.get());
             } else {
-                listener.onResponse(Pair.of(latestTime, Collections.emptyMap()));
+                long currentEpochMillis = Instant.now().toEpochMilli();
+                long timeRangeEnd = latestTime.get();
+                if (currentEpochMillis < timeRangeEnd) {
+                    logger.info(new ParameterizedMessage("Future date is detected: [{}]", latestTime.get()));
+                    if (convertFutureDatetoNow) {
+                        logger.info("Convert future date to now");
+                        timeRangeEnd = currentEpochMillis;
+                    }
+                }
+
+                if (config.isHighCardinality()) {
+                    getTopEntity(listener, timeRangeEnd);
+                } else {
+                    listener.onResponse(Pair.of(Optional.of(timeRangeEnd), Collections.emptyMap()));
+                }
             }
-        }, listener::onFailure));
+        }, e -> {
+            if (e instanceof IndexNotFoundException) {
+                listener.onResponse(Pair.of(Optional.empty(), Collections.emptyMap()));
+            }
+            listener.onFailure(e);
+        }));
     }
 
     // For single category HCs, this method uses bucket aggregation and sort to get the category field
@@ -103,7 +128,9 @@ public class LatestTimeRetriever {
             .getTimeRangeBounds(new IntervalTimeConfiguration(maxIntervalInMinutes, ChronoUnit.MINUTES), latestTimeMillis);
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(config.getTimeField())
             .from(timeRangeBounds.getMin())
-            .to(timeRangeBounds.getMax());
+            .to(timeRangeBounds.getMax())
+            // user index time field might not have epoch_millis format, so we need to format it
+            .format(CommonName.EPOCH_MILLIS_FORMAT);
         AggregationBuilder bucketAggs;
         Map<String, Object> topKeys = new HashMap<>();
         if (config.getCategoryFields().size() == 1) {
@@ -118,7 +145,7 @@ public class LatestTimeRetriever {
                 .subAggregation(
                     PipelineAggregatorBuilders
                         .bucketSort("bucketSort", Collections.singletonList(new FieldSortBuilder("_count").order(SortOrder.DESC)))
-                        .size(1)
+                        .size(1000)
                 );
         }
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
@@ -136,23 +163,44 @@ public class LatestTimeRetriever {
             }
             if (config.getCategoryFields().size() == 1) {
                 Terms entities = aggs.get(AGG_NAME_TOP);
-                Object key = entities
+
+                List<? extends Terms.Bucket> sortedBuckets = entities
                     .getBuckets()
                     .stream()
-                    .max(Comparator.comparingInt(entry -> (int) entry.getDocCount()))
-                    .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-                    .orElse(null);
-                topKeys.put(config.getCategoryFields().get(0), key);
+                    // docCount is typically long in ES, so use comparingLong
+                    .sorted(Comparator.comparingLong(Terms.Bucket::getDocCount))
+                    .collect(Collectors.toList());
+
+                if (!sortedBuckets.isEmpty()) {
+                    int medianIndex = (sortedBuckets.size() - 1) / 2; // For even sizes, picks the lower median
+                    Terms.Bucket medianBucket = sortedBuckets.get(medianIndex);
+                    String medianKey = medianBucket.getKeyAsString();
+                    topKeys.put(config.getCategoryFields().get(0), medianKey);
+                } else {
+                    topKeys.put(config.getCategoryFields().get(0), null);
+                }
+
             } else {
                 CompositeAggregation compositeAgg = aggs.get(AGG_NAME_TOP);
-                topKeys
-                    .putAll(
-                        compositeAgg
-                            .getBuckets()
-                            .stream()
-                            .flatMap(bucket -> bucket.getKey().entrySet().stream()) // this would create a flattened stream of map entries
-                            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()))
-                    );
+
+                List<? extends CompositeAggregation.Bucket> sortedCompositeBuckets = compositeAgg
+                    .getBuckets()
+                    .stream()
+                    .sorted(Comparator.comparingLong(CompositeAggregation.Bucket::getDocCount))
+                    .collect(Collectors.toList());
+
+                if (!sortedCompositeBuckets.isEmpty()) {
+                    int medianIndex = (sortedCompositeBuckets.size() - 1) / 2;
+                    CompositeAggregation.Bucket medianBucket = sortedCompositeBuckets.get(medianIndex);
+
+                    // medianBucket.getKey() is already a Map<String, Object> of the category fields
+                    topKeys.putAll(medianBucket.getKey());
+                } else {
+                    // No buckets, so we can either leave topKeys empty or
+                    // fill it with null values for each category field
+                    config.getCategoryFields().forEach(f -> topKeys.put(f, null));
+                }
+
             }
             for (Map.Entry<String, Object> entry : topKeys.entrySet()) {
                 if (entry.getValue() == null) {
