@@ -227,20 +227,18 @@ ext {
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
 
-    runIntegTestWithSecurityPlugin= System.getProperty("security")
-    if (runIntegTestWithSecurityPlugin == "true") {
-        ['esnode.pem', 'esnode-key.pem', 'kirk.pem', 'kirk-key.pem', 'root-ca.pem', 'sample.pem', 'test-kirk.jks'].forEach { file ->
-            File local = getLayout().getBuildDirectory().file(file).get().getAsFile()
-            download.run {
-                src "https://raw.githubusercontent.com/opensearch-project/security/refs/heads/main/bwc-test/src/test/resources/security/" + file
-                dest local
-                overwrite false
-            }
-            processResources {
-                from(local)
-            }
+    ['esnode.pem', 'esnode-key.pem', 'kirk.pem', 'kirk-key.pem', 'root-ca.pem', 'sample.pem', 'test-kirk.jks'].forEach { file ->
+        File local = getLayout().getBuildDirectory().file(file).get().getAsFile()
+        download.run {
+            src "https://raw.githubusercontent.com/opensearch-project/security/refs/heads/main/bwc-test/src/test/resources/security/" + file
+            dest local
+            overwrite false
+        }
+        processResources {
+            from(local)
         }
     }
+
 }
 
 opensearchplugin {
