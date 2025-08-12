@@ -2069,12 +2069,11 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception invalidDetectorIdException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
         });
-        System.out.println(invalidDetectorIdException.getMessage());
         if (isHttps() && isResourceSharingFeatureEnabled()) {
             // since no resource-sharing record exists for this document we simply throw 403 with the new feature
             assertTrue(invalidDetectorIdException.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
         } else {
-            assertTrue(invalidDetectorIdException.getMessage().contains(message));
+            assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
         }
 
         // Invalid order field
