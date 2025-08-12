@@ -236,7 +236,7 @@ ext {
                 dest local
                 overwrite false
             }
-            processResources {
+            processTestResources {
                 from(local)
             }
         }
@@ -534,11 +534,11 @@ def configureClusterPlugins(cluster, jobSchedulerFile, securityPluginFile, secur
             plugins.add(firstPlugin)
 
             if (securityEnabled) {
-                node.extraConfigFile("kirk.pem", file("build/resources/main/kirk.pem"))
-                node.extraConfigFile("kirk-key.pem", file("build/resources/main/kirk-key.pem"))
-                node.extraConfigFile("esnode.pem", file("build/resources/main/esnode.pem"))
-                node.extraConfigFile("esnode-key.pem", file("build/resources/main/esnode-key.pem"))
-                node.extraConfigFile("root-ca.pem", file("build/resources/main/root-ca.pem"))
+                node.extraConfigFile("kirk.pem", file("build/resources/test/kirk.pem"))
+                node.extraConfigFile("kirk-key.pem", file("build/resources/test/kirk-key.pem"))
+                node.extraConfigFile("esnode.pem", file("build/resources/test/esnode.pem"))
+                node.extraConfigFile("esnode-key.pem", file("build/resources/test/esnode-key.pem"))
+                node.extraConfigFile("root-ca.pem", file("build/resources/test/root-ca.pem"))
                 node.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
                 node.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
                 node.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
@@ -809,7 +809,7 @@ task prepareBwcTests {
     doLast {
         plugins = [
                 provider(jobSchedulerFile),
-                project.getObjects().fileProperty().value(project.tasks.bundlePlugin.archiveFile)
+                objects.fileProperty().value(tasks.bundlePlugin.archiveFile)
         ]
     }
 }
