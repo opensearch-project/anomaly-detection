@@ -394,7 +394,7 @@ public class SearchTopForecastResultTransportAction extends
             // Since this action
             // is doing fundamentally the same thing, we can reuse the security logic here.
             logger.debug("top forecast request:" + searchRequest);
-            searchHandler.search(searchRequest, onSearchResponse(request, categoryFields, forecaster, listener));
+            searchHandler.search(searchRequest, null, onSearchResponse(request, categoryFields, forecaster, listener));
         }, exception -> {
             logger.error("Failed to get top forecast results", exception);
             listener.onFailure(exception);
@@ -573,7 +573,7 @@ public class SearchTopForecastResultTransportAction extends
             }
         }, e -> listener.onFailure(new IllegalArgumentException(failure, e)));
 
-        searchHandler.search(searchRequest, searchResponseListener);
+        searchHandler.search(searchRequest, null, searchResponseListener);
     }
 
     private Map<String, Object> convertMap(Map<String, String> stringMap) {

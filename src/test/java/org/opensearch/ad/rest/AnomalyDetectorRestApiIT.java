@@ -1338,10 +1338,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStartAdJobWithNonexistingDetectorIndex() throws Exception {
+        String message = "no such index [.opendistro-anomaly-detectors]";
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for ";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "no such index [.opendistro-anomaly-detectors]",
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1356,10 +1360,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStartAdJobWithNonexistingDetector() throws Exception {
         createRandomAnomalyDetector(true, false, client());
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1458,10 +1466,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -2043,7 +2055,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception missingEndTimeException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":1}", client());
         });
-        assertTrue(missingEndTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
+        String message = "Must set both start time and end time with epoch of milliseconds";
+
+        assertTrue(missingEndTimeException.getMessage().contains(message));
 
         // Start time > end time
         Exception invalidTimeException = expectThrows(IOException.class, () -> {
@@ -2055,7 +2069,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception invalidDetectorIdException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
         });
-        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        System.out.println(invalidDetectorIdException.getMessage());
+        if (isHttps() && isResourceSharingFeatureEnabled()) {
+            // since no resource-sharing record exists for this document we simply throw 403 with the new feature
+            assertTrue(invalidDetectorIdException.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
+        } else {
+            assertTrue(invalidDetectorIdException.getMessage().contains(message));
+        }
 
         // Invalid order field
         Exception invalidOrderException = expectThrows(IOException.class, () -> {

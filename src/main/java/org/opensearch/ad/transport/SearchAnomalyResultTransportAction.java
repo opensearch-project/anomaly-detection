@@ -139,7 +139,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         List<StringTerms.Bucket> buckets = resultIndicesAgg.getBuckets();
         Set<String> resultIndicesOfDetector = new HashSet<>();
         if (buckets == null) {
-            searchHandler.search(request, listener);
+            searchHandler.search(request, null, listener);
             return;
         }
         buckets.stream().forEach(b -> resultIndicesOfDetector.add(b.getKeyAsString()));
@@ -150,7 +150,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         }
         if (targetIndices.size() == 0) {
             // No custom result indices used by detectors, just search default result index
-            searchHandler.search(request, listener);
+            searchHandler.search(request, null, listener);
             return;
         }
     }
@@ -214,7 +214,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             return;
         }
         request.indices(readableIndices.toArray(new String[0]));
-        searchHandler.search(request, listener);
+        searchHandler.search(request, null, listener);
     }
 
     @VisibleForTesting
@@ -267,7 +267,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             // onlyQueryCustomResultIndex is false in this branch
             // Search only default result index
             request.indices(ALL_AD_RESULTS_INDEX_PATTERN);
-            searchHandler.search(request, listener);
+            searchHandler.search(request, null, listener);
             return;
         }
 

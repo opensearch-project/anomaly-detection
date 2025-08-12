@@ -36,6 +36,6 @@ public class SearchForecastTasksTransportAction extends HandledTransportAction<S
 
     @Override
     protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        searchHandler.search(request, listener);
+        searchHandler.search(request, null, listener);
     }
 }
