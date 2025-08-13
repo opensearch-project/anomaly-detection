@@ -102,22 +102,57 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                (args) -> forecastExecute(request, user, (Forecaster) args[0], context, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                () -> indexForecaster(
+                    user,
+                    method,
+                    forecasterId,
+                    listener,
+                    (forecaster) -> forecastExecute(request, user, forecaster, context, listener)
+                ),
+                () -> resolveUserAndExecute(
                     user,
                     forecasterId,
                     method,
                     listener,
                     (forecaster) -> forecastExecute(request, user, forecaster, context, listener)
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {
             LOG.error(e);
             listener.onFailure(e);
+        }
+    }
+
+    private void indexForecaster(
+        User requestedUser,
+        RestRequest.Method method,
+        String forecasterId,
+        ActionListener<IndexForecasterResponse> parentListener,
+        Consumer<Forecaster> onFound
+    ) {
+        if (method == RestRequest.Method.PUT) {
+            // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
+            // check if request user have access to the forecaster or not. But we still need to get current forecaster for
+            // this case, so we can keep current forecaster's user data.
+            boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
+
+            // Update forecaster request, check if user has permissions to update the forecaster
+            // Get forecaster and verify backend roles
+            getConfig(
+                requestedUser,
+                forecasterId,
+                parentListener,
+                onFound,
+                client,
+                clusterService,
+                xContentRegistry,
+                filterByBackendRole,
+                Forecaster.class
+            );
+        } else {
+            // Create Forecaster. No need to get current
+            onFound.accept(null);
         }
     }
 
@@ -129,11 +164,6 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
         Consumer<Forecaster> function
     ) {
         try {
-            // requestedUser == null means security is disabled or user is superadmin. In this case we don't need to
-            // check if request user have access to the forecaster or not. But we still need to get current forecaster for
-            // this case, so we can keep current forecaster's user data.
-            boolean filterByBackendRole = requestedUser == null ? false : filterByEnabled;
-
             if (filterByEnabled) {
                 // Check if user has backend roles
                 // When filter by is enabled, block users creating/updating detectors who do not have backend roles.
@@ -143,24 +173,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
                     return;
                 }
             }
-            if (method == RestRequest.Method.PUT) {
-                // Update forecaster request, check if user has permissions to update the forecaster
-                // Get forecaster and verify backend roles
-                getConfig(
-                    requestedUser,
-                    forecasterId,
-                    listener,
-                    function,
-                    client,
-                    clusterService,
-                    xContentRegistry,
-                    filterByBackendRole,
-                    Forecaster.class
-                );
-            } else {
-                // Create Detector. No need to get current detector.
-                function.accept(null);
-            }
+            indexForecaster(requestedUser, method, forecasterId, listener, function);
         } catch (Exception e) {
             listener.onFailure(e);
         }

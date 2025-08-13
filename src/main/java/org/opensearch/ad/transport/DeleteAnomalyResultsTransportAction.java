@@ -57,7 +57,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     ) {
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
-        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(settings);
+        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
         filterEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
@@ -85,12 +85,15 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
             // user is already authenticated to hit this API.
             client.execute(DeleteByQueryAction.INSTANCE, request, listener);
         } else {
-            // Security is enabled and backend role filter is enabled
             try {
+                // Security is enabled and resource sharing access control is enabled
                 if (shouldUseResourceAuthz) {
                     // verify if new authz should be added on result index, if soo replace the null
                     addAccessibleConfigsFilterAndDelete(ADIndex.RESULT.getIndexName(), request.getSearchRequest(), listener);
-                } else if (filterEnabled) {
+                    return;
+                }
+                // Security is enabled and backend role filter is enabled
+                if (filterEnabled) {
                     ParseUtils.addUserBackendRolesFilter(user, request.getSearchRequest().source());
                 }
                 client.execute(DeleteByQueryAction.INSTANCE, request, listener);

@@ -41,7 +41,7 @@ public class SearchHandler {
     public SearchHandler(Settings settings, ClusterService clusterService, Client client, Setting<Boolean> filterByBackendRoleSetting) {
         this.client = client;
         filterEnabled = filterByBackendRoleSetting.get(settings);
-        shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(settings);
+        shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterEnabled = it);
     }
 
