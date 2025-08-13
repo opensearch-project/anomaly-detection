@@ -20,10 +20,12 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.TestHelpers.matchAllRequest;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Before;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.ADUnitTestCase;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -69,7 +71,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
     public void testSearchException() {
         doThrow(new RuntimeException("test")).when(client).search(any(), any());
-        searchHandler.search(request, listener);
+        searchHandler.search(request, Pair.of(ADIndex.CONFIG.getIndexName(), "_id"), listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -78,7 +80,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);
-        searchHandler.search(request, listener);
+        searchHandler.search(request, Pair.of(ADIndex.CONFIG.getIndexName(), "_id"), listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -87,7 +89,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client);
-        searchHandler.search(matchAllRequest(), listener);
+        searchHandler.search(matchAllRequest(), Pair.of(ADIndex.CONFIG.getIndexName(), "_id"), listener);
         verify(client, times(1)).search(any(), any());
     }
 }

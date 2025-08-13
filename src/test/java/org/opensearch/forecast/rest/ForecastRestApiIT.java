@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -71,6 +72,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     public void setUp() throws Exception {
         super.setUp();
         updateClusterSettings(ForecastEnabledSetting.FORECAST_ENABLED, true);
+        if (isHttps() && isResourceSharingFeatureEnabled()) {
+            // this is needed for tests running with security enabled and resource-sharing flag enabled
+            // the client being used doesn't seem to automatically grant access for some reason
+            createRoleMapping("all_access", new ArrayList<>(Arrays.asList("admin")));
+        }
+
     }
 
     /**

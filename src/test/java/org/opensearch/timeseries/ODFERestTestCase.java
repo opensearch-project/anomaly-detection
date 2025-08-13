@@ -97,6 +97,10 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
     }
 
+    protected boolean isResourceSharingFeatureEnabled() {
+        return Optional.ofNullable(System.getProperty("resource_sharing.enabled")).map("true"::equalsIgnoreCase).orElse(false);
+    }
+
     @Override
     protected String getProtocol() {
         return isHttps() ? "https" : "http";
@@ -479,14 +483,6 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 ImmutableList
                     .of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"))
             );
-    }
-
-    public Response getResourceSharingEnabledSetting() throws IOException {
-        // use filter_path to return only the persistent setting
-        String endpoint = "/_cluster/settings" + "?filter_path=persistent.plugins.security.experimental.resource_sharing.enabled";
-
-        return TestHelpers
-            .makeRequest(adminClient(), "GET", endpoint, null, "", ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana")));
     }
 
 }

@@ -388,7 +388,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Exception exception = expectThrows(IOException.class, () -> {
             startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
         });
-        Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
+        if (isResourceSharingFeatureEnabled()) {
+            Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]"));
+        } else {
+            Assert.assertTrue(exception.getMessage().contains("User does not have permissions to access config: " + aliceDetector.getId()));
+        }
 
         // User Bob has AD read access, should not be able to modify a detector
         Assert.assertNotNull(aliceDetector.getId());

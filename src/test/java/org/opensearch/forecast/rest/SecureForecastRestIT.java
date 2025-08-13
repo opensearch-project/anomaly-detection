@@ -167,6 +167,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         }
 
         String fullPassword = generatePassword(fullUser);
+        logger.info(fullPassword);
         createUser(fullUser, fullPassword, new ArrayList<>());
         fullClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fullUser, fullPassword)
             .setSocketTimeout(60000)
@@ -688,11 +689,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     null
                 )
         );
-        Assert
-            .assertTrue(
-                "actual: " + exception.getMessage(),
-                exception.getMessage().contains("no permissions for [cluster:admin/plugin/forecast/forecaster/jobmanagement]")
-            );
+        String message = "no permissions for [cluster:admin/plugin/forecast/forecaster/jobmanagement]";
+        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
 
         // case 3: given a forecaster Id, full access user can start the forecaster
         response = TestHelpers
@@ -711,20 +709,39 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         // case 4: given a forecaster Id, read access user can read results
         List<SearchHit> hits = waitUntilResultAvailable(readClient);
 
-        // case 5: given a forecaster Id, read access user can look up forecaster configuration
-        response = TestHelpers
-            .makeRequest(
-                readClient,
-                "GET",
-                String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
+        // case 5: given a forecaster Id, read access user can
+        if (isResourceSharingFeatureEnabled()) {
+            // not look up forecaster configuration for full-client's forecaster
+            exception = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        readClient,
+                        "GET",
+                        String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                        ImmutableMap.of(),
+                        (HttpEntity) null,
+                        null
+                    )
             );
+            message = "no permissions for [cluster:admin/plugin/forecast/forecasters/get]";
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
+        } else {
+            // look up forecaster configuration if resource sharing feature is disabled
+            response = TestHelpers
+                .makeRequest(
+                    readClient,
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
 
-        responseMap = entityAsMap(response);
-        String parsedName = (String) ((Map<String, Object>) responseMap.get("forecaster")).get("name");
-        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", NAME, parsedName), NAME, parsedName);
+            responseMap = entityAsMap(response);
+            String parsedName = (String) ((Map<String, Object>) responseMap.get("forecaster")).get("name");
+            assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", NAME, parsedName), NAME, parsedName);
+        }
 
         // case 6: read access user can run top forecast on an HC forecaster
         long forecastFrom = (long) (hits.get(0).getSourceAsMap().get("data_end_time"));
@@ -777,32 +794,68 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 ENTITY_VALUE
             );
 
-        response = TestHelpers
-            .makeRequest(
-                readClient,
-                "POST",
-                String.format(Locale.ROOT, TOP_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                TestHelpers.toHttpEntity(topForcastRequest),
-                null
+        if (isResourceSharingFeatureEnabled()) {
+            // not look up forecaster configuration for full-client's forecaster
+            exception = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        readClient,
+                        "POST",
+                        String.format(Locale.ROOT, TOP_FORECASTER, forecasterId),
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(topForcastRequest),
+                        null
+                    )
             );
-        responseMap = entityAsMap(response);
-        List<Object> parsedBuckets = (List<Object>) responseMap.get("buckets");
-        assertTrue(parsedBuckets.size() > 0);
+            message = "no permissions for [cluster:admin/plugin/forecast/forecasters/get]";
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    readClient,
+                    "POST",
+                    String.format(Locale.ROOT, TOP_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(topForcastRequest),
+                    null
+                );
+            responseMap = entityAsMap(response);
+            List<Object> parsedBuckets = (List<Object>) responseMap.get("buckets");
+            assertTrue(parsedBuckets.size() > 0);
+        }
 
         // case 7: read access user is able to run profile API
-        response = TestHelpers
-            .makeRequest(
-                readClient,
-                "GET",
-                String.format(Locale.ROOT, PROFILE_ALL_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
+        if (isResourceSharingFeatureEnabled()) {
+            // not look up forecaster configuration for full-client's forecaster
+            exception = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        readClient,
+                        "GET",
+                        String.format(Locale.ROOT, PROFILE_ALL_FORECASTER, forecasterId),
+                        ImmutableMap.of(),
+                        (HttpEntity) null,
+                        null
+                    )
             );
-        responseMap = entityAsMap(response);
-        String parsedState = (String) responseMap.get("state");
-        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", "RUNNING", parsedState), "RUNNING", parsedState);
+            message = "no permissions for [cluster:admin/plugin/forecast/forecasters/get]";
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    readClient,
+                    "GET",
+                    String.format(Locale.ROOT, PROFILE_ALL_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+            responseMap = entityAsMap(response);
+            String parsedState = (String) responseMap.get("state");
+            assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", "RUNNING", parsedState), "RUNNING", parsedState);
+        }
 
         // case 28: read access user is able to run stats API
         response = TestHelpers.makeRequest(readClient, "GET", STATS_FORECASTER, ImmutableMap.of(), (HttpEntity) null, null);
@@ -1502,6 +1555,12 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testDFS() throws IOException, InterruptedException {
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> createStartWaitResult(phoenixReadClient));
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("no permissions for"));
+            return;
+        }
+
         // case 1: Forecast job follows user permission (e.g., since the user can only access phoenix, the job does so too)
         List<SearchHit> hits = createStartWaitResult(phoenixReadClient);
 
@@ -1512,6 +1571,11 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testSystemIndex() throws IOException, InterruptedException {
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> createStartWaitResult(fullClient));
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("no permissions for"));
+            return;
+        }
         List<SearchHit> hits = createStartWaitResult(fullClient);
         assertTrue(hits.size() > 0);
 
@@ -1555,6 +1619,12 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testResultAccess() throws IOException, InterruptedException {
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> createStartWaitResult(devOpsLimitedClient));
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("no permissions for"));
+            return;
+        }
+
         List<SearchHit> hits = createStartWaitResult(devOpsLimitedClient);
         assertTrue(hits.size() > 0);
 
