@@ -59,7 +59,9 @@ public class SearchHandler {
         User user = ParseUtils.getUserContext(client);
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (timeSeriesResourceSharingExtension != null && timeSeriesResourceSharingExtension.getResourceSharingClient() != null) {
+            if (pair != null
+                && timeSeriesResourceSharingExtension != null
+                && timeSeriesResourceSharingExtension.getResourceSharingClient() != null) {
                 ParseUtils
                     .addAccessibleConfigsFilterAndSearch(
                         client,

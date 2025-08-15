@@ -59,6 +59,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String AGGREGATION = "aggregation_issue";
 
     // field in JSON representation
+    public static final String ID_FIELD = "id";
     public static final String NAME_FIELD = "name";
     public static final String DESCRIPTION_FIELD = "description";
     public static final String TIMEFIELD_FIELD = "time_field";
@@ -552,6 +553,8 @@ public abstract class Config implements Writeable, ToXContentObject {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder
+            .field(ID_FIELD, id) // Without this field, resource-sharing did not apply to Validate requests since it requires id but parser
+                                 // didn't parse id
             .field(NAME_FIELD, name)
             .field(DESCRIPTION_FIELD, Encode.forHtml(description))
             .field(TIMEFIELD_FIELD, timeField)

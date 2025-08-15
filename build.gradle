@@ -499,8 +499,14 @@ def configureClusterPlugins(cluster, jobSchedulerFile, securityPluginFile, secur
     // since we also support multi node integration tests we increase debugPort per node
     if (System.getProperty("opensearch.debug") != null) {
         def debugPort = 5005
-        nodes.forEach { node ->
-            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")
+        cluster.nodes.forEach { node ->
+            // server=n,suspend=y -> node tries to connect to a debugger and hence test runs fails with
+            //            Exec output and error:
+            //            | Output for ./bin/opensearch-plugin:ERROR: transport error 202: connect failed: Connection refused
+            //            | ERROR: JDWP Transport dt_socket failed to initialize, TRANSPORT_INIT(510)
+            //                    | JDWP exit error AGENT_ERROR_TRANSPORT_INIT(197): No transports initialized [src/jdk.jdwp.agent/share/native/libjdwp/debugInit.c:700].
+            // So instead, we listen to a debugger by saying server=y and suspend=n
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${debugPort}")
             debugPort += 1
         }
     }
@@ -528,7 +534,7 @@ def configureClusterPlugins(cluster, jobSchedulerFile, securityPluginFile, secur
         // ./bin/elasticsearch-plugin install --batch file:opensearch-job-scheduler.zip file:opendistro-anomaly-detection.zip
         //
         // A temporary hack is to reorder the plugins list after evaluation but prior to task execution when the plugins are installed.
-        nodes.each { node ->
+        cluster.nodes.each { node ->
             def plugins = node.plugins
             def firstPlugin = plugins.get(0)
             plugins.remove(0)
