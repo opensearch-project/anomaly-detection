@@ -20,9 +20,10 @@ import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.security.spi.resources.ResourceProvider;
 import org.opensearch.security.spi.resources.ResourceSharingExtension;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
-import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 
 public class TimeSeriesResourceSharingExtension implements ResourceSharingExtension {
+    private ResourceSharingClient resourceSharingClient;
+
     @Override
     public Set<ResourceProvider> getResourceProviders() {
         return Set
@@ -34,6 +35,11 @@ public class TimeSeriesResourceSharingExtension implements ResourceSharingExtens
 
     @Override
     public void assignResourceSharingClient(ResourceSharingClient resourceSharingClient) {
-        ResourceSharingClientAccessor.getInstance().setResourceSharingClient(resourceSharingClient);
+        this.resourceSharingClient = resourceSharingClient;
+    }
+
+    @Override
+    public ResourceSharingClient getResourceSharingClient() {
+        return resourceSharingClient;
     }
 }

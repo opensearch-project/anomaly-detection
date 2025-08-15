@@ -46,6 +46,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -64,6 +65,9 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
     private final SearchFeatureDao searchFeatureDao;
     private final ForecastTaskManager taskManager;
     private final Settings settings;
+
+    @Inject(optional = true)
+    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     @Inject
     public IndexForecasterTransportAction(
@@ -102,6 +106,7 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
+                timeSeriesResourceSharingExtension,
                 () -> indexForecaster(
                     user,
                     method,
@@ -148,7 +153,8 @@ public class IndexForecasterTransportAction extends HandledTransportAction<Index
                 clusterService,
                 xContentRegistry,
                 filterByBackendRole,
-                Forecaster.class
+                Forecaster.class,
+                timeSeriesResourceSharingExtension
             );
         } else {
             // Create Forecaster. No need to get current

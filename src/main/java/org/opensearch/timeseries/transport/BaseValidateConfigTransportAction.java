@@ -6,7 +6,6 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
-import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
@@ -18,6 +17,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -28,6 +28,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -60,6 +61,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected Clock clock;
     protected Settings settings;
     protected ValidationAspect validationAspect;
+    @Inject(optional = true)
+    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     public BaseValidateConfigTransportAction(
         String actionName,
@@ -94,6 +97,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
+                timeSeriesResourceSharingExtension,
                 () -> validateExecute(request, user, context, listener),
                 () -> resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener))
             );

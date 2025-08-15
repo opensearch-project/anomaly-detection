@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -34,6 +35,7 @@ import org.opensearch.forecast.transport.SuggestName;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.Name;
+import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
@@ -60,6 +62,9 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     protected Clock clock;
     protected AnalysisType context;
     protected final Set<String> allSuggestParamStrs;
+
+    @Inject(optional = true)
+    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     public BaseSuggestConfigParamTransportAction(
         String actionName,
@@ -90,6 +95,7 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
+                timeSeriesResourceSharingExtension,
                 () -> suggestExecute(request, user, context, listener),
                 () -> resolveUserAndExecute(user, listener, () -> suggestExecute(request, user, context, listener))
             );

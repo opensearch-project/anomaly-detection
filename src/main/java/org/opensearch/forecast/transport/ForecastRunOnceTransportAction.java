@@ -64,6 +64,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.cluster.HashRing;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -112,6 +113,9 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
     protected volatile Integer maxHCForecasters;
     protected volatile Integer maxForecastFeatures;
     protected volatile Integer maxCategoricalFields;
+
+    @Inject(optional = true)
+    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     @Inject
     public ForecastRunOnceTransportAction(
@@ -168,6 +172,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
+                timeSeriesResourceSharingExtension,
                 () -> executeRunOnce(forecastID, request, listener),
                 () -> resolveUserAndExecute(
                     user,

@@ -75,6 +75,7 @@ import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuild
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
+import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -83,7 +84,6 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.FeatureData;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
@@ -476,12 +476,12 @@ public final class ParseUtils {
 
     public static void addAccessibleConfigsFilterAndSearch(
         Client client,
+        ResourceSharingClient resourceSharingClient,
         Pair<String, String> pair,
         SearchRequest searchRequest,
         ActionListener<SearchResponse> listener
     ) {
         logger.debug("Filtering result by accessible resources");
-        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
         SearchSourceBuilder searchSourceBuilder = searchRequest.source();
         resourceSharingClient.getAccessibleResourceIds(pair.getLeft(), ActionListener.wrap(configIds -> {
             searchSourceBuilder.query(mergeWithAccessFilter(searchSourceBuilder.query(), configIds));
@@ -560,8 +560,9 @@ public final class ParseUtils {
                     clusterService,
                     xContentRegistry,
                     filterByEnabled,
-                    configTypeClass
-                );
+                    configTypeClass,
+                    null
+                ); // resource sharing extension is passed as null since this is the old flow
             }
         } catch (Exception e) {
             listener.onFailure(e);
@@ -571,15 +572,17 @@ public final class ParseUtils {
     /**
      * If filterByEnabled is true, get config and check if the user has permissions to access the config,
      * then execute function; otherwise, get config and execute function
-     * @param requestUser user from request
-     * @param configId config id
-     * @param listener action listener
-     * @param function consumer function
-     * @param client client
-     * @param clusterService cluster service
-     * @param xContentRegistry XContent registry
-     * @param filterByBackendRole filter by backend role or not
-     * @param configTypeClass the class of the ConfigType, used by the ConfigFactory to parse the correct type of Config
+     *
+     * @param requestUser                        user from request
+     * @param configId                           config id
+     * @param listener                           action listener
+     * @param function                           consumer function
+     * @param client                             client
+     * @param clusterService                     cluster service
+     * @param xContentRegistry                   XContent registry
+     * @param filterByBackendRole                filter by backend role or not
+     * @param configTypeClass                    the class of the ConfigType, used by the ConfigFactory to parse the correct type of Config
+     * @param timeSeriesResourceSharingExtension the resource sharing extension to be used when feature is available
      */
     public static <ConfigType extends Config, GetConfigResponseType extends ActionResponse> void getConfig(
         User requestUser,
@@ -590,9 +593,12 @@ public final class ParseUtils {
         ClusterService clusterService,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole,
-        Class<ConfigType> configTypeClass
+        Class<ConfigType> configTypeClass,
+        TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension
     ) {
         String configIndexName = configTypeClass == AnomalyDetector.class ? ADCommonName.CONFIG_INDEX : ForecastCommonName.CONFIG_INDEX;
+        boolean autoEvalWithAuthz = timeSeriesResourceSharingExtension != null
+            && timeSeriesResourceSharingExtension.getResourceSharingClient() != null;
         if (clusterService.state().metadata().indices().containsKey(configIndexName)) {
             GetRequest request = new GetRequest(configIndexName).id(configId);
             client
@@ -608,6 +614,7 @@ public final class ParseUtils {
                                 function,
                                 xContentRegistry,
                                 filterByBackendRole,
+                                autoEvalWithAuthz,
                                 configTypeClass
                             ),
                             exception -> {
@@ -641,6 +648,7 @@ public final class ParseUtils {
      * @param function The Consumer function to apply to the ConfigType. If the user has permission to access the config, this function will be applied.
      * @param xContentRegistry The XContentRegistry used to create the XContentParser. This is used to parse the response into a ConfigType.
      * @param filterByBackendRole A boolean indicating whether to filter by backend role. If true, the user's backend roles will be checked to ensure they have access to the config.
+     * @param autoEvalWithAuthz A boolean indicating whether to resource access has been automatically evaluated with resource authz.
      * @param configTypeClass The class of the ConfigType, used by the ConfigFactory to parse the correct type of Config.
      */
     public static <ConfigType extends Config, GetConfigResponseType extends ActionResponse> void onGetConfigResponse(
@@ -651,6 +659,7 @@ public final class ParseUtils {
         Consumer<ConfigType> function,
         NamedXContentRegistry xContentRegistry,
         boolean filterByBackendRole,
+        boolean autoEvalWithAuthz,
         Class<ConfigType> configTypeClass
     ) {
         if (response.isExists()) {
@@ -664,7 +673,7 @@ public final class ParseUtils {
                 User resourceUser = config.getUser();
 
                 // if resource sharing feature is available, request will be auto-evaluated, hence skip evaluation here
-                if (shouldUseResourceAuthz()
+                if (autoEvalWithAuthz
                     || !filterByBackendRole
                     || checkUserPermissions(requestUser, resourceUser, configId)
                     || isAdmin(requestUser)) {
@@ -736,21 +745,21 @@ public final class ParseUtils {
     }
 
     /**
-     * Checks whether to utilize new ResourAuthz
-     * @return true if the resource-sharing feature is enabled, false otherwise.
-     */
-    public static boolean shouldUseResourceAuthz() {
-        return ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
-    }
-
-    /**
      * Verifies whether the user has permission to access the resource.
-     * @param onSuccess consumer function to execute if resource sharing feature is enabled
-     * @param fallbackOn501 consumer function to execute if resource sharing feature is disabled.
+     *
+     * @param timeSeriesResourceSharingExtension extension to be used when resource sharing authz feature is available
+     * @param onSuccess                          consumer function to execute if resource sharing feature is enabled
+     * @param fallbackOn501                      consumer function to execute if resource sharing feature is disabled
      */
-    public static void verifyResourceAccessAndProcessRequest(Runnable onSuccess, Runnable fallbackOn501) {
+    public static void verifyResourceAccessAndProcessRequest(
+        TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension,
+        Runnable onSuccess,
+        Runnable fallbackOn501
+    ) {
         // Resource access will be auto-evaluated
-        if (shouldUseResourceAuthz()) {
+        boolean autoEvalWithAuthz = timeSeriesResourceSharingExtension != null
+            && timeSeriesResourceSharingExtension.getResourceSharingClient() != null;
+        if (autoEvalWithAuthz) {
             onSuccess.run();
         } else {
             fallbackOn501.run();
