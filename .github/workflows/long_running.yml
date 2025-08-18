@@ -43,7 +43,7 @@ jobs:
           java-version: 21
 
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build and Run Tests
         run: |
