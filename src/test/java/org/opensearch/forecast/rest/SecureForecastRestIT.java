@@ -5,6 +5,8 @@
 
 package org.opensearch.forecast.rest;
 
+import static org.hamcrest.Matchers.notNullValue;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,9 +22,11 @@ import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.awaitility.Awaitility;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -675,6 +679,29 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         Map<String, Object> responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
+        if (isResourceSharingFeatureEnabled()) {
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return TestHelpers
+                        .makeRequest(
+                            fullClient,
+                            "GET",
+                            String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                            null,
+                            "",
+                            ImmutableList.of()
+                        );
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
 
         // case 2: given a forecaster Id, read access user cannot start the forecaster
         exception = expectThrows(
@@ -1108,7 +1135,12 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
         total = searchResponse.getHits().getTotalHits().value();
-        assertTrue("got: " + total, total > 0);
+        if (isResourceSharingFeatureEnabled()) {
+            // if resource sharing is enabled read client will not be able to see any forecasters since none are share with
+            assertEquals(0, total);
+        } else {
+            assertTrue("got: " + total, total > 0);
+        }
 
         // case 18: read access user cannot update forecaster
         ForecastTaskProfile forecastTaskProfile = (ForecastTaskProfile) waitUntilTaskReachState(
@@ -1266,7 +1298,13 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     null
                 )
         );
-        Assert.assertEquals(404, responseException.getResponse().getStatusLine().getStatusCode());
+        int status = responseException.getResponse().getStatusLine().getStatusCode();
+        if (isResourceSharingFeatureEnabled()) {
+            // if feature is enabled, read client will not have access to profile forecasters
+            assertEquals(403, status);
+        } else {
+            Assert.assertEquals(404, status);
+        }
 
         // case 25: Full access user cannot find forecasters that do not share their backend role
         try {
@@ -1282,7 +1320,12 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 );
             searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
             total = searchResponse.getHits().getTotalHits().value();
-            assertTrue("got: " + total, total == 0);
+            if (isResourceSharingFeatureEnabled()) {
+                // if resource sharing feature is enabled, user will be able to find forecasters they have created on line 667
+                assertEquals(1, total);
+            } else {
+                assertTrue("got: " + total, total == 0);
+            }
         } finally {
             disableFilterBy();
         }
@@ -1318,6 +1361,10 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testFilterBy() throws IOException {
+        // filter-by should only be test when resource-sharing feature is disabled
+        if (isResourceSharingFeatureEnabled()) {
+            return;
+        }
         try {
             enableFilterBy();
 
@@ -1424,6 +1471,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             long total = searchResponse.getHits().getTotalHits().value();
             assertTrue("got: " + total, total == 1);
 
+            // we don't need to await here when resource-sharing is enabled as we do above, since the entry is expected to be populated.
             response = TestHelpers
                 .makeRequest(
                     devOpsClient,
@@ -1524,6 +1572,234 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         }
     }
 
+    public void testResourceSharing() throws IOException {
+        if (!isResourceSharingFeatureEnabled()) {
+            return;
+        }
+
+        // case 1: Both SDE and DevOps user create a forecaster. They can only see their own forecaster.
+        Response response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(response);
+        String devOpsForecasterId = (String) responseMap.get("_id");
+        assertNotNull(devOpsForecasterId);
+
+        // Define the malicious payload
+        String sdeForecasterDef = "{\n"
+            + "    \"name\": \"%s\",\n"
+            + "    \"description\": \"OK rate\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_id\": \"max1\",\n"
+            + "            \"feature_name\": \"max1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"importance\": 1,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                        \"max1\": {\n"
+            + "                            \"max\": {\n"
+            + "                                \"field\": \"visitCount\"\n"
+            + "                            }\n"
+            + "                        }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    \"window_delay\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": %d,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"ui_metadata\": {\n"
+            + "        \"aabb\": {\n"
+            + "            \"ab\": \"bb\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"schema_version\": 2,\n"
+            + "    \"horizon\": 24,\n"
+            + "    \"forecast_interval\": {\n"
+            + "        \"period\": {\n"
+            + "            \"interval\": 10,\n"
+            + "            \"unit\": \"MINUTES\"\n"
+            + "        }\n"
+            + "    },\n"
+            + "    \"category_field\": [\"%s\"]"
+            + "}";
+
+        // +1 to make sure it is big enough
+        windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
+        String sdeForecaster = String
+            .format(Locale.ROOT, sdeForecasterDef, "sde-forcaster", RULE_DATASET_NAME, windowDelayMinutes, ENTITY_NAME);
+
+        response = TestHelpers
+            .makeRequest(
+                sdeClient,
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(sdeForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        String sdeForecasterId = (String) responseMap.get("_id");
+        assertTrue(!sdeForecasterId.equals(devOpsForecasterId));
+
+        // Extract the forecaster details
+        Map<String, Object> forecaster = (Map<String, Object>) responseMap.get("forecaster");
+
+        // Get the description from the response
+        String responseDescription = (String) forecaster.get("description");
+
+        // Expected encoded description
+        String expectedEncodedDescription = "OK rate";
+
+        // Assert that the description is correctly encoded
+        assertEquals("Description encoding mismatch", expectedEncodedDescription, responseDescription);
+
+        // if feature is enabled, we wait until sdeClient's resource sharing entry is populated before searching
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Try to read it; if 200, you'll get a non-null detector
+                return TestHelpers
+                    .makeRequest(
+                        sdeClient,
+                        "GET",
+                        String.format(Locale.ROOT, GET_FORECASTER, sdeForecasterId),
+                        null,
+                        "",
+                        ImmutableList.of()
+                    );
+            } catch (Exception e) {
+                // Treat 403 as eventual-consistency: keep waiting
+                if (isForbidden(e)) {
+                    return null;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, notNullValue());
+
+        response = TestHelpers
+            .makeRequest(
+                sdeClient,
+                "GET",
+                String.format(Locale.ROOT, SEARCH_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(searchForecasterRequest),
+                null
+            );
+        SearchResponse searchResponse = SearchResponse
+            .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+        long total = searchResponse.getHits().getTotalHits().value();
+        assertTrue("got: " + total, total == 1);
+
+        // we don't need to await here when resource-sharing is enabled as we do above, since the entry is expected to be populated.
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "GET",
+                String.format(Locale.ROOT, SEARCH_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(searchForecasterRequest),
+                null
+            );
+        searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+        total = searchResponse.getHits().getTotalHits().value();
+        assertTrue("got: " + total, total == 1);
+
+        // case 2: Full access user cannot start/stop/delete forecaster created by other user
+        ResponseException responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    fullClient,
+                    "POST",
+                    String.format(Locale.ROOT, START_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, START_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String startId = (String) responseMap.get("_id");
+        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", devOpsForecasterId, startId), devOpsForecasterId, startId);
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    fullClient,
+                    "POST",
+                    String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String stopId = (String) responseMap.get("_id");
+        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", devOpsForecasterId, stopId), devOpsForecasterId, stopId);
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    fullClient,
+                    "DELETE",
+                    String.format(Locale.ROOT, DELETE_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "DELETE",
+                String.format(Locale.ROOT, DELETE_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String deleteId = (String) responseMap.get("_id");
+        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", devOpsForecasterId, deleteId), devOpsForecasterId, deleteId);
+    }
+
     private List<SearchHit> createStartWaitResult(RestClient client) throws IOException, InterruptedException {
         Response response = TestHelpers
             .makeRequest(
@@ -1537,6 +1813,23 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         Map<String, Object> responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
+
+        if (isResourceSharingFeatureEnabled()) {
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return TestHelpers
+                        .makeRequest(client, "GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, "", ImmutableList.of());
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
 
         response = TestHelpers
             .makeRequest(
@@ -1555,12 +1848,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testDFS() throws IOException, InterruptedException {
-        if (isResourceSharingFeatureEnabled()) {
-            Exception exception = expectThrows(ResponseException.class, () -> createStartWaitResult(phoenixReadClient));
-            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("no permissions for"));
-            return;
-        }
-
         // case 1: Forecast job follows user permission (e.g., since the user can only access phoenix, the job does so too)
         List<SearchHit> hits = createStartWaitResult(phoenixReadClient);
 
@@ -1571,11 +1858,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testSystemIndex() throws IOException, InterruptedException {
-        if (isResourceSharingFeatureEnabled()) {
-            Exception exception = expectThrows(ResponseException.class, () -> createStartWaitResult(fullClient));
-            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("no permissions for"));
-            return;
-        }
         List<SearchHit> hits = createStartWaitResult(fullClient);
         assertTrue(hits.size() > 0);
 
@@ -1619,12 +1901,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testResultAccess() throws IOException, InterruptedException {
-        if (isResourceSharingFeatureEnabled()) {
-            Exception exception = expectThrows(ResponseException.class, () -> createStartWaitResult(devOpsLimitedClient));
-            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("no permissions for"));
-            return;
-        }
-
         List<SearchHit> hits = createStartWaitResult(devOpsLimitedClient);
         assertTrue(hits.size() > 0);
 
@@ -1863,6 +2139,30 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
 
+        if (isResourceSharingFeatureEnabled()) {
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return TestHelpers
+                        .makeRequest(
+                            fullClient,
+                            "GET",
+                            String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                            null,
+                            "",
+                            ImmutableList.of()
+                        );
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
+
         responseException = expectThrows(
             ResponseException.class,
             () -> TestHelpers
@@ -1978,4 +2278,13 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
     }
 
+    private static boolean isForbidden(Exception e) {
+        if (e instanceof OpenSearchStatusException) {
+            return ((OpenSearchStatusException) e).status() == RestStatus.FORBIDDEN;
+        }
+        if (e instanceof ResponseException) {
+            return ((ResponseException) e).getResponse().getStatusLine().getStatusCode() == 403;
+        }
+        return false;
+    }
 }

@@ -118,7 +118,6 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_CONFIG);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            System.out.println("Verifying resource access and processing request");
             verifyResourceAccessAndProcessRequest(
                 timeSeriesResourceSharingExtension,
                 () -> deleteConfigIfNotRunning(configId, listener),

@@ -370,6 +370,18 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
+    public Response searchAnomalyDetectors(String bodyAsJsonString, RestClient client) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
+                null,
+                TestHelpers.toHttpEntity(bodyAsJsonString),
+                new ArrayList<>()
+            );
+    }
+
     public Response searchTopAnomalyResults(String detectorId, boolean historical, String bodyAsJsonString, RestClient client)
         throws IOException {
         return TestHelpers
