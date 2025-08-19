@@ -17,7 +17,6 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -27,7 +26,6 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.ExecuteResultResponseRecorder;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.indices.TimeSeriesIndex;
 import org.opensearch.timeseries.model.Config;
@@ -59,9 +57,6 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
     private final Clock clock;
-
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -110,7 +105,6 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                timeSeriesResourceSharingExtension,
                 () -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
                 () -> resolveUserAndExecute(
                     user,

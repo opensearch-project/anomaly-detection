@@ -20,13 +20,11 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.client.Client;
@@ -38,12 +36,12 @@ public class SearchHandler {
     private final Logger logger = LogManager.getLogger(SearchHandler.class);
     private final Client client;
     private volatile Boolean filterEnabled;
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
+    private final boolean shouldUseResourceAuthz;
 
     public SearchHandler(Settings settings, ClusterService clusterService, Client client, Setting<Boolean> filterByBackendRoleSetting) {
         this.client = client;
         filterEnabled = filterByBackendRoleSetting.get(settings);
+        shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterEnabled = it);
     }
 
@@ -59,17 +57,8 @@ public class SearchHandler {
         User user = ParseUtils.getUserContext(client);
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            if (pair != null
-                && timeSeriesResourceSharingExtension != null
-                && timeSeriesResourceSharingExtension.getResourceSharingClient() != null) {
-                ParseUtils
-                    .addAccessibleConfigsFilterAndSearch(
-                        client,
-                        timeSeriesResourceSharingExtension.getResourceSharingClient(),
-                        pair,
-                        request,
-                        listener
-                    );
+            if (pair != null && shouldUseResourceAuthz) {
+                ParseUtils.addAccessibleConfigsFilterAndSearch(client, pair, request, listener);
             } else {
                 validateRole(request, user, listener);
             }

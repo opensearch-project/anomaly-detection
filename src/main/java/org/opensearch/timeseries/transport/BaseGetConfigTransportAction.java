@@ -34,7 +34,6 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -51,7 +50,6 @@ import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.ProfileRunner;
 import org.opensearch.timeseries.TaskProfile;
 import org.opensearch.timeseries.TaskProfileRunner;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.indices.IndexManagement;
@@ -105,8 +103,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     private final String hcHistoricalTaskName;
     private final TaskProfileRunnerType taskProfileRunner;
     protected final String configIndexName;
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     public BaseGetConfigTransportAction(
         TransportService transportService,
@@ -173,7 +169,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                timeSeriesResourceSharingExtension,
                 () -> getExecute(getConfigRequest, listener),
                 () -> resolveUserAndExecute(
                     user,

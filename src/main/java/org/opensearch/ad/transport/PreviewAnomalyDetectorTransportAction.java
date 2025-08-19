@@ -50,7 +50,6 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.tasks.Task;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
 import org.opensearch.timeseries.common.exception.ClientException;
 import org.opensearch.timeseries.common.exception.LimitExceededException;
@@ -72,9 +71,6 @@ public class PreviewAnomalyDetectorTransportAction extends
     private volatile Boolean filterByEnabled;
     private final CircuitBreakerService adCircuitBreakerService;
     private Semaphore lock;
-
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     @Inject
     public PreviewAnomalyDetectorTransportAction(
@@ -114,7 +110,6 @@ public class PreviewAnomalyDetectorTransportAction extends
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
-                timeSeriesResourceSharingExtension,
                 () -> previewExecute(request, context, listener),
                 () -> resolveUserAndExecute(
                     user,

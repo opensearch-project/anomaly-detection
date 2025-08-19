@@ -45,7 +45,6 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
@@ -66,9 +65,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
     private final Settings settings;
-
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -107,7 +103,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                timeSeriesResourceSharingExtension,
                 () -> indexDetector(user, detectorId, method, listener, detector -> adExecute(request, user, detector, context, listener)),
                 () -> resolveUserAndExecute(
                     user,
@@ -171,8 +166,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
                 clusterService,
                 xContentRegistry,
                 filterByBackendRole,
-                AnomalyDetector.class,
-                timeSeriesResourceSharingExtension
+                AnomalyDetector.class
             );
         } else {
             // Create Detector. No need to get current detector.

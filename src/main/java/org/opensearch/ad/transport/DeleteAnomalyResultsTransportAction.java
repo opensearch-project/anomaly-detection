@@ -35,7 +35,7 @@ import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.tasks.Task;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
@@ -44,10 +44,8 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
 
     private final Client client;
     private volatile Boolean filterEnabled;
+    private final boolean shouldUseResourceAuthz;
     private static final Logger logger = LogManager.getLogger(DeleteAnomalyResultsTransportAction.class);
-
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     @Inject
     public DeleteAnomalyResultsTransportAction(
@@ -59,6 +57,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     ) {
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
+        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
         filterEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
@@ -80,8 +79,6 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     }
 
     private void validateRole(DeleteByQueryRequest request, User user, ActionListener<BulkByScrollResponse> listener) {
-        boolean shouldUseResourceAuthz = timeSeriesResourceSharingExtension != null
-            && timeSeriesResourceSharingExtension.getResourceSharingClient() != null;
         if (user == null || !(filterEnabled || shouldUseResourceAuthz)) {
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
             // Case 2: If Security is enabled and filter is disabled, proceed with search as
@@ -112,7 +109,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         ActionListener<BulkByScrollResponse> listener
     ) {
         logger.debug("Filtering result by accessible resources");
-        ResourceSharingClient resourceSharingClient = timeSeriesResourceSharingExtension.getResourceSharingClient();
+        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
         SearchSourceBuilder searchSourceBuilder = request.source();
         resourceSharingClient.getAccessibleResourceIds(indexName, ActionListener.wrap(configIds -> {
             searchSourceBuilder.query(mergeWithAccessFilter(searchSourceBuilder.query(), configIds));

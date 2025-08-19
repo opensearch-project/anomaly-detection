@@ -27,7 +27,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -40,7 +39,6 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
-import org.opensearch.timeseries.TimeSeriesResourceSharingExtension;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.indices.IndexManagement;
@@ -73,8 +71,6 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private final Class<ConfigType> configTypeClass;
     private final List<TaskTypeEnum> batchTaskTypes;
     protected final String configIndexName;
-    @Inject(optional = true)
-    public TimeSeriesResourceSharingExtension timeSeriesResourceSharingExtension;
 
     public BaseDeleteConfigTransportAction(
         TransportService transportService,
@@ -119,7 +115,6 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                timeSeriesResourceSharingExtension,
                 () -> deleteConfigIfNotRunning(configId, listener),
                 () -> resolveUserAndExecute(
                     user,
