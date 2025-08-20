@@ -34,7 +34,6 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
-import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
@@ -1685,16 +1684,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         // Deleting detector should fail while its running
         Exception exception = expectThrows(IOException.class, () -> { deleteAnomalyDetector(detector.getId(), client()); });
         Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Historical is running"));
-    }
-
-    private static boolean isForbidden(Exception e) {
-        if (e instanceof OpenSearchStatusException) {
-            return ((OpenSearchStatusException) e).status() == RestStatus.FORBIDDEN;
-        }
-        if (e instanceof ResponseException) {
-            return ((ResponseException) e).getResponse().getStatusLine().getStatusCode() == 403;
-        }
-        return false;
     }
 
     public void testBackwardCompatibilityWithOpenDistro() throws IOException, InterruptedException {

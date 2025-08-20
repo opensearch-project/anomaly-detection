@@ -11,16 +11,28 @@
 
 package org.opensearch.ad.rest;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.opensearch.ad.constant.ADCommonName.CONFIG_INDEX;
+import static org.opensearch.timeseries.TestHelpers.patchSharingInfo;
+import static org.opensearch.timeseries.TestHelpers.shareConfig;
+import static org.opensearch.timeseries.TestHelpers.shareWithUserPayload;
+
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
+import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
 import org.junit.After;
@@ -37,6 +49,8 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.security.spi.resources.sharing.Recipient;
+import org.opensearch.security.spi.resources.sharing.Recipients;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -62,14 +76,57 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient lionClient;
     private String indexAllAccessRole = "index_all_access";
     private String indexSearchAccessRole = "index_all_search";
+
+    private static final String READ_ONLY_AG = "anomaly_read_only_ag";
+    private static final String FULL_ACCESS_AG = "anomaly_full_access_ag";
+    private static final String SHARE_CONFIG_ROLE = "share_config_role";
+
     String oceanUser = "ocean";
     RestClient oceanClient;
+
+    private void waitForSharingVisibility(String detId, RestClient client) {
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Try to read it; if 200, you'll get a non-null detector
+                return getConfig(detId, client);
+            } catch (Exception e) {
+                // Treat 403 as eventual-consistency: keep waiting
+                if (isForbidden(e)) {
+                    return null;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, notNullValue());
+    }
+
+    private void waitForRevokeNonVisibility(String detId, RestClient client) {
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Still visible (200) -> keep waiting
+                getConfig(detId, client);
+                return Boolean.FALSE;
+            } catch (Exception e) {
+                // Access revoked (403) -> we're done
+                if (isForbidden(e)) {
+                    return Boolean.TRUE;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, is(Boolean.TRUE));
+    }
 
     @Before
     public void setupSecureTests() throws IOException {
         if (!isHttps()) {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         }
+
+        createActionGroup(READ_ONLY_AG, readOnlyAccessPayload());
+        createActionGroup(FULL_ACCESS_AG, fullAccessPayload());
+        createShareRole(SHARE_CONFIG_ROLE);
+
         createIndexRole(indexAllAccessRole, "*");
         createSearchRole(indexSearchAccessRole, "*");
         String alicePassword = generatePassword(aliceUser);
@@ -130,6 +187,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
+
+        createRoleMapping(SHARE_CONFIG_ROLE, new ArrayList<>(Arrays.asList(aliceUser, catUser, elkUser)));
     }
 
     @After
@@ -318,7 +377,91 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
             exception = expectThrows(Exception.class, () -> { getConfig(aliceDetector.getId(), client()); });
             assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
-            // TODO Add sharing setup and test after sharing
+            // test sharing
+
+            // Share read-only with cat (by owner: alice)
+            Response shareROWithCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+            );
+            assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            // Cat can now GET
+            AnomalyDetector detectorVisibleToCat = getConfig(aliceDetector.getId(), catClient);
+            assertEquals(aliceDetector.getId(), detectorVisibleToCat.getId());
+
+            // Non-owner (cat, only read-only) CANNOT share further
+            Exception ex = expectThrows(Exception.class, () -> {
+                shareConfig(catClient, Map.of(), shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, bobUser));
+            });
+            assertTrue(ex.getMessage(), ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
+
+            // Grant full_access to elk (still by owner: alice)
+            Response grantFullToElk = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+            );
+            assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), elkClient);
+
+            // elk (now full_access) can PATCH sharing to backend_roles "aes" (cat belongs to it)
+            Map<Recipient, Set<String>> recs = new HashMap<>();
+            Set<String> backendRoles = new HashSet<>();
+            backendRoles.add("aes");
+            recs.put(Recipient.BACKEND_ROLES, backendRoles);
+            Recipients recipients = new Recipients(recs);
+            TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+
+            String patchShareAes = builder.build();
+
+            Response elkAddsAes = patchSharingInfo(elkClient, Map.of(), patchShareAes);
+            assertEquals(200, elkAddsAes.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), elkClient);
+
+            // Revoke user-level share for cat (elk can revoke since elk has full_access)
+            recs = new HashMap<>();
+            Set<String> users = new HashSet<>();
+            users.add(catUser);
+            recs.put(Recipient.USERS, users);
+            recipients = new Recipients(recs);
+            builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+
+            String revokeUserCat = builder.build();
+
+            Response elkRevokesUserCat = patchSharingInfo(elkClient, Map.of(), revokeUserCat);
+            assertEquals(200, elkRevokesUserCat.getStatusLine().getStatusCode());
+
+            // Cat still has access via backend_roles "aes"
+            detectorVisibleToCat = getConfig(aliceDetector.getId(), catClient);
+            assertEquals(aliceDetector.getId(), detectorVisibleToCat.getId());
+
+            // Now revoke backend_roles "aes" — cat should lose access
+            recs = new HashMap<>();
+            backendRoles = new HashSet<>();
+            backendRoles.add("aes");
+            users = new HashSet<>();
+            users.add(catUser);
+            recs.put(Recipient.BACKEND_ROLES, backendRoles);
+            recs.put(Recipient.USERS, users);
+            recipients = new Recipients(recs);
+            builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+
+            String revokeAes = builder.build();
+
+            Response elkRevokesAes = patchSharingInfo(elkClient, Map.of(), revokeAes);
+            assertEquals(200, elkRevokesAes.getStatusLine().getStatusCode());
+            waitForRevokeNonVisibility(aliceDetector.getId(), catClient);
+
+            // Cat loses access now
+            ex = expectThrows(Exception.class, () -> { getConfig(aliceDetector.getId(), catClient); });
+            assertTrue(ex.getMessage().contains("no permissions"));
+
         } else {
             enableFilterBy();
             // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
@@ -354,7 +497,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
     public void testSearchDetector() throws IOException {
         // User Alice has AD full access, should be able to create a detector
-        createRandomAnomalyDetector(false, false, aliceClient);
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
 
         String searchADRequestBody = """
             {
@@ -385,7 +528,79 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
             total = searchResponse.getHits().getTotalHits().value();
             assertTrue("got: " + total, total == 0);
-            // TODO Add sharing setup and test after sharing
+            // sharing
+            // Owner shares read-only with cat
+            Response shareROWithCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+            );
+            assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            // Cat can now find 1 detector
+            response = searchAnomalyDetectors(searchADRequestBody, catClient);
+            searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+            total = searchResponse.getHits().getTotalHits().value();
+            assertEquals("cat should see shared detector(s)", 1, total);
+
+            // Admin is still not shared with — should see 0
+            response = searchAnomalyDetectors(searchADRequestBody, client());
+            searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+            total = searchResponse.getHits().getTotalHits().value();
+            assertEquals("admin should not see unshared detectors", 0, total);
+
+            // Now grant full_access to elk and let elk share with backend_roles "aes" via PATCH
+            String detId = aliceDetector.getId();
+            Response grantFullToElk = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(detId, CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+            );
+            assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
+            waitForSharingVisibility(detId, elkClient);
+
+            Map<Recipient, Set<String>> recs = new HashMap<>();
+            Set<String> backendRoles = new HashSet<>();
+            backendRoles.add("aes");
+            recs.put(Recipient.BACKEND_ROLES, backendRoles);
+            Recipients recipients = new Recipients(recs);
+            TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(detId).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+
+            String patchShareAes = builder.build();
+            Response elkAddsAes = patchSharingInfo(elkClient, Map.of(), patchShareAes);
+            assertEquals(200, elkAddsAes.getStatusLine().getStatusCode());
+            waitForSharingVisibility(detId, elkClient);
+
+            // Cat (backend_roles aes) can still find it
+            response = searchAnomalyDetectors(searchADRequestBody, catClient);
+            searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+            total = searchResponse.getHits().getTotalHits().value();
+            assertEquals(1, total);
+
+            // Revoke aes — cat loses visibility
+            recs = new HashMap<>();
+            backendRoles = new HashSet<>();
+            backendRoles.add("aes");
+            Set<String> users = new HashSet<>();
+            users.add(catUser);
+            recs.put(Recipient.BACKEND_ROLES, backendRoles);
+            recs.put(Recipient.USERS, users);
+            recipients = new Recipients(recs);
+            builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(detId).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+
+            String revokeAes = builder.build();
+            Response elkRevokesAes = patchSharingInfo(elkClient, Map.of(), revokeAes);
+            assertEquals(200, elkRevokesAes.getStatusLine().getStatusCode());
+            waitForRevokeNonVisibility(detId, catClient);
+
+            response = searchAnomalyDetectors(searchADRequestBody, catClient);
+            searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+            total = searchResponse.getHits().getTotalHits().value();
+            assertEquals(0, total);
+
         } else {
             enableFilterBy();
             // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
@@ -478,7 +693,63 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             exception = expectThrows(Exception.class, () -> { updateAnomalyDetector(aliceDetector.getId(), newDetector, catClient); });
             assertTrue(exception.getMessage().contains(noWritePermsMessage));
 
-            // TODO Add sharing setup and test after sharing
+            // Sharing
+
+            // Grant read-only to cat — cat still cannot update
+            Response shareROWithCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+            );
+            assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            Exception ex = expectThrows(Exception.class, () -> { updateAnomalyDetector(aliceDetector.getId(), newDetector, catClient); });
+            assertTrue(ex.getMessage(), ex.getMessage().contains("no permissions"));
+
+            // Grant full_access to elk — elk can update
+            Response grantFullToElk = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+            );
+            assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), elkClient);
+
+            Response elkUpdate = updateAnomalyDetector(aliceDetector.getId(), newDetector, elkClient);
+            assertEquals(200, elkUpdate.getStatusLine().getStatusCode());
+
+            // Non-owner without full_access cannot share/revoke: cat tries to PATCH -> forbidden
+            Map<Recipient, Set<String>> recs = new HashMap<>();
+            Set<String> users = new HashSet<>();
+            users.add(bobUser);
+            recs.put(Recipient.USERS, users);
+            Recipients recipients = new Recipients(recs);
+            TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+
+            String catPatchAttempt = builder.build();
+
+            ex = expectThrows(Exception.class, () -> { patchSharingInfo(catClient, Map.of(), catPatchAttempt); });
+            assertTrue(ex.getMessage(), ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
+
+            // Owner revokes elk's full_access — elk loses update ability
+            recs = new HashMap<>();
+            users = new HashSet<>();
+            users.add(elkUser);
+            recs.put(Recipient.USERS, users);
+            recipients = new Recipients(recs);
+            builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, FULL_ACCESS_AG);
+
+            String revokeElkFull = builder.build();
+            Response ownerRevokes = patchSharingInfo(aliceClient, Map.of(), revokeElkFull);
+            assertEquals(200, ownerRevokes.getStatusLine().getStatusCode());
+            waitForRevokeNonVisibility(aliceDetector.getId(), elkClient);
+
+            ex = expectThrows(Exception.class, () -> { updateAnomalyDetector(aliceDetector.getId(), newDetector, elkClient); });
+            assertTrue(ex.getMessage().contains("no permissions"));
+
         } else {
             enableFilterBy();
             // User client has admin all access, and has "opensearch" backend role so client should be able to update detector
@@ -560,7 +831,53 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             });
             Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
 
-            // TODO Add sharing setup and test after sharing
+            // Sharing
+            // Read-only to cat: cannot start/stop
+            Response shareROWithCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+            );
+            assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            Exception ex = expectThrows(IOException.class, () -> {
+                startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), catClient);
+            });
+            assertTrue(ex.getMessage().contains("no permissions"));
+
+            // Full access to elk: can start/stop
+            Response grantFullToElk = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+            );
+            assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), elkClient);
+
+            Response resp = startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), elkClient);
+            MatcherAssert.assertThat(resp.getStatusLine().toString(), CoreMatchers.containsString("200 OK"));
+
+            resp = stopAnomalyDetector(aliceDetector.getId(), elkClient, true);
+            assertEquals(200, resp.getStatusLine().getStatusCode());
+
+            // Owner revokes elk full access — elk loses ability to start/stop
+            Map<Recipient, Set<String>> recs = new HashMap<>();
+            Set<String> users = new HashSet<>();
+            users.add(elkUser);
+            recs.put(Recipient.USERS, users);
+            Recipients recipients = new Recipients(recs);
+            TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, FULL_ACCESS_AG);
+            String revokeElkFull = builder.build();
+            Response revokeResp = patchSharingInfo(aliceClient, Map.of(), revokeElkFull);
+            assertEquals(200, revokeResp.getStatusLine().getStatusCode());
+            waitForRevokeNonVisibility(aliceDetector.getId(), elkClient);
+
+            ex = expectThrows(IOException.class, () -> {
+                startAnomalyDetector(aliceDetector.getId(), new DateRange(now.minus(10, ChronoUnit.DAYS), now), elkClient);
+            });
+            assertTrue(ex.getMessage().contains("no permissions"));
 
         } else {
             enableFilterBy();
@@ -624,7 +941,50 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(aliceDetector.getId(), oceanClient, input); });
             Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
 
-            // TODO Add sharing setup and test after sharing
+            // Sharing
+            // Share read-only with cat => preview should be allowed
+            Response shareROWithCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+            );
+            assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            Response ok = previewAnomalyDetector(aliceDetector.getId(), catClient, input);
+            assertEquals(200, ok.getStatusLine().getStatusCode());
+
+            // Non-owner with read-only cannot escalate sharing
+            Exception ex = expectThrows(Exception.class, () -> {
+                shareConfig(catClient, Map.of(), shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, bobUser));
+            });
+            assertTrue(ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
+
+            // Grant full_access to elk; elk can patch revoke cat's user share
+            Response grantFullToElk = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+            );
+            assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), elkClient);
+
+            Map<Recipient, Set<String>> recs = new HashMap<>();
+            Set<String> users = new HashSet<>();
+            users.add(catUser);
+            recs.put(Recipient.USERS, users);
+            Recipients recipients = new Recipients(recs);
+            TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            String revokeCatUser = builder.build();
+
+            Response revoked = patchSharingInfo(elkClient, Map.of(), revokeCatUser);
+            assertEquals(200, revoked.getStatusLine().getStatusCode());
+            waitForRevokeNonVisibility(aliceDetector.getId(), catClient);
+
+            ex = expectThrows(Exception.class, () -> { previewAnomalyDetector(aliceDetector.getId(), catClient, input); });
+            assertTrue(ex.getMessage().contains("no permissions"));
+
         } else {
             enableFilterBy();
             // User Cat has AD full access, but is part of different backend role so Cat should not be able to access
@@ -682,7 +1042,50 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             // When resource sharing is enabled. Dog should not be able to validate detector since it is not shared with it.
             exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, dogClient); });
             Assert.assertTrue(exception.getMessage().contains(noValidatePermsMessage));
-            // TODO Add sharing setup and test after sharing
+            // Sharing
+
+            // Read-only share should allow validate (read action)
+            Response shareROWithCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+            );
+            assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            Response ok = validateAnomalyDetector(aliceDetector, catClient);
+            Assert.assertNotNull(ok);
+
+            // Non-owner (cat, read-only) cannot share/revoke
+            Exception ex = expectThrows(Exception.class, () -> {
+                shareConfig(catClient, Map.of(), shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, bobUser));
+            });
+            assertTrue(ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
+
+            // Owner grants elk full_access -> elk can revoke cat
+            Response grantFullToElk = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+            );
+            assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), elkClient);
+
+            Map<Recipient, Set<String>> recs = new HashMap<>();
+            Set<String> users = new HashSet<>();
+            users.add(catUser);
+            recs.put(Recipient.USERS, users);
+            Recipients recipients = new Recipients(recs);
+            TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            String revokeCatUser = builder.build();
+
+            Response revoked = patchSharingInfo(elkClient, Map.of(), revokeCatUser);
+            assertEquals(200, revoked.getStatusLine().getStatusCode());
+            waitForRevokeNonVisibility(aliceDetector.getId(), catClient);
+
+            ex = expectThrows(Exception.class, () -> { validateAnomalyDetector(aliceDetector, catClient); });
+            assertTrue(ex.getMessage().contains("no permissions"));
 
         } else {
 
@@ -727,6 +1130,19 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
             exception = expectThrows(Exception.class, () -> { deleteAnomalyDetector(aliceDetector.getId(), client()); });
             assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/delete]"));
+
+            // Owner grants full_access to cat -> cat can delete
+            Response grantFullToCat = shareConfig(
+                aliceClient,
+                Map.of(),
+                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, catUser)
+            );
+            assertEquals(200, grantFullToCat.getStatusLine().getStatusCode());
+            waitForSharingVisibility(aliceDetector.getId(), catClient);
+
+            Response del = deleteAnomalyDetector(aliceDetector.getId(), catClient);
+            assertEquals(200, del.getStatusLine().getStatusCode());
+
         } else {
             enableFilterBy();
             // User Cat has AD full access, but is part of different backend role so Cat should not be able to access

@@ -5,6 +5,7 @@
 
 package org.opensearch.forecast.rest;
 
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
@@ -71,19 +72,24 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     private static final String ENTITY_VALUE = "S*";
     private static final String PHOENIX_VALUE = "Phoenix";
 
-    private static final String searchForecasterRequest = "{\n"
-        + "    \"query\": {\n"
-        + "        \"bool\": {\n"
-        + "            \"filter\": {\n"
-        + "                \"wildcard\": {\n"
-        + "                    \"indices\": {\n"
-        + "                        \"value\": \"r*\"\n"
-        + "                    }\n"
-        + "                }\n"
-        + "            }\n"
-        + "        }\n"
-        + "    }\n"
-        + "}";
+    private static final String READ_ONLY_AG = "forecast_read_only_ag";
+    private static final String FULL_ACCESS_AG = "forecast_full_access_ag";
+    private static final String SHARE_CONFIG_ROLE = "share_config_role";
+
+    private static final String searchForecasterRequest = """
+        {
+            "query": {
+                "bool": {
+                    "filter": {
+                        "wildcard": {
+                            "indices": {
+                                "value": "r*"
+                            }
+                        }
+                    }
+                }
+            }
+        }""";
 
     private RestClient fullClient;
     private RestClient readClient;
@@ -107,6 +113,9 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         }
         super.setUp();
+        createActionGroup(READ_ONLY_AG, readOnlyAccessPayload());
+        createActionGroup(FULL_ACCESS_AG, fullAccessPayload());
+        createShareRole(SHARE_CONFIG_ROLE);
         try {
             getRole(forecastReadRole);
         } catch (ResponseException e) {
@@ -245,6 +254,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         createRoleMapping(noResultRole, new ArrayList<>(Arrays.asList(noResultUser)));
         createRoleMapping(devOpsResultRole, new ArrayList<>(Arrays.asList(devOpsLimitedUser)));
         createRoleMapping(sdeResultRole, new ArrayList<>(Arrays.asList(sdeLimitedUser)));
+
+        createRoleMapping(SHARE_CONFIG_ROLE, new ArrayList<>(Arrays.asList(sdeUser, devOpsUser, fullUser)));
 
         trainTime = loadRuleData(200);
         forecasterDef = "{\n"
@@ -644,6 +655,41 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
         return response;
+    }
+
+    private void waitForSharingVisibility(String forecasterId, RestClient client) {
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Try to read it; if 200, you'll get a non-null detector
+                return TestHelpers
+                    .makeRequest(fullClient, "GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, "", ImmutableList.of());
+            } catch (Exception e) {
+                // Treat 403 as eventual-consistency: keep waiting
+                if (isForbidden(e)) {
+                    return null;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, notNullValue());
+    }
+
+    private void waitForRevokeNonVisibility(String forecasterId, RestClient client) {
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Still visible (200) -> keep waiting
+                TestHelpers
+                    .makeRequest(fullClient, "GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, "", ImmutableList.of());
+                return Boolean.FALSE;
+            } catch (Exception e) {
+                // Access revoked (403) -> we're done
+                if (isForbidden(e)) {
+                    return Boolean.TRUE;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, is(Boolean.TRUE));
     }
 
     public void testAuthApi() throws IOException, InterruptedException {
@@ -1592,49 +1638,50 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertNotNull(devOpsForecasterId);
 
         // Define the malicious payload
-        String sdeForecasterDef = "{\n"
-            + "    \"name\": \"%s\",\n"
-            + "    \"description\": \"OK rate\",\n"
-            + "    \"time_field\": \"timestamp\",\n"
-            + "    \"indices\": [\n"
-            + "        \"%s\"\n"
-            + "    ],\n"
-            + "    \"feature_attributes\": [\n"
-            + "        {\n"
-            + "            \"feature_id\": \"max1\",\n"
-            + "            \"feature_name\": \"max1\",\n"
-            + "            \"feature_enabled\": true,\n"
-            + "            \"importance\": 1,\n"
-            + "            \"aggregation_query\": {\n"
-            + "                        \"max1\": {\n"
-            + "                            \"max\": {\n"
-            + "                                \"field\": \"visitCount\"\n"
-            + "                            }\n"
-            + "                        }\n"
-            + "            }\n"
-            + "        }\n"
-            + "    ],\n"
-            + "    \"window_delay\": {\n"
-            + "        \"period\": {\n"
-            + "            \"interval\": %d,\n"
-            + "            \"unit\": \"MINUTES\"\n"
-            + "        }\n"
-            + "    },\n"
-            + "    \"ui_metadata\": {\n"
-            + "        \"aabb\": {\n"
-            + "            \"ab\": \"bb\"\n"
-            + "        }\n"
-            + "    },\n"
-            + "    \"schema_version\": 2,\n"
-            + "    \"horizon\": 24,\n"
-            + "    \"forecast_interval\": {\n"
-            + "        \"period\": {\n"
-            + "            \"interval\": 10,\n"
-            + "            \"unit\": \"MINUTES\"\n"
-            + "        }\n"
-            + "    },\n"
-            + "    \"category_field\": [\"%s\"]"
-            + "}";
+        String sdeForecasterDef = """
+            {
+                "name": "%s",
+                "description": "OK rate",
+                "time_field": "timestamp",
+                "indices": [
+                    "%s"
+                ],
+                "feature_attributes": [
+                    {
+                        "feature_id": "max1",
+                        "feature_name": "max1",
+                        "feature_enabled": true,
+                        "importance": 1,
+                        "aggregation_query": {
+                                    "max1": {
+                                        "max": {
+                                            "field": "visitCount"
+                                        }
+                                    }
+                        }
+                    }
+                ],
+                "window_delay": {
+                    "period": {
+                        "interval": %d,
+                        "unit": "MINUTES"
+                    }
+                },
+                "ui_metadata": {
+                    "aabb": {
+                        "ab": "bb"
+                    }
+                },
+                "schema_version": 2,
+                "horizon": 24,
+                "forecast_interval": {
+                    "period": {
+                        "interval": 10,
+                        "unit": "MINUTES"
+                    }
+                },
+                "category_field": ["%s"]\
+            }""";
 
         // +1 to make sure it is big enough
         windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
