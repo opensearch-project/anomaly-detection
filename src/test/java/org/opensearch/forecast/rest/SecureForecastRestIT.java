@@ -189,7 +189,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         }
 
         String fullPassword = generatePassword(fullUser);
-        logger.info(fullPassword);
         createUser(fullUser, fullPassword, new ArrayList<>());
         fullClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), fullUser, fullPassword)
             .setSocketTimeout(60000)
