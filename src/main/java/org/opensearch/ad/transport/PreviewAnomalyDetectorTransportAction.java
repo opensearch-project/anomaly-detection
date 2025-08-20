@@ -66,7 +66,6 @@ public class PreviewAnomalyDetectorTransportAction extends
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     private final ClusterService clusterService;
     private final Client client;
-    private final Settings settings;
     private final NamedXContentRegistry xContentRegistry;
     private volatile Integer maxAnomalyFeatures;
     private volatile Boolean filterByEnabled;
@@ -87,7 +86,6 @@ public class PreviewAnomalyDetectorTransportAction extends
         super(PreviewAnomalyDetectorAction.NAME, transportService, actionFilters, PreviewAnomalyDetectorRequest::new);
         this.clusterService = clusterService;
         this.client = client;
-        this.settings = settings;
         this.anomalyDetectorRunner = anomalyDetectorRunner;
         this.xContentRegistry = xContentRegistry;
         maxAnomalyFeatures = MAX_ANOMALY_FEATURES.get(settings);
@@ -112,10 +110,8 @@ public class PreviewAnomalyDetectorTransportAction extends
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> previewExecute(request, context, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                () -> previewExecute(request, context, listener),
+                () -> resolveUserAndExecute(
                     user,
                     detectorId,
                     filterByEnabled,
@@ -125,8 +121,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                     clusterService,
                     xContentRegistry,
                     AnomalyDetector.class
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

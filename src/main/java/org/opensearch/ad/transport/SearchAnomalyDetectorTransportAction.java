@@ -11,10 +11,12 @@
 
 package org.opensearch.ad.transport;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
@@ -36,6 +38,6 @@ public class SearchAnomalyDetectorTransportAction extends HandledTransportAction
 
     @Override
     protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        searchHandler.search(request, listener);
+        searchHandler.search(request, Pair.of(ADIndex.CONFIG.getIndexName(), "_id"), listener);
     }
 }

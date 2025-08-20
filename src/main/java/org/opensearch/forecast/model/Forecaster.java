@@ -322,6 +322,11 @@ public class Forecaster extends Config {
             parser.nextToken();
 
             switch (fieldName) {
+                case ID_FIELD:
+                    if (forecasterId == null) {
+                        forecasterId = parser.text();
+                    }
+                    break;
                 case NAME_FIELD:
                     name = parser.text();
                     break;

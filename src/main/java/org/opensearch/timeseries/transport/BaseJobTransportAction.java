@@ -105,10 +105,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                () -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
+                () -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,
@@ -118,8 +116,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
                     clusterService,
                     xContentRegistry,
                     configClass
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

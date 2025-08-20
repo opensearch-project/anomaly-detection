@@ -12,10 +12,12 @@
 package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.DUPLICATE_DETECTOR_MSG;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
@@ -484,6 +487,22 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getLastBreakingUIChangeTime()
         );
 
+        if (isResourceSharingFeatureEnabled()) {
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return getConfig(id, client());
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
+
         Response updateResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -618,6 +637,21 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             detector.getLastBreakingUIChangeTime()
         );
+        if (isResourceSharingFeatureEnabled()) {
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return getConfig(id, client());
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
         Exception ex = expectThrows(
             ResponseException.class,
             () -> TestHelpers
@@ -1338,10 +1372,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStartAdJobWithNonexistingDetectorIndex() throws Exception {
+        String message = "no such index [.opendistro-anomaly-detectors]";
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for ";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "no such index [.opendistro-anomaly-detectors]",
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1356,10 +1394,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStartAdJobWithNonexistingDetector() throws Exception {
         createRandomAnomalyDetector(true, false, client());
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1458,10 +1500,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1640,7 +1686,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Historical is running"));
     }
 
-    public void testBackwardCompatibilityWithOpenDistro() throws IOException {
+    public void testBackwardCompatibilityWithOpenDistro() throws IOException, InterruptedException {
+
         // Create a detector
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         // Verify the detector is created using legacy _opendistro API
@@ -1660,8 +1707,25 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("incorrect version", version > 0);
 
-        // Get the detector using new _plugins API
-        AnomalyDetector createdDetector = getConfig(id, client());
+        AnomalyDetector createdDetector;
+        if (isResourceSharingFeatureEnabled()) {
+            createdDetector = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return getConfig(id, client());
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        } else {
+            // No resource-sharing -> just read it directly
+            createdDetector = getConfig(id, client());
+        }
         assertEquals("Get anomaly detector failed", createdDetector.getId(), id);
 
         // Delete the detector using legacy _opendistro API
@@ -1843,6 +1907,22 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithNoIssue() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    );
+            });
+            // cannot validate a detector which admin doesn't have permission for
+            assertTrue(exception.getMessage().contains("no permissions for "));
+            return;
+        }
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1891,6 +1971,24 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     ),
                 null
             );
+
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    );
+            });
+            // cannot validate a detector which admin doesn't have permission for
+            assertTrue(exception.getMessage().contains("no permissions for "));
+            return;
+        }
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1911,6 +2009,29 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithInvalidName() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+        // if (isResourceSharingFeatureEnabled()) {
+        // Exception exception = expectThrows(OpenSearchStatusException.class, () -> { TestHelpers
+        // .makeRequest(
+        // client(),
+        // "POST",
+        // TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+        // ImmutableMap.of(),
+        // TestHelpers
+        // .toHttpEntity(
+        // "{\"name\":\"#@$3\",\"description\":\"\",\"time_field\":\"timestamp\""
+        // + ",\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"test\","
+        // + "\"feature_enabled\":true,\"aggregation_query\":{\"test\":{\"sum\":{\"field\":\"value\"}}}}],"
+        // + "\"filter_query\":{},\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+        // + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}"
+        // ),
+        // null
+        // );
+        // });
+        // // cannot validate a detector which admin doesn't have permission for
+        // assertTrue(exception.getMessage().startsWith("no permissions for "));
+        // return;
+        // }
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1932,11 +2053,28 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
         assertEquals("invalid detector Name", CommonMessages.INVALID_NAME, messageMap.get("name").get("message"));
+
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryReturningNoData() throws Exception {
         Feature emptyFeature = TestHelpers.randomFeature("f-empty", "cpu", "avg", true);
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(emptyFeature));
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    );
+            });
+            // cannot validate a detector which admin doesn't have permission for
+            assertTrue(exception.getMessage().contains("no permissions for "));
+            return;
+        }
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1955,11 +2093,28 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG + "f-empty",
             messageMap.get("feature_attributes").get("message")
         );
+
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryRuntimeException() throws Exception {
         Feature nonNumericFeature = TestHelpers.randomFeature("non-numeric-feature", "_index", "avg", true);
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME, ImmutableList.of(nonNumericFeature));
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    );
+            });
+            // cannot validate a detector which admin doesn't have permission for
+            assertTrue(exception.getMessage().contains("no permissions for "));
+            return;
+        }
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1978,6 +2133,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + "non-numeric-feature",
             messageMap.get("feature_attributes").get("message")
         );
+
     }
 
     public void testValidateAnomalyDetectorWithWrongCategoryField() throws Exception {
@@ -1989,6 +2145,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 Arrays.asList("host.keyword")
             );
         TestHelpers.createIndexWithTimeField(client(), "index-test", TIME_FIELD);
+        if (isResourceSharingFeatureEnabled()) {
+            Exception exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers
+                    .makeRequest(
+                        client(),
+                        "POST",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(detector),
+                        null
+                    );
+            });
+            // cannot validate a detector which admin doesn't have permission for
+            assertTrue(exception.getMessage().contains("no permissions for "));
+            return;
+        }
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -2011,6 +2184,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsWithInvalidInputs() throws IOException {
+
         String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
@@ -2043,7 +2217,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception missingEndTimeException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":1}", client());
         });
-        assertTrue(missingEndTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
+        String message = "Must set both start time and end time with epoch of milliseconds";
+
+        assertTrue(missingEndTimeException.getMessage().contains(message));
 
         // Start time > end time
         Exception invalidTimeException = expectThrows(IOException.class, () -> {
@@ -2055,7 +2231,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception invalidDetectorIdException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
         });
-        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        if (isHttps() && isResourceSharingFeatureEnabled()) {
+            // since no resource-sharing record exists for this document we simply throw 403 with the new feature
+            assertTrue(invalidDetectorIdException.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
+        } else {
+            assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        }
 
         // Invalid order field
         Exception invalidOrderException = expectThrows(IOException.class, () -> {

@@ -60,7 +60,6 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private static final Logger LOG = LogManager.getLogger(BaseDeleteConfigTransportAction.class);
 
     private final Client client;
-    private final Settings settings;
     private final ClusterService clusterService;
     private final TransportService transportService;
     private NamedXContentRegistry xContentRegistry;
@@ -93,7 +92,6 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         super(deleteConfigAction, transportService, actionFilters, DeleteConfigRequest::new);
         this.transportService = transportService;
         this.client = client;
-        this.settings = settings;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.taskManager = taskManager;
@@ -117,10 +115,8 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                (args) -> deleteConfigIfNotRunning(configId, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                () -> deleteConfigIfNotRunning(configId, listener),
+                () -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,
@@ -130,8 +126,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
                     clusterService,
                     xContentRegistry,
                     configTypeClass
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

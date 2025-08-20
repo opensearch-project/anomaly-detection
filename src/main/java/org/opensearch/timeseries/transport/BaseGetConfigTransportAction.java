@@ -82,7 +82,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
     protected final ClusterService clusterService;
     protected final Client client;
-    protected final Settings settings;
     protected final SecurityClientUtil clientUtil;
     protected final Set<String> allProfileTypeStrs;
     protected final Set<ProfileName> allProfileTypes;
@@ -130,7 +129,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         super(getConfigAction, transportService, actionFilters, GetConfigRequest::new);
         this.clusterService = clusterService;
         this.client = client;
-        this.settings = settings;
         this.clientUtil = clientUtil;
 
         List<ProfileName> allProfiles = Arrays.asList(ProfileName.values());
@@ -171,10 +169,8 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> getExecute(getConfigRequest, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                () -> getExecute(getConfigRequest, listener),
+                () -> resolveUserAndExecute(
                     user,
                     configID,
                     filterByEnabled,
@@ -184,8 +180,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                     clusterService,
                     xContentRegistry,
                     configTypeClass
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

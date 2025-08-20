@@ -32,18 +32,18 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
@@ -74,6 +74,7 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -473,6 +474,39 @@ public final class ParseUtils {
         return searchSourceBuilder;
     }
 
+    public static void addAccessibleConfigsFilterAndSearch(
+        Client client,
+        Pair<String, String> pair,
+        SearchRequest searchRequest,
+        ActionListener<SearchResponse> listener
+    ) {
+        logger.debug("Filtering result by accessible resources");
+        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+        SearchSourceBuilder searchSourceBuilder = searchRequest.source();
+        resourceSharingClient.getAccessibleResourceIds(pair.getLeft(), ActionListener.wrap(configIds -> {
+            searchSourceBuilder.query(mergeWithAccessFilter(searchSourceBuilder.query(), configIds));
+            client.search(searchRequest, listener);
+        }, failure -> {
+            // do nothing to the source or return empty set?
+            searchSourceBuilder.query(QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery()));
+            client.search(searchRequest, listener);
+        }));
+    }
+
+    public static QueryBuilder mergeWithAccessFilter(QueryBuilder existing, Set<String> configIds) {
+        QueryBuilder accessFilter = (configIds == null || configIds.isEmpty())
+            ? QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery()) // deny-all
+            : QueryBuilders.idsQuery().addIds(configIds.toArray(new String[0])); // use termsQuery(field, configIds) if not _id
+
+        if (existing == null)
+            return QueryBuilders.boolQuery().filter(accessFilter);
+        if (existing instanceof BoolQueryBuilder) {
+            ((BoolQueryBuilder) existing).filter(accessFilter);
+            return existing;
+        }
+        return QueryBuilders.boolQuery().must(existing).filter(accessFilter);
+    }
+
     /**
      * Generates a user string formed by the username, backend roles, roles and requested tenants separated by '|'
      * (e.g., john||own_index,testrole|__user__, no backend role so you see two verticle line after john.).
@@ -629,7 +663,11 @@ public final class ParseUtils {
 
                 User resourceUser = config.getUser();
 
-                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
+                // if resource sharing feature is available, request will be auto-evaluated, hence skip evaluation here
+                if (shouldUseResourceAuthz()
+                    || !filterByBackendRole
+                    || checkUserPermissions(requestUser, resourceUser, configId)
+                    || isAdmin(requestUser)) {
                     function.accept(config);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
@@ -699,35 +737,23 @@ public final class ParseUtils {
 
     /**
      * Checks whether to utilize new ResourAuthz
-     * @param settings which is to be checked for the config
-     * @return true if the resource-sharing feature and filter-by is enabled, false otherwise.
+     * @return true if the resource-sharing feature is enabled, false otherwise.
      */
-    public static boolean shouldUseResourceAuthz(Settings settings) {
-        boolean filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
-        boolean isResourceSharingFeatureEnabled = ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
-        return isResourceSharingFeatureEnabled && filterByEnabled;
+    public static boolean shouldUseResourceAuthz() {
+        return ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
     }
 
     /**
      * Verifies whether the user has permission to access the resource.
-     * @param settings to parse filter_by_backend_role setting.
-     * @param onSuccess consumer function to execute if user has permission
-     * @param successArgs arguments to pass to the consumer function
-     * @param fallbackOn501 consumer function to execute if user does not have permission
-     * @param fallbackArgs arguments to pass to the consumer function
+     * @param onSuccess consumer function to execute if resource sharing feature is enabled
+     * @param fallbackOn501 consumer function to execute if resource sharing feature is disabled.
      */
-    public static void verifyResourceAccessAndProcessRequest(
-        Settings settings,
-        Consumer<Object[]> onSuccess,
-        Object[] successArgs,
-        Consumer<Object[]> fallbackOn501,
-        Object[] fallbackArgs
-    ) {
+    public static void verifyResourceAccessAndProcessRequest(Runnable onSuccess, Runnable fallbackOn501) {
         // Resource access will be auto-evaluated
-        if (shouldUseResourceAuthz(settings)) {
-            onSuccess.accept(successArgs);
+        if (shouldUseResourceAuthz()) {
+            onSuccess.run();
         } else {
-            fallbackOn501.accept(fallbackArgs);
+            fallbackOn501.run();
         }
     }
 
