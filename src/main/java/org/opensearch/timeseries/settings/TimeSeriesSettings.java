@@ -246,6 +246,9 @@ public class TimeSeriesSettings {
     // ======================================
     public static int MAX_UPDATE_RETRY_TIMES = 10_000;
 
+    // max multiple of interval for frequency
+    public static final int MAX_FREQUENCY_MULTIPLE = 10_000;
+
     // ======================================
     // JOB
     // ======================================

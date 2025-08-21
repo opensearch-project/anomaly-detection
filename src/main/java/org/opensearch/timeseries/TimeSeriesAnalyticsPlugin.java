@@ -711,7 +711,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            adCheckpointWriteQueue,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
             (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes()),
             anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
@@ -806,7 +805,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adPriorityCache,
             adModelManager,
             adSaveResultStrategy,
-            adTaskManager
+            adTaskManager,
+            adCheckpointWriteQueue
         );
 
         Map<String, TimeSeriesStat<?>> adStatsMap = ImmutableMap
@@ -869,7 +869,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adCacheProvider,
             threadPool,
             getClock(),
-            stateManager
+            searchFeatureDao
         );
 
         ADCheckpointReadWorker adCheckpointReadQueue = new ADCheckpointReadWorker(
@@ -1122,7 +1122,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            forecastCheckpointWriteQueue,
             (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes()),
             -1, // no hard coded random seed
             -1, // interpolation is disabled so we don't need to specify the number of sampled points
@@ -1204,7 +1203,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastPriorityCache,
             forecastModelManager,
             forecastSaveResultStrategy,
-            forecastTaskManager
+            forecastTaskManager,
+            forecastCheckpointWriteQueue
         );
 
         Map<String, TimeSeriesStat<?>> forecastStatsMap = ImmutableMap
@@ -1256,7 +1256,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastCacheProvider,
             threadPool,
             getClock(),
-            stateManager
+            searchFeatureDao
         );
 
         ForecastCheckpointReadWorker forecastCheckpointReadQueue = new ForecastCheckpointReadWorker(

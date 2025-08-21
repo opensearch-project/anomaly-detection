@@ -168,7 +168,7 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                 }
 
                 Config config = configOptional.get();
-                if (config.isLongInterval()) {
+                if (config.isLongFrequency()) {
                     log.info("Update latest realtime task for long-interval config {}", configId);
                     updateLatestRealtimeTask(configId, null, 0L, response.getConfigIntervalInMinutes(), response.getError(), clock);
                 } else {
@@ -244,7 +244,8 @@ public abstract class ExecuteResultResponseRecorder<IndexType extends Enum<Index
                                 rcfTotalUpdates,
                                 configIntervalInMinutes,
                                 error,
-                                null,
+                                // if there is an error, we don't want to update the task state.
+                                false,
                                 listener
                             );
                     }

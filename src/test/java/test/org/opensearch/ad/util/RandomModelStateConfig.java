@@ -12,6 +12,7 @@
 package test.org.opensearch.ad.util;
 
 import java.time.Clock;
+import java.time.Instant;
 
 public class RandomModelStateConfig {
     private final Boolean fullModel;
@@ -20,6 +21,7 @@ public class RandomModelStateConfig {
     private final Integer sampleSize;
     private final Clock clock;
     private final Boolean entityAttributes;
+    private final Instant historyEnd;
 
     private RandomModelStateConfig(Builder builder) {
         this.fullModel = builder.fullModel;
@@ -28,6 +30,7 @@ public class RandomModelStateConfig {
         this.sampleSize = builder.sampleSize;
         this.clock = builder.clock;
         this.entityAttributes = builder.entityAttributes;
+        this.historyEnd = builder.historyEnd;
     }
 
     public Boolean getFullModel() {
@@ -54,6 +57,10 @@ public class RandomModelStateConfig {
         return entityAttributes;
     }
 
+    public Instant getHistoryEnd() {
+        return historyEnd;
+    }
+
     public static class Builder {
         private Boolean fullModel = null;
         private Float priority = null;
@@ -61,6 +68,7 @@ public class RandomModelStateConfig {
         private Integer sampleSize = null;
         private Clock clock = null;
         private Boolean entityAttributes = false;
+        private Instant historyEnd = null;
 
         public Builder fullModel(boolean fullModel) {
             this.fullModel = fullModel;
@@ -89,6 +97,11 @@ public class RandomModelStateConfig {
 
         public Builder entityAttributes(Boolean entityAttributes) {
             this.entityAttributes = entityAttributes;
+            return this;
+        }
+
+        public Builder historyEnd(Instant historyEnd) {
+            this.historyEnd = historyEnd;
             return this;
         }
 

@@ -8,6 +8,7 @@ package org.opensearch.ad.transport;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -22,6 +23,7 @@ import org.opensearch.ad.ml.ADRealTimeInferencer;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
@@ -32,6 +34,7 @@ import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.util.ActionListenerExecutor;
+import org.opensearch.timeseries.util.ModelUtil;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -128,23 +131,19 @@ public class ADHCImputeTransportAction extends
                 return;
             }
             Config config = configOptional.get();
-            int featureSize = config.getEnabledFeatureIds().size();
             long dataEndMillis = nodeRequest.getRequest().getDataEndMillis();
             long dataStartMillis = nodeRequest.getRequest().getDataStartMillis();
             String taskId = nodeRequest.getRequest().getTaskId();
-            for (ModelState<ThresholdedRandomCutForest> modelState : cache.get().getAllModels(configId)) {
-                if (shouldProcessModelState(modelState, dataEndMillis, clusterService, hashRing)) {
-                    double[] nanArray = new double[featureSize];
-                    Arrays.fill(nanArray, Double.NaN);
-                    adInferencer
-                        .process(
-                            new Sample(nanArray, Instant.ofEpochMilli(dataStartMillis), Instant.ofEpochMilli(dataEndMillis)),
-                            modelState,
-                            config,
-                            taskId
-                        );
-                }
-            }
+
+            List<ModelState<ThresholdedRandomCutForest>> allModels = cache.get().getAllModels(configId);
+            processImputeIteration(
+                allModels.iterator(),
+                config,
+                config.getEnabledFeatureIds().size(),
+                dataEndMillis,
+                dataStartMillis,
+                taskId
+            );
         }, e -> nodeStateManager.setException(configId, e), threadPool.executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)));
 
         Optional<Exception> previousException = nodeStateManager.fetchExceptionAndClear(configId);
@@ -153,6 +152,46 @@ public class ADHCImputeTransportAction extends
             return new ADHCImputeNodeResponse(clusterService.localNode(), previousException.get());
         } else {
             return new ADHCImputeNodeResponse(clusterService.localNode(), null);
+        }
+    }
+
+    private void processImputeIteration(
+        Iterator<ModelState<ThresholdedRandomCutForest>> modelStateIterator,
+        Config config,
+        int featureSize,
+        long dataEndMillis,
+        long dataStartMillis,
+        String taskId
+    ) {
+        if (!modelStateIterator.hasNext()) {
+            return;
+        }
+        ModelState<ThresholdedRandomCutForest> modelState = modelStateIterator.next();
+        if (shouldProcessModelState(modelState, dataEndMillis, clusterService, hashRing)) {
+            double[] nanArray = new double[featureSize];
+            Arrays.fill(nanArray, Double.NaN);
+            LOG
+                .debug(
+                    "Processing imputation - dataEndMillis: {}, dataStartMillis: {}, entity: {}",
+                    dataEndMillis,
+                    dataStartMillis,
+                    modelState.getEntity().get().toString()
+                );
+            adInferencer
+                .process(
+                    new Sample(nanArray, Instant.ofEpochMilli(dataStartMillis), Instant.ofEpochMilli(dataEndMillis)),
+                    modelState,
+                    config,
+                    taskId,
+                    ActionListener.wrap(r -> {
+                        processImputeIteration(modelStateIterator, config, featureSize, dataEndMillis, dataStartMillis, taskId);
+                    }, e -> {
+                        LOG.error("Failed to impute for model " + modelState.getModelId(), e);
+                        processImputeIteration(modelStateIterator, config, featureSize, dataEndMillis, dataStartMillis, taskId);
+                    })
+                );
+        } else {
+            processImputeIteration(modelStateIterator, config, featureSize, dataEndMillis, dataStartMillis, taskId);
         }
     }
 
@@ -191,8 +230,12 @@ public class ADHCImputeTransportAction extends
         // Check if the model state conditions are met for processing
         // We cannot use last used time as it will be updated whenever we update its priority in CacheBuffer.update when there is a
         // PriorityCache.get.
-        return modelState.getLastSeenDataEndTime() != Instant.MIN
-            && dataEndTime > modelState.getLastSeenDataEndTime().toEpochMilli()
+        long lastInputTimestampSecs = modelState.getModel().isPresent()
+            ? ModelUtil.getLastInputTimestampSeconds(modelState.getModel().get())
+            : 0;
+        return lastInputTimestampSecs != 0
+            // dataEndTime is in milliseconds, so we need to convert it to seconds
+            && dataEndTime / 1000 > lastInputTimestampSecs
             && modelState.getEntity().isPresent()
             && owningNode.isPresent()
             && owningNode.get().getId().equals(clusterService.localNode().getId());

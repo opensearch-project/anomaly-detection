@@ -10,15 +10,8 @@
  */
 package org.opensearch.forecast.transport;
 
-import java.util.Optional;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.forecast.caching.ForecastCacheProvider;
 import org.opensearch.forecast.caching.ForecastPriorityCache;
 import org.opensearch.forecast.indices.ForecastIndex;
@@ -38,19 +31,12 @@ import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
 import org.opensearch.forecast.task.ForecastTaskManager;
-import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
-import org.opensearch.timeseries.caching.CacheProvider;
-import org.opensearch.timeseries.common.exception.EndRunException;
-import org.opensearch.timeseries.common.exception.LimitExceededException;
-import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.task.TaskCacheManager;
-import org.opensearch.timeseries.transport.EntityResultProcessor;
-import org.opensearch.timeseries.transport.EntityResultRequest;
-import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.timeseries.transport.AbstractEntityResultTransportAction;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.RCFCaster;
@@ -74,19 +60,8 @@ import com.amazon.randomcutforest.parkservices.RCFCaster;
  * 3. We also have the cold entity queue configured for cold entities, and the model
  * training and inference are connected by serial juxtaposition to limit resource usage.
  */
-public class EntityForecastResultTransportAction extends HandledTransportAction<EntityResultRequest, AcknowledgedResponse> {
-
-    private static final Logger LOG = LogManager.getLogger(EntityForecastResultTransportAction.class);
-    private CircuitBreakerService circuitBreakerService;
-    private CacheProvider<RCFCaster, ForecastPriorityCache> cache;
-    private final NodeStateManager stateManager;
-    private ThreadPool threadPool;
-    private EntityResultProcessor<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> intervalDataProcessor;
-
-    private final ForecastCacheProvider entityCache;
-    private final ForecastCheckpointReadWorker checkpointReadQueue;
-    private final ForecastColdEntityWorker coldEntityQueue;
-    private final ForecastRealTimeInferencer inferencer;
+public class EntityForecastResultTransportAction extends
+    AbstractEntityResultTransportAction<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart, ForecastModelManager, ForecastPriorityCache, ForecastSaveResultStrategy, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastColdStartWorker, ForecastRealTimeInferencer, ForecastCheckpointReadWorker, ForecastColdEntityWorker> {
 
     @Inject
     public EntityForecastResultTransportAction(
@@ -102,67 +77,18 @@ public class EntityForecastResultTransportAction extends HandledTransportAction<
         ThreadPool threadPool,
         ForecastRealTimeInferencer inferencer
     ) {
-        super(EntityForecastResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
-        this.circuitBreakerService = adCircuitBreakerService;
-        this.cache = entityCache;
-        this.stateManager = stateManager;
-        this.threadPool = threadPool;
-        this.intervalDataProcessor = null;
-        this.entityCache = entityCache;
-        this.checkpointReadQueue = checkpointReadQueue;
-        this.coldEntityQueue = coldEntityQueue;
-        this.inferencer = inferencer;
-    }
-
-    @Override
-    protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
-        if (circuitBreakerService.isOpen()) {
-            threadPool
-                .executor(TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME)
-                .execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
-            listener.onFailure(new LimitExceededException(request.getConfigId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
-            return;
-        }
-
-        try {
-            String forecasterId = request.getConfigId();
-
-            Optional<Exception> previousException = stateManager.fetchExceptionAndClear(forecasterId);
-
-            if (previousException.isPresent()) {
-                Exception exception = previousException.get();
-                LOG.error("Previous exception of {}: {}", forecasterId, exception);
-                if (exception instanceof EndRunException) {
-                    EndRunException endRunException = (EndRunException) exception;
-                    if (endRunException.isEndNow()) {
-                        listener.onFailure(exception);
-                        return;
-                    }
-                }
-
-                listener = ExceptionUtil.wrapListener(listener, exception, forecasterId);
-            }
-
-            intervalDataProcessor = new EntityResultProcessor<>(
-                entityCache,
-                checkpointReadQueue,
-                coldEntityQueue,
-                inferencer,
-                threadPool,
-                TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME
-            );
-
-            stateManager
-                .getConfig(
-                    forecasterId,
-                    request.getAnalysisType(),
-                    // task id equals to null means it is real time and we want to cache
-                    request.getTaskId() == null,
-                    intervalDataProcessor.onGetConfig(listener, forecasterId, request, previousException, request.getAnalysisType())
-                );
-        } catch (Exception exception) {
-            LOG.error("fail to get entity's forecasts", exception);
-            listener.onFailure(exception);
-        }
+        super(
+            EntityForecastResultAction.NAME,
+            transportService,
+            actionFilters,
+            adCircuitBreakerService,
+            entityCache,
+            stateManager,
+            threadPool,
+            TimeSeriesAnalyticsPlugin.FORECAST_THREAD_POOL_NAME,
+            checkpointReadQueue,
+            coldEntityQueue,
+            inferencer
+        );
     }
 }

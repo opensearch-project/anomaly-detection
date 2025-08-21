@@ -46,6 +46,7 @@ public class AbstractRateLimitingTest extends AbstractTimeSeriesTest {
 
         clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.now());
+        when(clock.millis()).thenReturn(System.currentTimeMillis());
 
         threadPool = mock(ThreadPool.class);
         setUpADThreadPool(threadPool);

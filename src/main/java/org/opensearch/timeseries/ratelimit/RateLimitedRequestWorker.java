@@ -285,17 +285,20 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
                     startId = requestQueues.higherKey(startId);
                 }
 
+                LOG.debug("Searching for queue id [{}]", startId);
                 if (startId.equals(RequestPriority.LOW.name())) {
                     continue;
                 }
 
                 RequestQueue requestQueue = requestQueues.get(startId);
+                LOG.debug("Found queue [{}]", requestQueue);
                 if (requestQueue == null) {
                     continue;
                 }
 
                 requestQueue.clearExpiredRequests();
 
+                LOG.debug("Is queue empty: [{}] for queue id [{}]", requestQueue.isEmpty(), startId);
                 if (false == requestQueue.isEmpty()) {
                     return Optional.of(requestQueue.content);
                 }
@@ -331,6 +334,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
 
             requestQueue.lastAccessTime = clock.instant();
             requestQueue.put(request);
+            LOG.debug("Put request [{}] into queue [{}]", request, requestQueue);
         } catch (Exception e) {
             LOG.error(new ParameterizedMessage("Failed to add requests to [{}]", this.workerName), e);
         }
@@ -500,12 +504,14 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
      * @return a list of batchSize requests (can be less)
      */
     protected List<RequestType> getRequests(int batchSize) {
+        LOG.debug("Getting requests for [{}] requests", batchSize);
         List<RequestType> toProcess = new ArrayList<>(batchSize);
 
         Set<BlockingQueue<RequestType>> selectedQueue = new HashSet<>();
 
         while (toProcess.size() < batchSize) {
             Optional<BlockingQueue<RequestType>> queue = selectNextQueue();
+            LOG.debug("Selected queue [{}]", queue.isPresent() ? queue.get() : "No queue");
             if (false == queue.isPresent()) {
                 // no queue has requests
                 break;
@@ -544,6 +550,7 @@ public abstract class RateLimitedRequestWorker<RequestType extends QueuedRequest
     }
 
     public void putAll(List<RequestType> requests) {
+        LOG.debug("Putting all requests [{}]", requests.size());
         if (requests == null || requests.isEmpty()) {
             return;
         }

@@ -64,7 +64,8 @@ public class ForecastColdStartWorker extends
         ForecastPriorityCache cacheProvider,
         ForecastModelManager forecastModelManager,
         ForecastSaveResultStrategy saveStrategy,
-        ForecastTaskManager taskManager
+        ForecastTaskManager taskManager,
+        ForecastCheckpointWriteWorker checkpointWriteWorker
     ) {
         super(
             WORKER_NAME,
@@ -91,7 +92,8 @@ public class ForecastColdStartWorker extends
             AnalysisType.FORECAST,
             forecastModelManager,
             saveStrategy,
-            taskManager
+            taskManager,
+            checkpointWriteWorker
         );
     }
 

@@ -418,10 +418,10 @@ public abstract class CacheBuffer<RCFModelType extends ThresholdedRandomCutFores
      * @param entityModelId model Id
      */
     private void update(String entityModelId) {
-        priorityTracker.updatePriority(entityModelId);
+        float priority = priorityTracker.updatePriority(entityModelId);
 
         Instant now = clock.instant();
-        items.get(entityModelId).setLastUsedTime(now);
+        items.get(entityModelId).setPriority(priority);
         lastUsedTime = now;
     }
 
@@ -453,10 +453,9 @@ public abstract class CacheBuffer<RCFModelType extends ThresholdedRandomCutFores
         ModelState<RCFModelType> contentNode = items.get(entityModelId);
         if (contentNode == null) {
             priorityTracker.addPriority(entityModelId, priority);
+            value.setPriority(priority);
             items.put(entityModelId, value);
-            Instant now = clock.instant();
-            value.setLastUsedTime(now);
-            lastUsedTime = now;
+            lastUsedTime = clock.instant();
             // shared cache empty means we are consuming reserved cache.
             // Since we have already considered them while allocating CacheBuffer,
             // skip bookkeeping.

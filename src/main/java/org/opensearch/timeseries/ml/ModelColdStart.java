@@ -47,9 +47,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IndexableResult;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
-import org.opensearch.timeseries.ratelimit.CheckpointWriteWorker;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
-import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ExceptionUtil;
 
@@ -59,7 +57,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 /**
  * The class bootstraps a model by performing a cold start
  */
-public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, IndexableResultType extends IndexableResult>
+public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, IndexableResultType extends IndexableResult>
     implements
         MaintenanceState,
         CleanState {
@@ -76,7 +74,7 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
     protected final Clock clock;
     protected final ThreadPool threadPool;
     protected final int numMinSamples;
-    protected CheckpointWriteWorkerType checkpointWriteWorker;
+
     // make sure rcf use a specific random seed. Otherwise, we will use a random random (not a typo) seed.
     // this is mainly used for testing to make sure the model we trained and the reference rcf produce
     // the same results
@@ -101,7 +99,6 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         Clock clock,
         ThreadPool threadPool,
         int numMinSamples,
-        CheckpointWriteWorkerType checkpointWriteWorker,
         long rcfSeed,
         int numberOfTrees,
         int rcfSampleSize,
@@ -121,7 +118,6 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
         this.clock = clock;
         this.threadPool = threadPool;
         this.numMinSamples = numMinSamples;
-        this.checkpointWriteWorker = checkpointWriteWorker;
         this.rcfSeed = rcfSeed;
         this.numberOfTrees = numberOfTrees;
         this.rcfSampleSize = rcfSampleSize;
@@ -291,10 +287,6 @@ public abstract class ModelColdStart<RCFModelType extends ThresholdedRandomCutFo
                         logger.info("Not enough data to train model: {}, currently we have {}", modelId, dataSize);
 
                         trainingData.forEach(modelState::addSample);
-                        // save to checkpoint for real time only
-                        if (null == coldStartRequest.getTaskId()) {
-                            checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
-                        }
 
                         listener.onResponse(null);
                     }

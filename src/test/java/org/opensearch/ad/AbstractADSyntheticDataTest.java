@@ -176,6 +176,7 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         boolean approximateEndTime,
         long rangeDurationMillis
     ) throws InterruptedException {
+        LOG.debug("approximateEndTime: {}", approximateEndTime);
         return getAnomalyResult(
             detectorId,
             end,
@@ -222,6 +223,7 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         ConditionChecker checker,
         int expectedResultSize
     ) throws InterruptedException {
+        LOG.debug("approximateEndTime: {}", approximateEndTime);
         Request request = new Request("POST", "/_plugins/_anomaly_detection/detectors/results/_search");
 
         String jsonTemplatePrefix = "{\n"
@@ -261,7 +263,8 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
                     + "                }\n"
                     + "            ]\n"
                     + "        }\n"
-                    + "    }\n"
+                    + "    },\n"
+                    + "    \"size\": 1000\n"
                     + "}"
             );
 
@@ -275,10 +278,12 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
             formattedJson = String.format(Locale.ROOT, jsonTemplate.toString(), detectorId, endTimeField, dateEndTime, dateEndTime);
         }
 
+        LOG.debug("formattedJson: {}", formattedJson);
+
         request.setJsonEntity(formattedJson);
 
         // wait until results are available
-        // max wait for 60_000 milliseconds
+        // 30 cycles x 2s = ~60 seconds max
         int maxWaitCycles = 30;
         do {
             try {
@@ -292,13 +297,14 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
 
                     return res;
                 } else {
-                    LOG.info("wait for result, previous result: {}, size: {}", hits, hits.size());
+                    LOG.info("wait for result, data end time: {}, previous result: {}, size: {}", dateEndTime, hits, hits.size());
                     client.performRequest(new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", ".opendistro-anomaly-results*")));
                 }
-                Thread.sleep(2_000 * entitySize);
+                // Do not scale sleep with entity size; that can make tests run >20 minutes.
+                Thread.sleep(2_000);
             } catch (Exception e) {
                 LOG.warn("Exception while waiting for result", e);
-                Thread.sleep(2_000 * entitySize);
+                Thread.sleep(2_000);
             }
         } while (maxWaitCycles-- >= 0);
 
@@ -668,9 +674,24 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
     }
 
     protected long getWindowDelayMinutes(List<JsonObject> data, int trainTestSplit, String timestamp) {
-        // e.g., "2019-11-02T00:59:00Z"
-        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
-        Instant trainTime = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(trainTimeStr));
+        // Timestamp value may be epoch millis (e.g., 1757538685275) or ISO-8601 (e.g., 2019-11-02T00:59:00Z)
+        String trainTimeStr = data.get(trainTestSplit - 1).get(timestamp).getAsString();
+
+        Instant trainTime;
+        // Fast-path: numeric epoch (10 or 13 digits)
+        if (trainTimeStr.matches("\\d{13}")) {
+            trainTime = Instant.ofEpochMilli(Long.parseLong(trainTimeStr));
+        } else if (trainTimeStr.matches("\\d{10}")) {
+            trainTime = Instant.ofEpochSecond(Long.parseLong(trainTimeStr));
+        } else {
+            // Try ISO-8601 (Instant) and then generic ISO date-time
+            try {
+                trainTime = Instant.parse(trainTimeStr);
+            } catch (DateTimeParseException ex) {
+                trainTime = ZonedDateTime.parse(trainTimeStr, DateTimeFormatter.ISO_DATE_TIME).toInstant();
+            }
+        }
+
         /*
          * The {@code CompositeRetriever.PageIterator.hasNext()} method checks if a request is expired
          * relative to the current system time. This method is designed to ensure that the execution time
@@ -775,5 +796,36 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
 
     protected static boolean getLatest(List<JsonObject> data, int index) {
         return data.get(index).get("is_latest").getAsBoolean();
+    }
+
+    protected long countResults(String detectorId, long executionStartLowerBound, boolean historical) throws Exception {
+        Request req = new Request("POST", "/_plugins/_anomaly_detection/detectors/results/_search");
+        StringBuilder sb = new StringBuilder();
+        sb
+            .append("{\n")
+            .append("  \"size\": 0,\n")
+            .append("  \"track_total_hits\": true,\n")
+            .append("  \"query\": {\n")
+            .append("    \"bool\": {\n")
+            .append("      \"filter\": [\n")
+            .append("        { \"term\": { \"detector_id\": \"" + detectorId + "\" } },\n")
+            .append("        { \"range\": { \"execution_start_time\": { \"gte\": " + executionStartLowerBound + " } } }\n")
+            .append("      ],\n")
+            .append("      \"must_not\": [\n")
+            .append(historical ? "        { }\n" : "        { \"exists\": { \"field\": \"task_id\" } }\n")
+            .append("      ]\n")
+            .append("    }\n")
+            .append("  }\n")
+            .append("}");
+
+        req.setJsonEntity(sb.toString());
+        Response resp = client().performRequest(req);
+        Map<String, Object> m = entityAsMap(resp);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> hits = (Map<String, Object>) m.get("hits");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> total = (Map<String, Object>) hits.get("total");
+        Number value = (Number) total.get("value");
+        return value == null ? 0L : value.longValue();
     }
 }

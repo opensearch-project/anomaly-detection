@@ -16,7 +16,6 @@ import java.time.Clock;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.ForecastResult;
-import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.ml.ModelManager;
@@ -29,7 +28,7 @@ import com.amazon.randomcutforest.parkservices.ForecastDescriptor;
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 
 public class ForecastModelManager extends
-    ModelManager<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastColdStart> {
+    ModelManager<RCFCaster, ForecastResult, RCFCasterResult, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastColdStart> {
 
     public ForecastModelManager(
         ForecastCheckpointDao checkpointDao,

@@ -6,6 +6,7 @@
 package org.opensearch.forecast.ratelimit;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,7 +53,7 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
         Optional<Entity> entity,
         String taskId
     ) {
-        if (result != null && result.getRcfScore() > 0) {
+        if (result != null) {
             List<ForecastResult> indexableResults = result
                 .toIndexableResults(
                     config,
@@ -79,7 +80,7 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
         resultWriteWorker
             .put(
                 new ForecastResultWriteRequest(
-                    System.currentTimeMillis() + config.getIntervalInMilliseconds(),
+                    System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
                     config.getId(),
                     RequestPriority.MEDIUM,
                     result,
@@ -87,5 +88,52 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
                     config.getFlattenResultIndexAlias()
                 )
             );
+    }
+
+    @Override
+    public void saveAllResults(
+        List<RCFCasterResult> results,
+        Config config,
+        List<Instant> dataStart,
+        List<Instant> dataEnd,
+        String modelId,
+        List<double[]> currentData,
+        Optional<Entity> entity,
+        String taskId
+    ) {
+        List<ForecastResultWriteRequest> writeRequests = new ArrayList<>();
+        for (int i = 0; i < results.size(); i++) {
+            RCFCasterResult result = results.get(i);
+            if (result != null) {
+                List<ForecastResult> indexableResults = result
+                    .toIndexableResults(
+                        config,
+                        dataStart.get(i),
+                        dataEnd.get(i),
+                        Instant.now(),
+                        Instant.now(),
+                        ParseUtils.getFeatureData(currentData.get(i), config),
+                        entity,
+                        resultMappingVersion,
+                        modelId,
+                        taskId,
+                        null
+                    );
+                for (ForecastResult r : indexableResults) {
+                    writeRequests
+                        .add(
+                            new ForecastResultWriteRequest(
+                                System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                                config.getId(),
+                                RequestPriority.MEDIUM,
+                                r,
+                                config.getCustomResultIndexOrAlias(),
+                                config.getFlattenResultIndexAlias()
+                            )
+                        );
+                }
+            }
+        }
+        resultWriteWorker.putAll(writeRequests);
     }
 }
