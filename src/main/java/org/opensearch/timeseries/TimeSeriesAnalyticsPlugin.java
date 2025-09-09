@@ -510,6 +510,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         // Common components
         // =====================
         this.client = client;
+        this.pluginClient = new PluginClient(client);
         this.threadPool = threadPool;
         Settings settings = environment.settings();
         this.clientUtil = new ClientUtil(client);
@@ -1420,7 +1421,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 forecastTaskCacheManager,
                 forecastSaveResultStrategy,
                 new ForecastTaskProfileRunner(),
-                forecastInferencer
+                forecastInferencer,
+                pluginClient
             );
     }
 
