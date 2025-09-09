@@ -74,12 +74,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient goatClient;
     String lionUser = "lion";
     RestClient lionClient;
-    private String indexAllAccessRole = "index_all_access";
-    private String indexSearchAccessRole = "index_all_search";
 
-    private static final String READ_ONLY_AG = "anomaly_read_only_ag";
-    private static final String FULL_ACCESS_AG = "anomaly_full_access_ag";
-    private static final String SHARE_CONFIG_ROLE = "share_config_role";
+    private static final String READ_ONLY_AG = "ad_read_only";
+    private static final String FULL_ACCESS_AG = "ad_full_access";
 
     String oceanUser = "ocean";
     RestClient oceanClient;
@@ -123,11 +120,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         }
 
-        createActionGroup(READ_ONLY_AG, readOnlyAccessPayload());
-        createActionGroup(FULL_ACCESS_AG, fullAccessPayload());
-        createShareRole(SHARE_CONFIG_ROLE);
-
+        String indexAllAccessRole = "index_all_access";
         createIndexRole(indexAllAccessRole, "*");
+        String indexSearchAccessRole = "index_all_search";
         createSearchRole(indexSearchAccessRole, "*");
         String alicePassword = generatePassword(aliceUser);
         createUser(aliceUser, alicePassword, new ArrayList<>(Arrays.asList("odfe")));
@@ -187,8 +182,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
-
-        createRoleMapping(SHARE_CONFIG_ROLE, new ArrayList<>(Arrays.asList(aliceUser, catUser, elkUser)));
     }
 
     @After

@@ -81,9 +81,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     private static final String ENTITY_VALUE = "S*";
     private static final String PHOENIX_VALUE = "Phoenix";
 
-    private static final String READ_ONLY_AG = "forecast_read_only_ag";
-    private static final String FULL_ACCESS_AG = "forecast_full_access_ag";
-    private static final String SHARE_CONFIG_ROLE = "share_config_role";
+    private static final String READ_ONLY_AG = "forecast_read_only";
+    private static final String FULL_ACCESS_AG = "forecast_full_access";
 
     private static final String searchForecasterRequest = """
         {
@@ -122,9 +121,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             throw new IllegalArgumentException("Secure Tests are running but HTTPS is not set");
         }
         super.setUp();
-        createActionGroup(READ_ONLY_AG, readOnlyAccessPayload());
-        createActionGroup(FULL_ACCESS_AG, fullAccessPayload());
-        createShareRole(SHARE_CONFIG_ROLE);
         try {
             getRole(forecastReadRole);
         } catch (ResponseException e) {
@@ -262,8 +258,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         createRoleMapping(noResultRole, new ArrayList<>(Arrays.asList(noResultUser)));
         createRoleMapping(devOpsResultRole, new ArrayList<>(Arrays.asList(devOpsLimitedUser)));
         createRoleMapping(sdeResultRole, new ArrayList<>(Arrays.asList(sdeLimitedUser)));
-
-        createRoleMapping(SHARE_CONFIG_ROLE, new ArrayList<>(Arrays.asList(sdeUser, devOpsUser, fullUser)));
 
         trainTime = loadRuleData(200);
         forecasterDef = "{\n"

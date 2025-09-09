@@ -433,67 +433,6 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             );
     }
 
-    public Response createActionGroup(String name, String payload) throws IOException {
-        return TestHelpers
-            .makeRequest(
-                client(),
-                "PUT",
-                "/_plugins/_security/api/actiongroups/" + name,
-                null,
-                TestHelpers.toHttpEntity(payload),
-                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
-            );
-    }
-
-    public String readOnlyAccessPayload() {
-        return """
-            {
-              "allowed_actions": [
-                "cluster:admin/opendistro/ad/detector/info",
-                "cluster:admin/opendistro/ad/detector/search",
-                "cluster:admin/opendistro/ad/detector/validate",
-                "cluster:admin/opendistro/ad/detectors/get",
-                "cluster:admin/opendistro/ad/result/search",
-                "cluster:admin/opendistro/ad/result/topAnomalies",
-                "cluster:admin/opendistro/ad/tasks/search",
-                "cluster:admin/opendistro/ad/detector/preview",
-                    "cluster:admin/plugin/forecast/forecaster/info",
-                    "cluster:admin/plugin/forecast/forecaster/stats",
-                    "cluster:admin/plugin/forecast/forecaster/suggest",
-                    "cluster:admin/plugin/forecast/forecaster/validate",
-                    "cluster:admin/plugin/forecast/forecasters/get",
-                    "cluster:admin/plugin/forecast/forecasters/info",
-                    "cluster:admin/plugin/forecast/forecasters/search",
-                    "cluster:admin/plugin/forecast/result/topForecasts",
-                    "cluster:admin/plugin/forecast/tasks/search",
-                          "indices:admin/mappings/fields/get*",
-                            "indices:admin/resolve/index"
-              ]
-            }
-            """;
-    }
-
-    public String fullAccessPayload() {
-        return """
-            {
-              "allowed_actions": [
-                "cluster:admin/security/resource/share",
-                "cluster:admin/opendistro/ad/*",
-                "cluster:admin/plugin/forecast/*",
-                "cluster:admin/settings/update"
-              ]
-            }
-            """;
-    }
-
-    public Response createShareRole(String role) throws IOException {
-        return TestHelpers.makeRequest(client(), "PUT", "/_plugins/_security/api/roles/" + role, null, TestHelpers.toHttpEntity("""
-            {
-            "cluster_permissions": [ "cluster:admin/security/resource/share" ]
-            }
-            """), ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana")));
-    }
-
     public Response createRoleMapping(String role, ArrayList<String> users) throws IOException {
         JsonArray usersString = new JsonArray();
         for (int i = 0; i < users.size(); i++) {

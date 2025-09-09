@@ -32,6 +32,6 @@ public class SearchADTasksTransportAction extends HandledTransportAction<SearchR
 
     @Override
     protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        searchHandler.search(request, null, listener);
+        searchHandler.search(request, listener);
     }
 }

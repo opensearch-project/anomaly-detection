@@ -183,7 +183,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
                 new HashSet<>(),
                 new ArrayList<>()
             );
-        verify(searchHandler).search(any(), any(), any());
+        verify(searchHandler).search(any(), any());
     }
 
     @Test
@@ -216,7 +216,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
                 new HashSet<>(),
                 new ArrayList<>()
             );
-        verify(searchHandler).search(any(), any(), any());
+        verify(searchHandler).search(any(), any());
     }
 
     @Test
@@ -281,7 +281,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         action.doExecute(mock(Task.class), request, future);
         verify(client).search(any(), any());
         verify(client).multiSearch(any(), any());
-        verify(searchHandler).search(any(), any(), any());
+        verify(searchHandler).search(any(), any());
     }
 
     @Test

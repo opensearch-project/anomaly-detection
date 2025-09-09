@@ -317,7 +317,6 @@ public class SearchTopAnomalyResultTransportAction extends
             searchHandler
                 .search(
                     searchRequest,
-                    null,
                     new TopAnomalyResultListener(
                         listener,
                         searchRequest.source(),
@@ -435,7 +434,7 @@ public class SearchTopAnomalyResultTransportAction extends
                     SearchRequest searchRequest = Strings.isNullOrEmpty(customResultIndex)
                         ? new SearchRequest().indices(defaultIndex)
                         : new SearchRequest().indices(defaultIndex, customResultIndex);
-                    searchHandler.search(searchRequest.source(searchSourceBuilder), null, this);
+                    searchHandler.search(searchRequest.source(searchSourceBuilder), this);
                 }
 
             } catch (Exception e) {
