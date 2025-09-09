@@ -265,7 +265,7 @@ public class TestHelpers {
     }
 
     public static String shareWithUserPayload(String resourceId, String resourceIndex, String accessLevel, String user) {
-        return """
+        return String.format(Locale.ROOT, """
             {
               "resource_id": "%s",
               "resource_type": "%s",
@@ -275,7 +275,7 @@ public class TestHelpers {
                 }
               }
             }
-            """.formatted(resourceId, resourceIndex, accessLevel, user);
+            """, resourceId, resourceIndex, accessLevel, user);
     }
 
     public static class PatchSharingInfoPayloadBuilder {
@@ -317,9 +317,7 @@ public class TestHelpers {
                     XContentBuilder builder = XContentFactory.jsonBuilder();
                     entry.getValue().toXContent(builder, ToXContent.EMPTY_PARAMS);
                     String recipJson = builder.toString();
-                    output.add("""
-                        "%s" : %s
-                        """.formatted(entry.getKey(), recipJson));
+                    output.add(String.format(Locale.ROOT, "\"%s\" : %s", entry.getKey(), recipJson));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -333,7 +331,7 @@ public class TestHelpers {
         public String build() {
             String allShares = buildJsonString(share);
             String allRevokes = buildJsonString(revoke);
-            return """
+            return String.format(Locale.ROOT, """
                 {
                   "resource_id": "%s",
                   "resource_type": "%s",
@@ -344,7 +342,7 @@ public class TestHelpers {
                     %s
                   }
                 }
-                """.formatted(configId, configIndex, allShares, allRevokes);
+                """, configId, configIndex, allShares, allRevokes);
         }
     }
 
