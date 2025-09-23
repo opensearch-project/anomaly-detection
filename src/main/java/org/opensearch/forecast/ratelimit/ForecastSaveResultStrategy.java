@@ -80,7 +80,7 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
         resultWriteWorker
             .put(
                 new ForecastResultWriteRequest(
-                    System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                    System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                     config.getId(),
                     RequestPriority.MEDIUM,
                     result,
@@ -123,7 +123,7 @@ public class ForecastSaveResultStrategy implements SaveResultStrategy<ForecastRe
                     writeRequests
                         .add(
                             new ForecastResultWriteRequest(
-                                System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                                System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                                 config.getId(),
                                 RequestPriority.MEDIUM,
                                 r,

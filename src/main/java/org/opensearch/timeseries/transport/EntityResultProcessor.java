@@ -115,7 +115,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
 
             // Convert the entrySet to a list for parallel processing
             List<Entry<Entity, double[]>> entityEntries = new ArrayList<>(request.getEntities().entrySet());
-            long deadline = clock.millis() + config.getFrequencyInMilliseconds();
+            long deadline = clock.millis() + config.getInferredFrequencyInMilliseconds();
 
             AtomicReference<Exception> processingException = new AtomicReference<>(prevException.orElse(null));
             // Process entities in parallel instead of sequentially
@@ -264,7 +264,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                 hotEntityRequests
                     .add(
                         new FeatureRequest(
-                            System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                            System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                             configId,
                             // hot entities has MEDIUM priority
                             RequestPriority.MEDIUM,
@@ -287,7 +287,7 @@ public class EntityResultProcessor<RCFModelType extends ThresholdedRandomCutFore
                 coldEntityRequests
                     .add(
                         new FeatureRequest(
-                            System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                            System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                             configId,
                             coldEntityPriority,
                             coldEntityValue,

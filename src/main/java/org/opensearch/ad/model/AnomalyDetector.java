@@ -296,7 +296,11 @@ public class AnomalyDetector extends Config {
         this.customResultIndexTTL = input.readOptionalInt();
         this.flattenResultIndexMapping = input.readOptionalBoolean();
         this.lastUIBreakingChangeTime = input.readOptionalInstant();
-        this.frequency = IntervalTimeConfiguration.readFrom(input);
+        if (input.readBoolean()) {
+            this.frequency = IntervalTimeConfiguration.readFrom(input);
+        } else {
+            this.frequency = null;
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -364,7 +368,12 @@ public class AnomalyDetector extends Config {
         output.writeOptionalInt(customResultIndexTTL);
         output.writeOptionalBoolean(flattenResultIndexMapping);
         output.writeOptionalInstant(lastUIBreakingChangeTime);
-        frequency.writeTo(output);
+        if (frequency != null) {
+            output.writeBoolean(true);
+            frequency.writeTo(output);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     @Override
@@ -624,6 +633,7 @@ public class AnomalyDetector extends Config {
                     break;
             }
         }
+
         AnomalyDetector detector = new AnomalyDetector(
             detectorId,
             version,

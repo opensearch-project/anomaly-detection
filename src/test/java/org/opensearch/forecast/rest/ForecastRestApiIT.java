@@ -28,7 +28,6 @@ import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
-import org.opensearch.OpenSearchStatusException;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
@@ -3372,7 +3371,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         Map<String, Object> responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
-        assertEquals("opensearch-forecast-result-b", ((Map<String, Object>) responseMap.get("forecaster")).get("result_index"));
+        Map<String, Object> forecaster = (Map<String, Object>) responseMap.get("forecaster");
+        assertEquals("opensearch-forecast-result-b", forecaster.get("result_index"));
+        assertEquals(null, forecaster.get("frequency"));
 
         // run once
         if (isResourceSharingFeatureEnabled()) {
@@ -4071,13 +4072,4 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "}";
     }
 
-    private static boolean isForbidden(Exception e) {
-        if (e instanceof OpenSearchStatusException) {
-            return ((OpenSearchStatusException) e).status() == RestStatus.FORBIDDEN;
-        }
-        if (e instanceof ResponseException) {
-            return ((ResponseException) e).getResponse().getStatusLine().getStatusCode() == 403;
-        }
-        return false;
-    }
 }

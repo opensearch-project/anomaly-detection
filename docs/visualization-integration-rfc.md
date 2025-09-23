@@ -73,7 +73,7 @@ We would like comments and feedback on the proposal of integrating AD and Visual
 
 - How do you use Visualizations today?
 - Would you be more inclined to use AD if it was available to create within a Visualization?
-- Are there any additional visualization aggregations not provided by AD, that are important for your use case? The current AD-supported aggregations can be found [here](https://opensearch.org/docs/latest/monitoring-plugins/ad/index/#add-features-to-your-detector).
+- Are there any additional visualization aggregations not provided by AD, that are important for your use case? The current AD-supported aggregations can be found [here](https://docs.opensearch.org/latest/observing-your-data/ad/index/#step-2-configure-the-model).
 - Do you envision viewing the anomalies in a different way than overlaid on Visualization charts?
 - Would historical anomalies be useful, or are you only interested in real-time / future anomalies?
 - Would you prefer auto-suggested fields to be hidden by default, or easily available to edit when creating?

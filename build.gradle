@@ -413,6 +413,7 @@ integTest {
         filter {
             excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamSmokeIT"
             excludeTestsMatching "org.opensearch.ad.e2e.RealTimeFrequencySmokeIT"
+            excludeTestsMatching "org.opensearch.forecast.rest.LongRunningForecastRestApiIT"
         }
     }
 

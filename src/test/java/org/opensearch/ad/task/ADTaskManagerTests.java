@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -633,6 +634,15 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
         Long detectorIntervalInMinutes = 1L;
         String error = randomAlphaOfLength(5);
         ActionListener<UpdateResponse> actionListener = mock(ActionListener.class);
+
+        // Mock nodeStateManager to return an enabled job (default behavior)
+        Job enabledJob = TestHelpers.randomJob(true);
+        doAnswer(invocation -> {
+            ActionListener<Optional<Job>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(enabledJob));
+            return null;
+        }).when(nodeStateManager).getJob(eq(detectorId), any(ActionListener.class));
+
         doReturn(node1).when(clusterService).localNode();
         when(adTaskCacheManager.isRealtimeTaskChangeNeeded(anyString(), anyString(), anyFloat(), anyString())).thenReturn(true);
         doAnswer(invocation -> {
@@ -650,6 +660,54 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
                 true,
                 actionListener
             );
+        verify(actionListener, times(1)).onResponse(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testUpdateLatestRealtimeTaskWhenJobDisabled() {
+        String detectorId = randomAlphaOfLength(5);
+        String state = TaskState.RUNNING.name();
+        Long rcfTotalUpdates = randomLongBetween(200, 1000);
+        Long detectorIntervalInMinutes = 1L;
+        String error = randomAlphaOfLength(5);
+        ActionListener<UpdateResponse> actionListener = mock(ActionListener.class);
+
+        // Mock nodeStateManager to return a disabled job
+        Job disabledJob = TestHelpers.randomJob(false);
+        doAnswer(invocation -> {
+            ActionListener<Optional<Job>> listener = invocation.getArgument(1);
+            listener.onResponse(Optional.of(disabledJob));
+            return null;
+        }).when(nodeStateManager).getJob(eq(detectorId), any(ActionListener.class));
+
+        doReturn(node1).when(clusterService).localNode();
+        when(adTaskCacheManager.isRealtimeTaskChangeNeeded(anyString(), anyString(), anyFloat(), anyString())).thenReturn(true);
+        doAnswer(invocation -> {
+            ActionListener<UpdateResponse> listener = invocation.getArgument(3);
+            listener.onResponse(new UpdateResponse(ShardId.fromString("[test][1]"), "1", 0L, 1L, 1L, DocWriteResponse.Result.UPDATED));
+            return null;
+        }).when(adTaskManager).updateLatestTask(anyString(), any(), anyMap(), any());
+
+        adTaskManager
+            .updateLatestRealtimeTaskOnCoordinatingNode(
+                detectorId,
+                state,
+                rcfTotalUpdates,
+                detectorIntervalInMinutes,
+                error,
+                true,
+                actionListener
+            );
+
+        // Verify that updateLatestTask was called with STOPPED state
+        verify(adTaskManager, times(1))
+            .updateLatestTask(
+                eq(detectorId),
+                any(),
+                argThat(updatedFields -> TaskState.STOPPED.name().equals(updatedFields.get("state"))),
+                any(ActionListener.class)
+            );
+
         verify(actionListener, times(1)).onResponse(any());
     }
 
