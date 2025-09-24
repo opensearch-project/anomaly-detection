@@ -108,6 +108,7 @@ public abstract class BatchWorker<RequestType extends QueuedRequest, BatchReques
     protected void execute(Runnable afterProcessCallback, Runnable emptyQueueCallback) {
 
         List<RequestType> toProcess = getRequests(batchSize);
+        LOG.debug("Executing batch request for [{}] requests", toProcess.size());
 
         // it is possible other concurrent threads have drained the queue
         if (false == toProcess.isEmpty()) {

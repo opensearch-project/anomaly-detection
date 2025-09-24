@@ -39,7 +39,8 @@ public enum ValidationIssueType implements Name {
     RECENCY_EMPHASIS(Config.RECENCY_EMPHASIS_FIELD),
     DESCRIPTION(Config.DESCRIPTION_FIELD),
     HISTORY(Config.HISTORY_INTERVAL_FIELD),
-    RULE(AnomalyDetector.RULES_FIELD);
+    RULE(AnomalyDetector.RULES_FIELD),
+    FREQUENCY(Config.FREQUENCY_FIELD);
 
     private String name;
 

@@ -327,7 +327,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            aliceDetector.getFrequency()
         );
 
         // User client has admin all access, and has "opensearch" backend role so client should be able to update detector

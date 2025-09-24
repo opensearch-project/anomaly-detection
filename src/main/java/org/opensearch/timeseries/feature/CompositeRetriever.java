@@ -381,6 +381,18 @@ public class CompositeRetriever extends AbstractRetriever {
                         )
                     );
             }
+            LOG
+                .debug(
+                    new ParameterizedMessage(
+                        "Composite retriever state - iterations: [{}], afterKey: [{}], totalResults: [{}], maxEntities: [{}], expirationEpochMs: [{}], now: [{}]",
+                        iterations,
+                        afterKey,
+                        totalResults,
+                        maxEntities,
+                        expirationEpochMs,
+                        now
+                    )
+                );
             if ((iterations > 0 && afterKey == null) || totalResults > maxEntities) {
                 LOG.debug(new ParameterizedMessage("Finished in [{}] msecs. ", (now - startMs)));
             }

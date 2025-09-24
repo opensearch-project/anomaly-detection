@@ -205,7 +205,6 @@ public class AbstractCosineDataTest extends AbstractTimeSeriesTest {
             featureManager,
             // settings,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue,
             rcfSeed,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
             1,

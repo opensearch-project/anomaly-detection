@@ -196,7 +196,7 @@ public abstract class ResultWriteWorker<ResultType extends IndexableResult, Resu
             super.put(
                 createResultWriteRequest(
                     // expire based on execute start time
-                    resultToRetry.getExecutionStartTime().toEpochMilli() + config.getIntervalInMilliseconds(),
+                    resultToRetry.getExecutionStartTime().toEpochMilli() + config.getFrequencyInMilliseconds(),
                     id,
                     resultToRetry.isHighPriority() ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                     resultToRetry,

@@ -30,6 +30,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.Feature;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -379,6 +380,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     public void testValidateAnomalyDetectorWithInvalidDetectorName() throws IOException {
         Feature feature = TestHelpers.randomFeature();
         List<Feature> featureList = ImmutableList.of(feature);
+        IntervalTimeConfiguration interval = (IntervalTimeConfiguration) TestHelpers.randomIntervalTimeConfiguration();
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -388,7 +390,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
             featureList,
             TestHelpers.randomQuery(),
-            TestHelpers.randomIntervalTimeConfiguration(),
+            interval,
             TestHelpers.randomIntervalTimeConfiguration(),
             TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
             null,
@@ -406,7 +408,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         ValidateConfigRequest request = new ValidateConfigRequest(
@@ -429,6 +432,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
     public void testValidateAnomalyDetectorWithDetectorNameTooLong() throws IOException {
         Feature feature = TestHelpers.randomFeature();
         List<Feature> featureList = ImmutableList.of(feature);
+        IntervalTimeConfiguration interval = (IntervalTimeConfiguration) TestHelpers.randomIntervalTimeConfiguration();
         AnomalyDetector anomalyDetector = new AnomalyDetector(
             randomAlphaOfLength(5),
             randomLong(),
@@ -438,7 +442,7 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             ImmutableList.of(randomAlphaOfLength(5).toLowerCase(Locale.ROOT)),
             featureList,
             TestHelpers.randomQuery(),
-            TestHelpers.randomIntervalTimeConfiguration(),
+            interval,
             TestHelpers.randomIntervalTimeConfiguration(),
             TimeSeriesSettings.DEFAULT_SHINGLE_SIZE,
             null,
@@ -456,7 +460,8 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval
         );
         ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
         ValidateConfigRequest request = new ValidateConfigRequest(

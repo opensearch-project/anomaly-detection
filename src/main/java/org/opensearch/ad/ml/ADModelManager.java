@@ -33,7 +33,6 @@ import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -64,7 +63,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * A facade managing ML operations and models.
  */
 public class ADModelManager extends
-    ModelManager<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart> {
+    ModelManager<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADColdStart> {
     protected static final String ENTITY_SAMPLE = "sp";
     protected static final String ENTITY_RCF = "rcf";
     protected static final String ENTITY_THRESHOLD = "th";
@@ -174,8 +173,6 @@ public class ADModelManager extends
         double[] point,
         ActionListener<ThresholdingResult> listener
     ) {
-        modelState.setLastUsedTime(clock.instant());
-
         Optional<ThresholdedRandomCutForest> trcfOptional = modelState.getModel();
         if (trcfOptional.isEmpty()) {
             listener.onFailure(new TimeSeriesException("empty model"));
@@ -298,7 +295,6 @@ public class ADModelManager extends
             if (score > 0) {
                 threshold.update(score);
             }
-            modelState.setLastUsedTime(clock.instant());
             listener.onResponse(new ThresholdingResult(grade, confidence, score));
         } else {
             listener

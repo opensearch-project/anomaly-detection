@@ -52,6 +52,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.rest.handler.AbstractTimeSeriesActionHandler;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.RestHandlerUtils;
@@ -147,6 +148,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Feature feature = TestHelpers.randomFeature();
         List<Feature> featureList = ImmutableList.of(feature);
+        TimeConfiguration interval = TestHelpers.randomIntervalTimeConfiguration();
         AnomalyDetector detectorDuplicateName = new AnomalyDetector(
             AnomalyDetector.NO_ID,
             randomLong(),
@@ -156,7 +158,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getIndices(),
             featureList,
             TestHelpers.randomQuery(),
-            TestHelpers.randomIntervalTimeConfiguration(),
+            interval,
             TestHelpers.randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             TestHelpers.randomUiMetadata(),
@@ -174,7 +176,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            null
+            null,
+            interval
         );
 
         TestHelpers
@@ -414,7 +417,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             false,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency()
         );
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -481,7 +485,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             true,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency()
         );
 
         Response updateResponse = TestHelpers
@@ -616,7 +621,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency()
         );
         Exception ex = expectThrows(
             ResponseException.class,
@@ -684,7 +690,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency()
         );
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
@@ -757,7 +764,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector1.getLastBreakingUIChangeTime()
+            detector1.getLastBreakingUIChangeTime(),
+            detector1.getFrequency()
         );
 
         TestHelpers
@@ -807,7 +815,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            detector.getFrequency()
         );
 
         TestHelpers
@@ -863,7 +872,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency()
         );
 
         deleteIndexWithAdminClient(ADCommonName.CONFIG_INDEX);
@@ -1249,7 +1259,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency()
         );
 
         TestHelpers

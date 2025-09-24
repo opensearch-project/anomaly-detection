@@ -13,6 +13,7 @@ package org.opensearch.timeseries;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -28,7 +29,6 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
-import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
@@ -134,8 +134,6 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
         taskManager.refreshRealtimeJobRunTime(configId);
 
         Instant executionEndTime = Instant.now();
-        IntervalSchedule schedule = (IntervalSchedule) jobParameter.getSchedule();
-        Instant executionStartTime = executionEndTime.minus(schedule.getInterval(), schedule.getUnit());
 
         final LockService lockService = context.getLockService();
 
@@ -148,6 +146,10 @@ public abstract class JobProcessor<IndexType extends Enum<IndexType> & TimeSerie
                         return;
                     }
                     Config config = configOptional.get();
+
+                    // job schedule might different from detector's interval.
+                    // we use the config interval in minutes to calculate the execution start time.
+                    Instant executionStartTime = executionEndTime.minus(config.getIntervalInMinutes(), ChronoUnit.MINUTES);
 
                     if (jobParameter.getLockDurationSeconds() != null) {
                         lockService

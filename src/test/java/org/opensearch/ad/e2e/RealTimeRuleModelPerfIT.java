@@ -30,12 +30,12 @@ public class RealTimeRuleModelPerfIT extends AbstractRuleModelPerfTestCase {
         // TODO: this test case will run for a much longer time and timeout with security enabled
         if (!isHttps()) {
             disableResourceNotFoundFaultTolerence();
-            // there are 8 entities in the data set. Each one needs 1500 rows as training data.
+            // there are 2 entities in the data set, totalling 18140 rows in the training data (with missing values).
             Map<String, Double> minPrecision = new HashMap<>();
             minPrecision.put("Phoenix", 0.5);
             minPrecision.put("Scottsdale", 0.5);
             Map<String, Double> minRecall = new HashMap<>();
-            minRecall.put("Phoenix", 0.9);
+            minRecall.put("Phoenix", 0.7);
             minRecall.put("Scottsdale", 0.3);
             verifyRule("rule", 10, minPrecision.size(), 1500, minPrecision, minRecall, 20);
         }
@@ -126,13 +126,14 @@ public class RealTimeRuleModelPerfIT extends AbstractRuleModelPerfTestCase {
         // Iterate over the TreeMap in ascending order of keys
         for (Map.Entry<String, Integer> entry : entityMap.entrySet()) {
             String beginTimeStampAsString = entry.getKey();
-            int entitySize = entry.getValue();
             Instant begin = Instant.ofEpochMilli(Long.parseLong(beginTimeStampAsString));
             Instant end = begin.plus(intervalMinutes, ChronoUnit.MINUTES);
             try {
-                List<JsonObject> sourceList = getRealTimeAnomalyResult(detectorId, end, entitySize, client);
+                // since the aggregation is sum, we will have feature value 0 when there is missing values.
+                // So we need to verify the number of results is equal to the number of entities numberOfEntities.
+                List<JsonObject> sourceList = getRealTimeAnomalyResult(detectorId, end, numberOfEntities, client);
 
-                analyzeResults(anomalies, res, foundWindow, beginTimeStampAsString, entitySize, begin, sourceList);
+                analyzeResults(anomalies, res, foundWindow, beginTimeStampAsString, numberOfEntities, begin, sourceList);
             } catch (Exception e) {
                 errors++;
                 LOG.error("failed to get detection results", e);

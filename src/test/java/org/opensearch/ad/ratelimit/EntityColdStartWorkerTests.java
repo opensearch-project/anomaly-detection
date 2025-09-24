@@ -99,7 +99,8 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
             cacheProvider,
             mock(ADModelManager.class),
             mock(ADSaveResultStrategy.class),
-            mock(ADTaskManager.class)
+            mock(ADTaskManager.class),
+            mock(ADCheckpointWriteWorker.class)
         );
     }
 
@@ -107,6 +108,9 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
         FeatureRequest request = mock(FeatureRequest.class);
         when(request.getPriority()).thenReturn(RequestPriority.LOW);
         when(request.getModelId()).thenReturn(null);
+        // use Long.MAX_VALUE instead of Integer.MAX_VALUE. Integer.MAX_VALUE is only ~2.1 billion ms after the epoch (Jan 1970),
+        // so it is far behind the stubbed current time (~1.7 trillion ms)
+        when(request.getExpirationEpochMs()).thenReturn(Long.MAX_VALUE);
         worker.put(request);
         verify(entityColdStarter, never()).trainModel(any(), anyString(), any(), any());
         verify(request, times(1)).getModelId();
@@ -114,7 +118,7 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
 
     public void testOverloaded() {
         FeatureRequest request = new FeatureRequest(
-            Integer.MAX_VALUE,
+            Long.MAX_VALUE,
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },
@@ -142,7 +146,7 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
 
     public void testException() {
         FeatureRequest request = new FeatureRequest(
-            Integer.MAX_VALUE,
+            Long.MAX_VALUE,
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },
@@ -171,7 +175,7 @@ public class EntityColdStartWorkerTests extends AbstractRateLimitingTest {
 
     public void testModelHosted() {
         FeatureRequest request = new FeatureRequest(
-            Integer.MAX_VALUE,
+            Long.MAX_VALUE,
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },

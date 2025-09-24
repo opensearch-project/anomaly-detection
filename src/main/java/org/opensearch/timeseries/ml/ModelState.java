@@ -36,7 +36,6 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
     // time when the ML model was used last time
     protected Instant lastUsedTime;
     protected Instant lastCheckpointTime;
-    protected Instant lastSeenDataEndTime;
     protected Clock clock;
     protected float priority;
     protected Deque<Sample> samples;
@@ -75,7 +74,6 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
         this.priority = priority;
         this.entity = entity;
         this.samples = samples;
-        this.lastSeenDataEndTime = Instant.MIN;
     }
 
     /**
@@ -119,15 +117,6 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
     }
 
     /**
-     * Sets the time when ML model was last used.
-     *
-     * @param lastUsedTime time when the ML model was used last time
-     */
-    public void setLastUsedTime(Instant lastUsedTime) {
-        this.lastUsedTime = lastUsedTime;
-    }
-
-    /**
      * Returns the time when a checkpoint for the ML model was made last time.
      *
      * @return the time when a checkpoint for the ML model was made last time.
@@ -155,6 +144,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
 
     public void setPriority(float priority) {
         this.priority = priority;
+        this.lastUsedTime = clock.instant();
     }
 
     @Override
@@ -191,6 +181,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
         if (sample != null && sample.getValueList() != null && sample.getValueList().length != 0) {
             this.samples.add(sample);
         }
+        this.lastUsedTime = clock.instant();
     }
 
     /**
@@ -200,6 +191,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
      */
     public void setModel(T model) {
         this.model = model;
+        this.lastUsedTime = clock.instant();
     }
 
     /**
@@ -207,6 +199,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
      * @return optional model.
      */
     public Optional<T> getModel() {
+        this.lastUsedTime = clock.instant();
         return Optional.ofNullable(this.model);
     }
 
@@ -214,6 +207,7 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
         if (samples != null) {
             samples.clear();
         }
+        this.lastUsedTime = clock.instant();
     }
 
     public void clear() {
@@ -226,7 +220,6 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
      *
      * @return Map of ModelStates
      */
-    @SuppressWarnings("serial")
     public Map<String, Object> getModelStateAsMap() {
         return new HashMap<String, Object>() {
             {
@@ -250,13 +243,5 @@ public class ModelState<T> implements org.opensearch.timeseries.ExpiringState {
                 }
             }
         };
-    }
-
-    public Instant getLastSeenDataEndTime() {
-        return lastSeenDataEndTime;
-    }
-
-    public void setLastSeenDataEndTime(Instant lastSeenExecutionEndTime) {
-        this.lastSeenDataEndTime = lastSeenExecutionEndTime;
     }
 }

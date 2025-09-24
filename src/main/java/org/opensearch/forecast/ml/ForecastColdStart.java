@@ -25,7 +25,6 @@ import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.Forecaster;
-import org.opensearch.forecast.ratelimit.ForecastCheckpointWriteWorker;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -36,7 +35,6 @@ import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
-import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ModelUtil;
 import org.opensearch.timeseries.util.ParseUtils;
@@ -49,8 +47,7 @@ import com.amazon.randomcutforest.parkservices.ForecastDescriptor;
 import com.amazon.randomcutforest.parkservices.RCFCaster;
 import com.amazon.randomcutforest.parkservices.config.Calibration;
 
-public class ForecastColdStart extends
-    ModelColdStart<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastCheckpointDao, ForecastCheckpointWriteWorker, ForecastResult> {
+public class ForecastColdStart extends ModelColdStart<RCFCaster, ForecastIndex, ForecastIndexManagement, ForecastResult> {
 
     private static final Logger logger = LogManager.getLogger(ForecastColdStart.class);
 
@@ -65,7 +62,6 @@ public class ForecastColdStart extends
         double thresholdMinPvalue,
         FeatureManager featureManager,
         Duration modelTtl,
-        ForecastCheckpointWriteWorker checkpointWriteWorker,
         int coolDownMinutes,
         long rcfSeed,
         int defaultTrainSamples,
@@ -79,7 +75,6 @@ public class ForecastColdStart extends
             clock,
             threadPool,
             numMinSamples,
-            checkpointWriteWorker,
             rcfSeed,
             numberOfTrees,
             rcfSampleSize,
@@ -211,11 +206,6 @@ public class ForecastColdStart extends
         }
 
         modelState.setModel(caster);
-        modelState.setLastUsedTime(clock.instant());
-        // save to checkpoint for real time cold start that has no taskId
-        if (null == taskId) {
-            checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
-        }
 
         return res;
     }

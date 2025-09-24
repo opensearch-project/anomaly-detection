@@ -380,7 +380,7 @@ public abstract class ProfileRunner<TaskCacheManagerType extends TaskCacheManage
     ) {
         DiscoveryNode[] dataNodes = nodeFilter.getEligibleDataNodes();
         ProfileRequest profileRequest = new ProfileRequest(config.getId(), profiles, dataNodes);
-        if (config.isLongInterval()) {
+        if (config.isLongFrequency()) {
             ConfigProfileType.Builder<TaskClass, TaskProfileType> profile = createProfileBuilder();
             if (profiles.contains(ProfileName.COORDINATING_NODE)) {
                 profile.coordinatingNode("");
