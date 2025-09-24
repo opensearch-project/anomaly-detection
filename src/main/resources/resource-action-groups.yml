@@ -1,31 +1,32 @@
+# For resource-access-management
 # no internal actions are included here
 resource_types:
-  org.opensearch.ad.model.AnomalyDetector:
+  anomaly-detector:
     ad_read_only:
-      - "cluster:admin/opendistro/ad/detectors/get"
-      - "cluster:admin/opendistro/ad/detectors/search"
-      - "indices:data/read*"
+      allowed_actions:
+        - "cluster:admin/opendistro/ad/detectors/get"
+        - "cluster:admin/opendistro/ad/detectors/search"
 
     ad_read_write:
-      - "cluster:admin/opendistro/ad/*"
-      - "indices:*"
+      allowed_actions:
+        - "cluster:admin/opendistro/ad/*"
 
     ad_full_access:
-      - "cluster:admin/opendistro/ad/*"
-      - "indices:*"
-      - "cluster:admin/security/resource/share"
+      allowed_actions:
+        - "cluster:admin/opendistro/ad/*"
+        - "cluster:admin/security/resource/share"
 
-  org.opensearch.forecast.model.Forecaster:
+  forecaster:
     forecast_read_only:
-      - "cluster:admin/plugin/forecast/forecasters/get"
-      - "cluster:admin/plugin/forecast/forecasters/search"
-      - "indices:data/read*"
+      allowed_actions:
+        - "cluster:admin/plugin/forecast/forecasters/get"
+        - "cluster:admin/plugin/forecast/forecasters/search"
 
     forecast_read_write:
-      - "cluster:admin/plugin/forecast/*"
-      - "indices:*"
+      allowed_actions:
+        - "cluster:admin/plugin/forecast/*"
 
     forecast_full_access:
-      - "cluster:admin/plugin/forecast/*"
-      - "indices:*"
-      - "cluster:admin/security/resource/share"
+      allowed_actions:
+        - "cluster:admin/plugin/forecast/*"
+        - "cluster:admin/security/resource/share"
