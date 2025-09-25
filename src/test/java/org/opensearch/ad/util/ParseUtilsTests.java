@@ -161,7 +161,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         ParseUtils
             .addUserBackendRolesFilter(
-                new User(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(randomAlphaOfLength(5))),
+                new User(randomAlphaOfLength(5), null, ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of("attrKey=attrVal")),
                 searchSourceBuilder
             );
         assertEquals(
@@ -180,7 +180,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
                     randomAlphaOfLength(5),
                     ImmutableList.of(),
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(randomAlphaOfLength(5))
+                    ImmutableList.of("attrKey=attrVal")
                 ),
                 searchSourceBuilder
             );
@@ -202,7 +202,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
                     randomAlphaOfLength(5),
                     ImmutableList.of(backendRole1, backendRole2),
                     ImmutableList.of(randomAlphaOfLength(5)),
-                    ImmutableList.of(randomAlphaOfLength(5))
+                    ImmutableList.of("attrKey=attrVal")
                 ),
                 searchSourceBuilder
             );
@@ -316,7 +316,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
             randomAlphaOfLength(5),
             ImmutableList.of(),
             ImmutableList.of("all_access"),
-            ImmutableList.of(randomAlphaOfLength(5))
+            ImmutableList.of("attrKey=attrVal")
         );
         assertTrue(isAdmin(user1));
     }
@@ -327,7 +327,7 @@ public class ParseUtilsTests extends OpenSearchTestCase {
             randomAlphaOfLength(5),
             ImmutableList.of(backendRole1),
             ImmutableList.of(randomAlphaOfLength(5)),
-            ImmutableList.of(randomAlphaOfLength(5))
+            ImmutableList.of("attrKey=attrVal")
         );
         assertFalse(isAdmin(user1));
     }
