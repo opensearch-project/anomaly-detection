@@ -18,6 +18,7 @@ import java.util.Set;
 import org.opensearch.ad.ADUnitTestCase;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.security.spi.resources.ResourceProvider;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
@@ -52,7 +53,7 @@ public class TimeSeriesResourceSharingExtensionTests extends ADUnitTestCase {
 
         ResourceProvider forecastProvider = providers
             .stream()
-            .filter(p -> ADCommonName.AD_RESOURCE_TYPE.equals(p.resourceType()))
+            .filter(p -> ForecastCommonName.FORECAST_RESOURCE_TYPE.equals(p.resourceType()))
             .findFirst()
             .orElseThrow(() -> new AssertionError("Forecaster provider missing"));
         assertEquals(
