@@ -234,7 +234,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                 request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
                 client.performRequest(request);
             }
-            Thread.sleep(1_000);
+            Thread.sleep(2_000);
         } while (maxWaitCycles-- >= 0);
         if (maxWaitCycles <= 0) {
             LOG.info("Cannot find hit {}", expectedSize);

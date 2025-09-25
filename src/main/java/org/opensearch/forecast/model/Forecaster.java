@@ -136,7 +136,8 @@ public class Forecaster extends Config {
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
         Boolean flattenResultIndexMapping,
-        Instant lastBreakingUIChangeTime
+        Instant lastBreakingUIChangeTime,
+        TimeConfiguration frequency
     ) {
         super(
             forecasterId,
@@ -165,7 +166,8 @@ public class Forecaster extends Config {
             customResultIndexMinAge,
             customResultIndexTTL,
             flattenResultIndexMapping,
-            lastBreakingUIChangeTime
+            lastBreakingUIChangeTime,
+            frequency
         );
 
         checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
@@ -315,6 +317,8 @@ public class Forecaster extends Config {
         Integer customResultIndexTTL = null;
         Boolean flattenResultIndexMapping = null;
         Instant lastBreakingUIChangeTime = null;
+        // by default, frequency is the same as interval when not set
+        TimeConfiguration frequency = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -454,6 +458,20 @@ public class Forecaster extends Config {
                 case BREAKING_UI_CHANGE_TIME:
                     lastBreakingUIChangeTime = ParseUtils.toInstant(parser);
                     break;
+                case FREQUENCY_FIELD:
+                    try {
+                        frequency = TimeConfiguration.parse(parser);
+                    } catch (Exception e) {
+                        if (e instanceof IllegalArgumentException && e.getMessage().contains(CommonMessages.NEGATIVE_TIME_CONFIGURATION)) {
+                            throw new ValidationException(
+                                "Frequency must be a positive integer",
+                                ValidationIssueType.FREQUENCY,
+                                ValidationAspect.FORECASTER
+                            );
+                        }
+                        throw e;
+                    }
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -486,7 +504,8 @@ public class Forecaster extends Config {
             customResultIndexMinAge,
             customResultIndexTTL,
             flattenResultIndexMapping,
-            lastBreakingUIChangeTime
+            lastBreakingUIChangeTime,
+            frequency
         );
         return forecaster;
     }

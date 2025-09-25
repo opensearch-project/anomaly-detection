@@ -53,7 +53,7 @@ import org.opensearch.timeseries.util.ExceptionUtil;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
 
-public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, IndexableResultType>, CacheType extends TimeSeriesCache<RCFModelType>, IndexableResultType extends IndexableResult, IntermediateResultType extends IntermediateResult<IndexableResultType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, CheckpointWriteWorkerType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, IntermediateResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>>
+public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutForest, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, CheckpointDaoType extends CheckpointDao<RCFModelType, IndexType, IndexManagementType>, CheckpointWriteWorkerType extends CheckpointWriteWorker<RCFModelType, IndexType, IndexManagementType, CheckpointDaoType>, ColdStarterType extends ModelColdStart<RCFModelType, IndexType, IndexManagementType, IndexableResultType>, CacheType extends TimeSeriesCache<RCFModelType>, IndexableResultType extends IndexableResult, IntermediateResultType extends IntermediateResult<IndexableResultType>, ModelManagerType extends ModelManager<RCFModelType, IndexableResultType, IntermediateResultType, IndexType, IndexManagementType, CheckpointDaoType, ColdStarterType>, SaveResultStrategyType extends SaveResultStrategy<IndexableResultType, IntermediateResultType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>>
     extends SingleRequestWorker<FeatureRequest> {
     private static final Logger LOG = LogManager.getLogger(ColdStartWorker.class);
 
@@ -62,6 +62,7 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
     private final ModelManagerType modelManager;
     private final SaveResultStrategyType resultSaver;
     private final TaskManagerType taskManager;
+    protected final CheckpointWriteWorkerType checkpointWriteWorker;
 
     public ColdStartWorker(
         String workerName,
@@ -88,7 +89,8 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
         AnalysisType context,
         ModelManagerType modelManager,
         SaveResultStrategyType resultSaver,
-        TaskManagerType taskManager
+        TaskManagerType taskManager,
+        CheckpointWriteWorkerType checkpointWriteWorker
     ) {
         super(
             workerName,
@@ -117,6 +119,7 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
         this.modelManager = modelManager;
         this.resultSaver = resultSaver;
         this.taskManager = taskManager;
+        this.checkpointWriteWorker = checkpointWriteWorker;
     }
 
     @Override
@@ -176,11 +179,14 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
                                         ? new ParameterizedMessage("Loaded model {}.", modelState.getModelId())
                                         : new ParameterizedMessage("Failed to load model {}.", modelState.getModelId())
                                 );
+                            // wait until we have scored the current sample before writing to checkpoint
+                            // this is to let long frequency model to have latest checkpoint when loaded later.
+                            checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
                         }
                     } else {
-                        // run once scenario
                         String taskId = coldStartRequest.getTaskId();
                         if (taskId != null) {
+                            // run once scenario
                             Map<String, Object> updatedFields = new HashMap<>();
                             updatedFields.put(TimeSeriesTask.STATE_FIELD, TaskState.INACTIVE.name());
                             updatedFields.put(TimeSeriesTask.ERROR_FIELD, CommonMessages.NOT_ENOUGH_DATA);
@@ -188,6 +194,10 @@ public abstract class ColdStartWorker<RCFModelType extends ThresholdedRandomCutF
                             taskManager.updateTask(taskId, updatedFields, ActionListener.wrap(updateResponse -> {
                                 LOG.info("Updated task {} for config {}", taskId, configId);
                             }, e -> { LOG.error("Failed to update task: {} for config: {}", taskId, configId, e); }));
+                        } else if (modelState.getSamples().size() > 0) {
+                            // real time scenario: not enough data to train model so model is still null
+                            // write samples to checkpoint
+                            checkpointWriteWorker.write(modelState, true, RequestPriority.MEDIUM);
                         }
                     }
                 } finally {

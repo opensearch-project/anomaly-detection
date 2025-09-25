@@ -91,7 +91,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             customResultIndexMinAge,
             customResultIndexTTL,
             flattenResultIndexMapping,
-            lastUpdateTime
+            lastUpdateTime,
+            forecastInterval
         );
 
         assertEquals(forecasterId, forecaster.getId());
@@ -146,7 +147,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         });
 
@@ -186,7 +188,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         });
 
@@ -226,7 +229,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         });
 
@@ -266,7 +270,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         });
 
@@ -306,7 +311,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         });
 
@@ -345,7 +351,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
             customResultIndexMinAge,
             customResultIndexTTL,
             flattenResultIndexMapping,
-            lastUpdateTime
+            lastUpdateTime,
+            forecastInterval
         );
 
         assertEquals(resultIndex, forecaster.getCustomResultIndexOrAlias());
@@ -382,7 +389,8 @@ public class ForecasterTests extends AbstractTimeSeriesTest {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         });
 

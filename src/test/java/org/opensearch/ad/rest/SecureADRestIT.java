@@ -665,7 +665,8 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            aliceDetector.getFrequency()
         );
 
         if (isResourceSharingFeatureEnabled()) {

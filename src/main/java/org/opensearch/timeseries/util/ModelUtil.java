@@ -20,6 +20,8 @@ import org.opensearch.timeseries.model.Config;
 import com.amazon.randomcutforest.RandomCutForest;
 import com.amazon.randomcutforest.parkservices.AnomalyDescriptor;
 import com.amazon.randomcutforest.parkservices.ForecastDescriptor;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.returntypes.RCFComputeDescriptor;
 
 public class ModelUtil {
     public static ImputedFeatureResult calculateImputedFeatures(
@@ -168,5 +170,32 @@ public class ModelUtil {
         }
         int baseDimensions = forest.getDimensions() / shingleSize;
         return new double[baseDimensions];
+    }
+
+    /**
+     * Returns the timestamp (seconds since epoch) of the most recent input the model
+     * has processed, via the PredictorCorrector's last descriptor.
+     *
+     * <p>Returns {@code 0} when the model has not yet seen any input or when the
+     * in-memory state/descriptor is unavailable (e.g., after a crash or before a
+     * checkpoint restore). Callers can treat {@code 0} as a signal to cold-start.
+     * 
+     * This is useful to know when to impute or requery. Can be used in either
+     * frequency is larger than interval, or the model lost state since its last
+     * checkpoint due to node crash for example.
+     *
+     * <p>This method is null-safe.
+     *
+     * @param model the RCF model; may be {@code null}
+     * @return last input timestamp in seconds, or {@code 0} if unavailable
+     */
+    public static long getLastInputTimestampSeconds(ThresholdedRandomCutForest model) {
+        if (model == null || model.getPredictorCorrector() == null)
+            return 0L;
+
+        RCFComputeDescriptor last = model.getPredictorCorrector().getLastDescriptor();
+        // if last descriptor is null, it means the model is not trained yet, so we need to trigger cold start.
+        // 0 would make the diffSecs be large enough to trigger cold start
+        return (last != null) ? last.getInputTimestamp() : 0L;
     }
 }

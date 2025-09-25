@@ -16,12 +16,16 @@ import java.util.NavigableSet;
 import java.util.TreeMap;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.timeseries.AbstractSyntheticDataTest;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 
 import com.google.gson.JsonObject;
 
 public abstract class AbstractMissingSingleFeatureTestCase extends MissingIT {
+    protected static final Logger LOG = (Logger) LogManager.getLogger(AbstractMissingSingleFeatureTestCase.class);
+
     @Override
     protected String genDetector(
         int trainTestSplit,

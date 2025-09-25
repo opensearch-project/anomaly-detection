@@ -25,7 +25,6 @@ import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.IgnoreSimilarExtractor.ThresholdArrays;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
-import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -36,7 +35,6 @@ import org.opensearch.timeseries.ml.ModelColdStart;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
-import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.ModelUtil;
 import org.opensearch.timeseries.util.ParseUtils;
@@ -51,8 +49,7 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * Training models for HCAD detectors
  *
  */
-public class ADColdStart extends
-    ModelColdStart<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, AnomalyResult> {
+public class ADColdStart extends ModelColdStart<ThresholdedRandomCutForest, ADIndex, ADIndexManagement, AnomalyResult> {
     private static final Logger logger = LogManager.getLogger(ADColdStart.class);
 
     /**
@@ -73,7 +70,6 @@ public class ADColdStart extends
      * @param modelTtl time-to-live before last access time of the cold start cache.
      *   We have a cache to record entities that have run cold starts to avoid
      *   repeated unsuccessful cold start.
-     * @param checkpointWriteWorker queue to insert model checkpoints
      * @param rcfSeed rcf random seed
      * @param maxRoundofColdStart max number of rounds of cold start
      * @param coolDownMinutes cool down minutes when OpenSearch is overloaded
@@ -91,7 +87,6 @@ public class ADColdStart extends
         double thresholdMinPvalue,
         FeatureManager featureManager,
         Duration modelTtl,
-        ADCheckpointWriteWorker checkpointWriteWorker,
         long rcfSeed,
         int maxRoundofColdStart,
         int coolDownMinutes,
@@ -103,7 +98,6 @@ public class ADColdStart extends
             clock,
             threadPool,
             numMinSamples,
-            checkpointWriteWorker,
             rcfSeed,
             numberOfTrees,
             rcfSampleSize,
@@ -133,7 +127,6 @@ public class ADColdStart extends
         double thresholdMinPvalue,
         FeatureManager featureManager,
         Duration modelTtl,
-        ADCheckpointWriteWorker checkpointWriteQueue,
         int maxRoundofColdStart,
         int coolDownMinutes,
         int resultSchemaVersion
@@ -151,7 +144,6 @@ public class ADColdStart extends
             thresholdMinPvalue,
             featureManager,
             modelTtl,
-            checkpointWriteQueue,
             -1,
             maxRoundofColdStart,
             coolDownMinutes,
@@ -300,14 +292,11 @@ public class ADColdStart extends
                 );
         }
 
+        // - lastUsedTime is now updated inside ModelState.setModel()/getModel()/setPriority.
+        // - checkpointing is intentionally deferred; ColdStartWorker will persist once score samples
+        // are available so long-frequency models checkpoint a more current snapshot.
+
         entityState.setModel(trcf);
-
-        entityState.setLastUsedTime(clock.instant());
-
-        // save to checkpoint for real time only
-        if (null == taskId) {
-            checkpointWriteWorker.write(entityState, true, RequestPriority.MEDIUM);
-        }
 
         return results;
     }

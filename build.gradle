@@ -147,9 +147,10 @@ dependencies {
     implementation group: 'com.yahoo.datasketches', name: 'sketches-core', version: '0.13.4'
     implementation group: 'com.yahoo.datasketches', name: 'memory', version: '0.12.2'
     implementation group: 'org.apache.commons', name: 'commons-pool2', version: '2.12.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.3.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.3.0'
-    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.3.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.4.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.4.0'
+    implementation 'software.amazon.randomcutforest:randomcutforest-core:4.4.0'
+
 
     // we inherit jackson-core from opensearch core
     implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
@@ -410,6 +411,13 @@ integTest {
     if (System.getProperty("long-running") == null || System.getProperty("long-running") == "false") {
         filter {
             excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamSmokeIT"
+            excludeTestsMatching "org.opensearch.ad.e2e.RealTimeFrequencySmokeIT"
+        }
+    }
+
+    if (System.getProperty("perf") == null || System.getProperty("perf") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.BatchADSchedulingCheckpointIT"
         }
     }
 
@@ -471,6 +479,7 @@ testClusters.integTest {
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
     configureClusterPlugins(delegate, jobSchedulerFile, securityPluginFile, securityEnabled)
+    nodes.each { it.jvmArgs("-Xms1g", "-Xmx1g") }
 }
 
 testClusters {
@@ -1011,7 +1020,6 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.transport.ResultProcessor.PageListener.1',
         'org.opensearch.ad.transport.ADHCImputeRequest',
         'org.opensearch.timeseries.transport.BaseDeleteConfigTransportAction.1',
         'org.opensearch.timeseries.transport.BaseSuggestConfigParamTransportAction',

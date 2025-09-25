@@ -21,7 +21,8 @@ import org.opensearch.forecast.ratelimit.ForecastColdStartWorker;
 import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
 import org.opensearch.forecast.task.ForecastTaskManager;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
@@ -41,7 +42,7 @@ public class ForecastRealTimeInferencer extends
         ForecastCacheProvider cache,
         ThreadPool threadPool,
         Clock clock,
-        NodeStateManager manage
+        SearchFeatureDao searchFeatureDao
     ) {
         super(
             modelManager,
@@ -54,7 +55,8 @@ public class ForecastRealTimeInferencer extends
             threadPool,
             FORECAST_THREAD_POOL_NAME,
             clock,
-            manage
+            searchFeatureDao,
+            AnalysisType.FORECAST
         );
     }
 

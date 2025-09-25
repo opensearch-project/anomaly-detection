@@ -41,6 +41,7 @@ import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.TimeUtil;
 import org.owasp.encoder.Encode;
 
 import com.google.common.base.Objects;
@@ -86,6 +87,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     // the UI appear cluttered and unclear.
     // We cannot use last update time as it would change whenever other fields like name changes.
     public static final String BREAKING_UI_CHANGE_TIME = "last_ui_breaking_change_time";
+    public static final String FREQUENCY_FIELD = "frequency";
 
     protected String id;
     protected Long version;
@@ -127,6 +129,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected Integer customResultIndexTTL;
     protected Boolean flattenResultIndexMapping;
     protected Instant lastUIBreakingChangeTime;
+    protected TimeConfiguration frequency;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -159,7 +162,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
         Boolean flattenResultIndexMapping,
-        Instant lastBreakingUIChangeTime
+        Instant lastBreakingUIChangeTime,
+        TimeConfiguration frequency
     ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
@@ -279,6 +283,39 @@ public abstract class Config implements Writeable, ToXContentObject {
             }
         }
 
+        if (frequency != null && interval != null) {
+            Duration frequencyDuration = ((IntervalTimeConfiguration) frequency).toDuration();
+            Duration intervalDuration = ((IntervalTimeConfiguration) interval).toDuration();
+            // Check if frequency is NOT a multiple of interval
+            if (!TimeUtil.isMultiple(frequencyDuration, intervalDuration)) {
+                issueType = ValidationIssueType.FREQUENCY;
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "Frequency (%s) must be a multiple of interval (%s), including the interval itself.",
+                        frequency.toString(),
+                        interval.toString()
+                    );
+                return;
+            }
+
+            // Check if the multiple exceeds the maximum allowed value
+            long multiple = TimeUtil.getMultiple(frequencyDuration, intervalDuration);
+            if (multiple > TimeSeriesSettings.MAX_FREQUENCY_MULTIPLE) {
+                issueType = ValidationIssueType.FREQUENCY;
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "Frequency multiple (%d) exceeds the maximum allowed value (%d). Frequency: %s, Interval: %s.",
+                        multiple,
+                        TimeSeriesSettings.MAX_FREQUENCY_MULTIPLE,
+                        frequency.toString(),
+                        interval.toString()
+                    );
+                return;
+            }
+        }
+
         this.id = id;
         this.version = version;
         this.name = name;
@@ -309,6 +346,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
         this.flattenResultIndexMapping = Strings.trimToNull(resultIndex) == null ? null : flattenResultIndexMapping;
         this.lastUIBreakingChangeTime = lastBreakingUIChangeTime;
+        // by default, frequency is the same as interval
+        this.frequency = frequency == null ? interval : frequency;
     }
 
     /**
@@ -407,6 +446,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexTTL = input.readOptionalInt();
         this.flattenResultIndexMapping = input.readOptionalBoolean();
         this.lastUIBreakingChangeTime = input.readOptionalInstant();
+        this.frequency = IntervalTimeConfiguration.readFrom(input);
     }
 
     /*
@@ -461,6 +501,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeOptionalInt(customResultIndexTTL);
         output.writeOptionalBoolean(flattenResultIndexMapping);
         output.writeOptionalInstant(lastUIBreakingChangeTime);
+        frequency.writeTo(output);
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -518,7 +559,8 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(customResultIndexMinSize, config.customResultIndexMinSize)
             && Objects.equal(customResultIndexMinAge, config.customResultIndexMinAge)
             && Objects.equal(customResultIndexTTL, config.customResultIndexTTL)
-            && Objects.equal(flattenResultIndexMapping, config.flattenResultIndexMapping);
+            && Objects.equal(flattenResultIndexMapping, config.flattenResultIndexMapping)
+            && Objects.equal(frequency, config.frequency);
     }
 
     @Generated
@@ -546,7 +588,8 @@ public abstract class Config implements Writeable, ToXContentObject {
                 customResultIndexMinSize,
                 customResultIndexMinAge,
                 customResultIndexTTL,
-                flattenResultIndexMapping
+                flattenResultIndexMapping,
+                frequency
             );
     }
 
@@ -602,6 +645,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (lastUIBreakingChangeTime != null) {
             builder.field(BREAKING_UI_CHANGE_TIME, lastUIBreakingChangeTime.toEpochMilli());
+        }
+        if (frequency != null) {
+            builder.field(FREQUENCY_FIELD, frequency);
         }
         return builder;
     }
@@ -697,6 +743,22 @@ public abstract class Config implements Writeable, ToXContentObject {
 
     public User getUser() {
         return user;
+    }
+
+    public TimeConfiguration getFrequency() {
+        return frequency;
+    }
+
+    public long getFrequencyInMilliseconds() {
+        return ((IntervalTimeConfiguration) getFrequency()).toDuration().toMillis();
+    }
+
+    public long getFrequencyInMinutes() {
+        return getFrequencyInMilliseconds() / 1000 / 60;
+    }
+
+    public Duration getFrequencyDuration() {
+        return ((IntervalTimeConfiguration) getFrequency()).toDuration();
     }
 
     public void setUser(User user) {
@@ -886,6 +948,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             .append("customResultIndexMinAge", customResultIndexMinAge)
             .append("customResultIndexTTL", customResultIndexTTL)
             .append("flattenResultIndexMapping", flattenResultIndexMapping)
+            .append("frequency", frequency)
             .toString();
     }
 
@@ -907,7 +970,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         return 1;
     }
 
-    public boolean isLongInterval() {
-        return getIntervalDuration().compareTo(TimeSeriesSettings.HOURLY_MAINTENANCE) >= 0;
+    public boolean isLongFrequency() {
+        return getFrequencyDuration().compareTo(TimeSeriesSettings.HOURLY_MAINTENANCE) >= 0;
     }
 }

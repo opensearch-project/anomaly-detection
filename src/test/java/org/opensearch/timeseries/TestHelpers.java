@@ -437,7 +437,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            lastUpdateTime
+            lastUpdateTime,
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES)
         );
     }
 
@@ -493,7 +494,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES)
         );
     }
 
@@ -531,6 +533,7 @@ public class TestHelpers {
         String resultIndex
     ) throws IOException {
         List<Feature> features = ImmutableList.of(randomFeature(true));
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             detectorId,
             randomLong(),
@@ -540,7 +543,7 @@ public class TestHelpers {
             indices,
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -560,7 +563,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval
         );
     }
 
@@ -573,6 +577,7 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName, List<Feature> features) throws IOException {
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -582,7 +587,7 @@ public class TestHelpers {
             ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -602,12 +607,14 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval
         );
     }
 
     public static AnomalyDetector randomAnomalyDetectorWithFlattenResultIndex(String timefield, String indexName, List<Feature> features)
         throws IOException {
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -617,7 +624,7 @@ public class TestHelpers {
             ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -637,11 +644,13 @@ public class TestHelpers {
             null,
             null,
             true,
-            Instant.now()
+            Instant.now(),
+            interval
         );
     }
 
     public static AnomalyDetector randomAnomalyDetectorWithEmptyFeature() throws IOException {
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -651,7 +660,7 @@ public class TestHelpers {
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(),
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -671,7 +680,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval
         );
     }
 
@@ -712,7 +722,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval
         );
     }
 
@@ -891,7 +902,8 @@ public class TestHelpers {
                 null,
                 null,
                 null,
-                lastUpdateTime
+                lastUpdateTime,
+                detectionInterval
             );
         }
     }
@@ -929,7 +941,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval
         );
     }
 
@@ -2106,7 +2119,8 @@ public class TestHelpers {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval
             );
         }
     }
@@ -2114,6 +2128,7 @@ public class TestHelpers {
     public static Forecaster randomForecaster() throws IOException {
         Feature feature = randomFeature();
         List<Feature> featureList = ImmutableList.of(feature);
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new Forecaster(
             randomAlphaOfLength(10),
             randomLong(),
@@ -2123,7 +2138,7 @@ public class TestHelpers {
             ImmutableList.of(randomAlphaOfLength(10)),
             featureList,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(4, 20),
             ImmutableMap.of(randomAlphaOfLength(5), randomAlphaOfLength(10)),
@@ -2143,7 +2158,8 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval
         );
     }
 

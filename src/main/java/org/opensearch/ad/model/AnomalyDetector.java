@@ -155,6 +155,7 @@ public class AnomalyDetector extends Config {
      * @param flattenResultIndexMapping flag to indicate whether to flatten result index mapping or not
      * @param lastBreakingUIChangeTime last update time to configuration that can break UI and we have
      *  to display updates from the changed time
+     * @param frequency frequency of the detector
      */
     public AnomalyDetector(
         String detectorId,
@@ -183,7 +184,8 @@ public class AnomalyDetector extends Config {
         Integer customResultIndexMinAge,
         Integer customResultIndexTTL,
         Boolean flattenResultIndexMapping,
-        Instant lastBreakingUIChangeTime
+        Instant lastBreakingUIChangeTime,
+        TimeConfiguration frequency
     ) {
         super(
             detectorId,
@@ -212,7 +214,8 @@ public class AnomalyDetector extends Config {
             customResultIndexMinAge,
             customResultIndexTTL,
             flattenResultIndexMapping,
-            lastBreakingUIChangeTime
+            lastBreakingUIChangeTime,
+            frequency
         );
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
@@ -293,6 +296,7 @@ public class AnomalyDetector extends Config {
         this.customResultIndexTTL = input.readOptionalInt();
         this.flattenResultIndexMapping = input.readOptionalBoolean();
         this.lastUIBreakingChangeTime = input.readOptionalInstant();
+        this.frequency = IntervalTimeConfiguration.readFrom(input);
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -360,6 +364,7 @@ public class AnomalyDetector extends Config {
         output.writeOptionalInt(customResultIndexTTL);
         output.writeOptionalBoolean(flattenResultIndexMapping);
         output.writeOptionalInstant(lastUIBreakingChangeTime);
+        frequency.writeTo(output);
     }
 
     @Override
@@ -458,6 +463,8 @@ public class AnomalyDetector extends Config {
         Integer customResultIndexTTL = null;
         Boolean flattenResultIndexMapping = null;
         Instant lastBreakingUIChangeTime = null;
+        // by default, frequency is the same as interval when not set
+        TimeConfiguration frequency = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -603,6 +610,20 @@ public class AnomalyDetector extends Config {
                 case BREAKING_UI_CHANGE_TIME:
                     lastBreakingUIChangeTime = ParseUtils.toInstant(parser);
                     break;
+                case FREQUENCY_FIELD:
+                    try {
+                        frequency = TimeConfiguration.parse(parser);
+                    } catch (Exception e) {
+                        if (e instanceof IllegalArgumentException && e.getMessage().contains(CommonMessages.NEGATIVE_TIME_CONFIGURATION)) {
+                            throw new ValidationException(
+                                "Frequency must be a positive integer",
+                                ValidationIssueType.FREQUENCY,
+                                ValidationAspect.DETECTOR
+                            );
+                        }
+                        throw e;
+                    }
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -635,7 +656,8 @@ public class AnomalyDetector extends Config {
             customResultIndexMinAge,
             customResultIndexTTL,
             flattenResultIndexMapping,
-            lastBreakingUIChangeTime
+            lastBreakingUIChangeTime,
+            frequency
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;

@@ -723,7 +723,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            adCheckpointWriteQueue,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
             (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes()),
             anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
@@ -818,7 +817,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             adPriorityCache,
             adModelManager,
             adSaveResultStrategy,
-            adTaskManager
+            adTaskManager,
+            adCheckpointWriteQueue
         );
 
         Map<String, TimeSeriesStat<?>> adStatsMap = ImmutableMap
@@ -881,7 +881,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             adCacheProvider,
             threadPool,
             getClock(),
-            stateManager
+            searchFeatureDao
         );
 
         ADCheckpointReadWorker adCheckpointReadQueue = new ADCheckpointReadWorker(
@@ -1134,7 +1134,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            forecastCheckpointWriteQueue,
             (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes()),
             -1, // no hard coded random seed
             -1, // interpolation is disabled so we don't need to specify the number of sampled points
@@ -1216,7 +1215,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             forecastPriorityCache,
             forecastModelManager,
             forecastSaveResultStrategy,
-            forecastTaskManager
+            forecastTaskManager,
+            forecastCheckpointWriteQueue
         );
 
         Map<String, TimeSeriesStat<?>> forecastStatsMap = ImmutableMap
@@ -1268,7 +1268,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             forecastCacheProvider,
             threadPool,
             getClock(),
-            stateManager
+            searchFeatureDao
         );
 
         ForecastCheckpointReadWorker forecastCheckpointReadQueue = new ForecastCheckpointReadWorker(

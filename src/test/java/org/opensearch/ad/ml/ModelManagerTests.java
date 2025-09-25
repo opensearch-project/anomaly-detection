@@ -55,7 +55,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.ratelimit.ADCheckpointWriteWorker;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
@@ -763,7 +762,10 @@ public class ModelManagerTests {
             listener.onResponse(null);
             return null;
         }).when(checkpointDao).putTRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
-        when(clock.instant()).thenReturn(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH.plus(modelTtl.plusSeconds(1)));
+        // Ensure maintenance sees time after TTL expiry. There are 3 clock calls
+        // before maintenance (ModelState ctor, put, first getModel), so return EPOCH
+        // three times, then EPOCH + TTL + 1 for maintenance and subsequent calls.
+        when(clock.instant()).thenReturn(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH, Instant.EPOCH.plus(modelTtl.plusSeconds(1)));
         ActionListener<ThresholdingResult> scoreListener = mock(ActionListener.class);
         modelManager.getTRcfResult(detectorId, rcfModelId, point, scoreListener);
 
@@ -772,7 +774,9 @@ public class ModelManagerTests {
         verify(listener).onResponse(eq(null));
 
         modelManager.getTRcfResult(detectorId, rcfModelId, point, scoreListener);
-        verify(checkpointDao, times(2)).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
+        verify(checkpointDao, times(1)).putTRCFCheckpoint(eq(rcfModelId), eq(forest), any(ActionListener.class));
+        // once because we have already cached model in the first getTRcfResult call and no need to get checkpoint again
+        verify(checkpointDao, times(1)).getTRCFModel(eq(rcfModelId), any(ActionListener.class));
     }
 
     @Test
@@ -881,8 +885,6 @@ public class ModelManagerTests {
             threadPool
         );
 
-        ADCheckpointWriteWorker checkpointWriteQueue = mock(ADCheckpointWriteWorker.class);
-
         entityColdStarter = new ADColdStart(
             clock,
             threadPool,
@@ -896,7 +898,6 @@ public class ModelManagerTests {
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            checkpointWriteQueue,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
             1,
             0
@@ -964,7 +965,7 @@ public class ModelManagerTests {
     @Test
     public void scoreSamples() {
         ModelState<ThresholdedRandomCutForest> state = MLUtil
-            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build());
+            .randomModelState(new RandomModelStateConfig.Builder().fullModel(true).clock(clock).build());
         modelManager.getResult(new Sample(new double[] { -1 }, Instant.now(), Instant.now()), state, "", anomalyDetector, "");
         assertEquals(0, state.getSamples().size());
         assertEquals(now, state.getLastUsedTime());

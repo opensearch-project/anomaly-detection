@@ -2673,7 +2673,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         return response;
     }
 
-    public void testCreateDetector() throws Exception {
+    public void testCreateForecaster() throws Exception {
         // Case 1: users cannot specify forecaster id when creating a forecaster
         Instant trainTime = loadRuleData(200);
         String forecasterDef = "{\n"

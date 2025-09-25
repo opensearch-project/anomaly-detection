@@ -57,9 +57,18 @@ public class MLUtil {
     }
 
     public static Deque<Sample> createQueueSamples(int size) {
+        // 1 ms between samples; tweak as desired
+        return createQueueSamples(size, Instant.now(), 1000);
+    }
+
+    /**
+     * Create a queue of samples with the given size and base time.
+     * @param size the number of samples
+     * @param base the base time, t0
+     * @return the queue of samples
+     */
+    public static Deque<Sample> createQueueSamples(int size, Instant base, long stepMillis) {
         Deque<Sample> res = new ArrayDeque<>();
-        Instant base = Instant.now();                  // t0
-        long stepMillis = 1000;                           // 1 ms between samples; tweak as desired
 
         IntStream.range(0, size).forEach(i -> {
             Instant ts = base.plusMillis(i * stepMillis);
@@ -81,6 +90,7 @@ public class MLUtil {
         String detectorId = config.getId() != null ? config.getId() : randomString(15);
         int sampleSize = config.getSampleSize() != null ? config.getSampleSize() : random.nextInt(minSampleSize);
         Clock clock = config.getClock() != null ? config.getClock() : Clock.systemUTC();
+        Instant historyEnd = config.getHistoryEnd() != null ? config.getHistoryEnd() : Instant.now();
 
         Entity entity = null;
         if (config.hasEntityAttributes()) {
@@ -93,9 +103,11 @@ public class MLUtil {
         }
         Pair<ThresholdedRandomCutForest, Deque<Sample>> model = null;
         if (fullModel) {
-            model = createNonEmptyModel(detectorId, sampleSize, entity);
+            model = createNonEmptyModel(detectorId, sampleSize, entity, historyEnd);
         } else {
-            model = createEmptyModel(entity, sampleSize);
+            long stepMillis = 60 * 1000;
+            Instant historyStart = Instant.ofEpochSecond(historyEnd.getEpochSecond() - sampleSize * stepMillis);
+            model = createEmptyModel(entity, sampleSize, historyStart, stepMillis);
         }
 
         return new ModelState<ThresholdedRandomCutForest>(
@@ -110,13 +122,14 @@ public class MLUtil {
         );
     }
 
-    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createEmptyModel(Entity entity, int sampleSize) {
-        Deque<Sample> samples = createQueueSamples(sampleSize);
+    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createEmptyModel(
+        Entity entity,
+        int sampleSize,
+        Instant historyStart,
+        long stepMillis
+    ) {
+        Deque<Sample> samples = createQueueSamples(sampleSize, historyStart, stepMillis);
         return Pair.of(null, samples);
-    }
-
-    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createEmptyModel(Entity entity) {
-        return createEmptyModel(entity, random.nextInt(minSampleSize));
     }
 
     public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createNonEmptyModel(String detectorId, int sampleSize, Entity entity) {
@@ -140,6 +153,37 @@ public class MLUtil {
         );
         for (int i = 0; i < numDataPoints; i++) {
             trcf.process(new double[] { random.nextDouble() }, i);
+        }
+        return Pair.of(trcf, samples);
+    }
+
+    public static Pair<ThresholdedRandomCutForest, Deque<Sample>> createNonEmptyModel(
+        String detectorId,
+        int sampleSize,
+        Entity entity,
+        Instant historyEnd
+    ) {
+        Deque<Sample> samples = createQueueSamples(sampleSize);
+        int numDataPoints = random.nextInt(1000) + TimeSeriesSettings.NUM_MIN_SAMPLES;
+        long currentTimeEpochSecond = historyEnd.getEpochSecond() - numDataPoints * 60;
+        ThresholdedRandomCutForest trcf = new ThresholdedRandomCutForest(
+            ThresholdedRandomCutForest
+                .builder()
+                .dimensions(1)
+                .sampleSize(TimeSeriesSettings.NUM_SAMPLES_PER_TREE)
+                .numberOfTrees(TimeSeriesSettings.NUM_TREES)
+                .timeDecay(0.0001)
+                .outputAfter(TimeSeriesSettings.NUM_MIN_SAMPLES)
+                .initialAcceptFraction(0.125d)
+                .parallelExecutionEnabled(false)
+                .internalShinglingEnabled(true)
+                .anomalyRate(1 - TimeSeriesSettings.THRESHOLD_MIN_PVALUE)
+                .transformMethod(TransformMethod.NORMALIZE)
+                .alertOnce(true)
+                .autoAdjust(true)
+        );
+        for (int i = 0; i < numDataPoints; i++) {
+            trcf.process(new double[] { random.nextDouble() }, currentTimeEpochSecond + i * 60);
         }
         return Pair.of(trcf, samples);
     }

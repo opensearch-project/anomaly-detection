@@ -877,7 +877,8 @@ public class IndexAnomalyDetectorActionHandlerTests extends AbstractTimeSeriesTe
                         detector.getCustomResultIndexMinAge(),
                         detector.getCustomResultIndexTTL(),
                         false,
-                        Instant.now()
+                        Instant.now(),
+                        detector.getFrequency()
                     );
                     try {
                         listener.onResponse((Response) TestHelpers.createGetResponse(clone, clone.getId(), ADCommonName.CONFIG_INDEX));
