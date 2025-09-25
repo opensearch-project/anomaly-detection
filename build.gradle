@@ -192,6 +192,8 @@ dependencies {
     opensearchPlugin "org.opensearch.plugin:opensearch-job-scheduler:${opensearch_build}@zip"
     opensearchPlugin "org.opensearch.plugin:opensearch-security:${opensearch_build}@zip"
     testImplementation 'org.reflections:reflections:0.10.2'
+
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
 }
 
 apply plugin: 'java'
@@ -260,7 +262,6 @@ configurations.all {
         force "commons-logging:commons-logging:${versions.commonslogging}"
         force "org.apache.httpcomponents.core5:httpcore5:${versions.httpcore5}"
         force "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
-        force "commons-codec:commons-codec:${versions.commonscodec}"
 
         force "org.mockito:mockito-core:5.14.2"
         force "org.objenesis:objenesis:3.4"
