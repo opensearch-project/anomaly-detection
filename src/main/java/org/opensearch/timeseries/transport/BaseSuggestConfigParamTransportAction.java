@@ -11,9 +11,9 @@ import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndP
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,6 +23,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.transport.ADSuggestName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -30,7 +31,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.forecast.transport.SuggestName;
+import org.opensearch.forecast.transport.ForecastSuggestName;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.Name;
@@ -59,7 +60,7 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     protected volatile Boolean filterByEnabled;
     protected Clock clock;
     protected AnalysisType context;
-    protected final Set<String> allSuggestParamStrs;
+    protected Set<String> allSuggestParamStrs;
     private final Settings settings;
 
     public BaseSuggestConfigParamTransportAction(
@@ -82,8 +83,11 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         this.clock = Clock.systemUTC();
         this.context = context;
         this.searchFeatureDao = searchFeatureDao;
-        List<SuggestName> allSuggestParams = Arrays.asList(SuggestName.values());
-        this.allSuggestParamStrs = Name.getListStrs(allSuggestParams);
+        if (context.isAD()) {
+            this.allSuggestParamStrs = Name.getListStrs(Arrays.asList(ADSuggestName.values()));
+        } else {
+            this.allSuggestParamStrs = Name.getListStrs(Arrays.asList(ForecastSuggestName.values()));
+        }
         this.settings = settings;
     }
 
@@ -327,11 +331,17 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     /**
     *
     * @param typesStr a list of input suggest types separated by comma
-    * @return parameters to suggest for a forecaster
+    * @return parameters to suggest for a forecaster or detector
     */
-    protected Set<SuggestName> getParametersToSuggest(String typesStr) {
+    protected Set<? extends Name> getParametersToSuggest(String typesStr) {
         // Filter out unsupported params
         Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
-        return SuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
+
+        if (context.isAD()) {
+            return ADSuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
+        } else if (context.isForecast()) {
+            return ForecastSuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
+        }
+        return Collections.emptySet();
     }
 }
