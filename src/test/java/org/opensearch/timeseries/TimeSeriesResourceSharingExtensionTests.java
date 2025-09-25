@@ -16,10 +16,9 @@ import static org.mockito.Mockito.mock;
 import java.util.Set;
 
 import org.opensearch.ad.ADUnitTestCase;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
-import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.forecast.indices.ForecastIndex;
-import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.security.spi.resources.ResourceProvider;
 import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
@@ -42,7 +41,7 @@ public class TimeSeriesResourceSharingExtensionTests extends ADUnitTestCase {
 
         ResourceProvider anomalyProvider = providers
             .stream()
-            .filter(p -> AnomalyDetector.class.getCanonicalName().equals(p.resourceType()))
+            .filter(p -> ADCommonName.AD_RESOURCE_TYPE.equals(p.resourceType()))
             .findFirst()
             .orElseThrow(() -> new AssertionError("AnomalyDetector provider missing"));
         assertEquals(
@@ -53,7 +52,7 @@ public class TimeSeriesResourceSharingExtensionTests extends ADUnitTestCase {
 
         ResourceProvider forecastProvider = providers
             .stream()
-            .filter(p -> Forecaster.class.getCanonicalName().equals(p.resourceType()))
+            .filter(p -> ADCommonName.AD_RESOURCE_TYPE.equals(p.resourceType()))
             .findFirst()
             .orElseThrow(() -> new AssertionError("Forecaster provider missing"));
         assertEquals(
