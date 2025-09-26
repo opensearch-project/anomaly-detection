@@ -728,27 +728,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
         if (isResourceSharingFeatureEnabled()) {
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return TestHelpers
-                        .makeRequest(
-                            fullClient,
-                            "GET",
-                            String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
-                            null,
-                            "",
-                            ImmutableList.of()
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(forecasterId, fullClient);
         }
 
         // case 2: given a forecaster Id, read access user cannot start the forecaster
@@ -1184,7 +1164,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
         total = searchResponse.getHits().getTotalHits().value();
         if (isResourceSharingFeatureEnabled()) {
-            // if resource sharing is enabled read client will not be able to see any forecasters since none are share with
+            // if resource sharing is enabled read client will not be able to see any forecasters since none are share with read user
             assertEquals(0, total);
         } else {
             assertTrue("got: " + total, total > 0);
@@ -1369,7 +1349,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
             total = searchResponse.getHits().getTotalHits().value();
             if (isResourceSharingFeatureEnabled()) {
-                // if resource sharing feature is enabled, user will be able to find forecasters they have created on line 667
+                // if resource sharing feature is enabled, user will be able to find forecasters they have created at the beginning of this
+                // test
                 assertEquals(1, total);
             } else {
                 assertTrue("got: " + total, total == 0);
@@ -1942,20 +1923,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertNotNull(forecasterId);
 
         if (isResourceSharingFeatureEnabled()) {
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return TestHelpers
-                        .makeRequest(client, "GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, "", ImmutableList.of());
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(forecasterId, client);
         }
 
         response = TestHelpers
@@ -2267,27 +2235,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertNotNull(forecasterId);
 
         if (isResourceSharingFeatureEnabled()) {
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return TestHelpers
-                        .makeRequest(
-                            fullClient,
-                            "GET",
-                            String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
-                            null,
-                            "",
-                            ImmutableList.of()
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(forecasterId, fullClient);
         }
 
         responseException = expectThrows(
