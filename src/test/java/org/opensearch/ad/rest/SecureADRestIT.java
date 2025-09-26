@@ -13,7 +13,6 @@ package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.opensearch.ad.constant.ADCommonName.CONFIG_INDEX;
 import static org.opensearch.timeseries.TestHelpers.patchSharingInfo;
 import static org.opensearch.timeseries.TestHelpers.shareConfig;
 import static org.opensearch.timeseries.TestHelpers.shareWithUserPayload;
@@ -76,6 +75,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     RestClient lionClient;
 
     private static final String READ_ONLY_AG = "ad_read_only";
+    private static final String READ_WRITE_AG = "ad_read_write";
     private static final String FULL_ACCESS_AG = "ad_full_access";
 
     String oceanUser = "ocean";
@@ -376,7 +376,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response shareROWithCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, catUser)
             );
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
@@ -387,7 +387,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
             // Non-owner (cat, only read-only) CANNOT share further
             Exception ex = expectThrows(Exception.class, () -> {
-                shareConfig(catClient, Map.of(), shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, bobUser));
+                shareConfig(
+                    catClient,
+                    Map.of(),
+                    shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, bobUser)
+                );
             });
             assertTrue(ex.getMessage(), ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
 
@@ -395,7 +399,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToElk = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, elkUser)
             );
             assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), elkClient);
@@ -407,7 +411,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.BACKEND_ROLES, backendRoles);
             Recipients recipients = new Recipients(recs);
             TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).share(recipients, READ_ONLY_AG);
 
             String patchShareAes = builder.build();
 
@@ -422,7 +426,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             recipients = new Recipients(recs);
             builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
 
             String revokeUserCat = builder.build();
 
@@ -443,7 +447,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             recipients = new Recipients(recs);
             builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
 
             String revokeAes = builder.build();
 
@@ -526,7 +530,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response shareROWithCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, catUser)
             );
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
@@ -548,7 +552,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToElk = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(detId, CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+                shareWithUserPayload(detId, ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, elkUser)
             );
             assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
             waitForSharingVisibility(detId, elkClient);
@@ -559,7 +563,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.BACKEND_ROLES, backendRoles);
             Recipients recipients = new Recipients(recs);
             TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(detId).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+            builder.configId(detId).configType(ADCommonName.AD_RESOURCE_TYPE).share(recipients, READ_ONLY_AG);
 
             String patchShareAes = builder.build();
             Response elkAddsAes = patchSharingInfo(elkClient, Map.of(), patchShareAes);
@@ -582,7 +586,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             recipients = new Recipients(recs);
             builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(detId).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            builder.configId(detId).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
 
             String revokeAes = builder.build();
             Response elkRevokesAes = patchSharingInfo(elkClient, Map.of(), revokeAes);
@@ -653,7 +657,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 randomAlphaOfLength(5),
                 ImmutableList.of("odfe", randomAlphaOfLength(5)),
                 ImmutableList.of(randomAlphaOfLength(5)),
-                ImmutableList.of(randomAlphaOfLength(5))
+                ImmutableList.of("attrKey=attrVal")
             ),
             null,
             aliceDetector.getImputationOption(),
@@ -693,7 +697,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response shareROWithCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, catUser)
             );
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
@@ -705,7 +709,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToElk = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, elkUser)
             );
             assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), elkClient);
@@ -720,7 +724,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             Recipients recipients = new Recipients(recs);
             TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).share(recipients, READ_ONLY_AG);
 
             String catPatchAttempt = builder.build();
 
@@ -734,7 +738,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             recipients = new Recipients(recs);
             builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, FULL_ACCESS_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, FULL_ACCESS_AG);
 
             String revokeElkFull = builder.build();
             Response ownerRevokes = patchSharingInfo(aliceClient, Map.of(), revokeElkFull);
@@ -830,7 +834,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response shareROWithCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, catUser)
             );
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
@@ -844,7 +848,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToElk = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, elkUser)
             );
             assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), elkClient);
@@ -862,7 +866,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             Recipients recipients = new Recipients(recs);
             TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, FULL_ACCESS_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, FULL_ACCESS_AG);
             String revokeElkFull = builder.build();
             Response revokeResp = patchSharingInfo(aliceClient, Map.of(), revokeElkFull);
             assertEquals(200, revokeResp.getStatusLine().getStatusCode());
@@ -940,7 +944,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response shareROWithCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, catUser)
             );
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
@@ -950,7 +954,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
             // Non-owner with read-only cannot escalate sharing
             Exception ex = expectThrows(Exception.class, () -> {
-                shareConfig(catClient, Map.of(), shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, bobUser));
+                shareConfig(
+                    catClient,
+                    Map.of(),
+                    shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, bobUser)
+                );
             });
             assertTrue(ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
 
@@ -958,7 +966,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToElk = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, elkUser)
             );
             assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), elkClient);
@@ -969,7 +977,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             Recipients recipients = new Recipients(recs);
             TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
             String revokeCatUser = builder.build();
 
             Response revoked = patchSharingInfo(elkClient, Map.of(), revokeCatUser);
@@ -1042,7 +1050,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response shareROWithCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, catUser)
             );
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
@@ -1052,7 +1060,11 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
             // Non-owner (cat, read-only) cannot share/revoke
             Exception ex = expectThrows(Exception.class, () -> {
-                shareConfig(catClient, Map.of(), shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, READ_ONLY_AG, bobUser));
+                shareConfig(
+                    catClient,
+                    Map.of(),
+                    shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, READ_ONLY_AG, bobUser)
+                );
             });
             assertTrue(ex.getMessage().contains("no permissions") || ex.getMessage().contains("403"));
 
@@ -1060,7 +1072,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToElk = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, elkUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, elkUser)
             );
             assertEquals(200, grantFullToElk.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), elkClient);
@@ -1071,7 +1083,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             recs.put(Recipient.USERS, users);
             Recipients recipients = new Recipients(recs);
             TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-            builder.configId(aliceDetector.getId()).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+            builder.configId(aliceDetector.getId()).configType(ADCommonName.AD_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
             String revokeCatUser = builder.build();
 
             Response revoked = patchSharingInfo(elkClient, Map.of(), revokeCatUser);
@@ -1129,7 +1141,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Response grantFullToCat = shareConfig(
                 aliceClient,
                 Map.of(),
-                shareWithUserPayload(aliceDetector.getId(), CONFIG_INDEX, FULL_ACCESS_AG, catUser)
+                shareWithUserPayload(aliceDetector.getId(), ADCommonName.AD_RESOURCE_TYPE, FULL_ACCESS_AG, catUser)
             );
             assertEquals(200, grantFullToCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);

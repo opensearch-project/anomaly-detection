@@ -7,7 +7,6 @@ package org.opensearch.forecast.rest;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.opensearch.forecast.constant.ForecastCommonName.CONFIG_INDEX;
 import static org.opensearch.timeseries.TestHelpers.patchSharingInfo;
 import static org.opensearch.timeseries.TestHelpers.shareConfig;
 import static org.opensearch.timeseries.TestHelpers.shareWithUserPayload;
@@ -43,6 +42,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.forecast.AbstractForecastSyntheticDataTest;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastTaskProfile;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.search.SearchHit;
@@ -1790,7 +1790,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         Response shareROWithSde = shareConfig(
             devOpsClient,
             Map.of(),
-            shareWithUserPayload(devOpsForecasterId, CONFIG_INDEX, READ_ONLY_AG, sdeUser)
+            shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, READ_ONLY_AG, sdeUser)
         );
         assertEquals(200, shareROWithSde.getStatusLine().getStatusCode());
         waitForSharingVisibility(devOpsForecasterId, sdeClient);
@@ -1818,7 +1818,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         Response grantFullToFullUser = shareConfig(
             devOpsClient,
             Map.of(),
-            shareWithUserPayload(devOpsForecasterId, CONFIG_INDEX, FULL_ACCESS_AG, fullUser)
+            shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, FULL_ACCESS_AG, fullUser)
         );
         assertEquals(200, grantFullToFullUser.getStatusLine().getStatusCode());
         waitForSharingVisibility(devOpsForecasterId, fullClient);
@@ -1856,7 +1856,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         recs.put(Recipient.BACKEND_ROLES, backends);
         Recipients recipients = new Recipients(recs);
         TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-        builder.configId(devOpsForecasterId).configIndex(CONFIG_INDEX).share(recipients, READ_ONLY_AG);
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).share(recipients, READ_ONLY_AG);
         String patchShareSdeBR = builder.build();
 
         Response fullAddsSdeBR = patchSharingInfo(fullClient, Map.of(), patchShareSdeBR);
@@ -1870,7 +1870,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         recs.put(Recipient.USERS, users);
         recipients = new Recipients(recs);
         builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-        builder.configId(devOpsForecasterId).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
         String revokeSdeUserRO = builder.build();
         Response fullRevokesSdeUser = patchSharingInfo(fullClient, Map.of(), revokeSdeUserRO);
         assertEquals(200, fullRevokesSdeUser.getStatusLine().getStatusCode());
@@ -1887,7 +1887,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         recs.put(Recipient.BACKEND_ROLES, backends);
         recipients = new Recipients(recs);
         builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-        builder.configId(devOpsForecasterId).configIndex(CONFIG_INDEX).revoke(recipients, READ_ONLY_AG);
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
         String revokeSdeBR = builder.build();
 
         Response fullRevokesSdeBR = patchSharingInfo(fullClient, Map.of(), revokeSdeBR);
@@ -1904,7 +1904,11 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         // (3f) Non-owner without full_access cannot share/revoke: SDE tries to share -> 403
         ResponseException sdeShareForbidden = expectThrows(
             ResponseException.class,
-            () -> shareConfig(sdeClient, Map.of(), shareWithUserPayload(devOpsForecasterId, CONFIG_INDEX, READ_ONLY_AG, noUser))
+            () -> shareConfig(
+                sdeClient,
+                Map.of(),
+                shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, READ_ONLY_AG, noUser)
+            )
         );
         Assert.assertEquals(403, sdeShareForbidden.getResponse().getStatusLine().getStatusCode());
 

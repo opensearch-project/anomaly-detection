@@ -6,6 +6,8 @@ resource_types:
       allowed_actions:
         - "cluster:admin/opendistro/ad/detectors/get"
         - "cluster:admin/opendistro/ad/detectors/search"
+        - "cluster:admin/opendistro/ad/detector/validate"
+        - "cluster:admin/opendistro/ad/detector/preview"
 
     ad_read_write:
       allowed_actions:
@@ -21,6 +23,7 @@ resource_types:
       allowed_actions:
         - "cluster:admin/plugin/forecast/forecasters/get"
         - "cluster:admin/plugin/forecast/forecasters/search"
+        - "cluster:admin/plugin/forecast/forecaster/validate"
 
     forecast_read_write:
       allowed_actions:

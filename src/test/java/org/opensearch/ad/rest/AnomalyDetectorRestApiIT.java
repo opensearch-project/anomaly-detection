@@ -248,6 +248,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         int maxRetries = 60;
         int retryIntervalMs = 1000;
 
+        if (isResourceSharingFeatureEnabled()) {
+            // we need to ensure that resource-sharing permission has been updated to allow client() to search
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return getConfig(id, client());
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
+
         Map<String, Object> searchResults = null;
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             Response searchAllResponse = TestHelpers
@@ -2549,6 +2566,23 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyResult anomalyResult = TestHelpers
             .randomHCADAnomalyDetectResult(detector.getId(), null, entityAttrs, 0.5, 0.8, null, 5L, 5L);
         TestHelpers.ingestDataToIndex(client(), customResultIndexName, TestHelpers.toHttpEntity(anomalyResult));
+
+        if (isResourceSharingFeatureEnabled()) {
+            // we need to ensure that resource-sharing permission has been updated to allow client() to search
+            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+                try {
+                    // Try to read it; if 200, you'll get a non-null detector
+                    return getConfig(detector.getId(), client());
+                } catch (Exception e) {
+                    // Treat 403 as eventual-consistency: keep waiting
+                    if (isForbidden(e)) {
+                        return null;
+                    }
+                    // Anything else is unexpected: fail fast
+                    throw e;
+                }
+            }, notNullValue());
+        }
 
         Response response = searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":0, \"end_time_ms\":10}", client());
         Map<String, Object> responseMap = entityAsMap(response);

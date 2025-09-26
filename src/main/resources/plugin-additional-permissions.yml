@@ -6,7 +6,6 @@ cluster_permissions:
 index_permissions:
   - index_patterns:
       - ".opendistro-anomaly-detectors"
-#      - "opensearch-ad-plugin-result-*"
       - ".opendistro-anomaly-results*"
       - ".opendistro-anomaly-checkpoints"
       - ".opendistro-anomaly-detection-state"
@@ -14,6 +13,7 @@ index_permissions:
       - ".opensearch-forecasters"
       - ".opensearch-forecast-checkpoints"
       - ".opensearch-forecast-state"
+      - "opensearch-ad-plugin-result-*"
     allowed_actions:
       - "indices:data/write/index*"
       - "indices:data/read*"

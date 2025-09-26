@@ -280,7 +280,7 @@ public class TestHelpers {
 
     public static class PatchSharingInfoPayloadBuilder {
         private String configId;
-        private String configIndex;
+        private String configType;
         private final Map<String, Recipients> share = new HashMap<>();
         private final Map<String, Recipients> revoke = new HashMap<>();
 
@@ -289,8 +289,8 @@ public class TestHelpers {
             return this;
         }
 
-        public PatchSharingInfoPayloadBuilder configIndex(String resourceIndex) {
-            this.configIndex = resourceIndex;
+        public PatchSharingInfoPayloadBuilder configType(String resourceType) {
+            this.configType = resourceType;
             return this;
         }
 
@@ -342,7 +342,7 @@ public class TestHelpers {
                     %s
                   }
                 }
-                """, configId, configIndex, allShares, allRevokes);
+                """, configId, configType, allShares, allRevokes);
         }
     }
 
