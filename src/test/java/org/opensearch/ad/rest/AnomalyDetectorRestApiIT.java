@@ -2037,28 +2037,6 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithInvalidName() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
-        // if (isResourceSharingFeatureEnabled()) {
-        // Exception exception = expectThrows(OpenSearchStatusException.class, () -> { TestHelpers
-        // .makeRequest(
-        // client(),
-        // "POST",
-        // TestHelpers.AD_BASE_DETECTORS_URI + "/_validate/detector",
-        // ImmutableMap.of(),
-        // TestHelpers
-        // .toHttpEntity(
-        // "{\"name\":\"#@$3\",\"description\":\"\",\"time_field\":\"timestamp\""
-        // + ",\"indices\":[\"test-index\"],\"feature_attributes\":[{\"feature_name\":\"test\","
-        // + "\"feature_enabled\":true,\"aggregation_query\":{\"test\":{\"sum\":{\"field\":\"value\"}}}}],"
-        // + "\"filter_query\":{},\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
-        // + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}"
-        // ),
-        // null
-        // );
-        // });
-        // // cannot validate a detector which admin doesn't have permission for
-        // assertTrue(exception.getMessage().startsWith("no permissions for "));
-        // return;
-        // }
 
         Response resp = TestHelpers
             .makeRequest(

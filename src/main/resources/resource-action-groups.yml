@@ -4,32 +4,47 @@ resource_types:
   anomaly-detector:
     ad_read_only:
       allowed_actions:
-        - "cluster:admin/opendistro/ad/detectors/get"
-        - "cluster:admin/opendistro/ad/detectors/search"
-        - "cluster:admin/opendistro/ad/detector/validate"
-        - "cluster:admin/opendistro/ad/detector/preview"
+        - 'cluster:admin/opendistro/ad/detector/info'
+        - 'cluster:admin/opendistro/ad/detector/search'
+        - 'cluster:admin/opendistro/ad/detector/validate'
+        - 'cluster:admin/opendistro/ad/detectors/get'
+        - 'cluster:admin/opendistro/ad/result/search'
+        - 'cluster:admin/opendistro/ad/result/topAnomalies'
+        - 'cluster:admin/opendistro/ad/tasks/search'
 
     ad_read_write:
       allowed_actions:
         - "cluster:admin/opendistro/ad/*"
+        - "cluster:admin/ingest/pipeline/delete"
+        - "cluster:admin/ingest/pipeline/put"
 
     ad_full_access:
       allowed_actions:
+        - "cluster:admin/ingest/pipeline/delete"
+        - "cluster:admin/ingest/pipeline/put"
         - "cluster:admin/opendistro/ad/*"
         - "cluster:admin/security/resource/share"
 
   forecaster:
     forecast_read_only:
       allowed_actions:
-        - "cluster:admin/plugin/forecast/forecasters/get"
-        - "cluster:admin/plugin/forecast/forecasters/search"
-        - "cluster:admin/plugin/forecast/forecaster/validate"
+        - 'cluster:admin/plugin/forecast/forecaster/info'
+        - 'cluster:admin/plugin/forecast/forecaster/stats'
+        - 'cluster:admin/plugin/forecast/forecaster/suggest'
+        - 'cluster:admin/plugin/forecast/forecaster/validate'
+        - 'cluster:admin/plugin/forecast/forecasters/get'
+        - 'cluster:admin/plugin/forecast/forecasters/info'
+        - 'cluster:admin/plugin/forecast/forecasters/search'
+        - 'cluster:admin/plugin/forecast/result/topForecasts'
+        - 'cluster:admin/plugin/forecast/tasks/search'
 
     forecast_read_write:
       allowed_actions:
         - "cluster:admin/plugin/forecast/*"
+        - 'cluster:admin/settings/update'
 
     forecast_full_access:
       allowed_actions:
-        - "cluster:admin/plugin/forecast/*"
+        - 'cluster:admin/plugin/forecast/*'
+        - 'cluster:admin/settings/update'
         - "cluster:admin/security/resource/share"

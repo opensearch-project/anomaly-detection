@@ -1680,6 +1680,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
         long total = searchResponse.getHits().getTotalHits().value();
         assertTrue("got: " + total, total == 1);
+        assertEquals(searchResponse.getHits().getHits()[0].getId(), sdeForecasterId);
 
         response = TestHelpers
             .makeRequest(
@@ -1693,6 +1694,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
         total = searchResponse.getHits().getTotalHits().value();
         assertTrue("got: " + total, total == 1);
+        assertEquals(searchResponse.getHits().getHits()[0].getId(), devOpsForecasterId);
 
         // case 2: Full access user cannot start/stop/delete forecaster created by other user
         ResponseException responseException = expectThrows(
@@ -1794,6 +1796,34 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 )
         );
         Assert.assertEquals(403, sdeStartForbidden.getResponse().getStatusLine().getStatusCode());
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "POST",
+                    String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "DELETE",
+                    String.format(Locale.ROOT, DELETE_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
 
         // (3b) Owner grants FULL_ACCESS to fullUser (users recipient), enabling delegation
         Response grantFullToFullUser = shareConfig(

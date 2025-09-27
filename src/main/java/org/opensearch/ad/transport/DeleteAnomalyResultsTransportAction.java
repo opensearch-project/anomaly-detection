@@ -78,9 +78,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
     private void validateRole(DeleteByQueryRequest request, User user, ActionListener<BulkByScrollResponse> listener) {
         if (user == null || (!filterEnabled && !shouldUseResourceAuthz)) {
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
-            // Case 2a: If Security is enabled and filter is disabled, proceed with search as
-            // user is already authenticated to hit this API.
-            // Case 2b: If security is enabled and resource-sharing is also disabled, proceed with search.
+            // Case 2: If Security is enabled and filter is disabled and resource-sharing is also disabled, proceed with search.
             client.execute(DeleteByQueryAction.INSTANCE, request, listener);
         } else {
             try {
