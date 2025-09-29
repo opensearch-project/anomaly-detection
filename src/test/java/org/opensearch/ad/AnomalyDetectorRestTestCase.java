@@ -633,7 +633,7 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
     }
 
     protected AnomalyDetector waitForSharingVisibility(String detId, RestClient client) {
-        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+        return Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
             try {
                 // Try to read it; if 200, you'll get a non-null detector
                 return getConfig(detId, client);
@@ -646,7 +646,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 throw e;
             }
         }, notNullValue());
-        return null;
     }
 
     protected void waitForRevokeNonVisibility(String detId, RestClient client) {
