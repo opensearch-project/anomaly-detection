@@ -7,6 +7,8 @@ package org.opensearch.forecast.transport;
 
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_BY_BACKEND_ROLES;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -34,6 +36,8 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
+import com.google.common.collect.Sets;
+
 public class SuggestForecasterParamTransportAction extends BaseSuggestConfigParamTransportAction {
     public static final Logger logger = LogManager.getLogger(SuggestForecasterParamTransportAction.class);
 
@@ -58,7 +62,8 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
             transportService,
             FORECAST_FILTER_BY_BACKEND_ROLES,
             AnalysisType.FORECAST,
-            searchFeatureDao
+            searchFeatureDao,
+            Name.getListStrs(Arrays.asList(ForecastSuggestName.values()))
         );
     }
 
@@ -128,5 +133,11 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
         if (params.contains(ForecastSuggestName.WINDOW_DELAY)) {
             suggestWindowDelay(request.getConfig(), user, request.getRequestTimeout(), delegateListener);
         }
+    }
+
+    @Override
+    protected Set<? extends Name> getParametersToSuggest(String typesStr) {
+        Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
+        return ForecastSuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
     }
 }

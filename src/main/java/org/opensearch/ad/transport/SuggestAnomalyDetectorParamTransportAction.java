@@ -7,6 +7,8 @@ package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -33,6 +35,8 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
+import com.google.common.collect.Sets;
+
 public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfigParamTransportAction {
     public static final Logger logger = LogManager.getLogger(SuggestAnomalyDetectorParamTransportAction.class);
 
@@ -57,7 +61,8 @@ public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfi
             transportService,
             AD_FILTER_BY_BACKEND_ROLES,
             AnalysisType.AD,
-            searchFeatureDao
+            searchFeatureDao,
+            Name.getListStrs(Arrays.asList(ADSuggestName.values()))
         );
     }
 
@@ -121,5 +126,11 @@ public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfi
         if (params.contains(ADSuggestName.WINDOW_DELAY)) {
             suggestWindowDelay(request.getConfig(), user, request.getRequestTimeout(), delegateListener);
         }
+    }
+
+    @Override
+    protected Set<? extends Name> getParametersToSuggest(String typesStr) {
+        Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
+        return ADSuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
     }
 }
