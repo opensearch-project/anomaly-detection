@@ -7,6 +7,7 @@ resource_types:
         - 'cluster:admin/opendistro/ad/detector/info'
         - 'cluster:admin/opendistro/ad/detector/search'
         - 'cluster:admin/opendistro/ad/detector/validate'
+        - 'cluster:admin/opendistro/ad/detector/preview'
         - 'cluster:admin/opendistro/ad/detectors/get'
         - 'cluster:admin/opendistro/ad/result/search'
         - 'cluster:admin/opendistro/ad/result/topAnomalies'
