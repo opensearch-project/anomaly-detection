@@ -12,12 +12,10 @@
 package org.opensearch.ad.rest;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.DUPLICATE_DETECTOR_MSG;
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -31,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
@@ -249,20 +246,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         int retryIntervalMs = 1000;
 
         if (isResourceSharingFeatureEnabled()) {
-            // we need to ensure that resource-sharing permission has been updated to allow client() to search
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return getConfig(id, client());
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(id, client());
         }
 
         Map<String, Object> searchResults = null;
@@ -510,19 +494,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         );
 
         if (isResourceSharingFeatureEnabled()) {
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return getConfig(id, client());
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(id, client());
         }
 
         Response updateResponse = TestHelpers
@@ -661,19 +633,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getFrequency()
         );
         if (isResourceSharingFeatureEnabled()) {
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return getConfig(id, client());
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(id, client());
         }
         Exception ex = expectThrows(
             ResponseException.class,
@@ -1737,19 +1697,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         AnomalyDetector createdDetector;
         if (isResourceSharingFeatureEnabled()) {
-            createdDetector = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return getConfig(id, client());
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            createdDetector = waitForSharingVisibility(id, client());
         } else {
             // No resource-sharing -> just read it directly
             createdDetector = getConfig(id, client());
@@ -2546,20 +2494,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         TestHelpers.ingestDataToIndex(client(), customResultIndexName, TestHelpers.toHttpEntity(anomalyResult));
 
         if (isResourceSharingFeatureEnabled()) {
-            // we need to ensure that resource-sharing permission has been updated to allow client() to search
-            Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    // Try to read it; if 200, you'll get a non-null detector
-                    return getConfig(detector.getId(), client());
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            waitForSharingVisibility(detector.getId(), client());
         }
 
         Response response = searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":0, \"end_time_ms\":10}", client());

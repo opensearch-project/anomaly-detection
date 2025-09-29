@@ -16,6 +16,7 @@ resource_types:
     ad_read_write:
       allowed_actions:
         - "cluster:admin/opendistro/ad/*"
+        - 'cluster:monitor/*'
         - "cluster:admin/ingest/pipeline/delete"
         - "cluster:admin/ingest/pipeline/put"
 
@@ -24,6 +25,7 @@ resource_types:
         - "cluster:admin/ingest/pipeline/delete"
         - "cluster:admin/ingest/pipeline/put"
         - "cluster:admin/opendistro/ad/*"
+        - 'cluster:monitor/*'
         - "cluster:admin/security/resource/share"
 
   forecaster:
@@ -41,11 +43,13 @@ resource_types:
 
     forecast_read_write:
       allowed_actions:
-        - "cluster:admin/plugin/forecast/*"
+        - 'cluster:admin/plugin/forecast/*'
+        - 'cluster:monitor/*'
         - 'cluster:admin/settings/update'
 
     forecast_full_access:
       allowed_actions:
         - 'cluster:admin/plugin/forecast/*'
+        - 'cluster:monitor/*'
         - 'cluster:admin/settings/update'
         - "cluster:admin/security/resource/share"

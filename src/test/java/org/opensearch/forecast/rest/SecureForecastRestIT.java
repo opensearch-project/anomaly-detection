@@ -5,8 +5,6 @@
 
 package org.opensearch.forecast.rest;
 
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.opensearch.timeseries.TestHelpers.patchSharingInfo;
 import static org.opensearch.timeseries.TestHelpers.shareConfig;
 import static org.opensearch.timeseries.TestHelpers.shareWithUserPayload;
@@ -29,7 +27,6 @@ import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
-import org.awaitility.Awaitility;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -659,41 +656,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         return response;
     }
 
-    private void waitForSharingVisibility(String forecasterId, RestClient client) {
-        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-            try {
-                // Try to read it; if 200, you'll get a non-null detector
-                return TestHelpers
-                    .makeRequest(client, "GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, "", ImmutableList.of());
-            } catch (Exception e) {
-                // Treat 403 as eventual-consistency: keep waiting
-                if (isForbidden(e)) {
-                    return null;
-                }
-                // Anything else is unexpected: fail fast
-                throw e;
-            }
-        }, notNullValue());
-    }
-
-    private void waitForRevokeNonVisibility(String forecasterId, RestClient client) {
-        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-            try {
-                // Still visible (200) -> keep waiting
-                TestHelpers
-                    .makeRequest(client, "GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, "", ImmutableList.of());
-                return Boolean.FALSE;
-            } catch (Exception e) {
-                // Access revoked (403) -> we're done
-                if (isForbidden(e)) {
-                    return Boolean.TRUE;
-                }
-                // Anything else is unexpected: fail fast
-                throw e;
-            }
-        }, is(Boolean.TRUE));
-    }
-
     public void testAuthApi() throws IOException, InterruptedException {
         // case 0: read access user cannot create forecaster
         Exception exception = expectThrows(
@@ -728,7 +690,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
         if (isResourceSharingFeatureEnabled()) {
-            waitForSharingVisibility(forecasterId, fullClient);
+            waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, fullClient);
         }
 
         // case 2: given a forecaster Id, read access user cannot start the forecaster
@@ -1665,7 +1627,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertEquals("Description encoding mismatch", "OK rate", responseDescription);
 
         // if feature is enabled, we wait until sdeClient's resource sharing entry is populated before searching
-        waitForSharingVisibility(sdeForecasterId, sdeClient);
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, sdeForecasterId), null, sdeClient);
 
         response = TestHelpers
             .makeRequest(
@@ -1776,7 +1738,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, READ_ONLY_AG, sdeUser)
         );
         assertEquals(200, shareROWithSde.getStatusLine().getStatusCode());
-        waitForSharingVisibility(devOpsForecasterId, sdeClient);
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, sdeClient);
 
         // SDE can now GET the devOps forecaster, but cannot start/stop/delete (read-only)
         Response sdeGetDevOps = TestHelpers
@@ -1832,7 +1794,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, FULL_ACCESS_AG, fullUser)
         );
         assertEquals(200, grantFullToFullUser.getStatusLine().getStatusCode());
-        waitForSharingVisibility(devOpsForecasterId, fullClient);
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, fullClient);
 
         // fullClient can now start/stop
         response = TestHelpers
@@ -1872,7 +1834,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
 
         Response fullAddsSdeBR = patchSharingInfo(fullClient, Map.of(), patchShareSdeBR);
         assertEquals(200, fullAddsSdeBR.getStatusLine().getStatusCode());
-        waitForSharingVisibility(devOpsForecasterId, phoenixReadClient);
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, phoenixReadClient);
 
         // (3d) fullClient revokes the direct user-level READ_ONLY for SDE — SDE still has access via backend_role
         recs = new HashMap<>();
@@ -1903,7 +1865,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
 
         Response fullRevokesSdeBR = patchSharingInfo(fullClient, Map.of(), revokeSdeBR);
         assertEquals(200, fullRevokesSdeBR.getStatusLine().getStatusCode());
-        waitForRevokeNonVisibility(devOpsForecasterId, sdeClient);
+        waitForRevokeNonVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, sdeClient);
 
         ResponseException sdeGetForbidden = expectThrows(
             ResponseException.class,
@@ -1953,7 +1915,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertNotNull(forecasterId);
 
         if (isResourceSharingFeatureEnabled()) {
-            waitForSharingVisibility(forecasterId, client);
+            waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, client);
         }
 
         response = TestHelpers
@@ -2265,7 +2227,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertNotNull(forecasterId);
 
         if (isResourceSharingFeatureEnabled()) {
-            waitForSharingVisibility(forecasterId, fullClient);
+            waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, fullClient);
         }
 
         responseException = expectThrows(

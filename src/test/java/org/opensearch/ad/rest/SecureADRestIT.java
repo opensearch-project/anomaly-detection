@@ -11,14 +11,11 @@
 
 package org.opensearch.ad.rest;
 
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.opensearch.timeseries.TestHelpers.patchSharingInfo;
 import static org.opensearch.timeseries.TestHelpers.shareConfig;
 import static org.opensearch.timeseries.TestHelpers.shareWithUserPayload;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -31,7 +28,6 @@ import java.util.Set;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
-import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
 import org.junit.After;
@@ -80,39 +76,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
 
     String oceanUser = "ocean";
     RestClient oceanClient;
-
-    private void waitForSharingVisibility(String detId, RestClient client) {
-        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-            try {
-                // Try to read it; if 200, you'll get a non-null detector
-                return getConfig(detId, client);
-            } catch (Exception e) {
-                // Treat 403 as eventual-consistency: keep waiting
-                if (isForbidden(e)) {
-                    return null;
-                }
-                // Anything else is unexpected: fail fast
-                throw e;
-            }
-        }, notNullValue());
-    }
-
-    private void waitForRevokeNonVisibility(String detId, RestClient client) {
-        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-            try {
-                // Still visible (200) -> keep waiting
-                getConfig(detId, client);
-                return Boolean.FALSE;
-            } catch (Exception e) {
-                // Access revoked (403) -> we're done
-                if (isForbidden(e)) {
-                    return Boolean.TRUE;
-                }
-                // Anything else is unexpected: fail fast
-                throw e;
-            }
-        }, is(Boolean.TRUE));
-    }
 
     @Before
     public void setupSecureTests() throws IOException {

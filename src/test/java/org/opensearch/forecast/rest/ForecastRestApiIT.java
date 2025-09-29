@@ -6,7 +6,6 @@
 package org.opensearch.forecast.rest;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -27,7 +26,6 @@ import java.util.regex.Pattern;
 
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
-import org.awaitility.Awaitility;
 import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.opensearch.OpenSearchStatusException;
@@ -2093,26 +2091,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
 
         // run once
         if (isResourceSharingFeatureEnabled()) {
-            response = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    return TestHelpers
-                        .makeRequest(
-                            client(),
-                            "POST",
-                            String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                            ImmutableMap.of(),
-                            (HttpEntity) null,
-                            null
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
         } else {
             response = TestHelpers
                 .makeRequest(
@@ -2844,26 +2823,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "}";
 
         if (isResourceSharingFeatureEnabled()) {
-            response = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    return TestHelpers
-                        .makeRequest(
-                            client(),
-                            "PUT",
-                            String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
-                            ImmutableMap.of(),
-                            TestHelpers.toHttpEntity(formattedForecaster),
-                            null
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            response = waitForSharingVisibility(
+                "PUT",
+                String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                client()
+            );
         } else {
             response = TestHelpers
                 .makeRequest(
@@ -3411,26 +3376,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
 
         // run once
         if (isResourceSharingFeatureEnabled()) {
-            response = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    return TestHelpers
-                        .makeRequest(
-                            client(),
-                            "POST",
-                            String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                            ImmutableMap.of(),
-                            (HttpEntity) null,
-                            null
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
         } else {
             response = TestHelpers
                 .makeRequest(
@@ -3792,26 +3738,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         String forecasterId = (String) responseMap.get("_id");
 
         if (isResourceSharingFeatureEnabled()) {
-            response = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    return TestHelpers
-                        .makeRequest(
-                            client(),
-                            "POST",
-                            String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                            ImmutableMap.of(),
-                            (HttpEntity) null,
-                            null
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
         } else {
             response = TestHelpers
                 .makeRequest(
@@ -4057,26 +3984,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         String forecasterId = createSampleLogForecaster(dataSet, intervalM, history, windowDelay);
 
         if (isResourceSharingFeatureEnabled()) {
-            response = Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
-                try {
-                    return TestHelpers
-                        .makeRequest(
-                            client(),
-                            "POST",
-                            String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                            ImmutableMap.of(),
-                            (HttpEntity) null,
-                            null
-                        );
-                } catch (Exception e) {
-                    // Treat 403 as eventual-consistency: keep waiting
-                    if (isForbidden(e)) {
-                        return null;
-                    }
-                    // Anything else is unexpected: fail fast
-                    throw e;
-                }
-            }, notNullValue());
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
         } else {
             response = TestHelpers
                 .makeRequest(
