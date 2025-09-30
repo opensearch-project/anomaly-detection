@@ -209,7 +209,6 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detector/write]"));
 
             // With Custom Result Index
-            enableFilterBy();
             String resultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "test";
             AnomalyDetector detector = cloneDetector(aliceDetector, resultIndex);
             // User goat doesn't have permission to create index
@@ -992,22 +991,25 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
 
         if (isResourceSharingFeatureEnabled()) {
-            // User Bob has AD read access, but resource sharing is enabled. Bob should not be able to validate detector since it is not
-            // shared with it.
-            exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, bobClient); });
-            Assert.assertTrue(exception.getMessage().contains(noValidatePermsMessage));
+            // User Bob has AD read access, resource sharing is enabled, but resource-sharing is not applied on validate request.
+            // Bob should be able to validate detector
+            validateResponse = validateAnomalyDetector(detector, bobClient);
+            Assert.assertNotNull("User bob validated detector successfully", validateResponse);
 
             // User ocean has no read permission of index
-            // However, since resource sharing enabled, it checks for ocean's permission to this detector, and since detector is not shared
-            // it throws 403 with no validation permission
             exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, oceanClient); });
-            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(noValidatePermsMessage));
+            Assert
+                .assertTrue(
+                    "actual: " + exception.getMessage(),
+                    exception.getMessage().contains("no permissions for [indices:data/read/search]")
+                );
 
             // User Dog has AD full access, but has no backend role
-            // When resource sharing is enabled. Dog should not be able to validate detector since it is not shared with it.
-            exception = expectThrows(Exception.class, () -> { validateAnomalyDetector(detector, dogClient); });
-            Assert.assertTrue(exception.getMessage().contains(noValidatePermsMessage));
-            // Sharing
+            validateResponse = validateAnomalyDetector(detector, dogClient);
+            Assert.assertNotNull("User dog validated detector successfully", validateResponse);
+
+            Response ok = validateAnomalyDetector(aliceDetector, catClient);
+            Assert.assertNotNull(ok);
 
             // Read-only share should allow validate (read action)
             Response shareROWithCat = shareConfig(
@@ -1018,7 +1020,9 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             assertEquals(200, shareROWithCat.getStatusLine().getStatusCode());
             waitForSharingVisibility(aliceDetector.getId(), catClient);
 
-            Response ok = validateAnomalyDetector(aliceDetector, catClient);
+            // show that resource-sharing doesn't affect validate flow as it is not marked as protected
+            // anyone with validate permission will be able to validate the detector
+            ok = validateAnomalyDetector(aliceDetector, catClient);
             Assert.assertNotNull(ok);
 
             // Non-owner (cat, read-only) cannot share/revoke
@@ -1053,8 +1057,10 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             assertEquals(200, revoked.getStatusLine().getStatusCode());
             waitForRevokeNonVisibility(aliceDetector.getId(), catClient);
 
-            ex = expectThrows(Exception.class, () -> { validateAnomalyDetector(aliceDetector, catClient); });
-            assertTrue(ex.getMessage().contains("no permissions"));
+            // show that resource-sharing doesn't affect validate flow as it is not marked as protected
+            // anyone with validate permission will be able to validate the detector
+            ok = validateAnomalyDetector(aliceDetector, catClient);
+            Assert.assertNotNull(ok);
 
         } else {
 

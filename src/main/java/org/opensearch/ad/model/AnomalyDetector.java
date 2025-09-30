@@ -472,11 +472,6 @@ public class AnomalyDetector extends Config {
             parser.nextToken();
 
             switch (fieldName) {
-                case ID_FIELD:
-                    if (detectorId == null) {
-                        detectorId = parser.text();
-                    }
-                    break;
                 case NAME_FIELD:
                     name = parser.text();
                     break;
