@@ -15,20 +15,30 @@ import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_DELETE_AD_RESU
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
@@ -84,8 +94,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
             try {
                 // Security is enabled and resource sharing access control is enabled
                 if (shouldUseResourceAuthz) {
-                    // TODO: verify if new authz should be added on result index
-                    pluginClient.execute(DeleteByQueryAction.INSTANCE, request, listener);
+                    addAccessibleConfigsFilterAndDelete(ADIndex.CONFIG.getIndexName(), request.getSearchRequest(), listener);
                     return;
                 }
                 // Security is enabled and backend role filter is enabled
@@ -97,6 +106,38 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
                 listener.onFailure(e);
             }
         }
+    }
+
+    private void addAccessibleConfigsFilterAndDelete(
+        String indexName,
+        SearchRequest request,
+        ActionListener<BulkByScrollResponse> listener
+    ) {
+        logger.debug("Filtering result by accessible resources");
+        ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+        SearchSourceBuilder searchSourceBuilder = request.source();
+        resourceSharingClient.getAccessibleResourceIds(indexName, ActionListener.wrap(configIds -> {
+            searchSourceBuilder.query(mergeWithAccessFilter(searchSourceBuilder.query(), configIds));
+            client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+        }, failure -> {
+            // do nothing to the source or return empty set?
+            searchSourceBuilder.query(QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery()));
+            client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+        }));
+    }
+
+    public static QueryBuilder mergeWithAccessFilter(QueryBuilder existing, Set<String> configIds) {
+        QueryBuilder accessFilter = (configIds == null || configIds.isEmpty())
+            ? QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery()) // deny-all
+            : QueryBuilders.termsQuery("detector_id", configIds); // allow listed detector_ids
+
+        if (existing == null)
+            return QueryBuilders.boolQuery().filter(accessFilter);
+        if (existing instanceof BoolQueryBuilder) {
+            ((BoolQueryBuilder) existing).filter(accessFilter);
+            return existing;
+        }
+        return QueryBuilders.boolQuery().must(existing).filter(accessFilter);
     }
 
 }
