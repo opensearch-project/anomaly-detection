@@ -67,6 +67,7 @@ import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADResultWriteWorker;
 import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestAnomalyDetectorSuggestAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
 import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
@@ -149,6 +150,8 @@ import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
 import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.StopDetectorAction;
 import org.opensearch.ad.transport.StopDetectorTransportAction;
+import org.opensearch.ad.transport.SuggestAnomalyDetectorParamAction;
+import org.opensearch.ad.transport.SuggestAnomalyDetectorParamTransportAction;
 import org.opensearch.ad.transport.ThresholdResultAction;
 import org.opensearch.ad.transport.ThresholdResultTransportAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
@@ -417,6 +420,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
         RestDeleteAnomalyResultsAction deleteAnomalyResultsAction = new RestDeleteAnomalyResultsAction();
         RestSearchTopAnomalyResultAction searchTopAnomalyResultAction = new RestSearchTopAnomalyResultAction();
         RestValidateAnomalyDetectorAction validateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(settings, clusterService);
+        RestAnomalyDetectorSuggestAction suggestAnomalyDetectorAction = new RestAnomalyDetectorSuggestAction(settings, clusterService);
 
         // Forecast
         RestIndexForecasterAction restIndexForecasterAction = new RestIndexForecasterAction(settings, clusterService);
@@ -460,6 +464,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 deleteAnomalyResultsAction,
                 searchTopAnomalyResultAction,
                 validateAnomalyDetectorAction,
+                suggestAnomalyDetectorAction,
                 // Forecast
                 restIndexForecasterAction,
                 restForecasterJobAction,
@@ -1692,6 +1697,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADSingleStreamResultAction.INSTANCE, ADSingleStreamResultTransportAction.class),
                 new ActionHandler<>(ADHCImputeAction.INSTANCE, ADHCImputeTransportAction.class),
+                new ActionHandler<>(SuggestAnomalyDetectorParamAction.INSTANCE, SuggestAnomalyDetectorParamTransportAction.class),
                 // forecast
                 new ActionHandler<>(IndexForecasterAction.INSTANCE, IndexForecasterTransportAction.class),
                 new ActionHandler<>(ForecastResultAction.INSTANCE, ForecastResultTransportAction.class),

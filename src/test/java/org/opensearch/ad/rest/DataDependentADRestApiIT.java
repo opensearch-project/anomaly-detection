@@ -15,6 +15,7 @@ import java.util.Map;
 
 import org.opensearch.ad.AbstractADSyntheticDataTest;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
@@ -162,6 +163,150 @@ public class DataDependentADRestApiIT extends AbstractADSyntheticDataTest {
         assertEquals(
             "Data is most likely too sparse when given feature queries are applied. Consider revising feature queries",
             subIssues.get("max2")
+        );
+    }
+
+    public void testSuggestInterval() throws Exception {
+        loadSyntheticData(200);
+
+        String detectorDef = "{\n"
+            + "    \"name\": \"test-detector\",\n"
+            + "    \"description\": \"Test detector\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_name\": \"feature1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"feature1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"Feature1\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ]\n"
+            + "}";
+
+        String formattedDetector = String.format(Locale.ROOT, detectorDef, SYNTHETIC_DATASET_NAME);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_suggest/detection_interval",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedDetector),
+                null
+            );
+        assertEquals("Suggest detector interval failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        assertTrue("actual: " + responseMap, responseMap.get("interval") != null);
+        Map<String, Object> suggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(1, (int) suggestions.get("interval"));
+        assertEquals("Minutes", suggestions.get("unit"));
+    }
+
+    public void testSuggestMultipleParams() throws Exception {
+        loadSyntheticData(200);
+
+        String detectorDef = "{\n"
+            + "    \"name\": \"test-detector\",\n"
+            + "    \"description\": \"Test detector\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_name\": \"feature1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"feature1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"Feature1\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ]\n"
+            + "}";
+
+        String formattedDetector = String.format(Locale.ROOT, detectorDef, SYNTHETIC_DATASET_NAME);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_suggest/detection_interval,history,window_delay",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedDetector),
+                null
+            );
+        assertEquals("Suggest detector params failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+
+        // Check interval suggestion
+        Map<String, Object> intervalSuggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("interval")).get("period");
+        assertEquals(1, (int) intervalSuggestions.get("interval"));
+        assertEquals("Minutes", intervalSuggestions.get("unit"));
+
+        // Check history suggestion
+        int historySuggestions = ((Integer) responseMap.get("history"));
+        assertTrue("History should be positive", historySuggestions > 0);
+
+        // Check window delay suggestion
+        Map<String, Object> windowDelaySuggestions = (Map<String, Object>) ((Map<String, Object>) responseMap.get("windowDelay"))
+            .get("period");
+        assertTrue("Window delay should be non-negative", (int) windowDelaySuggestions.get("interval") >= 0);
+        assertEquals("Minutes", windowDelaySuggestions.get("unit"));
+    }
+
+    public void testSuggestWithInvalidType() throws Exception {
+        loadSyntheticData(200);
+
+        String detectorDef = "{\n"
+            + "    \"name\": \"test-detector\",\n"
+            + "    \"description\": \"Test detector\",\n"
+            + "    \"time_field\": \"timestamp\",\n"
+            + "    \"indices\": [\n"
+            + "        \"%s\"\n"
+            + "    ],\n"
+            + "    \"feature_attributes\": [\n"
+            + "        {\n"
+            + "            \"feature_name\": \"feature1\",\n"
+            + "            \"feature_enabled\": true,\n"
+            + "            \"aggregation_query\": {\n"
+            + "                \"feature1\": {\n"
+            + "                    \"sum\": {\n"
+            + "                        \"field\": \"Feature1\"\n"
+            + "                    }\n"
+            + "                }\n"
+            + "            }\n"
+            + "        }\n"
+            + "    ]\n"
+            + "}";
+
+        String formattedDetector = String.format(Locale.ROOT, detectorDef, SYNTHETIC_DATASET_NAME);
+
+        ResponseException exception = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/_suggest/invalid_type",
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(formattedDetector),
+                    null
+                )
+        );
+        assertTrue(
+            "Expect contains suggest type doesn't exist message; but got" + exception.getMessage(),
+            exception.getMessage().contains("The given suggest type doesn't exist")
         );
     }
 }
