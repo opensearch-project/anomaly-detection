@@ -12,7 +12,7 @@ import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonMessages;
 
-public enum SuggestName implements Name {
+public enum ForecastSuggestName implements Name {
     INTERVAL(Forecaster.FORECAST_INTERVAL_FIELD),
     HORIZON(Forecaster.HORIZON_FIELD),
     HISTORY(Forecaster.HISTORY_INTERVAL_FIELD),
@@ -20,7 +20,7 @@ public enum SuggestName implements Name {
 
     private String name;
 
-    SuggestName(String name) {
+    ForecastSuggestName(String name) {
         this.name = name;
     }
 
@@ -34,7 +34,7 @@ public enum SuggestName implements Name {
         return name;
     }
 
-    public static SuggestName getName(String name) {
+    public static ForecastSuggestName getName(String name) {
         switch (name) {
             case Forecaster.FORECAST_INTERVAL_FIELD:
                 return INTERVAL;
@@ -49,7 +49,7 @@ public enum SuggestName implements Name {
         }
     }
 
-    public static Set<SuggestName> getNames(Collection<String> names) {
-        return Name.getNameFromCollection(names, SuggestName::getName);
+    public static Set<ForecastSuggestName> getNames(Collection<String> names) {
+        return Name.getNameFromCollection(names, ForecastSuggestName::getName);
     }
 }

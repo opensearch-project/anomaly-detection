@@ -10,10 +10,7 @@ import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndP
 
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,7 +27,6 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.forecast.transport.SuggestName;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.Name;
@@ -47,8 +43,6 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-import com.google.common.collect.Sets;
-
 public abstract class BaseSuggestConfigParamTransportAction extends
     HandledTransportAction<SuggestConfigParamRequest, SuggestConfigParamResponse> {
     public static final Logger logger = LogManager.getLogger(BaseSuggestConfigParamTransportAction.class);
@@ -59,7 +53,8 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     protected volatile Boolean filterByEnabled;
     protected Clock clock;
     protected AnalysisType context;
-    protected final Set<String> allSuggestParamStrs;
+    protected Set<String> allSuggestParamStrs;
+    private final Settings settings;
 
     public BaseSuggestConfigParamTransportAction(
         String actionName,
@@ -71,7 +66,8 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         TransportService transportService,
         Setting<Boolean> filterByBackendRoleSetting,
         AnalysisType context,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        Set<String> allSuggestParamStrs
     ) {
         super(actionName, transportService, actionFilters, SuggestConfigParamRequest::new);
         this.client = client;
@@ -81,8 +77,8 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         this.clock = Clock.systemUTC();
         this.context = context;
         this.searchFeatureDao = searchFeatureDao;
-        List<SuggestName> allSuggestParams = Arrays.asList(SuggestName.values());
-        this.allSuggestParamStrs = Name.getListStrs(allSuggestParams);
+        this.allSuggestParamStrs = allSuggestParamStrs;
+        this.settings = settings;
     }
 
     @Override
@@ -322,11 +318,7 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     /**
     *
     * @param typesStr a list of input suggest types separated by comma
-    * @return parameters to suggest for a forecaster
+    * @return parameters to suggest for a forecaster or detector
     */
-    protected Set<SuggestName> getParametersToSuggest(String typesStr) {
-        // Filter out unsupported params
-        Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
-        return SuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
-    }
+    protected abstract Set<? extends Name> getParametersToSuggest(String typesStr);
 }
