@@ -20,6 +20,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.rest.RestRequest;
@@ -142,6 +143,11 @@ public class IndexForecasterRequest extends ActionRequest implements DocRequest 
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    @Override
+    public String type() {
+        return ForecastCommonName.FORECAST_RESOURCE_TYPE;
     }
 
     @Override
