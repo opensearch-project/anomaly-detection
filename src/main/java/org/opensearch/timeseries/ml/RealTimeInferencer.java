@@ -376,7 +376,7 @@ public abstract class RealTimeInferencer<RCFModelType extends ThresholdedRandomC
         coldStartWorker
             .put(
                 new FeatureRequest(
-                    clock.millis() + config.getFrequencyInMilliseconds(),
+                    clock.millis() + config.getInferredFrequencyInMilliseconds(),
                     config.getId(),
                     RequestPriority.MEDIUM,
                     modelId,

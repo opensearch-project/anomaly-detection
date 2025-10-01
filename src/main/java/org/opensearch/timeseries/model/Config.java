@@ -281,10 +281,22 @@ public abstract class Config implements Writeable, ToXContentObject {
                 }
             }
         }
-
         if (frequency != null && interval != null) {
             Duration frequencyDuration = ((IntervalTimeConfiguration) frequency).toDuration();
             Duration intervalDuration = ((IntervalTimeConfiguration) interval).toDuration();
+
+            if (intervalDuration.isZero()) {
+                // we will check for invalid interval in subclass constructor
+                // since the error message is different among different subclasses
+                // (e.g. AD using detection interval and Forecaster using forecast interval)
+                return;
+            }
+
+            if (frequencyDuration.isZero()) {
+                issueType = ValidationIssueType.FREQUENCY;
+                errorMessage = "Frequency must be greater than 0.";
+                return;
+            }
             // Check if frequency is NOT a multiple of interval
             if (!TimeUtil.isMultiple(frequencyDuration, intervalDuration)) {
                 issueType = ValidationIssueType.FREQUENCY;
@@ -314,7 +326,6 @@ public abstract class Config implements Writeable, ToXContentObject {
                 return;
             }
         }
-
         this.id = id;
         this.version = version;
         this.name = name;
@@ -345,8 +356,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexTTL = Strings.trimToNull(resultIndex) == null ? null : customResultIndexTTL;
         this.flattenResultIndexMapping = Strings.trimToNull(resultIndex) == null ? null : flattenResultIndexMapping;
         this.lastUIBreakingChangeTime = lastBreakingUIChangeTime;
-        // by default, frequency is the same as interval
-        this.frequency = frequency == null ? interval : frequency;
+        this.frequency = frequency;
     }
 
     /**
@@ -445,7 +455,11 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.customResultIndexTTL = input.readOptionalInt();
         this.flattenResultIndexMapping = input.readOptionalBoolean();
         this.lastUIBreakingChangeTime = input.readOptionalInstant();
-        this.frequency = IntervalTimeConfiguration.readFrom(input);
+        if (input.readBoolean()) {
+            this.frequency = IntervalTimeConfiguration.readFrom(input);
+        } else {
+            this.frequency = null;
+        }
     }
 
     /*
@@ -500,7 +514,12 @@ public abstract class Config implements Writeable, ToXContentObject {
         output.writeOptionalInt(customResultIndexTTL);
         output.writeOptionalBoolean(flattenResultIndexMapping);
         output.writeOptionalInstant(lastUIBreakingChangeTime);
-        frequency.writeTo(output);
+        if (frequency != null) {
+            output.writeBoolean(true);
+            frequency.writeTo(output);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -746,16 +765,21 @@ public abstract class Config implements Writeable, ToXContentObject {
         return frequency;
     }
 
-    public long getFrequencyInMilliseconds() {
-        return ((IntervalTimeConfiguration) getFrequency()).toDuration().toMillis();
+    public TimeConfiguration getInferredFrequency() {
+        // by default, frequency is the same as interval
+        return frequency == null ? getInterval() : frequency;
     }
 
-    public long getFrequencyInMinutes() {
-        return getFrequencyInMilliseconds() / 1000 / 60;
+    public long getInferredFrequencyInMilliseconds() {
+        return ((IntervalTimeConfiguration) getInferredFrequency()).toDuration().toMillis();
     }
 
-    public Duration getFrequencyDuration() {
-        return ((IntervalTimeConfiguration) getFrequency()).toDuration();
+    public long getInferredFrequencyInMinutes() {
+        return getInferredFrequencyInMilliseconds() / 1000 / 60;
+    }
+
+    public Duration getInferredFrequencyDuration() {
+        return ((IntervalTimeConfiguration) getInferredFrequency()).toDuration();
     }
 
     public void setUser(User user) {
@@ -968,6 +992,6 @@ public abstract class Config implements Writeable, ToXContentObject {
     }
 
     public boolean isLongFrequency() {
-        return getFrequencyDuration().compareTo(TimeSeriesSettings.HOURLY_MAINTENANCE) >= 0;
+        return getInferredFrequencyDuration().compareTo(TimeSeriesSettings.HOURLY_MAINTENANCE) >= 0;
     }
 }

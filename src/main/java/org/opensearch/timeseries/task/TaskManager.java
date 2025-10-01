@@ -247,67 +247,80 @@ public abstract class TaskManager<TaskCacheManagerType extends TaskCacheManager,
         ActionListener<UpdateResponse> listener
     ) {
 
-        String newState = null;
-        // Check if new state is not null and ignore state calculated from rcf total updates
-        if (state != null) {
-            newState = state;
-        } else {
-            newState = triageState(hasResult, error, rcfTotalUpdates);
-        }
-        error = Optional.ofNullable(error).orElse("");
-        // calculate init progress and task state with RCF total updates
-        Float initProgress = null;
+        // Check if job is enabled before proceeding
+        nodeStateManager.getJob(configId, ActionListener.wrap(jobOptional -> {
+            boolean jobEnabled = jobOptional.isPresent() && jobOptional.get().isEnabled();
 
-        if (hasResult) {
-            initProgress = 1.0f;
-        } else if (intervalInMinutes != null && rcfTotalUpdates != null) {
-            // progress is fraction of the min-sample requirement, capped at 1.0
-            initProgress = Math.min((float) rcfTotalUpdates / TimeSeriesSettings.NUM_MIN_SAMPLES, 1.0f);
-        }
+            String newState = null;
 
-        RealtimeTaskCache realtimeTaskCache = taskCacheManager.getRealtimeTaskCache(configId);
-        String oldState = null;
-        if (realtimeTaskCache != null) {
-            oldState = realtimeTaskCache.getState();
-        }
+            // If job is not enabled, set state to STOPPED and
+            if (!jobEnabled) {
+                newState = TaskState.STOPPED.name();
+            } // Check if new state is not null and ignore state calculated from rcf total updates
+            else if (state != null) {
+                newState = state;
+            } else {
+                newState = triageState(hasResult, error, rcfTotalUpdates);
+            }
 
-        // We don't want to change state from running to init.
-        // Also, if task not changed at all, no need to update, just return.
-        if (!taskCacheManager.isRealtimeTaskChangeNeeded(configId, newState, initProgress, error)
-            || forbidOverrideChange(configId, newState, oldState)) {
-            listener.onResponse(null);
-            return;
-        }
-        Map<String, Object> updatedFields = new HashMap<>();
+            // update error if necessary
+            String finalError = Optional.ofNullable(error).orElse("");
+            // calculate init progress and task state with RCF total updates
+            Float initProgress = null;
 
-        if (coordinatingNode) {
-            updatedFields.put(TimeSeriesTask.COORDINATING_NODE_FIELD, clusterService.localNode().getId());
-        }
+            if (hasResult) {
+                initProgress = 1.0f;
+            } else if (intervalInMinutes != null && rcfTotalUpdates != null) {
+                // progress is fraction of the min-sample requirement, capped at 1.0
+                initProgress = Math.min((float) rcfTotalUpdates / TimeSeriesSettings.NUM_MIN_SAMPLES, 1.0f);
+            }
 
-        if (initProgress != null) {
-            updatedFields.put(TimeSeriesTask.INIT_PROGRESS_FIELD, initProgress);
-            updatedFields
-                .put(
-                    TimeSeriesTask.ESTIMATED_MINUTES_LEFT_FIELD,
-                    Math.max(0, TimeSeriesSettings.NUM_MIN_SAMPLES - rcfTotalUpdates) * intervalInMinutes
-                );
-        }
-        if (newState != null) {
-            updatedFields.put(TimeSeriesTask.STATE_FIELD, newState);
-        }
-        if (error != null) {
-            updatedFields.put(TimeSeriesTask.ERROR_FIELD, error);
-        }
-        Float finalInitProgress = initProgress;
-        // Variable used in lambda expression should be final or effectively final
-        String finalError = error;
-        String finalNewState = newState;
-        updateLatestTask(configId, realTimeTaskTypes, updatedFields, ActionListener.wrap(r -> {
-            logger.debug("Updated latest realtime AD task successfully for config {}", configId);
-            taskCacheManager.updateRealtimeTaskCache(configId, finalNewState, finalInitProgress, finalError);
-            listener.onResponse(r);
+            RealtimeTaskCache realtimeTaskCache = taskCacheManager.getRealtimeTaskCache(configId);
+            String oldState = null;
+            if (realtimeTaskCache != null) {
+                oldState = realtimeTaskCache.getState();
+            }
+
+            // We don't want to change state from running to init.
+            // Also, if task not changed at all, no need to update, just return.
+            if (!taskCacheManager.isRealtimeTaskChangeNeeded(configId, newState, initProgress, finalError)
+                || forbidOverrideChange(configId, newState, oldState)) {
+                listener.onResponse(null);
+                return;
+            }
+            Map<String, Object> updatedFields = new HashMap<>();
+
+            if (coordinatingNode) {
+                updatedFields.put(TimeSeriesTask.COORDINATING_NODE_FIELD, clusterService.localNode().getId());
+            }
+
+            // no need to update init progress if state is STOPPED
+            if (initProgress != null && newState != TaskState.STOPPED.name()) {
+                updatedFields.put(TimeSeriesTask.INIT_PROGRESS_FIELD, initProgress);
+                updatedFields
+                    .put(
+                        TimeSeriesTask.ESTIMATED_MINUTES_LEFT_FIELD,
+                        Math.max(0, TimeSeriesSettings.NUM_MIN_SAMPLES - rcfTotalUpdates) * intervalInMinutes
+                    );
+            }
+            if (newState != null) {
+                updatedFields.put(TimeSeriesTask.STATE_FIELD, newState);
+            }
+            if (finalError != null) {
+                updatedFields.put(TimeSeriesTask.ERROR_FIELD, finalError);
+            }
+            Float finalInitProgress = initProgress;
+            String finalNewState = newState;
+            updateLatestTask(configId, realTimeTaskTypes, updatedFields, ActionListener.wrap(r -> {
+                logger.debug("Updated latest realtime AD task successfully for config {}", configId);
+                taskCacheManager.updateRealtimeTaskCache(configId, finalNewState, finalInitProgress, finalError);
+                listener.onResponse(r);
+            }, e -> {
+                logger.error("Failed to update realtime task for config " + configId, e);
+                listener.onFailure(e);
+            }));
         }, e -> {
-            logger.error("Failed to update realtime task for config " + configId, e);
+            logger.error("Failed to get job for config " + configId, e);
             listener.onFailure(e);
         }));
     }

@@ -157,7 +157,7 @@ public abstract class AbstractSingleStreamResultTransportAction<RCFModelType ext
             ModelState<RCFModelType> modelState = cache.get().get(modelId, config);
             if (modelState == null) {
                 FeatureRequest featureRequest = new FeatureRequest(
-                    System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                    System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                     configId,
                     RequestPriority.MEDIUM,
                     request.getModelId(),

@@ -679,7 +679,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
                 featureList,
                 TestHelpers.randomQuery(),
-                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+                new IntervalTimeConfiguration(2, ChronoUnit.MINUTES),
                 TestHelpers.randomIntervalTimeConfiguration(),
                 randomIntBetween(1, 20),
                 null,
@@ -698,11 +698,11 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 Instant.now(),
-                new IntervalTimeConfiguration(1, ChronoUnit.MINUTES)
+                new IntervalTimeConfiguration(3, ChronoUnit.MINUTES)
             )
         );
         assertEquals(
-            "Frequency (1 minutes) must be a multiple of interval (0 minutes), including the interval itself.",
+            "Frequency (3 minutes) must be a multiple of interval (2 minutes), including the interval itself.",
             exception.getMessage()
         );
     }

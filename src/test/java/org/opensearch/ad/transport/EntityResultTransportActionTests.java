@@ -530,7 +530,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         when(longIntervalDetector.isLongFrequency()).thenReturn(true);
         when(longIntervalDetector.getId()).thenReturn(detectorId);
         when(longIntervalDetector.getCategoryFields()).thenReturn(detector.getCategoryFields());
-        when(longIntervalDetector.getFrequencyInMilliseconds()).thenReturn(TimeSeriesSettings.HOURLY_MAINTENANCE.toMillis() + 1000);
+        when(longIntervalDetector.getInferredFrequencyInMilliseconds()).thenReturn(TimeSeriesSettings.HOURLY_MAINTENANCE.toMillis() + 1000);
         when(longIntervalDetector.getIntervalInSeconds()).thenReturn(TimeSeriesSettings.HOURLY_MAINTENANCE.getSeconds() + 1);
 
         doAnswer(invocation -> {
@@ -557,7 +557,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         when(shortIntervalDetector.isLongFrequency()).thenReturn(false);
         when(shortIntervalDetector.getId()).thenReturn(detectorId);
         when(shortIntervalDetector.getCategoryFields()).thenReturn(detector.getCategoryFields());
-        when(shortIntervalDetector.getFrequencyInMilliseconds()).thenReturn(60000L);
+        when(shortIntervalDetector.getInferredFrequencyInMilliseconds()).thenReturn(60000L);
         when(shortIntervalDetector.getIntervalInSeconds()).thenReturn(60L);
 
         doAnswer(invocation -> {
