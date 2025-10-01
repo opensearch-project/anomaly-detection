@@ -72,6 +72,7 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -700,11 +701,13 @@ public final class ParseUtils {
     }
 
     /**
-     * Checks whether to utilize new ResourAuthz
+     * Checks whether to utilize new ResourceAuthz
+     * @param resourceType for which to decide whether to use resource authz
      * @return true if the resource-sharing feature is enabled, false otherwise.
      */
-    public static boolean shouldUseResourceAuthz() {
-        return ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
+    public static boolean shouldUseResourceAuthz(String resourceType) {
+        var client = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+        return client != null && client.isFeatureEnabledForType(resourceType);
     }
 
     /**
