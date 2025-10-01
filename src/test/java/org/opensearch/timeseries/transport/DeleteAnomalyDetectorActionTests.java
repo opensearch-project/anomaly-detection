@@ -25,6 +25,7 @@ import org.junit.Test;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.support.ActionFilters;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
@@ -95,6 +96,7 @@ public class DeleteAnomalyDetectorActionTests extends OpenSearchIntegTestCase {
         DeleteConfigRequest newRequest = new DeleteConfigRequest(input);
         Assert.assertEquals(request.getConfigID(), newRequest.getConfigID());
         Assert.assertNull(newRequest.validate());
+        Assert.assertEquals(newRequest.type(), ADCommonName.AD_RESOURCE_TYPE);
     }
 
     @Test
