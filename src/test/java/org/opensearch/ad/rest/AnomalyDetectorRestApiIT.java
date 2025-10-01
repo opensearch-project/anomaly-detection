@@ -16,6 +16,7 @@ import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandle
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
@@ -301,43 +303,35 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
          * "There are still tasks running after this test... [indices:data/write/bulk]".
          * This loop ensures we wait for the asynchronous update to finish.
          */
-        boolean mappingValidated = false;
-        AssertionError lastError = null;
 
         String expectedFieldKey = "feature_data_" + featureName;
-        for (int attempt = 1; attempt <= mappingRetries; attempt++) {
-            try {
+        Awaitility
+            .await("flattened mapping to appear")
+            .pollDelay(Duration.ZERO)
+            .pollInterval(Duration.ofMillis(mappingRetryInterval))
+            .atMost(Duration.ofMillis(mappingRetryInterval * (long) mappingRetries))
+            .untilAsserted(() -> {
                 Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", expectedFlattenedIndex, ImmutableMap.of(), "", null);
                 Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
 
-                String indexKey = flattenedResultIndex.keySet().stream().findFirst().orElse(null);
+                // Ensure we got something back
+                assertFalse("Index response is empty", flattenedResultIndex.isEmpty());
+
+                String indexKey = flattenedResultIndex.keySet().iterator().next();
                 Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
+                assertNotNull("index details missing", indexDetails);
+
                 Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+                assertNotNull("mappings missing", mappings);
 
-                // 1️⃣ dynamic must be true
-                assertEquals("Dynamic field is not set to true", "true", mappings.get("dynamic").toString());
+                // 1) dynamic must be true
+                assertEquals("Dynamic field is not set to true", "true", String.valueOf(mappings.get("dynamic")));
 
-                // 2️⃣ per-feature flattened field must exist
+                // 2) per-feature flattened field must exist
                 Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
-
+                assertNotNull("mappings.properties is null", properties);
                 assertTrue("Flattened field '" + expectedFieldKey + "' does not exist", properties.containsKey(expectedFieldKey));
-
-                // If we get here, mapping is as expected ─ break the retry loop
-                mappingValidated = true;
-                break;
-
-            } catch (AssertionError ae) {
-                lastError = ae;
-                if (attempt < mappingRetries) {
-                    Thread.sleep(mappingRetryInterval);   // wait, then retry
-                }
-            }
-        }
-
-        // After retries, surface the original failure if still invalid
-        if (!mappingValidated && lastError != null) {
-            throw lastError;
-        }
+            });
 
         // Search against flattened result index and validate value
         Response searchFlattenResultIndexResponse = TestHelpers
