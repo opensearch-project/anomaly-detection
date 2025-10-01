@@ -5,6 +5,9 @@
 
 package org.opensearch.forecast;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.opensearch.ad.AnomalyDetectorRestTestCase.isForbidden;
 import static org.opensearch.timeseries.TimeSeriesAnalyticsPlugin.FORECAST_BASE_URI;
 import static org.opensearch.timeseries.util.RestHandlerUtils.COUNT;
 import static org.opensearch.timeseries.util.RestHandlerUtils.MATCH;
@@ -31,6 +34,7 @@ import java.util.Set;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.awaitility.Awaitility;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
@@ -263,5 +267,37 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
             /* otherwise wait a bit longer & retry */
             Thread.sleep(extraWait.plusSeconds(10L * attempt).toMillis());
         }
+    }
+
+    protected Response waitForSharingVisibility(String method, String endpoint, HttpEntity httpEntity, RestClient client) {
+        return Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                return TestHelpers.makeRequest(client, method, endpoint, ImmutableMap.of(), httpEntity, null);
+            } catch (Exception e) {
+                // Treat 403 as eventual-consistency: keep waiting
+                if (isForbidden(e)) {
+                    return null;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, notNullValue());
+    }
+
+    protected void waitForRevokeNonVisibility(String method, String endpoint, HttpEntity httpEntity, RestClient client) {
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Still visible (200) -> keep waiting
+                TestHelpers.makeRequest(client, method, endpoint, ImmutableMap.of(), httpEntity, null);
+                return Boolean.FALSE;
+            } catch (Exception e) {
+                // Access revoked (403) -> we're done
+                if (isForbidden(e)) {
+                    return Boolean.TRUE;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, is(Boolean.TRUE));
     }
 }

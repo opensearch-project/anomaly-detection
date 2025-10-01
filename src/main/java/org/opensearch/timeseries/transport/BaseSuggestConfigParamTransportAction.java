@@ -86,11 +86,8 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> suggestExecute(request, user, context, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(user, listener, () -> suggestExecute(request, user, context, listener)),
-                new Object[] {}
+                () -> suggestExecute(request, user, context, listener),
+                () -> resolveUserAndExecute(user, listener, () -> suggestExecute(request, user, context, listener))
             );
         } catch (Exception e) {
             logger.error(e);

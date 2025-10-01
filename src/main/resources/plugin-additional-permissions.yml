@@ -1,0 +1,21 @@
+cluster_permissions:
+  - "indices:data/read*"
+  - "indices:data/write/index*"
+  - "cluster:admin/opendistro/ad*"
+  - "cluster:admin/plugin/forecast*"
+index_permissions:
+  - index_patterns:
+      - ".opendistro-anomaly-detectors"
+      - ".opendistro-anomaly-results*"
+      - ".opendistro-anomaly-checkpoints"
+      - ".opendistro-anomaly-detection-state"
+      - ".opendistro-anomaly-detector-jobs"
+      - "opensearch-ad-plugin-result*"
+      - ".opensearch-forecasters"
+      - ".opensearch-forecast-checkpoints"
+      - ".opensearch-forecast-state"
+      - "opensearch-forecast-result*"
+    allowed_actions:
+      - "indices:data/write/index*"
+      - "indices:data/read*"
+      - "indices:admin/create"

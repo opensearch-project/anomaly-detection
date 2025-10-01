@@ -133,6 +133,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.search.profile.SearchProfileShardResults;
 import org.opensearch.search.suggest.Suggest;
+import org.opensearch.security.spi.resources.sharing.Recipients;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
@@ -172,6 +173,9 @@ public class TestHelpers {
     public static final String AD_BASE_PREVIEW_URI = AD_BASE_DETECTORS_URI + "/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
     public static final String AD_BASE_START_DETECTOR_URL = AD_BASE_DETECTORS_URI + "/%s/_start";
+
+    static final String SHARE_CONFIG_URI = "/_plugins/_security/api/resource/share";
+
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name());
     // Task may fail if memory circuit breaker triggered.
@@ -250,6 +254,96 @@ public class TestHelpers {
             parser.nextToken();
         }
         return parser;
+    }
+
+    public static Response shareConfig(RestClient client, Map<String, String> params, String payload) throws IOException {
+        return makeRequest(client, "PUT", SHARE_CONFIG_URI, params, payload, null);
+    }
+
+    public static Response patchSharingInfo(RestClient client, Map<String, String> params, String payload) throws IOException {
+        return makeRequest(client, "PATCH", SHARE_CONFIG_URI, params, payload, null);
+    }
+
+    public static String shareWithUserPayload(String resourceId, String resourceIndex, String accessLevel, String user) {
+        return String.format(Locale.ROOT, """
+            {
+              "resource_id": "%s",
+              "resource_type": "%s",
+              "share_with": {
+                "%s" : {
+                    "users": ["%s"]
+                }
+              }
+            }
+            """, resourceId, resourceIndex, accessLevel, user);
+    }
+
+    public static class PatchSharingInfoPayloadBuilder {
+        private String configId;
+        private String configType;
+        private final Map<String, Recipients> share = new HashMap<>();
+        private final Map<String, Recipients> revoke = new HashMap<>();
+
+        public PatchSharingInfoPayloadBuilder configId(String resourceId) {
+            this.configId = resourceId;
+            return this;
+        }
+
+        public PatchSharingInfoPayloadBuilder configType(String resourceType) {
+            this.configType = resourceType;
+            return this;
+        }
+
+        public void share(Recipients recipients, String accessLevel) {
+            Recipients existing = share.getOrDefault(accessLevel, new Recipients(new HashMap<>()));
+            existing.share(recipients);
+            share.put(accessLevel, existing);
+        }
+
+        public void revoke(Recipients recipients, String accessLevel) {
+            Recipients existing = revoke.getOrDefault(accessLevel, new Recipients(new HashMap<>()));
+            // intentionally share() is called here since we are building a shareWith object, this final object will be used to remove
+            // access
+            // think of it as currentShareWith.removeAll(revokeShareWith)
+            existing.share(recipients);
+            revoke.put(accessLevel, existing);
+        }
+
+        private String buildJsonString(Map<String, Recipients> input) {
+
+            List<String> output = new ArrayList<>();
+            for (Map.Entry<String, Recipients> entry : input.entrySet()) {
+                try {
+                    XContentBuilder builder = XContentFactory.jsonBuilder();
+                    entry.getValue().toXContent(builder, ToXContent.EMPTY_PARAMS);
+                    String recipJson = builder.toString();
+                    output.add(String.format(Locale.ROOT, "\"%s\" : %s", entry.getKey(), recipJson));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+            }
+
+            return String.join(",", output);
+
+        }
+
+        public String build() {
+            String allShares = buildJsonString(share);
+            String allRevokes = buildJsonString(revoke);
+            return String.format(Locale.ROOT, """
+                {
+                  "resource_id": "%s",
+                  "resource_type": "%s",
+                  "add": {
+                    %s
+                  },
+                  "revoke": {
+                    %s
+                  }
+                }
+                """, configId, configType, allShares, allRevokes);
+        }
     }
 
     public static Map<String, Object> XContentBuilderToMap(XContentBuilder builder) {

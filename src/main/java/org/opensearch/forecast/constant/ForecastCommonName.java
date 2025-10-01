@@ -38,6 +38,11 @@ public class ForecastCommonName {
     public static final String CONFIG_INDEX = ".opensearch-forecasters";
 
     // ======================================
+    // Resource name used in resource-access-control
+    // ======================================
+    public static final String FORECAST_RESOURCE_TYPE = "forecaster";
+
+    // ======================================
     // Used in toXContent
     // ======================================
     public static final String ID_JSON_KEY = "forecasterID";

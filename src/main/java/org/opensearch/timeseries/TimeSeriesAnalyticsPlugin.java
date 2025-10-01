@@ -262,6 +262,7 @@ import org.opensearch.forecast.transport.ValidateForecasterAction;
 import org.opensearch.forecast.transport.ValidateForecasterTransportAction;
 import org.opensearch.forecast.transport.handler.ForecastIndexMemoryPressureAwareResultHandler;
 import org.opensearch.forecast.transport.handler.ForecastSearchHandler;
+import org.opensearch.identity.PluginSubject;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
@@ -269,6 +270,7 @@ import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
+import org.opensearch.plugins.IdentityAwarePlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
@@ -306,6 +308,7 @@ import org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.IndexUtils;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
@@ -330,7 +333,13 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin
+    implements
+        ActionPlugin,
+        ScriptPlugin,
+        SystemIndexPlugin,
+        JobSchedulerExtension,
+        IdentityAwarePlugin {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -374,6 +383,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
     private ExecuteForecastResultResponseRecorder forecastResultResponseRecorder;
     private ADIndexJobActionHandler adIndexJobActionHandler;
     private ForecastIndexJobActionHandler forecastIndexJobActionHandler;
+
+    private PluginClient pluginClient;
 
     static {
         SpecialPermission.check();
@@ -504,6 +515,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
         // Common components
         // =====================
         this.client = client;
+        this.pluginClient = new PluginClient(client);
         this.threadPool = threadPool;
         Settings settings = environment.settings();
         this.clientUtil = new ClientUtil(client);
@@ -937,7 +949,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
             );
 
-        ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client);
+        ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
 
         ResultBulkIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> anomalyResultHandler = new ResultBulkIndexingHandler<>(
             client,
@@ -1334,7 +1346,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             TimeSeriesSettings.NUM_MIN_SAMPLES
         );
 
-        ForecastSearchHandler forecastSearchHandler = new ForecastSearchHandler(settings, clusterService, client);
+        ForecastSearchHandler forecastSearchHandler = new ForecastSearchHandler(settings, clusterService, client, pluginClient);
 
         forecastIndexJobActionHandler = new ForecastIndexJobActionHandler(
             client,
@@ -1414,7 +1426,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 forecastTaskCacheManager,
                 forecastSaveResultStrategy,
                 new ForecastTaskProfileRunner(),
-                forecastInferencer
+                forecastInferencer,
+                pluginClient
             );
     }
 
@@ -1774,6 +1787,13 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             } catch (Exception e) {
                 LOG.error("Failed to shut down object Pool", e);
             }
+        }
+    }
+
+    @Override
+    public void assignSubject(PluginSubject pluginSubject) {
+        if (this.pluginClient != null) {
+            this.pluginClient.setSubject(pluginSubject);
         }
     }
 }

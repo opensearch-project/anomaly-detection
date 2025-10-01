@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         # empty string = disabled, flag = enabled
-        resource_sharing_flag: [""]
+        resource_sharing_flag: ["", "-Dresource_sharing.enabled=true"]
 
     steps:
       - name: Run start commands

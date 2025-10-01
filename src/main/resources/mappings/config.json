@@ -1,7 +1,7 @@
 {
     "dynamic": false,
     "_meta": {
-        "schema_version": 8
+        "schema_version": 9
     },
     "properties": {
         "schema_version": {
@@ -144,6 +144,9 @@
                     }
                 }
             }
+        },
+        "all_shared_principals": {
+          "type": "keyword"
         },
         "category_field": {
             "type": "keyword"

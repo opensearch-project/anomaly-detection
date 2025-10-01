@@ -31,11 +31,13 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.Client;
 
 public class ADSearchHandlerTests extends ADUnitTestCase {
 
     private Client client;
+    private PluginClient pluginClient;
     private Settings settings;
     private ClusterService clusterService;
     private ADSearchHandler searchHandler;
@@ -54,7 +56,8 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterSettings = clusterSetting(settings, AD_FILTER_BY_BACKEND_ROLES);
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
         client = mock(Client.class);
-        searchHandler = new ADSearchHandler(settings, clusterService, client);
+        pluginClient = mock(PluginClient.class);
+        searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
 
         ThreadContext threadContext = new ThreadContext(settings);
         threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
@@ -77,7 +80,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
-        searchHandler = new ADSearchHandler(settings, clusterService, client);
+        searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
         searchHandler.search(request, listener);
         verify(listener, times(1)).onFailure(any());
     }
@@ -86,7 +89,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
-        searchHandler = new ADSearchHandler(settings, clusterService, client);
+        searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
         searchHandler.search(matchAllRequest(), listener);
         verify(client, times(1)).search(any(), any());
     }

@@ -26,6 +26,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.Client;
 
 /**
@@ -34,11 +35,21 @@ import org.opensearch.transport.client.Client;
 public class SearchHandler {
     private final Logger logger = LogManager.getLogger(SearchHandler.class);
     private final Client client;
+    private final PluginClient pluginClient;
     private volatile Boolean filterEnabled;
+    private final boolean shouldUseResourceAuthz;
 
-    public SearchHandler(Settings settings, ClusterService clusterService, Client client, Setting<Boolean> filterByBackendRoleSetting) {
+    public SearchHandler(
+        Settings settings,
+        ClusterService clusterService,
+        Client client,
+        PluginClient pluginClient,
+        Setting<Boolean> filterByBackendRoleSetting
+    ) {
         this.client = client;
+        this.pluginClient = pluginClient;
         filterEnabled = filterByBackendRoleSetting.get(settings);
+        shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterEnabled = it);
     }
 
@@ -46,14 +57,19 @@ public class SearchHandler {
      * Validate user role, add backend role filter if filter enabled
      * and execute search.
      *
-     * @param request search request
-     * @param actionListener action listerner
+     * @param request        search request
+     * @param actionListener action listener
      */
     public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
         User user = ParseUtils.getUserContext(client);
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            validateRole(request, user, listener);
+            if (pluginClient != null && shouldUseResourceAuthz) {
+                // request will be auto-filtered in security plugin
+                pluginClient.search(request, actionListener);
+            } else {
+                validateRole(request, user, listener);
+            }
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

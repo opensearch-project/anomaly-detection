@@ -103,23 +103,14 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> indexDetector(
-                    user,
-                    detectorId,
-                    method,
-                    listener,
-                    detector -> adExecute(request, user, detector, context, listener)
-                ),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                () -> indexDetector(user, detectorId, method, listener, detector -> adExecute(request, user, detector, context, listener)),
+                () -> resolveUserAndExecute(
                     user,
                     detectorId,
                     method,
                     listener,
                     (detector) -> adExecute(request, user, detector, context, listener)
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

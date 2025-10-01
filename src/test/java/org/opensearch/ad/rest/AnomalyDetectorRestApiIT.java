@@ -245,6 +245,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         int maxRetries = 60;
         int retryIntervalMs = 1000;
 
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(id, client());
+        }
+
         Map<String, Object> searchResults = null;
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             Response searchAllResponse = TestHelpers
@@ -489,6 +493,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getFrequency()
         );
 
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(id, client());
+        }
+
         Response updateResponse = TestHelpers
             .makeRequest(
                 client(),
@@ -624,6 +632,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getLastBreakingUIChangeTime(),
             detector.getFrequency()
         );
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(id, client());
+        }
         Exception ex = expectThrows(
             ResponseException.class,
             () -> TestHelpers
@@ -1349,10 +1360,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStartAdJobWithNonexistingDetectorIndex() throws Exception {
+        String message = "no such index [.opendistro-anomaly-detectors]";
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for ";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "no such index [.opendistro-anomaly-detectors]",
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1367,10 +1382,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStartAdJobWithNonexistingDetector() throws Exception {
         createRandomAnomalyDetector(true, false, client());
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1469,10 +1488,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1651,7 +1674,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Historical is running"));
     }
 
-    public void testBackwardCompatibilityWithOpenDistro() throws IOException {
+    public void testBackwardCompatibilityWithOpenDistro() throws IOException, InterruptedException {
+
         // Create a detector
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         // Verify the detector is created using legacy _opendistro API
@@ -1671,8 +1695,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("incorrect version", version > 0);
 
-        // Get the detector using new _plugins API
-        AnomalyDetector createdDetector = getConfig(id, client());
+        AnomalyDetector createdDetector;
+        if (isResourceSharingFeatureEnabled()) {
+            createdDetector = waitForSharingVisibility(id, client());
+        } else {
+            // No resource-sharing -> just read it directly
+            createdDetector = getConfig(id, client());
+        }
         assertEquals("Get anomaly detector failed", createdDetector.getId(), id);
 
         // Delete the detector using legacy _opendistro API
@@ -1902,6 +1931,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     ),
                 null
             );
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1922,6 +1952,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithInvalidName() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1943,6 +1974,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
         assertEquals("invalid detector Name", CommonMessages.INVALID_NAME, messageMap.get("name").get("message"));
+
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryReturningNoData() throws Exception {
@@ -1966,6 +1998,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG + "f-empty",
             messageMap.get("feature_attributes").get("message")
         );
+
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryRuntimeException() throws Exception {
@@ -1989,6 +2022,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + "non-numeric-feature",
             messageMap.get("feature_attributes").get("message")
         );
+
     }
 
     public void testValidateAnomalyDetectorWithWrongCategoryField() throws Exception {
@@ -2000,6 +2034,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 Arrays.asList("host.keyword")
             );
         TestHelpers.createIndexWithTimeField(client(), "index-test", TIME_FIELD);
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -2022,6 +2057,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsWithInvalidInputs() throws IOException {
+
         String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
@@ -2054,7 +2090,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception missingEndTimeException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":1}", client());
         });
-        assertTrue(missingEndTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
+        String message = "Must set both start time and end time with epoch of milliseconds";
+
+        assertTrue(missingEndTimeException.getMessage().contains(message));
 
         // Start time > end time
         Exception invalidTimeException = expectThrows(IOException.class, () -> {
@@ -2066,7 +2104,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception invalidDetectorIdException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
         });
-        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        if (isHttps() && isResourceSharingFeatureEnabled()) {
+            // since no resource-sharing record exists for this document we simply throw 403 with the new feature
+            assertTrue(invalidDetectorIdException.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
+        } else {
+            assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        }
 
         // Invalid order field
         Exception invalidOrderException = expectThrows(IOException.class, () -> {
@@ -2368,6 +2411,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyResult anomalyResult = TestHelpers
             .randomHCADAnomalyDetectResult(detector.getId(), null, entityAttrs, 0.5, 0.8, null, 5L, 5L);
         TestHelpers.ingestDataToIndex(client(), customResultIndexName, TestHelpers.toHttpEntity(anomalyResult));
+
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(detector.getId(), client());
+        }
 
         Response response = searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":0, \"end_time_ms\":10}", client());
         Map<String, Object> responseMap = entityAsMap(response);

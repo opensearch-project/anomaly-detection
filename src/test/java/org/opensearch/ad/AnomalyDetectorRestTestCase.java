@@ -11,10 +11,13 @@
 
 package org.opensearch.ad;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.opensearch.common.xcontent.json.JsonXContent.jsonXContent;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,10 +28,13 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.awaitility.Awaitility;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -371,6 +377,18 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
+    public Response searchAnomalyDetectors(String bodyAsJsonString, RestClient client) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_search",
+                null,
+                TestHelpers.toHttpEntity(bodyAsJsonString),
+                new ArrayList<>()
+            );
+    }
+
     public Response searchTopAnomalyResults(String detectorId, boolean historical, String bodyAsJsonString, RestClient client)
         throws IOException {
         return TestHelpers
@@ -602,5 +620,48 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 TestHelpers.toHttpEntity(detector),
                 null
             );
+    }
+
+    public static boolean isForbidden(Exception e) {
+        if (e instanceof OpenSearchStatusException) {
+            return ((OpenSearchStatusException) e).status() == RestStatus.FORBIDDEN;
+        }
+        if (e instanceof ResponseException) {
+            return ((ResponseException) e).getResponse().getStatusLine().getStatusCode() == 403;
+        }
+        return false;
+    }
+
+    protected AnomalyDetector waitForSharingVisibility(String detId, RestClient client) {
+        return Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Try to read it; if 200, you'll get a non-null detector
+                return getConfig(detId, client);
+            } catch (Exception e) {
+                // Treat 403 as eventual-consistency: keep waiting
+                if (isForbidden(e)) {
+                    return null;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, notNullValue());
+    }
+
+    protected void waitForRevokeNonVisibility(String detId, RestClient client) {
+        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(200)).until(() -> {
+            try {
+                // Still visible (200) -> keep waiting
+                getConfig(detId, client);
+                return Boolean.FALSE;
+            } catch (Exception e) {
+                // Access revoked (403) -> we're done
+                if (isForbidden(e)) {
+                    return Boolean.TRUE;
+                }
+                // Anything else is unexpected: fail fast
+                throw e;
+            }
+        }, is(Boolean.TRUE));
     }
 }
