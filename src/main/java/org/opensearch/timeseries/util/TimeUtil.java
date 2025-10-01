@@ -21,7 +21,7 @@ public class TimeUtil {
 
     public static boolean isMultiple(Duration a, Duration b) {
         if (b.isZero())
-            return a.isZero(); // define 0 as a multiple of 0; change to 'false' if you prefer
+            return a.isZero(); // define 0 as a multiple of 0
         long aNanos = a.toNanos();
         long bNanos = b.toNanos();
         return bNanos != 0 && aNanos % bNanos == 0;

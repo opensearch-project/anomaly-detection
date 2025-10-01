@@ -618,7 +618,7 @@ public class TestHelpers {
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
-            "detectorWithFlattenResultIndex",
+            randomAlphaOfLength(10),
             randomAlphaOfLength(30),
             timefield,
             ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),

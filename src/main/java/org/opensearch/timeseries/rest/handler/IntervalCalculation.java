@@ -101,7 +101,7 @@ public class IntervalCalculation {
 
     public void findInterval(ActionListener<IntervalTimeConfiguration> listener) {
         ActionListener<IntervalTimeConfiguration> minimumIntervalListener = ActionListener.wrap(minInterval -> {
-            logger.debug("minimum interval found: {}", minInterval);
+            logger.info("minimum interval found: {}", minInterval);
             if (minInterval == null) {
                 logger.debug("Fail to find minimum interval");
                 listener.onResponse(null);
@@ -205,7 +205,7 @@ public class IntervalCalculation {
 
                 int nextMin = nextNiceInterval((int) currentIntervalToTry.getInterval());
                 if (nextMin <= currentIntervalToTry.getInterval()) {           // cannot grow further
-                    logger.debug("Cannot grow interval further: next={}, current={}", nextMin, currentIntervalToTry.getInterval());
+                    logger.info("Cannot grow interval further: next={}, current={}", nextMin, currentIntervalToTry.getInterval());
                     intervalListener.onResponse(null);
                     return;
                 }

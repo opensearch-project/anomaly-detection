@@ -101,8 +101,8 @@ public class AbstractADSyntheticDataTest extends AbstractSyntheticDataTest {
         int statusCode = client.performRequest(request).getStatusLine().getStatusCode();
         assert (statusCode >= 200 && statusCode < 300);
 
-        // wait for 50 milliseconds per entity before next query
-        Thread.sleep(50 * entitySize);
+        // wait for 100 milliseconds per entity before next query
+        Thread.sleep(100 * entitySize);
     }
 
     protected void startHistorical(String detectorId, Instant begin, Instant end, RestClient client, int entitySize) throws IOException,

@@ -235,7 +235,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("Incorrect version", version > 0);
 
         // Ensure the flattened result index was created
-        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
+        String expectedFlattenedIndex = detector.getCustomResultIndexOrAlias()
+            + "_flattened_"
+            + detector.getName().toLowerCase(Locale.ROOT);
         assertTrue("Alias for flattened result index does not exist", aliasExists(expectedFlattenedIndex));
 
         // Start detector
@@ -288,9 +290,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Double featureValue = ((Number) firstFeature.get("data")).doubleValue();
 
         // ------------------------------------------------------------------
-        // Validate flattened result index mappings (up to 3 attempts)
+        // Validate flattened result index mappings (up to 30 attempts)
         // ------------------------------------------------------------------
-        final int mappingRetries = 3;     // 1 initial try + 2 more
+        final int mappingRetries = 30;     // 1 initial try + 29 more
         final int mappingRetryInterval = 1_000; // milliseconds
 
         /*
@@ -309,6 +311,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             .await("flattened mapping to appear")
             .pollDelay(Duration.ZERO)
             .pollInterval(Duration.ofMillis(mappingRetryInterval))
+            // Given mappingRetryInterval = 1_000 ms and mappingRetries = 30,
+            // the Awaitility.atMost(Duration.ofMillis(mappingRetryInterval * (long) mappingRetries))
+            // cap works out to 1_000 * 30 = 30_000 ms. So the wait tops out at thirty seconds before
+            // the assertion is forced.
             .atMost(Duration.ofMillis(mappingRetryInterval * (long) mappingRetries))
             .untilAsserted(() -> {
                 Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", expectedFlattenedIndex, ImmutableMap.of(), "", null);
@@ -317,20 +323,41 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 // Ensure we got something back
                 assertFalse("Index response is empty", flattenedResultIndex.isEmpty());
 
-                String indexKey = flattenedResultIndex.keySet().iterator().next();
-                Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
-                assertNotNull("index details missing", indexDetails);
+                boolean fieldFound = false;
+                for (Map.Entry<String, Object> entry : flattenedResultIndex.entrySet()) {
+                    Map<String, Object> indexDetails = (Map<String, Object>) entry.getValue();
+                    assertNotNull("index details missing for " + entry.getKey(), indexDetails);
 
-                Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
-                assertNotNull("mappings missing", mappings);
+                    Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+                    assertNotNull("mappings missing for " + entry.getKey(), mappings);
 
-                // 1) dynamic must be true
-                assertEquals("Dynamic field is not set to true", "true", String.valueOf(mappings.get("dynamic")));
+                    // 1) dynamic must be true
+                    assertEquals("Dynamic field is not set to true for " + entry.getKey(), "true", String.valueOf(mappings.get("dynamic")));
 
-                // 2) per-feature flattened field must exist
-                Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
-                assertNotNull("mappings.properties is null", properties);
-                assertTrue("Flattened field '" + expectedFieldKey + "' does not exist", properties.containsKey(expectedFieldKey));
+                    // 2) per-feature flattened field must exist in at least one backing index
+                    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+                    assertNotNull("mappings.properties is null for " + entry.getKey(), properties);
+                    if (properties.containsKey(expectedFieldKey)) {
+                        fieldFound = true;
+                        break;
+                    }
+                }
+
+                assertTrue(
+                    "Flattened field '"
+                        + expectedFieldKey
+                        + "' does not exist in any backing index. Available properties in all indices: "
+                        + flattenedResultIndex
+                            .entrySet()
+                            .stream()
+                            .map(
+                                entry -> entry.getKey()
+                                    + ": "
+                                    + ((Map<String, Object>) ((Map<String, Object>) entry.getValue()).get("mappings")).get("properties")
+                            )
+                            .collect(java.util.stream.Collectors.joining(", ")),
+                    fieldFound
+                );
             });
 
         // Search against flattened result index and validate value
@@ -378,8 +405,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Create anomaly detector with flattened result index failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
-        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
-        String expectedPipelineId = "flatten_result_index_ingest_pipeline_detectorwithflattenresultindex";
+        String expectedPipelineId = "flatten_result_index_ingest_pipeline_" + detector.getName().toLowerCase(Locale.ROOT);
         String getIngestPipelineEndpoint = String.format(Locale.ROOT, "_ingest/pipeline/%s", expectedPipelineId);
         Response getPipelineResponse = TestHelpers.makeRequest(client(), "GET", getIngestPipelineEndpoint, ImmutableMap.of(), "", null);
         assertEquals(

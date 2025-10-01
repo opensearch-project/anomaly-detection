@@ -10,8 +10,9 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - adding AD suggest API ([#1563](https://github.com/opensearch-project/anomaly-detection/pull/1563))
 
 
-
 ### Bug Fixes
+- Make frequency optional; fix STOPPED state; add ecommerce tests ([#1565](https://github.com/opensearch-project/anomaly-detection/pull/1565))
+
 
 ### Infrastructure
 

@@ -86,7 +86,7 @@ public class ADSaveResultStrategy implements SaveResultStrategy<AnomalyResult, T
         resultWriteWorker
             .put(
                 new ADResultWriteRequest(
-                    System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                    System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                     config.getId(),
                     result.getAnomalyGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                     result,
@@ -129,7 +129,7 @@ public class ADSaveResultStrategy implements SaveResultStrategy<AnomalyResult, T
                     writeRequests
                         .add(
                             new ADResultWriteRequest(
-                                System.currentTimeMillis() + config.getFrequencyInMilliseconds(),
+                                System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                                 config.getId(),
                                 r.getAnomalyGrade() > 0 ? RequestPriority.HIGH : RequestPriority.MEDIUM,
                                 r,

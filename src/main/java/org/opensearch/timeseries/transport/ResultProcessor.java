@@ -511,7 +511,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             }
 
             // assume request are in epoch milliseconds
-            long nextDetectionStartTime = request.getEnd() + config.getFrequencyInMilliseconds();
+            long nextDetectionStartTime = request.getEnd() + config.getInferredFrequencyInMilliseconds();
 
             CompositeRetriever compositeRetriever = new CompositeRetriever(
                 dataStartTime,
