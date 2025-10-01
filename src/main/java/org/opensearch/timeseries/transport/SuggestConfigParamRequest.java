@@ -16,11 +16,13 @@ import java.io.IOException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.DocRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.timeseries.AnalysisType;
@@ -83,6 +85,11 @@ public class SuggestConfigParamRequest extends ActionRequest implements DocReque
 
     public AnalysisType getContext() {
         return context;
+    }
+
+    @Override
+    public String type() {
+        return context.isAD() ? ADCommonName.AD_RESOURCE_TYPE : ForecastCommonName.FORECAST_RESOURCE_TYPE;
     }
 
     @Override

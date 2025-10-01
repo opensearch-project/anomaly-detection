@@ -17,6 +17,7 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.DocRequest;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
@@ -145,6 +146,11 @@ public class IndexAnomalyDetectorRequest extends ActionRequest implements DocReq
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    @Override
+    public String type() {
+        return ADCommonName.AD_RESOURCE_TYPE;
     }
 
     @Override

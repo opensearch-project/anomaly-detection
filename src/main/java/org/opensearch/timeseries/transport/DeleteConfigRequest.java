@@ -18,9 +18,12 @@ import java.io.IOException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.DocRequest;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.timeseries.constant.CommonMessages;
 
 public class DeleteConfigRequest extends ActionRequest implements DocRequest {
@@ -58,6 +61,13 @@ public class DeleteConfigRequest extends ActionRequest implements DocRequest {
             validationException = addValidationError(CommonMessages.CONFIG_ID_MISSING_MSG, validationException);
         }
         return validationException;
+    }
+
+    @Override
+    public String type() {
+        return configIndex.startsWith(ADIndex.CONFIG.getIndexName())
+            ? ADCommonName.AD_RESOURCE_TYPE
+            : ForecastCommonName.FORECAST_RESOURCE_TYPE;
     }
 
     @Override
