@@ -20,6 +20,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Refactoring
 - Updates search handler to consume resource authz and updates resource authz related tests ([#1546](https://github.com/opensearch-project/anomaly-detection/pull/1546))
+- Adds resource types to DocRequests ([#1566](https://github.com/opensearch-project/anomaly-detection/pull/1566))
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/anomaly-detection/compare/2.19...2.x)
 ### Features
