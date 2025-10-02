@@ -756,7 +756,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Update anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(updateResponse));
         Map<String, Object> responseBody = entityAsMap(updateResponse);
         assertEquals("Updated anomaly detector id doesn't match", detector.getId(), responseBody.get("_id"));
-        assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
+
+        if (isResourceSharingFeatureEnabled()) {
+            // The extra write is coming from the Security plugin’s resource‑sharing handler ResourceSharingIndexHandler.
+            // It happen on every index/update when the resource-sharing feature flag is enabled.
+            // ResourceSharingIndexHandler updates the detector document in .opendistro-anomaly-detectors to add the
+            // all_shared_principals field.
+            // The Security plugin registers a post-index listener (ResourceIndexListener) which triggers an UpdateRequest to set
+            // `all_shared_principals` after each detector document index/update.
+            // ResourceIndexListener (postIndex listener): https://tinyurl.com/4mk73vzm
+            // ResourceSharingIndexHandler (issues UpdateRequest for `all_shared_principals`): https://tinyurl.com/yujaez4d
+            assertTrue("Version not incremented", (detector.getVersion().intValue() + 1) <= (int) responseBody.get("_version"));
+        } else {
+            assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
+        }
 
         AnomalyDetector updatedDetector = getConfig(detector.getId(), client());
         assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
