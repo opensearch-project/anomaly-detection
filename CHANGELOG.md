@@ -15,6 +15,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 
 ### Infrastructure
+- Fix tests by adding the new node setting for protected types ([#1572](https://github.com/opensearch-project/anomaly-detection/pull/1572))
 
 ### Documentation
 ### Maintenance
