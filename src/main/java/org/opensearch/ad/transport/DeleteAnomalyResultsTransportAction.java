@@ -22,6 +22,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -64,7 +65,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
         this.pluginClient = pluginClient;
-        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
+        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(ADCommonName.AD_RESOURCE_TYPE);
         filterEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
