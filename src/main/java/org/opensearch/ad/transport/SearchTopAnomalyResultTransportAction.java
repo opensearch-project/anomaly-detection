@@ -31,6 +31,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.AnomalyResult;
@@ -317,7 +318,7 @@ public class SearchTopAnomalyResultTransportAction extends
             searchHandler
                 .search(
                     searchRequest,
-                    new TopAnomalyResultListener(
+                        ADCommonName.AD_RESOURCE_TYPE, new TopAnomalyResultListener(
                         listener,
                         searchRequest.source(),
                         clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
@@ -434,7 +435,7 @@ public class SearchTopAnomalyResultTransportAction extends
                     SearchRequest searchRequest = Strings.isNullOrEmpty(customResultIndex)
                         ? new SearchRequest().indices(defaultIndex)
                         : new SearchRequest().indices(defaultIndex, customResultIndex);
-                    searchHandler.search(searchRequest.source(searchSourceBuilder), this);
+                    searchHandler.search(searchRequest.source(searchSourceBuilder), ADCommonName.AD_RESOURCE_TYPE, this);
                 }
 
             } catch (Exception e) {

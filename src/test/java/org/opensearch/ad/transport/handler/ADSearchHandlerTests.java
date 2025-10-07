@@ -24,6 +24,7 @@ import org.junit.Before;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.ADUnitTestCase;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -72,7 +73,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
     public void testSearchException() {
         doThrow(new RuntimeException("test")).when(client).search(any(), any());
-        searchHandler.search(request, listener);
+        searchHandler.search(request, ADCommonName.AD_RESOURCE_TYPE, listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -81,7 +82,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
-        searchHandler.search(request, listener);
+        searchHandler.search(request, ADCommonName.AD_RESOURCE_TYPE, listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -90,7 +91,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
         searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
-        searchHandler.search(matchAllRequest(), listener);
+        searchHandler.search(matchAllRequest(), ADCommonName.AD_RESOURCE_TYPE, listener);
         verify(client, times(1)).search(any(), any());
     }
 }
