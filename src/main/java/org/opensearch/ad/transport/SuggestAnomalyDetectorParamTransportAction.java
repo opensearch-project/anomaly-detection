@@ -15,6 +15,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.inject.Inject;
@@ -37,7 +38,7 @@ import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.Sets;
 
-public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfigParamTransportAction {
+public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfigParamTransportAction<AnomalyDetector> {
     public static final Logger logger = LogManager.getLogger(SuggestAnomalyDetectorParamTransportAction.class);
 
     @Inject
@@ -62,7 +63,8 @@ public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfi
             AD_FILTER_BY_BACKEND_ROLES,
             AnalysisType.AD,
             searchFeatureDao,
-            Name.getListStrs(Arrays.asList(ADSuggestName.values()))
+            Name.getListStrs(Arrays.asList(ADSuggestName.values())),
+            AnomalyDetector.class
         );
     }
 

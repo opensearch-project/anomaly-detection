@@ -72,7 +72,6 @@ import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Max;
 import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.security.spi.resources.client.ResourceSharingClient;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
@@ -629,7 +628,8 @@ public final class ParseUtils {
                 User resourceUser = config.getUser();
 
                 // if resource sharing feature is available, request will be auto-evaluated, hence skip evaluation here
-                if (shouldUseResourceAuthz()
+                String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
+                if (shouldUseResourceAuthz(resourceType)
                     || !filterByBackendRole
                     || checkUserPermissions(requestUser, resourceUser, configId)
                     || isAdmin(requestUser)) {
@@ -700,6 +700,13 @@ public final class ParseUtils {
         return null;
     }
 
+    public static String getResourceTypeFromClassName(String resourceClassName) {
+        if (resourceClassName.equals(AnomalyDetector.class.getSimpleName())) {
+            return ADCommonName.AD_RESOURCE_TYPE;
+        }
+        return ForecastCommonName.FORECAST_RESOURCE_TYPE;
+    }
+
     /**
      * Checks whether to utilize new ResourceAuthz
      * @param resourceType for which to decide whether to use resource authz
@@ -712,12 +719,13 @@ public final class ParseUtils {
 
     /**
      * Verifies whether the user has permission to access the resource.
+     * @param resourceType the type of resource to be authorized
      * @param onSuccess consumer function to execute if resource sharing feature is enabled
      * @param fallbackOn501 consumer function to execute if resource sharing feature is disabled.
      */
-    public static void verifyResourceAccessAndProcessRequest(Runnable onSuccess, Runnable fallbackOn501) {
+    public static void verifyResourceAccessAndProcessRequest(String resourceType, Runnable onSuccess, Runnable fallbackOn501) {
         // Resource access will be auto-evaluated
-        if (shouldUseResourceAuthz()) {
+        if (shouldUseResourceAuthz(resourceType)) {
             onSuccess.run();
         } else {
             fallbackOn501.run();

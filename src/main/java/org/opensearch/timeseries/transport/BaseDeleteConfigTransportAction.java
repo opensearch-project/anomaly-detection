@@ -7,6 +7,7 @@ package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_DELETE_CONFIG;
+import static org.opensearch.timeseries.util.ParseUtils.getResourceTypeFromClassName;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -114,7 +115,9 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
         ActionListener<DeleteResponse> listener = wrapRestActionListener(actionListener, FAIL_TO_DELETE_CONFIG);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
             verifyResourceAccessAndProcessRequest(
+                resourceType,
                 () -> deleteConfigIfNotRunning(configId, listener),
                 () -> resolveUserAndExecute(
                     user,

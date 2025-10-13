@@ -318,7 +318,8 @@ public class SearchTopAnomalyResultTransportAction extends
             searchHandler
                 .search(
                     searchRequest,
-                        ADCommonName.AD_RESOURCE_TYPE, new TopAnomalyResultListener(
+                    ADCommonName.AD_RESOURCE_TYPE,
+                    new TopAnomalyResultListener(
                         listener,
                         searchRequest.source(),
                         clock.millis() + TOP_ANOMALY_RESULT_TIMEOUT_IN_MILLIS,
