@@ -575,6 +575,7 @@ def configureClusterPlugins(cluster, jobSchedulerFile, securityPluginFile, secur
                 node.setting("plugins.security.system_indices.enabled", "true")
                 if (System.getProperty("resource_sharing.enabled") == "true") {
                     node.setting("plugins.security.experimental.resource_sharing.enabled", "true")
+                    node.setting("plugins.security.experimental.resource_sharing.protected_types", "[\"anomaly-detector\", \"forecaster\"]")
                 }
             }
         }
@@ -760,6 +761,26 @@ task integTestRemote(type: RestIntegTestTask) {
         filter {
             excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
             excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRestIT"
+        }
+    }
+
+    if (System.getProperty("model-benchmark") == null || System.getProperty("model-benchmark") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.*ModelPerfIT"
+        }
+    }
+
+    if (System.getProperty("long-running") == null || System.getProperty("long-running") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.SingleStreamSmokeIT"
+            excludeTestsMatching "org.opensearch.ad.e2e.RealTimeFrequencySmokeIT"
+            excludeTestsMatching "org.opensearch.forecast.rest.LongRunningForecastRestApiIT"
+        }
+    }
+
+    if (System.getProperty("perf") == null || System.getProperty("perf") == "false") {
+        filter {
+            excludeTestsMatching "org.opensearch.ad.e2e.BatchADSchedulingCheckpointIT"
         }
     }
 }
