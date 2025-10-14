@@ -12,6 +12,7 @@
 package org.opensearch.ad.transport;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -183,7 +184,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
                 new HashSet<>(),
                 new ArrayList<>()
             );
-        verify(searchHandler).search(any(), ADCommonName.AD_RESOURCE_TYPE, any());
+        verify(searchHandler).search(any(), eq(ADCommonName.AD_RESOURCE_TYPE), any());
     }
 
     @Test
@@ -216,7 +217,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
                 new HashSet<>(),
                 new ArrayList<>()
             );
-        verify(searchHandler).search(any(), ADCommonName.AD_RESOURCE_TYPE, any());
+        verify(searchHandler).search(any(), eq(ADCommonName.AD_RESOURCE_TYPE), any());
     }
 
     @Test
@@ -281,7 +282,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         action.doExecute(mock(Task.class), request, future);
         verify(client).search(any(), any());
         verify(client).multiSearch(any(), any());
-        verify(searchHandler).search(any(), ADCommonName.AD_RESOURCE_TYPE, any());
+        verify(searchHandler).search(any(), eq(ADCommonName.AD_RESOURCE_TYPE), any());
     }
 
     @Test
