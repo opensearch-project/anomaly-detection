@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,8 +42,6 @@ import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastTaskProfile;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.search.SearchHit;
-import org.opensearch.security.spi.resources.sharing.Recipient;
-import org.opensearch.security.spi.resources.sharing.Recipients;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.TaskState;
 
@@ -1820,16 +1817,11 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         assertEquals(200, response.getStatusLine().getStatusCode());
 
         // (3c) fullClient (now full_access) PATCH shares READ_ONLY with phoenix user and SDE's backend role
-        Map<Recipient, Set<String>> recs = new HashMap<>();
-        Set<String> users = new HashSet<>();
-        users.add(phoenixReadUser);
-        Set<String> backends = new HashSet<>();
-        backends.add("SDE");
-        recs.put(Recipient.USERS, users);
-        recs.put(Recipient.BACKEND_ROLES, backends);
-        Recipients recipients = new Recipients(recs);
+        Map<TestHelpers.Recipient, Set<String>> recs = new HashMap<>();
+        recs.put(TestHelpers.Recipient.USERS, Set.of(phoenixReadUser));
+        recs.put(TestHelpers.Recipient.BACKEND_ROLES, Set.of("SDE"));
         TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).share(recipients, READ_ONLY_AG);
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).share(recs, READ_ONLY_AG);
         String patchShareSdeBR = builder.build();
 
         Response fullAddsSdeBR = patchSharingInfo(fullClient, Map.of(), patchShareSdeBR);
@@ -1838,12 +1830,9 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
 
         // (3d) fullClient revokes the direct user-level READ_ONLY for SDE — SDE still has access via backend_role
         recs = new HashMap<>();
-        users = new HashSet<>();
-        users.add(sdeUser);
-        recs.put(Recipient.USERS, users);
-        recipients = new Recipients(recs);
+        recs.put(TestHelpers.Recipient.USERS, Set.of(sdeUser));
         builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recs, READ_ONLY_AG);
         String revokeSdeUserRO = builder.build();
         Response fullRevokesSdeUser = patchSharingInfo(fullClient, Map.of(), revokeSdeUserRO);
         assertEquals(200, fullRevokesSdeUser.getStatusLine().getStatusCode());
@@ -1855,12 +1844,9 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
 
         // (3e) fullClient revokes the backend_role READ_ONLY — SDE loses access now
         recs = new HashMap<>();
-        backends = new HashSet<>();
-        backends.add("SDE");
-        recs.put(Recipient.BACKEND_ROLES, backends);
-        recipients = new Recipients(recs);
+        recs.put(TestHelpers.Recipient.BACKEND_ROLES, Set.of("SDE"));
         builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
-        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recipients, READ_ONLY_AG);
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recs, READ_ONLY_AG);
         String revokeSdeBR = builder.build();
 
         Response fullRevokesSdeBR = patchSharingInfo(fullClient, Map.of(), revokeSdeBR);
