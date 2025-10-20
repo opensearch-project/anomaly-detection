@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -133,7 +134,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.search.profile.SearchProfileShardResults;
 import org.opensearch.search.suggest.Suggest;
-import org.opensearch.security.spi.resources.sharing.Recipients;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.opensearch.threadpool.ThreadPool;
@@ -278,11 +278,29 @@ public class TestHelpers {
             """, resourceId, resourceIndex, accessLevel, user);
     }
 
+    public enum Recipient {
+        USERS("users"),
+        ROLES("roles"),
+        BACKEND_ROLES("backend_roles");
+
+        private final String name;
+
+        Recipient(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
     public static class PatchSharingInfoPayloadBuilder {
         private String configId;
         private String configType;
-        private final Map<String, Recipients> share = new HashMap<>();
-        private final Map<String, Recipients> revoke = new HashMap<>();
+
+        // accessLevel -> recipientType -> principals
+        private final Map<String, Map<String, Set<String>>> share = new HashMap<>();
+        private final Map<String, Map<String, Set<String>>> revoke = new HashMap<>();
 
         public PatchSharingInfoPayloadBuilder configId(String resourceId) {
             this.configId = resourceId;
@@ -294,38 +312,27 @@ public class TestHelpers {
             return this;
         }
 
-        public void share(Recipients recipients, String accessLevel) {
-            Recipients existing = share.getOrDefault(accessLevel, new Recipients(new HashMap<>()));
-            existing.share(recipients);
-            share.put(accessLevel, existing);
+        public void share(Map<Recipient, Set<String>> recipients, String accessLevel) {
+            mergeInto(share, accessLevel, recipients);
         }
 
-        public void revoke(Recipients recipients, String accessLevel) {
-            Recipients existing = revoke.getOrDefault(accessLevel, new Recipients(new HashMap<>()));
-            // intentionally share() is called here since we are building a shareWith object, this final object will be used to remove
-            // access
-            // think of it as currentShareWith.removeAll(revokeShareWith)
-            existing.share(recipients);
-            revoke.put(accessLevel, existing);
+        public void revoke(Map<Recipient, Set<String>> recipients, String accessLevel) {
+            mergeInto(revoke, accessLevel, recipients);
         }
 
-        private String buildJsonString(Map<String, Recipients> input) {
+        /* -------------------------------- Build -------------------------------- */
 
-            List<String> output = new ArrayList<>();
-            for (Map.Entry<String, Recipients> entry : input.entrySet()) {
+        private String buildJsonString(Map<String, Map<String, Set<String>>> input) {
+            List<String> pieces = new ArrayList<>();
+            for (Map.Entry<String, Map<String, Set<String>>> e : input.entrySet()) {
                 try {
-                    XContentBuilder builder = XContentFactory.jsonBuilder();
-                    entry.getValue().toXContent(builder, ToXContent.EMPTY_PARAMS);
-                    String recipJson = builder.toString();
-                    output.add(String.format(Locale.ROOT, "\"%s\" : %s", entry.getKey(), recipJson));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    String recipientsJson = toRecipientsJson(e.getValue());
+                    pieces.add(String.format(Locale.ROOT, "\"%s\" : %s", e.getKey(), recipientsJson));
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
                 }
-
             }
-
-            return String.join(",", output);
-
+            return String.join(",", pieces);
         }
 
         public String build() {
@@ -343,6 +350,54 @@ public class TestHelpers {
                   }
                 }
                 """, configId, configType, allShares, allRevokes);
+        }
+
+        /* ------------------------------ Internals ------------------------------ */
+
+        private static void mergeInto(
+            Map<String, Map<String, Set<String>>> target,
+            String accessLevel,
+            Map<Recipient, Set<String>> incoming
+        ) {
+            if (incoming == null || incoming.isEmpty())
+                return;
+            Map<String, Set<String>> existing = target.computeIfAbsent(accessLevel, k -> new HashMap<>());
+            for (Map.Entry<Recipient, Set<String>> e : incoming.entrySet()) {
+                if (e.getKey() == null)
+                    continue;
+                if (e.getValue() == null || e.getValue().isEmpty())
+                    continue;
+                existing.computeIfAbsent(e.getKey().getName(), k -> new HashSet<>()).addAll(e.getValue());
+            }
+        }
+
+        private static String toRecipientsJson(Map<String, Set<String>> recipients) throws IOException {
+            if (recipients == null) {
+                recipients = Collections.emptyMap();
+            }
+
+            XContentBuilder builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+
+            for (Recipient recipient : Recipient.values()) {
+                String key = recipient.getName();
+                if (recipients.containsKey(key)) {
+                    writeArray(builder, key, recipients.get(key));
+                }
+            }
+
+            builder.endObject();
+            return builder.toString();
+        }
+
+        private static void writeArray(XContentBuilder builder, String field, Set<String> values) throws IOException {
+            builder.startArray(field);
+            if (values != null) {
+                for (String v : values) {
+                    builder.value(v);
+                }
+            }
+            builder.endArray();
         }
     }
 

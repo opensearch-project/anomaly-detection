@@ -17,6 +17,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.transport.handler.ForecastSearchHandler;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -36,6 +37,6 @@ public class SearchForecasterTransportAction extends HandledTransportAction<Sear
 
     @Override
     protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
-        searchHandler.search(request, listener);
+        searchHandler.search(request, ForecastCommonName.FORECAST_RESOURCE_TYPE, listener);
     }
 }

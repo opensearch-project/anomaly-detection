@@ -628,7 +628,8 @@ public final class ParseUtils {
                 User resourceUser = config.getUser();
 
                 // if resource sharing feature is available, request will be auto-evaluated, hence skip evaluation here
-                if (shouldUseResourceAuthz()
+                String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
+                if (shouldUseResourceAuthz(resourceType)
                     || !filterByBackendRole
                     || checkUserPermissions(requestUser, resourceUser, configId)
                     || isAdmin(requestUser)) {
@@ -699,22 +700,32 @@ public final class ParseUtils {
         return null;
     }
 
+    public static String getResourceTypeFromClassName(String resourceClassName) {
+        if (resourceClassName.equals(AnomalyDetector.class.getSimpleName())) {
+            return ADCommonName.AD_RESOURCE_TYPE;
+        }
+        return ForecastCommonName.FORECAST_RESOURCE_TYPE;
+    }
+
     /**
-     * Checks whether to utilize new ResourAuthz
+     * Checks whether to utilize new ResourceAuthz
+     * @param resourceType for which to decide whether to use resource authz
      * @return true if the resource-sharing feature is enabled, false otherwise.
      */
-    public static boolean shouldUseResourceAuthz() {
-        return ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
+    public static boolean shouldUseResourceAuthz(String resourceType) {
+        var client = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+        return client != null && client.isFeatureEnabledForType(resourceType);
     }
 
     /**
      * Verifies whether the user has permission to access the resource.
+     * @param resourceType the type of resource to be authorized
      * @param onSuccess consumer function to execute if resource sharing feature is enabled
      * @param fallbackOn501 consumer function to execute if resource sharing feature is disabled.
      */
-    public static void verifyResourceAccessAndProcessRequest(Runnable onSuccess, Runnable fallbackOn501) {
+    public static void verifyResourceAccessAndProcessRequest(String resourceType, Runnable onSuccess, Runnable fallbackOn501) {
         // Resource access will be auto-evaluated
-        if (shouldUseResourceAuthz()) {
+        if (shouldUseResourceAuthz(resourceType)) {
             onSuccess.run();
         } else {
             fallbackOn501.run();

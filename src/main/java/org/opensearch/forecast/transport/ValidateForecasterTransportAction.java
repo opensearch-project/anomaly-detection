@@ -17,6 +17,7 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
+import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.rest.handler.ValidateForecasterActionHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
@@ -30,7 +31,8 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public class ValidateForecasterTransportAction extends BaseValidateConfigTransportAction<ForecastIndex, ForecastIndexManagement> {
+public class ValidateForecasterTransportAction extends
+    BaseValidateConfigTransportAction<ForecastIndex, ForecastIndexManagement, Forecaster> {
     public static final Logger logger = LogManager.getLogger(ValidateForecasterTransportAction.class);
 
     @Inject
@@ -57,7 +59,8 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
             transportService,
             searchFeatureDao,
             FORECAST_FILTER_BY_BACKEND_ROLES,
-            ValidationAspect.FORECASTER
+            ValidationAspect.FORECASTER,
+            Forecaster.class
         );
     }
 

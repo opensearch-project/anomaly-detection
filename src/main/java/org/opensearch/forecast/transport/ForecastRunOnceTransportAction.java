@@ -168,6 +168,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
+                ForecastCommonName.FORECAST_RESOURCE_TYPE,
                 () -> executeRunOnce(forecastID, request, listener),
                 () -> resolveUserAndExecute(
                     user,

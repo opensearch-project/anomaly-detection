@@ -18,6 +18,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.ValidateAnomalyDetectorActionHandler;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
@@ -36,7 +37,7 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTransportAction<ADIndex, ADIndexManagement> {
+public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTransportAction<ADIndex, ADIndexManagement, AnomalyDetector> {
     public static final Logger logger = LogManager.getLogger(ValidateAnomalyDetectorTransportAction.class);
 
     @Inject
@@ -63,7 +64,8 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
             transportService,
             searchFeatureDao,
             AD_FILTER_BY_BACKEND_ROLES,
-            ValidationAspect.DETECTOR
+            ValidationAspect.DETECTOR,
+            AnomalyDetector.class
         );
     }
 

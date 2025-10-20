@@ -6,6 +6,7 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.util.ParseUtils.getResourceTypeFromClassName;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
@@ -43,7 +44,7 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public abstract class BaseSuggestConfigParamTransportAction extends
+public abstract class BaseSuggestConfigParamTransportAction<ConfigType extends Config> extends
     HandledTransportAction<SuggestConfigParamRequest, SuggestConfigParamResponse> {
     public static final Logger logger = LogManager.getLogger(BaseSuggestConfigParamTransportAction.class);
 
@@ -55,6 +56,7 @@ public abstract class BaseSuggestConfigParamTransportAction extends
     protected AnalysisType context;
     protected Set<String> allSuggestParamStrs;
     private final Settings settings;
+    private final Class<ConfigType> configTypeClass;
 
     public BaseSuggestConfigParamTransportAction(
         String actionName,
@@ -67,7 +69,8 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         Setting<Boolean> filterByBackendRoleSetting,
         AnalysisType context,
         SearchFeatureDao searchFeatureDao,
-        Set<String> allSuggestParamStrs
+        Set<String> allSuggestParamStrs,
+        Class<ConfigType> configTypeClass
     ) {
         super(actionName, transportService, actionFilters, SuggestConfigParamRequest::new);
         this.client = client;
@@ -79,13 +82,16 @@ public abstract class BaseSuggestConfigParamTransportAction extends
         this.searchFeatureDao = searchFeatureDao;
         this.allSuggestParamStrs = allSuggestParamStrs;
         this.settings = settings;
+        this.configTypeClass = configTypeClass;
     }
 
     @Override
     protected void doExecute(Task task, SuggestConfigParamRequest request, ActionListener<SuggestConfigParamResponse> listener) {
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
             verifyResourceAccessAndProcessRequest(
+                resourceType,
                 () -> suggestExecute(request, user, context, listener),
                 () -> resolveUserAndExecute(user, listener, () -> suggestExecute(request, user, context, listener))
             );

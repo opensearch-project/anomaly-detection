@@ -38,7 +38,7 @@ import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.Sets;
 
-public class SuggestForecasterParamTransportAction extends BaseSuggestConfigParamTransportAction {
+public class SuggestForecasterParamTransportAction extends BaseSuggestConfigParamTransportAction<Forecaster> {
     public static final Logger logger = LogManager.getLogger(SuggestForecasterParamTransportAction.class);
 
     @Inject
@@ -63,7 +63,8 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
             FORECAST_FILTER_BY_BACKEND_ROLES,
             AnalysisType.FORECAST,
             searchFeatureDao,
-            Name.getListStrs(Arrays.asList(ForecastSuggestName.values()))
+            Name.getListStrs(Arrays.asList(ForecastSuggestName.values())),
+            Forecaster.class
         );
     }
 
