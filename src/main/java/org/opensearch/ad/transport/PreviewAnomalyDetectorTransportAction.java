@@ -110,6 +110,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             // Call the verifyResourceAccessAndProcessRequest method
             verifyResourceAccessAndProcessRequest(
+                ADCommonName.AD_RESOURCE_TYPE,
                 () -> previewExecute(request, context, listener),
                 () -> resolveUserAndExecute(
                     user,

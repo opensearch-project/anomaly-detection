@@ -5,6 +5,7 @@
 
 package org.opensearch.timeseries.transport;
 
+import static org.opensearch.timeseries.util.ParseUtils.getResourceTypeFromClassName;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
@@ -41,7 +42,7 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, IndexableResultType extends IndexableResult, ProfileActionType extends ActionType<ProfileResponse>, ExecuteResultResponseRecorderType extends ExecuteResultResponseRecorder<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType>, IndexJobActionHandlerType extends IndexJobActionHandler<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType, ExecuteResultResponseRecorderType>>
+public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, IndexableResultType extends IndexableResult, ProfileActionType extends ActionType<ProfileResponse>, ExecuteResultResponseRecorderType extends ExecuteResultResponseRecorder<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType>, IndexJobActionHandlerType extends IndexJobActionHandler<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType, ExecuteResultResponseRecorderType>, ConfigType extends Config>
     extends HandledTransportAction<JobRequest, JobResponse> {
     private final Logger logger = LogManager.getLogger(BaseJobTransportAction.class);
 
@@ -57,6 +58,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
     private final Clock clock;
+    private final Class<ConfigType> configTypeClass;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -72,7 +74,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStopMsg,
         Class<? extends Config> configClass,
         IndexJobActionHandlerType indexJobActionHandlerType,
-        Clock clock
+        Clock clock,
+        Class<ConfigType> configTypeClass
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
         this.transportService = transportService;
@@ -88,6 +91,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
         this.clock = clock;
+        this.configTypeClass = configTypeClass;
     }
 
     @Override
@@ -104,7 +108,9 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         User user = ParseUtils.getUserContext(client);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
             verifyResourceAccessAndProcessRequest(
+                resourceType,
                 () -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
                 () -> resolveUserAndExecute(
                     user,

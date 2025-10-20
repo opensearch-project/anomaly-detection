@@ -6,6 +6,7 @@
 package org.opensearch.timeseries.transport;
 
 import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRoles;
+import static org.opensearch.timeseries.util.ParseUtils.getResourceTypeFromClassName;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
@@ -45,7 +46,7 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>>
+public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, ConfigType extends Config>
     extends HandledTransportAction<ValidateConfigRequest, ValidateConfigResponse> {
     public static final Logger logger = LogManager.getLogger(BaseValidateConfigTransportAction.class);
 
@@ -59,6 +60,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected Clock clock;
     protected Settings settings;
     protected ValidationAspect validationAspect;
+    private final Class<ConfigType> configTypeClass;
 
     public BaseValidateConfigTransportAction(
         String actionName,
@@ -72,7 +74,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         TransportService transportService,
         SearchFeatureDao searchFeatureDao,
         Setting<Boolean> filterByBackendRoleSetting,
-        ValidationAspect validationAspect
+        ValidationAspect validationAspect,
+        Class<ConfigType> configTypeClass
     ) {
         super(actionName, transportService, actionFilters, ValidateConfigRequest::new);
         this.client = client;
@@ -86,13 +89,16 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.clock = Clock.systemUTC();
         this.settings = settings;
         this.validationAspect = validationAspect;
+        this.configTypeClass = configTypeClass;
     }
 
     @Override
     protected void doExecute(Task task, ValidateConfigRequest request, ActionListener<ValidateConfigResponse> listener) {
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
             verifyResourceAccessAndProcessRequest(
+                resourceType,
                 () -> validateExecute(request, user, context, listener),
                 () -> resolveUserAndExecute(user, listener, () -> validateExecute(request, user, context, listener))
             );

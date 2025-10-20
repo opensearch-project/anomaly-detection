@@ -37,7 +37,6 @@ public class SearchHandler {
     private final Client client;
     private final PluginClient pluginClient;
     private volatile Boolean filterEnabled;
-    private final boolean shouldUseResourceAuthz;
 
     public SearchHandler(
         Settings settings,
@@ -49,7 +48,6 @@ public class SearchHandler {
         this.client = client;
         this.pluginClient = pluginClient;
         filterEnabled = filterByBackendRoleSetting.get(settings);
-        shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz();
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterEnabled = it);
     }
 
@@ -58,10 +56,12 @@ public class SearchHandler {
      * and execute search.
      *
      * @param request        search request
+     * @param resourceType
      * @param actionListener action listener
      */
-    public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
+    public void search(SearchRequest request, String resourceType, ActionListener<SearchResponse> actionListener) {
         User user = ParseUtils.getUserContext(client);
+        boolean shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(resourceType);
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_SEARCH);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             if (pluginClient != null && shouldUseResourceAuthz) {

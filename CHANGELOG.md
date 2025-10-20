@@ -8,6 +8,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Enhancements
 - feat: add frequency scheduling in real time ([#1562](https://github.com/opensearch-project/anomaly-detection/pull/1562))
 - adding AD suggest API ([#1563](https://github.com/opensearch-project/anomaly-detection/pull/1563))
+- Adds capability to automatically switch to old access-control if model-group is excluded from protected resources setting ([#1569](https://github.com/opensearch-project/anomaly-detection/pull/1569))
 
 
 ### Bug Fixes
