@@ -25,11 +25,27 @@ import org.opensearch.timeseries.resources.ResourceSharingClientAccessor;
 public class TimeSeriesResourceSharingExtension implements ResourceSharingExtension {
     @Override
     public Set<ResourceProvider> getResourceProviders() {
-        return Set
-            .of(
-                new ResourceProvider(ADCommonName.AD_RESOURCE_TYPE, ADIndex.CONFIG.getIndexName()),
-                new ResourceProvider(ForecastCommonName.FORECAST_RESOURCE_TYPE, ForecastIndex.CONFIG.getIndexName())
-            );
+        return Set.of(new ResourceProvider() {
+            @Override
+            public String resourceType() {
+                return ADCommonName.AD_RESOURCE_TYPE;
+            }
+
+            @Override
+            public String resourceIndexName() {
+                return ADIndex.CONFIG.getIndexName();
+            }
+        }, new ResourceProvider() {
+            @Override
+            public String resourceType() {
+                return ForecastCommonName.FORECAST_RESOURCE_TYPE;
+            }
+
+            @Override
+            public String resourceIndexName() {
+                return ForecastIndex.CONFIG.getIndexName();
+            }
+        });
     }
 
     @Override
