@@ -251,7 +251,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             config.getCustomResultIndexTTL(),
             config.getFlattenResultIndexMapping(),
             breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime(),
-            config.getFrequency()
+            config.getFrequency(),
+            detector.getAutoCreated()
         );
     }
 
