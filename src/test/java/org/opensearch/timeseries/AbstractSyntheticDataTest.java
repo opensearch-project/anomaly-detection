@@ -914,25 +914,40 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                 for (String tf : List.of("timestamp", "utc_time")) {
                     Instant original = Instant.parse(doc.get(tf).getAsString());
                     Instant shifted = original.plus(delta);
-                    doc.addProperty(tf, shifted.toString());   // ISO‑8601 w/ Z
-                    lastTs = shifted;                            // remember newest
+                    doc.addProperty(tf, shifted.toString()); // ISO‑8601 w/ Z
+                    lastTs = shifted; // remember newest
                 }
 
                 bulk.append("{\"index\":{\"_index\":\"").append(dataSet).append("\",\"_id\":\"").append(id++).append("\"}}\n");
                 bulk.append(doc.toString()).append('\n');
+
+                if (id > 0 && id % 1000 == 0) {
+                    TestHelpers
+                        .makeRequest(
+                            client,
+                            "POST",
+                            "_bulk?refresh=wait_for",
+                            null,
+                            toHttpEntity(bulk.toString()),
+                            ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Dashboards"))
+                        );
+                    bulk.setLength(0);
+                }
             }
 
             LOG.info("last timestamp {} in id {}", lastTs, id - 1);
 
-            TestHelpers
-                .makeRequest(
-                    client,
-                    "POST",
-                    "_bulk?refresh=wait_for",
-                    null,
-                    toHttpEntity(bulk.toString()),
-                    ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Dashboards"))
-                );
+            if (bulk.length() > 0) {
+                TestHelpers
+                    .makeRequest(
+                        client,
+                        "POST",
+                        "_bulk?refresh=wait_for",
+                        null,
+                        toHttpEntity(bulk.toString()),
+                        ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Dashboards"))
+                    );
+            }
 
             waitAllSyntheticDataIngested(id, dataSet, client);
             return lastTs;
