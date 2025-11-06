@@ -90,6 +90,7 @@ plugins {
     id 'java-library'
     id 'org.gradle.test-retry' version '1.6.0'
     id "de.undercouch.download" version "5.6.0"
+    id 'com.gradleup.shadow' version '8.3.5'
 }
 
 tasks.withType(JavaCompile) {
@@ -138,6 +139,9 @@ dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
+    // ML Commons
+    compileOnly group: 'org.opensearch', name:'opensearch-ml-common', version: "${opensearch_build}"
+    compileOnly group: 'org.opensearch', name:'opensearch-ml-spi', version: "${opensearch_build}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'33.4.5-jre'
@@ -211,6 +215,48 @@ ext {
     buildVersionQualifier = System.getProperty("build.version_qualifier")
 }
 
+shadowJar {
+    // Only shade the deps that cause conflicts
+    dependencies {
+        include(dependency('com.google.guava:guava'))
+        include(dependency('com.google.guava:failureaccess'))
+        include(dependency('software.amazon.randomcutforest:randomcutforest-core'))
+        include(dependency('software.amazon.randomcutforest:randomcutforest-parkservices'))
+        include(dependency('software.amazon.randomcutforest:randomcutforest-serialization'))
+
+        // optional safety:
+        exclude(dependency('org.opensearch:opensearch'))
+        exclude(dependency('org.opensearch:opensearch-core'))
+        exclude(dependency('org.opensearch:common-utils'))
+    }
+
+    relocate 'com.google.common', 'org.opensearch.ad.shaded.com.google.common'
+    relocate 'com.google.thirdparty.publicsuffix', 'org.opensearch.ad.shaded.com.google.thirdparty.publicsuffix'
+
+    relocate 'com.amazon.randomcutforest', 'org.opensearch.ad.shaded.com.amazon.randomcutforest'
+
+    exclude 'META-INF/maven/com.google.guava/**'
+    exclude 'META-INF/INDEX.LIST'
+
+    archiveClassifier.set(null)
+}
+
+afterEvaluate {
+    tasks.findByName('generatePomFileForShadowPublication')?.enabled = false
+    tasks.findByName('publishShadowPublicationToMavenLocal')?.enabled = false
+}
+
+jar { enabled = false }
+
+assemble.dependsOn shadowJar
+
+tasks.withType(Zip).matching { it.name == 'bundlePlugin' }.configureEach {
+    dependsOn shadowJar
+    exclude '**/guava-*.jar'
+    exclude '**/failureaccess-*.jar'
+    exclude '**/randomcutforest-*.jar'
+}
+
 allprojects {
     group = 'org.opensearch'
 
@@ -251,7 +297,7 @@ opensearchplugin {
     name = 'opensearch-anomaly-detection'
     description = 'OpenSearch anomaly detector plugin'
     classname = 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
-    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true']
+    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true', 'opensearch-ml;optional=true']
 }
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
@@ -270,7 +316,8 @@ configurations.all {
         force "com.google.code.gson:gson:2.11.0"
         force "junit:junit:4.13.2"
 
-        force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
+        // Guava version is shaded, so this force is for transitive dependencies only
+        force "com.google.guava:guava:33.4.5-jre"
         force("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
         force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
         force "org.ow2.asm:asm:9.7.1"
