@@ -471,7 +471,7 @@ public class Forecaster extends Config {
                     }
                     break;
                 case AUTO_CREATED_FIELD:
-                    autoCreated = parser.booleanValue();
+                    autoCreated = onlyParseBooleanValue(parser);
                     break;
                 default:
                     parser.skipChildren();

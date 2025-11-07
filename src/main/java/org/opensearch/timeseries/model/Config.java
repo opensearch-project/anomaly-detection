@@ -673,7 +673,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         if (frequency != null) {
             builder.field(FREQUENCY_FIELD, frequency);
         }
-        if (autoCreated != null) {
+        if (autoCreated != null && autoCreated) {
             builder.field(AUTO_CREATED_FIELD, autoCreated);
         }
         return builder;
