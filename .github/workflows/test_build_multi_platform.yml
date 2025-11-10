@@ -17,7 +17,7 @@ jobs:
     if: github.repository == 'opensearch-project/anomaly-detection'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-java@v4
         with:
           java-version: 21
@@ -41,7 +41,7 @@ jobs:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Checkout Anomaly Detection
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build and Run Tests
         run: |
@@ -81,7 +81,7 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Assemble / build / mavenlocal / integTest
         run: |
@@ -111,7 +111,7 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Assemble anomaly-detection
         run: |
