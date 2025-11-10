@@ -32,6 +32,7 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.timeseries.transport.BaseJobTransportAction;
 import org.opensearch.transport.TransportService;
@@ -47,7 +48,8 @@ public class AnomalyDetectorJobTransportAction extends
         ClusterService clusterService,
         Settings settings,
         NamedXContentRegistry xContentRegistry,
-        ADIndexJobActionHandler adIndexJobActionHandler
+        ADIndexJobActionHandler adIndexJobActionHandler,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             transportService,
@@ -64,7 +66,8 @@ public class AnomalyDetectorJobTransportAction extends
             AnomalyDetector.class,
             adIndexJobActionHandler,
             Clock.systemUTC(), // inject cannot find clock due to OS limitation
-            AnomalyDetector.class
+            AnomalyDetector.class,
+            namedWriteableRegistry
         );
     }
 }
