@@ -81,6 +81,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String RESULT_INDEX_FIELD_MIN_AGE = "result_index_min_age";
     public static final String RESULT_INDEX_FIELD_TTL = "result_index_ttl";
     public static final String FLATTEN_CUSTOM_RESULT_INDEX = "flatten_custom_result_index";
+    public static final String AUTO_CREATED_FIELD = "auto_created";
     // Changing categorical field, feature attributes, interval, windowDelay, time field, horizon, indices,
     // result index would force us to display results only from the most recent update. Otherwise,
     // the UI appear cluttered and unclear.
@@ -129,6 +130,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected Boolean flattenResultIndexMapping;
     protected Instant lastUIBreakingChangeTime;
     protected TimeConfiguration frequency;
+    protected Boolean autoCreated;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -162,7 +164,8 @@ public abstract class Config implements Writeable, ToXContentObject {
         Integer customResultIndexTTL,
         Boolean flattenResultIndexMapping,
         Instant lastBreakingUIChangeTime,
-        TimeConfiguration frequency
+        TimeConfiguration frequency,
+        Boolean autoCreated
     ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
@@ -357,6 +360,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.flattenResultIndexMapping = Strings.trimToNull(resultIndex) == null ? null : flattenResultIndexMapping;
         this.lastUIBreakingChangeTime = lastBreakingUIChangeTime;
         this.frequency = frequency;
+        this.autoCreated = autoCreated != null ? autoCreated : false;
     }
 
     /**
@@ -460,6 +464,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             this.frequency = null;
         }
+        this.autoCreated = input.readOptionalBoolean();
     }
 
     /*
@@ -520,6 +525,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             output.writeBoolean(false);
         }
+        output.writeOptionalBoolean(autoCreated);
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -578,7 +584,8 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(customResultIndexMinAge, config.customResultIndexMinAge)
             && Objects.equal(customResultIndexTTL, config.customResultIndexTTL)
             && Objects.equal(flattenResultIndexMapping, config.flattenResultIndexMapping)
-            && Objects.equal(frequency, config.frequency);
+            && Objects.equal(frequency, config.frequency)
+            && Objects.equal(autoCreated, config.autoCreated);
     }
 
     @Generated
@@ -607,7 +614,8 @@ public abstract class Config implements Writeable, ToXContentObject {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                frequency
+                frequency,
+                autoCreated
             );
     }
 
@@ -664,6 +672,9 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (frequency != null) {
             builder.field(FREQUENCY_FIELD, frequency);
+        }
+        if (autoCreated != null && autoCreated) {
+            builder.field(AUTO_CREATED_FIELD, autoCreated);
         }
         return builder;
     }
@@ -898,6 +909,10 @@ public abstract class Config implements Writeable, ToXContentObject {
         return flattenResultIndexMapping != null ? flattenResultIndexMapping : false;
     }
 
+    public boolean getAutoCreated() {
+        return autoCreated != null ? autoCreated : false;
+    }
+
     public String getFlattenResultIndexAlias() {
         if (getFlattenResultIndexMapping()) {
             return (getCustomResultIndexOrAlias() + "_flattened_" + getName()).toLowerCase(Locale.ROOT);
@@ -970,6 +985,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             .append("customResultIndexTTL", customResultIndexTTL)
             .append("flattenResultIndexMapping", flattenResultIndexMapping)
             .append("frequency", frequency)
+            .append("autoCreated", autoCreated)
             .toString();
     }
 

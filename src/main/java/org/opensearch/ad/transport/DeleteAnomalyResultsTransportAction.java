@@ -12,6 +12,7 @@
 package org.opensearch.ad.transport;
 
 import static org.opensearch.ad.constant.ADCommonMessages.FAIL_TO_DELETE_AD_RESULT;
+import static org.opensearch.ad.constant.ADCommonName.AD_RESOURCE_TYPE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES;
 import static org.opensearch.timeseries.util.RestHandlerUtils.wrapRestActionListener;
 
@@ -22,8 +23,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ADCommonName;
-import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
@@ -65,7 +64,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
         this.pluginClient = pluginClient;
-        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(ADCommonName.AD_RESOURCE_TYPE);
+        this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(AD_RESOURCE_TYPE);
         filterEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
     }
@@ -95,7 +94,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
             try {
                 // Security is enabled and resource sharing access control is enabled
                 if (shouldUseResourceAuthz) {
-                    addAccessibleConfigsFilterAndDelete(ADIndex.CONFIG.getIndexName(), request.getSearchRequest(), listener);
+                    addAccessibleConfigsFilterAndDelete(request.getSearchRequest(), listener);
                     return;
                 }
                 // Security is enabled and backend role filter is enabled
@@ -109,15 +108,11 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         }
     }
 
-    private void addAccessibleConfigsFilterAndDelete(
-        String indexName,
-        SearchRequest request,
-        ActionListener<BulkByScrollResponse> listener
-    ) {
+    private void addAccessibleConfigsFilterAndDelete(SearchRequest request, ActionListener<BulkByScrollResponse> listener) {
         logger.debug("Filtering result by accessible resources");
         ResourceSharingClient resourceSharingClient = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
         SearchSourceBuilder searchSourceBuilder = request.source();
-        resourceSharingClient.getAccessibleResourceIds(indexName, ActionListener.wrap(configIds -> {
+        resourceSharingClient.getAccessibleResourceIds(AD_RESOURCE_TYPE, ActionListener.wrap(configIds -> {
             searchSourceBuilder.query(mergeWithAccessFilter(searchSourceBuilder.query(), configIds));
             client.execute(DeleteByQueryAction.INSTANCE, request, listener);
         }, failure -> {

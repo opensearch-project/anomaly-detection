@@ -179,7 +179,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            interval
+            interval,
+            null
         );
 
         TestHelpers
@@ -442,7 +443,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             false,
             detector.getLastBreakingUIChangeTime(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -510,7 +512,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             true,
             detector.getLastBreakingUIChangeTime(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
 
         if (isResourceSharingFeatureEnabled()) {
@@ -650,7 +653,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             detector.getLastBreakingUIChangeTime(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
         if (isResourceSharingFeatureEnabled()) {
             waitForSharingVisibility(id, client());
@@ -722,7 +726,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             detector.getLastBreakingUIChangeTime(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
@@ -809,7 +814,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             detector1.getLastBreakingUIChangeTime(),
-            detector1.getFrequency()
+            detector1.getFrequency(),
+            null
         );
 
         TestHelpers
@@ -860,7 +866,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             Instant.now(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
 
         TestHelpers
@@ -917,7 +924,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             detector.getLastBreakingUIChangeTime(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
 
         deleteIndexWithAdminClient(ADCommonName.CONFIG_INDEX);
@@ -1304,7 +1312,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             detector.getLastBreakingUIChangeTime(),
-            detector.getFrequency()
+            detector.getFrequency(),
+            null
         );
 
         TestHelpers
