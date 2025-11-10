@@ -229,7 +229,8 @@ public class ADRestTestUtils {
             null,
             null,
             now,
-            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES)
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            null
         );
 
         if (historical) {

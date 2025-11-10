@@ -212,6 +212,23 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString), "id", 1L, null, null);
         assertTrue(parsedDetector.getFilterQuery() instanceof MatchAllQueryBuilder);
         assertEquals((long) parsedDetector.getShingleSize(), (long) TimeSeriesSettings.DEFAULT_SHINGLE_SIZE);
+        // Test auto_created defaults to false when not provided
+        assertEquals(false, parsedDetector.getAutoCreated());
+    }
+
+    public void testParseAnomalyDetectorWithAutoCreated() throws IOException {
+        String detectorString = "{\"name\":\"test-detector\",\"description\":\"test\","
+            + "\"time_field\":\"timestamp\",\"indices\":[\"test-index\"],"
+            + "\"feature_attributes\":[{\"feature_id\":\"f1\",\"feature_name\":\"feature1\",\"feature_enabled\""
+            + ":true,\"aggregation_query\":{\"f1\":{\"avg\":{\"field\":\"value\"}}}}],\"detection_interval\":"
+            + "{\"period\":{\"interval\":10,\"unit\":\"Minutes\"}},\"auto_created\":true}";
+        AnomalyDetector parsedDetector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(true, parsedDetector.getAutoCreated());
+
+        // Test serialization includes auto_created field
+        String serialized = TestHelpers.xContentBuilderToString(parsedDetector.toXContent(TestHelpers.builder()));
+        assertTrue(serialized.contains("auto_created"));
+        assertTrue(serialized.contains("true"));
     }
 
     public void testParseAnomalyDetectorWithInvalidShingleSize() throws Exception {
@@ -348,7 +365,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -387,7 +405,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -426,7 +445,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -465,7 +485,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -504,7 +525,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -543,7 +565,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -582,7 +605,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                     null,
                     null,
                     Instant.now(),
-                    TestHelpers.randomIntervalTimeConfiguration()
+                    TestHelpers.randomIntervalTimeConfiguration(),
+                    null
                 )
             );
     }
@@ -620,7 +644,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 Instant.now(),
-                TestHelpers.randomIntervalTimeConfiguration()
+                TestHelpers.randomIntervalTimeConfiguration(),
+                null
             )
         );
         assertEquals("Recency emphasis must be an integer greater than 1.", exception.getMessage());
@@ -659,7 +684,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 Instant.now(),
-                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES)
+                new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
+                null
             )
         );
         assertEquals("Detection interval must be a positive integer", exception.getMessage());
@@ -698,7 +724,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 Instant.now(),
-                new IntervalTimeConfiguration(3, ChronoUnit.MINUTES)
+                new IntervalTimeConfiguration(3, ChronoUnit.MINUTES),
+                null
             )
         );
         assertEquals(
@@ -740,7 +767,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 Instant.now(),
-                TestHelpers.randomIntervalTimeConfiguration()
+                TestHelpers.randomIntervalTimeConfiguration(),
+                null
             )
         );
         assertEquals("Interval -1 should be non-negative", exception.getMessage());
@@ -793,7 +821,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
         assertEquals((int) anomalyDetector.getShingleSize(), 5);
     }
@@ -831,7 +860,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
         // seasonalityIntervals is not null and custom shingle size is null, use seasonalityIntervals to deterine shingle size
         assertEquals(seasonalityIntervals / TimeSeriesSettings.SEASONALITY_TO_SHINGLE_RATIO, (int) anomalyDetector.getShingleSize());
@@ -864,7 +894,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
         // seasonalityIntervals is null and custom shingle size is null, use default shingle size
         assertEquals(TimeSeriesSettings.DEFAULT_SHINGLE_SIZE, (int) anomalyDetector.getShingleSize());
@@ -900,7 +931,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
         assertNotNull(anomalyDetector.getFeatureAttributes());
         assertEquals(0, anomalyDetector.getFeatureAttributes().size());
@@ -936,7 +968,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
         String errorMessage = anomalyDetector.validateCustomResultIndex("abc");
         assertEquals(ADCommonMessages.INVALID_RESULT_INDEX_PREFIX, errorMessage);
@@ -1140,7 +1173,8 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
                 null,
                 null,
                 Instant.now(),
-                TestHelpers.randomIntervalTimeConfiguration()
+                TestHelpers.randomIntervalTimeConfiguration(),
+                null
             )
         );
         assertEquals("Got: " + e.getMessage(), "Enabled features are present, but no default fill values are provided.", e.getMessage());
