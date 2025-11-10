@@ -322,7 +322,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                 detector.getCustomResultIndexTTL(),
                 detector.getFlattenResultIndexMapping(),
                 detector.getLastBreakingUIChangeTime(),
-                detector.getFrequency()
+                detector.getFrequency(),
+                detector.getAutoCreated()
             ),
             detectorJob,
             historicalAdTask,
@@ -605,7 +606,8 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             anomalyDetector.getCustomResultIndexTTL(),
             anomalyDetector.getFlattenResultIndexMapping(),
             Instant.now(),
-            anomalyDetector.getFrequency()
+            anomalyDetector.getFrequency(),
+            anomalyDetector.getAutoCreated()
         );
         return detector;
     }

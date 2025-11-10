@@ -438,7 +438,8 @@ public class TestHelpers {
             null,
             null,
             lastUpdateTime,
-            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES)
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            null
         );
     }
 
@@ -495,7 +496,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now(),
-            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES)
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            null
         );
     }
 
@@ -564,7 +566,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
     }
 
@@ -608,7 +611,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now(),
-            interval
+            interval,
+            null
         );
     }
 
@@ -645,7 +649,8 @@ public class TestHelpers {
             null,
             true,
             Instant.now(),
-            interval
+            interval,
+            null
         );
     }
 
@@ -681,7 +686,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            interval
+            interval,
+            null
         );
     }
 
@@ -723,7 +729,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            interval
+            interval,
+            null
         );
     }
 
@@ -753,6 +760,7 @@ public class TestHelpers {
         private String resultIndex = null;
         private ImputationOption imputationOption = null;
         private List<Rule> rules = null;
+        private Boolean autoCreated = null;
 
         // transform decay (reverse of recencyEmphasis) has to be [0, 1). So we cannot use 1.
         private int recencyEmphasis = randomIntBetween(2, 10000);
@@ -768,6 +776,11 @@ public class TestHelpers {
                 featureAttributes.add(randomFeature(true));
             }
             this.featureAttributes = featureAttributes;
+        }
+
+        public AnomalyDetectorBuilder setAutoCreated(Boolean autoCreated) {
+            this.autoCreated = autoCreated;
+            return this;
         }
 
         public AnomalyDetectorBuilder setDetectorId(String detectorId) {
@@ -903,7 +916,8 @@ public class TestHelpers {
                 null,
                 null,
                 lastUpdateTime,
-                detectionInterval
+                detectionInterval,
+                autoCreated
             );
         }
     }
@@ -942,7 +956,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            interval
+            interval,
+            null
         );
     }
 
@@ -2120,7 +2135,8 @@ public class TestHelpers {
                 customResultIndexTTL,
                 flattenResultIndexMapping,
                 lastUpdateTime,
-                forecastInterval
+                forecastInterval,
+                null
             );
         }
     }
@@ -2159,7 +2175,8 @@ public class TestHelpers {
             null,
             null,
             Instant.now().truncatedTo(ChronoUnit.SECONDS),
-            interval
+            interval,
+            null
         );
     }
 

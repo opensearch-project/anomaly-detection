@@ -137,7 +137,8 @@ public class Forecaster extends Config {
         Integer customResultIndexTTL,
         Boolean flattenResultIndexMapping,
         Instant lastBreakingUIChangeTime,
-        TimeConfiguration frequency
+        TimeConfiguration frequency,
+        Boolean autoCreated
     ) {
         super(
             forecasterId,
@@ -167,7 +168,8 @@ public class Forecaster extends Config {
             customResultIndexTTL,
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
-            frequency
+            frequency,
+            autoCreated
         );
 
         checkAndThrowValidationErrors(ValidationAspect.FORECASTER);
@@ -316,6 +318,7 @@ public class Forecaster extends Config {
         Integer customResultIndexMinAge = null;
         Integer customResultIndexTTL = null;
         Boolean flattenResultIndexMapping = null;
+        Boolean autoCreated = null;
         Instant lastBreakingUIChangeTime = null;
         // by default, frequency is the same as interval when not set
         TimeConfiguration frequency = null;
@@ -467,6 +470,9 @@ public class Forecaster extends Config {
                         throw e;
                     }
                     break;
+                case AUTO_CREATED_FIELD:
+                    autoCreated = onlyParseBooleanValue(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -500,7 +506,9 @@ public class Forecaster extends Config {
             customResultIndexTTL,
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
-            frequency
+            frequency,
+            autoCreated
+
         );
         return forecaster;
     }
