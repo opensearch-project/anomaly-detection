@@ -345,7 +345,8 @@ public class ForecastTask extends TimeSeriesTask {
                 forecaster.getCustomResultIndexTTL(),
                 forecaster.getFlattenResultIndexMapping(),
                 forecaster.getLastBreakingUIChangeTime(),
-                forecaster.getFrequency()
+                forecaster.getFrequency(),
+                forecaster.getAutoCreated()
             );
         return new Builder()
             .taskId(parsedTaskId)

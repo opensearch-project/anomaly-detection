@@ -156,6 +156,7 @@ public class AnomalyDetector extends Config {
      * @param lastBreakingUIChangeTime last update time to configuration that can break UI and we have
      *  to display updates from the changed time
      * @param frequency frequency of the detector
+     * @param autoCreated whether this detector was created automatically
      */
     public AnomalyDetector(
         String detectorId,
@@ -185,7 +186,8 @@ public class AnomalyDetector extends Config {
         Integer customResultIndexTTL,
         Boolean flattenResultIndexMapping,
         Instant lastBreakingUIChangeTime,
-        TimeConfiguration frequency
+        TimeConfiguration frequency,
+        Boolean autoCreated
     ) {
         super(
             detectorId,
@@ -215,7 +217,8 @@ public class AnomalyDetector extends Config {
             customResultIndexTTL,
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
-            frequency
+            frequency,
+            autoCreated
         );
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
@@ -301,6 +304,7 @@ public class AnomalyDetector extends Config {
         } else {
             this.frequency = null;
         }
+        this.autoCreated = input.readOptionalBoolean();
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -374,6 +378,7 @@ public class AnomalyDetector extends Config {
         } else {
             output.writeBoolean(false);
         }
+        output.writeOptionalBoolean(autoCreated);
     }
 
     @Override
@@ -391,7 +396,6 @@ public class AnomalyDetector extends Config {
         if (rules != null) {
             xContentBuilder.field(RULES_FIELD, rules.toArray());
         }
-
         return xContentBuilder.endObject();
     }
 
@@ -474,6 +478,7 @@ public class AnomalyDetector extends Config {
         Instant lastBreakingUIChangeTime = null;
         // by default, frequency is the same as interval when not set
         TimeConfiguration frequency = null;
+        Boolean autoCreated = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -628,6 +633,9 @@ public class AnomalyDetector extends Config {
                         throw e;
                     }
                     break;
+                case AUTO_CREATED_FIELD:
+                    autoCreated = onlyParseBooleanValue(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -662,7 +670,8 @@ public class AnomalyDetector extends Config {
             customResultIndexTTL,
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
-            frequency
+            frequency,
+            autoCreated
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;
