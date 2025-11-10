@@ -9,8 +9,12 @@ import java.util.function.Function;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.ad.transport.AnomalyDetectorJobAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
+import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
+import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.ad.transport.SearchAnomalyDetectorAction;
 import org.opensearch.ad.transport.SearchAnomalyResultAction;
 import org.opensearch.ad.transport.SuggestAnomalyDetectorParamAction;
@@ -19,6 +23,8 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.transport.JobRequest;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.SuggestConfigParamRequest;
 import org.opensearch.timeseries.transport.SuggestConfigParamResponse;
 import org.opensearch.timeseries.transport.ValidateConfigRequest;
@@ -63,6 +69,16 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
         this.client.execute(SuggestAnomalyDetectorParamAction.INSTANCE, suggestRequest, suggestConfigResponseActionListener(listener));
     }
 
+    @Override
+    public void createAnomalyDetector(IndexAnomalyDetectorRequest createRequest, ActionListener<IndexAnomalyDetectorResponse> listener) {
+        this.client.execute(IndexAnomalyDetectorAction.INSTANCE, createRequest, indexAnomalyDetectorResponseActionListener(listener));
+    }
+
+    @Override
+    public void startAnomalyDetector(JobRequest startRequest, ActionListener<JobResponse> listener) {
+        this.client.execute(AnomalyDetectorJobAction.INSTANCE, startRequest, jobResponseActionListener(listener));
+    }
+
     // We need to wrap AD-specific response type listeners around an internal listener, and re-generate the response from a generic
     // ActionResponse. This is needed to prevent classloader issues and ClassCastExceptions when executed by other plugins.
     // Additionally, we need to inject the configured NamedWriteableRegistry so NamedWriteables (present in sub-fields of
@@ -102,6 +118,30 @@ public class AnomalyDetectionNodeClient implements AnomalyDetectionClient {
         ActionListener<SuggestConfigParamResponse> actionListener = wrapActionListener(internalListener, actionResponse -> {
             SuggestConfigParamResponse response = SuggestConfigParamResponse
                 .fromActionResponse(actionResponse, this.namedWriteableRegistry);
+            return response;
+        });
+        return actionListener;
+    }
+
+    private ActionListener<IndexAnomalyDetectorResponse> indexAnomalyDetectorResponseActionListener(
+        ActionListener<IndexAnomalyDetectorResponse> listener
+    ) {
+        ActionListener<IndexAnomalyDetectorResponse> internalListener = ActionListener.wrap(indexAnomalyDetectorResponse -> {
+            listener.onResponse(indexAnomalyDetectorResponse);
+        }, listener::onFailure);
+        ActionListener<IndexAnomalyDetectorResponse> actionListener = wrapActionListener(internalListener, actionResponse -> {
+            IndexAnomalyDetectorResponse response = IndexAnomalyDetectorResponse
+                .fromActionResponse(actionResponse, this.namedWriteableRegistry);
+            return response;
+        });
+        return actionListener;
+    }
+
+    private ActionListener<JobResponse> jobResponseActionListener(ActionListener<JobResponse> listener) {
+        ActionListener<JobResponse> internalListener = ActionListener
+            .wrap(jobResponse -> { listener.onResponse(jobResponse); }, listener::onFailure);
+        ActionListener<JobResponse> actionListener = wrapActionListener(internalListener, actionResponse -> {
+            JobResponse response = JobResponse.fromActionResponse(actionResponse, this.namedWriteableRegistry);
             return response;
         });
         return actionListener;
