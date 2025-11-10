@@ -17,10 +17,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -52,9 +54,16 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
@@ -78,6 +87,7 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
     private Client client = mock(Client.class);
     private SecurityClientUtil clientUtil;
     private SearchFeatureDao searchFeatureDao;
+    private NamedWriteableRegistry registry;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -87,9 +97,34 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
         clusterService = mock(ClusterService.class);
         clusterSettings = new ClusterSettings(
             Settings.EMPTY,
-            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES)))
+            Collections
+                .unmodifiableSet(
+                    new HashSet<>(
+                        Arrays
+                            .asList(
+                                AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
+                                AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                                AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS,
+                                AnomalyDetectorSettings.MAX_ANOMALY_FEATURES
+                            )
+                    )
+                )
         );
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        List<NamedWriteableRegistry.Entry> namedWriteables = new ArrayList<>();
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, BoolQueryBuilder.NAME, BoolQueryBuilder::new));
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, TermQueryBuilder.NAME, TermQueryBuilder::new));
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, RangeQueryBuilder.NAME, RangeQueryBuilder::new));
+        namedWriteables
+            .add(
+                new NamedWriteableRegistry.Entry(
+                    AggregationBuilder.class,
+                    ValueCountAggregationBuilder.NAME,
+                    ValueCountAggregationBuilder::new
+                )
+            );
+        registry = new NamedWriteableRegistry(namedWriteables);
 
         ClusterName clusterName = new ClusterName("test");
         Settings indexSettings = Settings
@@ -119,7 +154,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao
+            searchFeatureDao,
+            registry
         );
         task = mock(Task.class);
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
@@ -218,7 +254,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao
+            searchFeatureDao,
+            registry
         );
         transportAction.doExecute(task, request, response);
     }
@@ -243,7 +280,8 @@ public class IndexAnomalyDetectorTransportActionTests extends OpenSearchIntegTes
             mock(ADIndexManagement.class),
             xContentRegistry(),
             adTaskManager,
-            searchFeatureDao
+            searchFeatureDao,
+            registry
         );
         transportAction.doExecute(task, request, response);
     }

@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
@@ -31,6 +32,7 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
+import org.opensearch.ad.settings.ADNumericSetting;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.cluster.service.ClusterService;
@@ -40,6 +42,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.rest.RestRequest;
@@ -53,7 +56,7 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<IndexAnomalyDetectorRequest, IndexAnomalyDetectorResponse> {
+public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<ActionRequest, IndexAnomalyDetectorResponse> {
     private static final Logger LOG = LogManager.getLogger(IndexAnomalyDetectorTransportAction.class);
     private final Client client;
     private final SecurityClientUtil clientUtil;
@@ -65,6 +68,11 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
     private volatile Boolean filterByEnabled;
     private final SearchFeatureDao searchFeatureDao;
     private final Settings settings;
+    protected final NamedWriteableRegistry namedWriteableRegistry;
+    private volatile Integer maxSingleEntityAnomalyDetectors;
+    private volatile Integer maxMultiEntityAnomalyDetectors;
+    private volatile Integer maxAnomalyFeatures;
+    private volatile Integer maxCategoricalFields;
 
     @Inject
     public IndexAnomalyDetectorTransportAction(
@@ -77,7 +85,8 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         ADIndexManagement anomalyDetectionIndices,
         NamedXContentRegistry xContentRegistry,
         ADTaskManager adTaskManager,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(IndexAnomalyDetectorAction.NAME, transportService, actionFilters, IndexAnomalyDetectorRequest::new);
         this.client = client;
@@ -91,10 +100,42 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterByEnabled = it);
         this.settings = settings;
+        this.namedWriteableRegistry = namedWriteableRegistry;
+
+        // Initialize cluster settings for node client requests
+        this.maxSingleEntityAnomalyDetectors = AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
+        this.maxMultiEntityAnomalyDetectors = AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS.get(settings);
+        this.maxAnomalyFeatures = AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings);
+        this.maxCategoricalFields = ADNumericSetting.maxCategoricalFields();
+
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(
+                AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                it -> maxSingleEntityAnomalyDetectors = it
+            );
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS, it -> maxMultiEntityAnomalyDetectors = it);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
 
     @Override
-    protected void doExecute(Task task, IndexAnomalyDetectorRequest request, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<IndexAnomalyDetectorResponse> actionListener) {
+        IndexAnomalyDetectorRequest request = IndexAnomalyDetectorRequest.fromActionRequest(actionRequest, namedWriteableRegistry);
+
+        // Use cached settings if request has nulls (request directly from AD Node Client)
+        Integer maxSingle = request.getMaxSingleEntityAnomalyDetectors() != null
+            ? request.getMaxSingleEntityAnomalyDetectors()
+            : maxSingleEntityAnomalyDetectors;
+        Integer maxMulti = request.getMaxMultiEntityAnomalyDetectors() != null
+            ? request.getMaxMultiEntityAnomalyDetectors()
+            : maxMultiEntityAnomalyDetectors;
+        Integer maxFeatures = request.getMaxAnomalyFeatures() != null ? request.getMaxAnomalyFeatures() : maxAnomalyFeatures;
+        Integer maxCategorical = request.getMaxCategoricalFields() != null ? request.getMaxCategoricalFields() : maxCategoricalFields;
+
         User user = ParseUtils.getUserContext(client);
         String detectorId = request.getDetectorID();
         RestRequest.Method method = request.getMethod();
@@ -103,13 +144,19 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                () -> indexDetector(user, detectorId, method, listener, detector -> adExecute(request, user, detector, context, listener)),
+                () -> indexDetector(
+                    user,
+                    detectorId,
+                    method,
+                    listener,
+                    detector -> adExecute(request, user, detector, context, listener, maxSingle, maxMulti, maxFeatures, maxCategorical)
+                ),
                 () -> resolveUserAndExecute(
                     user,
                     detectorId,
                     method,
                     listener,
-                    (detector) -> adExecute(request, user, detector, context, listener)
+                    (detector) -> adExecute(request, user, detector, context, listener, maxSingle, maxMulti, maxFeatures, maxCategorical)
                 )
             );
 
@@ -179,7 +226,11 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         User user,
         AnomalyDetector currentDetector,
         ThreadContext.StoredContext storedContext,
-        ActionListener<IndexAnomalyDetectorResponse> listener
+        ActionListener<IndexAnomalyDetectorResponse> listener,
+        Integer maxSingleEntityAnomalyDetectors,
+        Integer maxMultiEntityAnomalyDetectors,
+        Integer maxAnomalyFeatures,
+        Integer maxCategoricalFields
     ) {
         anomalyDetectionIndices.update();
         String detectorId = request.getDetectorID();
@@ -189,10 +240,6 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         AnomalyDetector detector = request.getDetector();
         RestRequest.Method method = request.getMethod();
         TimeValue requestTimeout = request.getRequestTimeout();
-        Integer maxSingleEntityAnomalyDetectors = request.getMaxSingleEntityAnomalyDetectors();
-        Integer maxMultiEntityAnomalyDetectors = request.getMaxMultiEntityAnomalyDetectors();
-        Integer maxAnomalyFeatures = request.getMaxAnomalyFeatures();
-        Integer maxCategoricalFields = request.getMaxCategoricalFields();
 
         storedContext.restore();
         checkIndicesAndExecute(detector.getIndices(), () -> {

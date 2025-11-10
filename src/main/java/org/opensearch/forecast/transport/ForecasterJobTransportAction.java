@@ -16,6 +16,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.ExecuteForecastResultResponseRecorder;
 import org.opensearch.forecast.indices.ForecastIndex;
@@ -42,7 +43,8 @@ public class ForecasterJobTransportAction extends
         ClusterService clusterService,
         Settings settings,
         NamedXContentRegistry xContentRegistry,
-        ForecastIndexJobActionHandler forecastIndexJobActionHandler
+        ForecastIndexJobActionHandler forecastIndexJobActionHandler,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             transportService,
@@ -58,7 +60,8 @@ public class ForecasterJobTransportAction extends
             FAIL_TO_STOP_FORECASTER,
             Forecaster.class,
             forecastIndexJobActionHandler,
-            Clock.systemUTC() // inject cannot find clock due to OS limitation
+            Clock.systemUTC(), // inject cannot find clock due to OS limitation
+            namedWriteableRegistry
         );
     }
 }

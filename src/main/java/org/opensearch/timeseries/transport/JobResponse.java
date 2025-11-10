@@ -11,9 +11,16 @@
 
 package org.opensearch.timeseries.transport;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
@@ -44,5 +51,23 @@ public class JobResponse extends ActionResponse implements ToXContentObject {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         return builder.startObject().field(RestHandlerUtils._ID, id).endObject();
+    }
+
+    public static JobResponse fromActionResponse(ActionResponse actionResponse, NamedWriteableRegistry namedWriteableRegistry) {
+        if (actionResponse instanceof JobResponse) {
+            return (JobResponse) actionResponse;
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionResponse.writeTo(osso);
+            try (
+                StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()));
+                NamedWriteableAwareStreamInput namedWriteableAwareInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
+                return new JobResponse(namedWriteableAwareInput);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("failed to parse ActionResponse into JobResponse", e);
+        }
     }
 }

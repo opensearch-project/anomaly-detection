@@ -23,6 +23,7 @@ import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.rest.RestRequest;
 
 public class IndexAnomalyDetectorRequest extends ActionRequest implements DocRequest {
@@ -50,10 +51,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest implements DocReq
         detector = new AnomalyDetector(in);
         method = in.readEnum(RestRequest.Method.class);
         requestTimeout = in.readTimeValue();
-        maxSingleEntityAnomalyDetectors = in.readInt();
-        maxMultiEntityAnomalyDetectors = in.readInt();
-        maxAnomalyFeatures = in.readInt();
-        maxCategoricalFields = in.readInt();
+        maxSingleEntityAnomalyDetectors = in.readOptionalInt();
+        maxMultiEntityAnomalyDetectors = in.readOptionalInt();
+        maxAnomalyFeatures = in.readOptionalInt();
+        maxCategoricalFields = in.readOptionalInt();
     }
 
     public IndexAnomalyDetectorRequest(
@@ -81,6 +82,22 @@ public class IndexAnomalyDetectorRequest extends ActionRequest implements DocReq
         this.maxMultiEntityAnomalyDetectors = maxMultiEntityAnomalyDetectors;
         this.maxAnomalyFeatures = maxAnomalyFeatures;
         this.maxCategoricalFields = maxCategoricalFields;
+    }
+
+    public IndexAnomalyDetectorRequest(String detectorID, AnomalyDetector detector, RestRequest.Method method) {
+        this(
+            detectorID,
+            SequenceNumbers.UNASSIGNED_SEQ_NO,
+            SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
+            WriteRequest.RefreshPolicy.IMMEDIATE,
+            detector,
+            method,
+            TimeValue.timeValueSeconds(60),
+            null,
+            null,
+            null,
+            null
+        );
     }
 
     public String getDetectorID() {
@@ -137,10 +154,10 @@ public class IndexAnomalyDetectorRequest extends ActionRequest implements DocReq
         detector.writeTo(out);
         out.writeEnum(method);
         out.writeTimeValue(requestTimeout);
-        out.writeInt(maxSingleEntityAnomalyDetectors);
-        out.writeInt(maxMultiEntityAnomalyDetectors);
-        out.writeInt(maxAnomalyFeatures);
-        out.writeInt(maxCategoricalFields);
+        out.writeOptionalInt(maxSingleEntityAnomalyDetectors);
+        out.writeOptionalInt(maxMultiEntityAnomalyDetectors);
+        out.writeOptionalInt(maxAnomalyFeatures);
+        out.writeOptionalInt(maxCategoricalFields);
     }
 
     @Override
@@ -161,5 +178,33 @@ public class IndexAnomalyDetectorRequest extends ActionRequest implements DocReq
     @Override
     public String id() {
         return detectorID;
+    }
+
+    public static IndexAnomalyDetectorRequest fromActionRequest(
+        final ActionRequest actionRequest,
+        org.opensearch.core.common.io.stream.NamedWriteableRegistry namedWriteableRegistry
+    ) {
+        if (actionRequest instanceof IndexAnomalyDetectorRequest) {
+            return (IndexAnomalyDetectorRequest) actionRequest;
+        }
+
+        try (
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            org.opensearch.core.common.io.stream.OutputStreamStreamOutput osso =
+                new org.opensearch.core.common.io.stream.OutputStreamStreamOutput(baos)
+        ) {
+            actionRequest.writeTo(osso);
+            try (
+                org.opensearch.core.common.io.stream.StreamInput input = new org.opensearch.core.common.io.stream.InputStreamStreamInput(
+                    new java.io.ByteArrayInputStream(baos.toByteArray())
+                );
+                org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput namedInput =
+                    new org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
+                return new IndexAnomalyDetectorRequest(namedInput);
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into IndexAnomalyDetectorRequest", e);
+        }
     }
 }

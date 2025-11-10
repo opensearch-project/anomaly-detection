@@ -71,7 +71,15 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
     }
 
     @Override
-    protected Processor<ValidateConfigResponse> createProcessor(Config detector, ValidateConfigRequest request, User user) {
+    protected Processor<ValidateConfigResponse> createProcessor(
+        Config detector,
+        ValidateConfigRequest request,
+        User user,
+        Integer maxSingleStreamConfigs,
+        Integer maxHCConfigs,
+        Integer maxFeatures,
+        Integer maxCategoricalFields
+    ) {
         return new ValidateAnomalyDetectorActionHandler(
             clusterService,
             client,
@@ -79,10 +87,10 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
             indexManagement,
             detector,
             request.getRequestTimeout(),
-            request.getMaxSingleEntityAnomalyDetectors(),
-            request.getMaxMultiEntityAnomalyDetectors(),
-            request.getMaxAnomalyFeatures(),
-            request.getMaxCategoricalFields(),
+            maxSingleStreamConfigs,
+            maxHCConfigs,
+            maxFeatures,
+            maxCategoricalFields,
             RestRequest.Method.POST,
             xContentRegistry,
             user,

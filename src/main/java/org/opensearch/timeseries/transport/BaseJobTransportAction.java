@@ -13,6 +13,7 @@ import java.time.Clock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionType;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
@@ -23,6 +24,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.ExecuteResultResponseRecorder;
@@ -42,7 +44,7 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
 public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>, IndexableResultType extends IndexableResult, ProfileActionType extends ActionType<ProfileResponse>, ExecuteResultResponseRecorderType extends ExecuteResultResponseRecorder<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType>, IndexJobActionHandlerType extends IndexJobActionHandler<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType, IndexableResultType, ProfileActionType, ExecuteResultResponseRecorderType>>
-    extends HandledTransportAction<JobRequest, JobResponse> {
+    extends HandledTransportAction<ActionRequest, JobResponse> {
     private final Logger logger = LogManager.getLogger(BaseJobTransportAction.class);
 
     private final Client client;
@@ -57,6 +59,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final Class<? extends Config> configClass;
     private final IndexJobActionHandlerType indexJobActionHandlerType;
     private final Clock clock;
+    protected final NamedWriteableRegistry namedWriteableRegistry;
 
     public BaseJobTransportAction(
         TransportService transportService,
@@ -72,7 +75,8 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         String failtoStopMsg,
         Class<? extends Config> configClass,
         IndexJobActionHandlerType indexJobActionHandlerType,
-        Clock clock
+        Clock clock,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(jobActionName, transportService, actionFilters, JobRequest::new);
         this.transportService = transportService;
@@ -88,10 +92,12 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
         this.configClass = configClass;
         this.indexJobActionHandlerType = indexJobActionHandlerType;
         this.clock = clock;
+        this.namedWriteableRegistry = namedWriteableRegistry;
     }
 
     @Override
-    protected void doExecute(Task task, JobRequest request, ActionListener<JobResponse> actionListener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<JobResponse> actionListener) {
+        JobRequest request = JobRequest.fromActionRequest(actionRequest, namedWriteableRegistry);
         String configId = request.getConfigID();
         DateRange dateRange = request.getDateRange();
         boolean historical = request.isHistorical();
