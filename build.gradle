@@ -89,7 +89,7 @@ plugins {
     id 'java-library'
     id 'org.gradle.test-retry' version '1.6.0'
     id "de.undercouch.download" version "5.6.0"
-    id 'com.gradleup.shadow' version '8.3.5'
+    id 'com.gradleup.shadow' version '8.3.9'
 }
 
 tasks.withType(JavaCompile) {
@@ -137,7 +137,6 @@ dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
-    // ML Commons
     compileOnly group: 'org.opensearch', name:'opensearch-ml-common', version: "${opensearch_build}"
     compileOnly group: 'org.opensearch', name:'opensearch-ml-spi', version: "${opensearch_build}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
@@ -208,6 +207,40 @@ apply plugin: 'eclipse'
 apply plugin: 'opensearch.pluginzip'
 apply plugin: 'opensearch.java-agent'
 
+// Work around intermittent missing jacocoagent.jar by 
+// extracting it jacocoagent.jar from the Jacoco distribution to build/jacoco/
+tasks.register('prepareJacocoAgent', Copy) {
+    from({ zipTree(configurations.jacocoAgent.singleFile) }) {
+        include 'jacocoagent.jar'
+    }
+    into "$buildDir/jacoco"
+}
+
+// Use the extracted agent for unit tests and disable Gradle's default Jacoco injection
+// to prevent duplicate -javaagent entries.
+tasks.named('test', Test) {
+    // Disable Gradle's default Jacoco injection to avoid transient agent path issues
+    jacoco.enabled = false
+    // Ensure OpenSearch bytecode agent is not attached to unit tests
+    // Build a classpath that prefers main/test outputs and external deps over the shaded jar
+    classpath = files(
+        sourceSets.test.output,
+        sourceSets.main.output,
+        (configurations.testRuntimeClasspath - files(tasks.shadowJar.archiveFile))
+    )
+    doFirst {
+        // Remove any opensearch-agent -javaagent from jvmArgs if present
+        def before = jvmArgs == null ? [] : new ArrayList<String>(jvmArgs)
+        if (before) {
+            def filtered = before.findAll { !(it instanceof String && it.contains('opensearch-agent')) && !(it instanceof String && it.startsWith('-javaagent:')) }
+            if (filtered.size() != before.size()) {
+                jvmArgs = filtered
+            }
+        }
+        classpath.files.eachWithIndex { f, idx -> println "${idx+1}) ${f}" }
+    }
+}
+
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     buildVersionQualifier = System.getProperty("build.version_qualifier")
@@ -221,8 +254,6 @@ shadowJar {
         include(dependency('software.amazon.randomcutforest:randomcutforest-core'))
         include(dependency('software.amazon.randomcutforest:randomcutforest-parkservices'))
         include(dependency('software.amazon.randomcutforest:randomcutforest-serialization'))
-
-        // optional safety:
         exclude(dependency('org.opensearch:opensearch'))
         exclude(dependency('org.opensearch:opensearch-core'))
         exclude(dependency('org.opensearch:common-utils'))
@@ -314,8 +345,7 @@ configurations.all {
         force "com.google.code.gson:gson:2.11.0"
         force "junit:junit:4.13.2"
 
-        // Guava version is shaded, so this force is for transitive dependencies only
-        force "com.google.guava:guava:33.4.5-jre"
+        force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
         force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
         force "org.ow2.asm:asm:9.7.1"

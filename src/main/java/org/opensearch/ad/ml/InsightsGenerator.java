@@ -28,7 +28,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import com.google.gson.Gson;
 
 /** 
- * Transforms ML output into structured insights-results documents with:
+ * Transforms ML output into structured insights-results documents
  */
 public class InsightsGenerator {
 
@@ -215,22 +215,18 @@ public class InsightsGenerator {
     ) {
         StringBuilder text = new StringBuilder();
 
-        // Main description
         text.append(String.format(Locale.ROOT, "Correlated anomalies detected across %d detector(s)", detectorIds.size()));
 
-        // Add indices if available
         if (!indices.isEmpty()) {
             text.append(String.format(Locale.ROOT, " in %d index pattern(s)", indices.size()));
         }
 
-        // Add series info for multi-entity detectors
         if (!seriesKeys.isEmpty()) {
             text.append(String.format(Locale.ROOT, ", affecting %d entities", seriesKeys.size()));
         }
 
         text.append(".");
 
-        // Time range
         text.append(String.format(Locale.ROOT, " Detected from %s to %s with %d correlated metrics.", eventStart, eventEnd, numMetrics));
 
         return text.toString();

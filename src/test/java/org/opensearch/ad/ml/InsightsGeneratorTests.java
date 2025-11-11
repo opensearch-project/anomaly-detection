@@ -27,12 +27,10 @@ import com.google.gson.JsonObject;
 public class InsightsGeneratorTests extends OpenSearchTestCase {
 
     public void testGenerateInsightsWithEmptyResults() throws IOException {
-        // Create empty ML output
         JsonObject emptyJson = new JsonObject();
         emptyJson.add("inference_results", new JsonArray());
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(emptyJson);
 
-        // Create input with metadata
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-01T01:00:00Z");
 
@@ -46,7 +44,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             Collections.emptyList()
         );
 
-        // Generate insights
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
@@ -62,7 +59,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
     }
 
     public void testGenerateInsightsWithSingleInferenceResult() throws IOException {
-        // Create ML output with one inference result
         JsonObject json = new JsonObject();
         JsonArray inferenceResults = new JsonArray();
 
@@ -89,7 +85,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
 
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input with metadata
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = start.plusSeconds(180);
 
@@ -111,7 +106,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps
         );
 
-        // Generate insights
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
@@ -122,7 +116,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
     }
 
     public void testGenerateInsightsWithMultiEntityDetector() throws IOException {
-        // Create ML output
         JsonObject json = new JsonObject();
         JsonArray inferenceResults = new JsonArray();
 
@@ -148,7 +141,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
 
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input with multi-entity metric
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         List<Instant> timestamps = Arrays.asList(start, start.plusSeconds(60));
 
@@ -168,7 +160,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps
         );
 
-        // Generate insights
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
@@ -178,11 +169,9 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
     }
 
     public void testGenerateInsightsWithMultipleInferenceResults() throws IOException {
-        // Create ML output with multiple results
         JsonObject json = new JsonObject();
         JsonArray inferenceResults = new JsonArray();
 
-        // First event
         JsonObject result1 = new JsonObject();
         JsonArray window1 = new JsonArray();
         window1.add(0);
@@ -194,7 +183,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
         result1.add("suspected_metrics", metrics1);
         inferenceResults.add(result1);
 
-        // Second event
         JsonObject result2 = new JsonObject();
         JsonArray window2 = new JsonArray();
         window2.add(2);
@@ -209,7 +197,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
         json.add("inference_results", inferenceResults);
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         List<Instant> timestamps = Arrays.asList(start, start.plusSeconds(60), start.plusSeconds(120), start.plusSeconds(180));
 
@@ -229,7 +216,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps
         );
 
-        // Generate insights
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
@@ -238,14 +224,13 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
     }
 
     public void testGenerateInsightsWithInvalidEventWindow() throws IOException {
-        // Create ML output with invalid event window
         JsonObject json = new JsonObject();
         JsonArray inferenceResults = new JsonArray();
 
         JsonObject result1 = new JsonObject();
         JsonArray eventWindow = new JsonArray();
-        eventWindow.add(10); // Out of bounds
-        eventWindow.add(20); // Out of bounds
+        eventWindow.add(10);
+        eventWindow.add(20);
         result1.add("event_window", eventWindow);
 
         JsonArray eventPattern = new JsonArray();
@@ -260,7 +245,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
 
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input with only 2 timestamps
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         List<Instant> timestamps = Arrays.asList(start, start.plusSeconds(60));
 
@@ -279,7 +263,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps
         );
 
-        // Generate insights - should handle gracefully
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
@@ -288,7 +271,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
     }
 
     public void testGenerateInsightsWithEmptySuspectedMetrics() throws IOException {
-        // Create ML output with empty suspected metrics
         JsonObject json = new JsonObject();
         JsonArray inferenceResults = new JsonArray();
 
@@ -305,7 +287,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
 
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         List<Instant> timestamps = Arrays.asList(start, start.plusSeconds(60));
 
@@ -319,12 +300,11 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps
         );
 
-        // Generate insights
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
         String result = builder.toString();
-        assertTrue(result.contains("\"num_paragraphs\":0")); // Should skip invalid result
+        assertTrue(result.contains("\"num_paragraphs\":0"));
     }
 
     public void testGenerateInsightsWithMissingDetectorMetadata() throws IOException {
@@ -347,7 +327,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
 
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input WITHOUT detector metadata
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         List<Instant> timestamps = Arrays.asList(start, start.plusSeconds(60));
 
@@ -361,7 +340,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps
         );
 
-        // Generate insights - should work even without metadata
         XContentBuilder builder = InsightsGenerator.generateInsights(mlOutput, input);
         assertNotNull(builder);
 
@@ -372,7 +350,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
     }
 
     public void testGenerateInsightsWithRealMLCommonsFormat() throws IOException {
-        // Use actual ML Commons response format from user's example
         String realResponse = "{\n"
             + "  \"inference_results\": [\n"
             + "    {\n"
@@ -387,7 +364,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
         JsonObject json = parser.parse(realResponse).getAsJsonObject();
         MLMetricsCorrelationOutput mlOutput = new MLMetricsCorrelationOutput(json);
 
-        // Create input with 125 buckets (matching real use case)
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         List<Instant> timestamps = new java.util.ArrayList<>();
         List<List<Double>> matrix = new java.util.ArrayList<>();
@@ -396,7 +372,6 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
             timestamps.add(start.plusSeconds(i * 60));
         }
 
-        // 3 metrics (matching suspected_metrics [0, 1, 2])
         for (int m = 0; m < 3; m++) {
             List<Double> series = new java.util.ArrayList<>();
             for (int i = 0; i < 125; i++) {
@@ -427,9 +402,9 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
         String result = builder.toString();
         assertTrue(result.contains("\"num_paragraphs\":1"));
         assertTrue(result.contains("\"num_detectors\":3"));
-        assertTrue(result.contains("\"num_indices\":3")); // server-metrics-*, host-logs-*, app-logs-*
-        assertTrue(result.contains("\"num_series\":1")); // host-01
-        assertTrue(result.contains("Anomaly cluster detected affecting 3 detector(s)"));
-        assertTrue(result.contains("3 correlated metrics"));
+        assertTrue(result.contains("\"num_indices\":3"));
+        assertTrue(result.contains("\"num_series\":1"));
+        assertTrue(result.contains("Correlated anomalies detected across 3 detector(s)"));
+        assertTrue(result.contains("with 3 correlated metrics"));
     }
 }

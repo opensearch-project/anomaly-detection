@@ -362,23 +362,17 @@ public class InsightsJobProcessor extends
 
             // when search results is less than one page
             if (hits.length == 0 || hits.length < baseSource.size()) {
-                log.info(
-                    "Successfully parsed {} anomalies in time window {} to {}",
-                    allAnomalies.size(),
-                    executionStartTime,
-                    executionEndTime
-                );
-
-                if (!allAnomalies.isEmpty()) {
-                    // Enrich detector metadata (names, indices) before correlation
-                    fetchDetectorMetadataAndProceed(
-                        allAnomalies,
-                        jobParameter,
-                        lockService,
-                        lock,
+                log
+                    .info(
+                        "Successfully parsed {} anomalies in time window {} to {}",
+                        allAnomalies.size(),
                         executionStartTime,
                         executionEndTime
                     );
+
+                if (!allAnomalies.isEmpty()) {
+                    // Enrich detector metadata (names, indices) before correlation
+                    fetchDetectorMetadataAndProceed(allAnomalies, jobParameter, lockService, lock, executionStartTime, executionEndTime);
                 } else {
                     log.info("No anomalies found in time window, skipping ML correlation");
                     releaseLock(jobParameter, lockService, lock);
@@ -483,12 +477,14 @@ public class InsightsJobProcessor extends
         try {
             injectSecurity.inject(user, roles);
 
-            localClient.index(indexRequest, ActionListener.runBefore(ActionListener.wrap(response -> {
-                releaseLock(jobParameter, lockService, lock);
-            }, error -> {
-                log.error("Failed to write insights to index", error);
-                releaseLock(jobParameter, lockService, lock);
-            }), () -> injectSecurity.close()));
+            localClient
+                .index(
+                    indexRequest,
+                    ActionListener.runBefore(ActionListener.wrap(response -> { releaseLock(jobParameter, lockService, lock); }, error -> {
+                        log.error("Failed to write insights to index", error);
+                        releaseLock(jobParameter, lockService, lock);
+                    }), () -> injectSecurity.close())
+                );
         } catch (Exception e) {
             injectSecurity.close();
             log.error("Failed to inject security context for insights write", e);
@@ -587,43 +583,27 @@ public class InsightsJobProcessor extends
             }, e -> {
                 log.error("Failed to fetch detector configs for metadata enrichment, proceeding with minimal metadata", e);
                 Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
-                processAnomaliesWithMLCommons(
-                    jobParameter,
-                    lockService,
-                    lock,
-                    anomalies,
-                    fallback,
-                    executionStartTime,
-                    executionEndTime
-                );
+                processAnomaliesWithMLCommons(jobParameter, lockService, lock, anomalies, fallback, executionStartTime, executionEndTime);
             }), () -> injectSecurity.close()));
         } catch (Exception e) {
             injectSecurity.close();
             log.error("Failed to inject security context for detector metadata fetch", e);
             Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
-            processAnomaliesWithMLCommons(
-                jobParameter,
-                lockService,
-                lock,
-                anomalies,
-                fallback,
-                executionStartTime,
-                executionEndTime
-            );
+            processAnomaliesWithMLCommons(jobParameter, lockService, lock, anomalies, fallback, executionStartTime, executionEndTime);
         }
     }
 
     private Map<String, DetectorMetadata> buildDetectorMetadataFromAnomalies(List<AnomalyResult> anomalies) {
         Map<String, DetectorMetadata> metadataMap = new HashMap<>();
-        
+
         for (AnomalyResult anomaly : anomalies) {
             String detectorId = anomaly.getDetectorId();
-            
+
             if (!metadataMap.containsKey(detectorId)) {
                 metadataMap.put(detectorId, new DetectorMetadata(detectorId, null, new ArrayList<>()));
             }
         }
-        
+
         log.info("Built detector metadata from {} anomalies, found {} unique detectors", anomalies.size(), metadataMap.size());
         return metadataMap;
     }

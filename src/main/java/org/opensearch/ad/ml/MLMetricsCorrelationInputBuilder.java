@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -28,7 +28,34 @@ import org.opensearch.timeseries.model.Entity;
  * - M = number of metrics (unique detector_id + entity combinations)
  * - T = number of time buckets (all buckets in the analysis window)
  * - Each cell contains anomaly_score (0.0 if no anomaly in that bucket)
+ * 
+ * 
+ *  How it builds the matrix:
+ *  1. Group anomalies by metric (detector_id + entity_key)
+ *    - single stream detector: detector_id
+ *    - hc detector: detector_id|entity_key
+ *  2. Create ALL buckets for the full time window (dense representation)
+ *    - totalBuckets = (executionEnd - executionStart) / 60_000
+ *    - allBucketList = [0 … totalBuckets-1]
+ *    - bucketTimestamps[i] = executionStart + i * 60_000 ms
+ *  3. Create bucket timestamp list for all buckets
+ *    - bucketIndex = (anomaly.data_start_time - executionStart) / 60_000
+ *    - Keep the max anomaly_score per bucket (if multiple fell into same minute).
+ *    - for example: 
+ *      Anomalies (simplified):
+ *         dA (single stream)
+            10:02:15 score=0.8
+            10:05:05 score=0.4
+            10:05:50 score=0.9
+        Build time series (max per minute, zeros elsewhere): [0, 0, 0.8, 0, 0, 0.9, 0, 0, 0, 0]
+            bucket 2 = 0.8
+            bucket 5 = max(0.4, 0.9) = 0.9
+            others = 0.0
+ *  4. Build M x T matrix (with zeros for empty buckets)
+ *    - build a matrix with the number of metrics as rows and the number of buckets as columns
+ *    - each cell contains the anomaly score for the corresponding bucket and metric
  */
+
 public class MLMetricsCorrelationInputBuilder {
 
     private static final Logger log = LogManager.getLogger(MLMetricsCorrelationInputBuilder.class);
@@ -65,7 +92,7 @@ public class MLMetricsCorrelationInputBuilder {
 
         log.info("Building metrics correlation input from {} anomalies", anomalies.size());
 
-        // group anomalies by metric (detector_id + entity_key)
+        // Step 1: group anomalies by metric (detector_id + entity_key)
         Map<String, List<AnomalyResult>> metricGroups = groupByMetric(anomalies);
         log.info("Grouped into {} unique metrics", metricGroups.size());
 
@@ -137,10 +164,6 @@ public class MLMetricsCorrelationInputBuilder {
         return groups;
     }
 
-    /**
-     * Generate metric key from anomaly result.
-     * Format: "detector_id" for single stream detectors, "detector_id|entity_key" for hc detectors
-     */
     private static String getMetricKey(AnomalyResult anomaly) {
         String detectorId = anomaly.getDetectorId();
         Optional<Entity> optEntity = anomaly.getEntity();
@@ -188,7 +211,7 @@ public class MLMetricsCorrelationInputBuilder {
             }
         }
 
-        // Build time series array for all buckets (with zeros for empty buckets)
+        // Build time series array for all buckets, with zeros for empty buckets
         List<Double> timeSeries = new ArrayList<>();
         for (Integer bucketIndex : allBucketList) {
             timeSeries.add(bucketScores.getOrDefault(bucketIndex, 0.0));

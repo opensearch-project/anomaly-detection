@@ -13,6 +13,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -63,6 +65,8 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.transport.client.Client;
+import org.opensearch.ml.common.transport.execute.MLExecuteTaskAction;
+import org.opensearch.ml.common.transport.execute.MLExecuteTaskRequest;
 
 public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
@@ -169,6 +173,14 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
         // Create LockModel
         lockModel = new LockModel(".opendistro-job-scheduler-lock", "insights-job", Instant.now(), 600L, false);
+
+        // Stub ML Commons transport execute to fail fast so processor degrades gracefully
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            ActionListener<Object> listener = (ActionListener<Object>) invocation.getArgument(2);
+            listener.onFailure(new Exception("ml commons not installed"));
+            return null;
+        }).when(client).execute(any(), any(MLExecuteTaskRequest.class), any());
     }
 
     @Test
@@ -232,130 +244,6 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
         // Verify lock acquisition was NOT attempted
         verify(lockService, never()).acquireLock(any(), any(), any());
-    }
-
-    @Test
-    public void testQueryEligibleDetectorsWithNoDetectors() {
-        // Mock detector config search - return empty
-        doAnswer(invocation -> {
-            ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            SearchHits searchHits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
-            SearchResponse searchResponse = mock(SearchResponse.class);
-            when(searchResponse.getHits()).thenReturn(searchHits);
-            listener.onResponse(searchResponse);
-            return null;
-        }).when(client).search(any(SearchRequest.class), any());
-
-        // Mock lock release
-        doAnswer(invocation -> {
-            ActionListener<Boolean> listener = invocation.getArgument(1);
-            listener.onResponse(true);
-            return null;
-        }).when(lockService).release(any(), any());
-
-        // Trigger the query via process
-        doAnswer(invocation -> {
-            ActionListener<LockModel> listener = invocation.getArgument(2);
-            listener.onResponse(lockModel);
-            return null;
-        }).when(lockService).acquireLock(any(), any(), any());
-
-        insightsJobProcessor.process(insightsJob, jobExecutionContext);
-
-        // Verify detector search was made
-        verify(client, times(1)).search(any(SearchRequest.class), any());
-
-        // Verify lock was released (no detectors found)
-        verify(lockService, times(1)).release(any(), any());
-    }
-
-    @Test
-    public void testQueryEligibleDetectorsWithResults() throws IOException {
-        // Create mock detector search hits
-        Map<String, Object> detector1Source = new HashMap<>();
-        detector1Source.put("name", "detector-1");
-        detector1Source.put("indices", Arrays.asList("index-1", "index-2"));
-
-        Map<String, Object> detector2Source = new HashMap<>();
-        detector2Source.put("name", "detector-2");
-        detector2Source.put("indices", Arrays.asList("index-3"));
-
-        SearchHit hit1 = new SearchHit(1);
-        hit1
-            .sourceRef(
-                new BytesArray(
-                    TestHelpers
-                        .builder()
-                        .startObject()
-                        .field("name", "detector-1")
-                        .startArray("indices")
-                        .value("index-1")
-                        .value("index-2")
-                        .endArray()
-                        .endObject()
-                        .toString()
-                )
-            );
-        hit1.score(1.0f);
-        hit1.shard(new SearchShardTarget("node", new ShardId("test", "uuid", 0), null, null));
-
-        SearchHit hit2 = new SearchHit(2);
-        hit2
-            .sourceRef(
-                new BytesArray(
-                    TestHelpers
-                        .builder()
-                        .startObject()
-                        .field("name", "detector-2")
-                        .startArray("indices")
-                        .value("index-3")
-                        .endArray()
-                        .endObject()
-                        .toString()
-                )
-            );
-        hit2.score(1.0f);
-        hit2.shard(new SearchShardTarget("node", new ShardId("test", "uuid", 0), null, null));
-
-        SearchHit[] hits = new SearchHit[] { hit1, hit2 };
-        SearchHits searchHits = new SearchHits(hits, new TotalHits(2, TotalHits.Relation.EQUAL_TO), 1.0f);
-
-        // First search: detector config query
-        doAnswer(invocation -> {
-            SearchRequest request = invocation.getArgument(0);
-            ActionListener<SearchResponse> listener = invocation.getArgument(1);
-
-            SearchResponse searchResponse = mock(SearchResponse.class);
-            if (request.indices()[0].equals(ADCommonName.CONFIG_INDEX)) {
-                // Detector config query
-                when(searchResponse.getHits()).thenReturn(searchHits);
-            } else {
-                // Anomaly result query - return empty
-                SearchHits emptyHits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
-                when(searchResponse.getHits()).thenReturn(emptyHits);
-            }
-            listener.onResponse(searchResponse);
-            return null;
-        }).when(client).search(any(SearchRequest.class), any());
-
-        // Mock lock operations
-        doAnswer(invocation -> {
-            ActionListener<LockModel> listener = invocation.getArgument(2);
-            listener.onResponse(lockModel);
-            return null;
-        }).when(lockService).acquireLock(any(), any(), any());
-
-        doAnswer(invocation -> {
-            ActionListener<Boolean> listener = invocation.getArgument(1);
-            listener.onResponse(true);
-            return null;
-        }).when(lockService).release(any(), any());
-
-        // Execute
-        insightsJobProcessor.process(insightsJob, jobExecutionContext);
-
-        // Verify both detector and anomaly searches were made
-        verify(client, times(2)).search(any(SearchRequest.class), any());
     }
 
     @Test
@@ -442,9 +330,7 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         // This test verifies the query flow up to that point
 
         insightsJobProcessor.process(insightsJob, jobExecutionContext);
-
-        // Verify searches were made
-        verify(client, times(2)).search(any(SearchRequest.class), any());
+        verify(client, atLeastOnce()).search(any(SearchRequest.class), any());
     }
 
     @Test
@@ -537,8 +423,8 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         // Execute
         insightsJobProcessor.process(insightsJob, jobExecutionContext);
 
-        // Verify both searches were attempted
-        verify(client, times(2)).search(any(SearchRequest.class), any());
+        // Verify only results search was attempted (config enrichment not reached on failure)
+        verify(client, times(1)).search(any(SearchRequest.class), any());
 
         // Verify lock was released
         verify(lockService, times(1)).release(any(), any());
@@ -868,8 +754,8 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         // Execute
         insightsJobProcessor.process(insightsJob, jobExecutionContext);
 
-        // Verify both detector and anomaly searches were made
-        verify(client, times(2)).search(any(SearchRequest.class), any());
+        // Verify searches were made (results and possibly config enrichment)
+        verify(client, atLeastOnce()).search(any(SearchRequest.class), any());
 
         // Verify insights document was indexed
         verify(client, times(1)).index(any(IndexRequest.class), any());

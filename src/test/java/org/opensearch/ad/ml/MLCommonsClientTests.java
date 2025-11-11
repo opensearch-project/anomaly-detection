@@ -24,6 +24,8 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.transport.client.Client;
+import org.opensearch.ml.common.transport.execute.MLExecuteTaskAction;
+import org.opensearch.ml.common.transport.execute.MLExecuteTaskRequest;
 
 public class MLCommonsClientTests extends OpenSearchTestCase {
 
@@ -42,6 +44,15 @@ public class MLCommonsClientTests extends OpenSearchTestCase {
 
         // Create client for ML Commons transport layer
         mlCommonsClient = new MLCommonsClient(client, xContentRegistry);
+
+        // In test environment, ML Commons transport is not available.
+        // Stub client.execute to fail immediately so the client degrades gracefully.
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            ActionListener<Object> listener = (ActionListener<Object>) invocation.getArgument(2);
+            listener.onFailure(new Exception("ml commons not installed"));
+            return null;
+        }).when(client).execute(any(), any(MLExecuteTaskRequest.class), any());
     }
 
     public void testConstructor() {
