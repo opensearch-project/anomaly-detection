@@ -19,6 +19,7 @@ import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
@@ -28,6 +29,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.Name;
@@ -45,12 +47,13 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
 public abstract class BaseSuggestConfigParamTransportAction<ConfigType extends Config> extends
-    HandledTransportAction<SuggestConfigParamRequest, SuggestConfigParamResponse> {
+    HandledTransportAction<ActionRequest, SuggestConfigParamResponse> {
     public static final Logger logger = LogManager.getLogger(BaseSuggestConfigParamTransportAction.class);
 
     protected final Client client;
     protected final SecurityClientUtil clientUtil;
     protected final SearchFeatureDao searchFeatureDao;
+    protected final NamedWriteableRegistry namedWriteableRegistry;
     protected volatile Boolean filterByEnabled;
     protected Clock clock;
     protected AnalysisType context;
@@ -70,11 +73,13 @@ public abstract class BaseSuggestConfigParamTransportAction<ConfigType extends C
         AnalysisType context,
         SearchFeatureDao searchFeatureDao,
         Set<String> allSuggestParamStrs,
-        Class<ConfigType> configTypeClass
+        Class<ConfigType> configTypeClass,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(actionName, transportService, actionFilters, SuggestConfigParamRequest::new);
         this.client = client;
         this.clientUtil = clientUtil;
+        this.namedWriteableRegistry = namedWriteableRegistry;
         this.filterByEnabled = filterByBackendRoleSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterByEnabled = it);
         this.clock = Clock.systemUTC();
@@ -86,7 +91,8 @@ public abstract class BaseSuggestConfigParamTransportAction<ConfigType extends C
     }
 
     @Override
-    protected void doExecute(Task task, SuggestConfigParamRequest request, ActionListener<SuggestConfigParamResponse> listener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<SuggestConfigParamResponse> listener) {
+        SuggestConfigParamRequest request = SuggestConfigParamRequest.fromActionRequest(actionRequest, namedWriteableRegistry);
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());

@@ -14,6 +14,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
@@ -45,7 +46,8 @@ public class ValidateForecasterTransportAction extends
         ForecastIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             ValidateForecasterAction.NAME,
@@ -60,7 +62,8 @@ public class ValidateForecasterTransportAction extends
             searchFeatureDao,
             FORECAST_FILTER_BY_BACKEND_ROLES,
             ValidationAspect.FORECASTER,
-            Forecaster.class
+            Forecaster.class,
+            namedWriteableRegistry
         );
     }
 
