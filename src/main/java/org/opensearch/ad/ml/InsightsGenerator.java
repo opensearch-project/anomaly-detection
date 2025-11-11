@@ -7,6 +7,8 @@ package org.opensearch.ad.ml;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -215,6 +217,13 @@ public class InsightsGenerator {
     ) {
         StringBuilder text = new StringBuilder();
 
+        DateTimeFormatter friendlyFormatter = DateTimeFormatter
+            .ofPattern("MMM d, yyyy HH:mm z")
+            .withLocale(Locale.ROOT)
+            .withZone(ZoneOffset.UTC);
+        String startStr = friendlyFormatter.format(eventStart);
+        String endStr = friendlyFormatter.format(eventEnd);
+
         text.append(String.format(Locale.ROOT, "Correlated anomalies detected across %d detector(s)", detectorIds.size()));
 
         if (!indices.isEmpty()) {
@@ -226,8 +235,7 @@ public class InsightsGenerator {
         }
 
         text.append(".");
-
-        text.append(String.format(Locale.ROOT, " Detected from %s to %s with %d correlated metrics.", eventStart, eventEnd, numMetrics));
+        text.append(String.format(Locale.ROOT, " Detected from %s to %s with %d correlated metrics.", startStr, endStr, numMetrics));
 
         return text.toString();
     }

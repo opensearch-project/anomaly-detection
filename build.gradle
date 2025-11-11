@@ -220,7 +220,7 @@ tasks.register('prepareJacocoAgent', Copy) {
 // to prevent duplicate -javaagent entries.
 tasks.named('test', Test) {
     // Disable Gradle's default Jacoco injection to avoid transient agent path issues
-    jacoco.enabled = false
+    jacoco.enabled = true
     // Ensure OpenSearch bytecode agent is not attached to unit tests
     // Build a classpath that prefers main/test outputs and external deps over the shaded jar
     classpath = files(
@@ -232,7 +232,8 @@ tasks.named('test', Test) {
         // Remove any opensearch-agent -javaagent from jvmArgs if present
         def before = jvmArgs == null ? [] : new ArrayList<String>(jvmArgs)
         if (before) {
-            def filtered = before.findAll { !(it instanceof String && it.contains('opensearch-agent')) && !(it instanceof String && it.startsWith('-javaagent:')) }
+            // Only strip the OpenSearch java agent; keep Jacoco agent intact
+            def filtered = before.findAll { !(it instanceof String && it.contains('opensearch-agent')) }
             if (filtered.size() != before.size()) {
                 jvmArgs = filtered
             }
@@ -440,6 +441,7 @@ task integTest(type: RestIntegTestTask) {
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
+    jacoco.enabled = true
     retry {
         if (BuildParams.isCi()) {
             maxRetries = 6
@@ -1161,6 +1163,15 @@ jacocoTestCoverageVerification {
 
 check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
+
+jacocoTestReport {
+    dependsOn test, integTest
+    executionData.from = files(test.jacoco.destinationFile, integTest.jacoco.destinationFile)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
 
