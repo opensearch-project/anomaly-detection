@@ -116,14 +116,12 @@ public class InsightsJobProcessor extends
 
     public void setXContentRegistry(NamedXContentRegistry xContentRegistry) {
         this.xContentRegistry = xContentRegistry;
-        initMlCommonsClient();
     }
 
     @Override
     public void setClient(org.opensearch.transport.client.Client client) {
         super.setClient(client);
         this.localClient = client;
-        initMlCommonsClient();
     }
 
     @Override
@@ -134,7 +132,15 @@ public class InsightsJobProcessor extends
 
     private synchronized void initMlCommonsClient() {
         if (this.mlCommonsClient == null && this.localClient != null && this.xContentRegistry != null) {
-            this.mlCommonsClient = new MLCommonsClient(this.localClient, this.xContentRegistry);
+            try {
+                this.mlCommonsClient = new MLCommonsClient(this.localClient, this.xContentRegistry);
+            } catch (NoClassDefFoundError e) {
+                log.warn("ML Commons classes not found; Insights correlation will be skipped", e);
+                this.mlCommonsClient = null;
+            } catch (Throwable t) {
+                log.warn("Failed to initialize ML Commons client; Insights correlation will be skipped", t);
+                this.mlCommonsClient = null;
+            }
         }
     }
 
@@ -294,7 +300,7 @@ public class InsightsJobProcessor extends
                 null
             )
             .sort("data_start_time", SortOrder.ASC)
-            .sort("_shard_doc");
+            .sort("_id", SortOrder.ASC);
 
         InjectSecurity injectSecurity = new InjectSecurity(jobParameter.getName(), settings, localClient.threadPool().getThreadContext());
         try {
@@ -337,7 +343,7 @@ public class InsightsJobProcessor extends
             .size(baseSource.size())
             .fetchSource(baseSource.fetchSource())
             .sort("data_start_time", SortOrder.ASC)
-            .sort("_shard_doc");
+            .sort("_id", SortOrder.ASC);
 
         if (searchAfter != null) {
             pageSource.searchAfter(searchAfter);
@@ -439,6 +445,11 @@ public class InsightsJobProcessor extends
         }
 
         initMlCommonsClient();
+        if (mlCommonsClient == null) {
+            log.info("Skipping ML correlation because ML Commons is not available");
+            releaseLock(jobParameter, lockService, lock);
+            return;
+        }
         mlCommonsClient.executeMetricsCorrelation(input, ActionListener.wrap(mlOutput -> {
             log.info("ML Commons correlation completed, found {} event clusters", mlOutput.getInferenceResults().size());
 
