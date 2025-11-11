@@ -121,4 +121,32 @@ public class JobRequest extends ActionRequest implements DocRequest {
     public String id() {
         return configID;
     }
+
+    public static JobRequest fromActionRequest(
+        final ActionRequest actionRequest,
+        org.opensearch.core.common.io.stream.NamedWriteableRegistry namedWriteableRegistry
+    ) {
+        if (actionRequest instanceof JobRequest) {
+            return (JobRequest) actionRequest;
+        }
+
+        try (
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            org.opensearch.core.common.io.stream.OutputStreamStreamOutput osso =
+                new org.opensearch.core.common.io.stream.OutputStreamStreamOutput(baos)
+        ) {
+            actionRequest.writeTo(osso);
+            try (
+                org.opensearch.core.common.io.stream.StreamInput input = new org.opensearch.core.common.io.stream.InputStreamStreamInput(
+                    new java.io.ByteArrayInputStream(baos.toByteArray())
+                );
+                org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput namedInput =
+                    new org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
+                return new JobRequest(namedInput);
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into JobRequest", e);
+        }
+    }
 }
