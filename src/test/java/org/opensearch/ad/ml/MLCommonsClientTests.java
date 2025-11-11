@@ -22,10 +22,9 @@ import org.opensearch.ad.model.MLMetricsCorrelationInput;
 import org.opensearch.ad.model.MLMetricsCorrelationOutput;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.ml.common.transport.execute.MLExecuteTaskRequest;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.transport.client.Client;
-import org.opensearch.ml.common.transport.execute.MLExecuteTaskAction;
-import org.opensearch.ml.common.transport.execute.MLExecuteTaskRequest;
 
 public class MLCommonsClientTests extends OpenSearchTestCase {
 
