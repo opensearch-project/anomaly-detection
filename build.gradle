@@ -192,9 +192,6 @@ dependencies {
     testImplementation 'org.reflections:reflections:0.10.2'
 
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
-
-    zipArchive("org.opensearch.plugin:opensearch-ml-plugin:${opensearch_build}")
-
 }
 
 apply plugin: 'java'

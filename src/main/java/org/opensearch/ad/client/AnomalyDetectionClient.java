@@ -116,7 +116,7 @@ public interface AnomalyDetectionClient {
     void suggestAnomalyDetector(SuggestConfigParamRequest suggestRequest, ActionListener<SuggestConfigParamResponse> listener);
 
     /**
-     * Create anomaly detector - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#create-detector
+     * Create anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#create-anomaly-detector
      * @param createRequest request to create the detector
      * @return ActionFuture of IndexAnomalyDetectorResponse
      */
@@ -127,14 +127,14 @@ public interface AnomalyDetectionClient {
     }
 
     /**
-     * Create anomaly detector - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#create-detector
+     * Create anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#create-anomaly-detector
      * @param createRequest request to create the detector
      * @param listener a listener to be notified of the result
      */
     void createAnomalyDetector(IndexAnomalyDetectorRequest createRequest, ActionListener<IndexAnomalyDetectorResponse> listener);
 
     /**
-     * Start anomaly detector - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#start-detector
+     * Start anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#start-detector-job
      * @param startRequest request to start the detector
      * @return ActionFuture of JobResponse
      */
@@ -145,7 +145,7 @@ public interface AnomalyDetectionClient {
     }
 
     /**
-     * Start anomaly detector - refer to https://opensearch.org/docs/latest/observing-your-data/ad/api/#start-detector
+     * Start anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#start-detector-job
      * @param startRequest request to start the detector
      * @param listener a listener to be notified of the result
      */
