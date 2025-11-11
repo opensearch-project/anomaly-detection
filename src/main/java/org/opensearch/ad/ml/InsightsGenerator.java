@@ -217,10 +217,7 @@ public class InsightsGenerator {
     ) {
         StringBuilder text = new StringBuilder();
 
-        DateTimeFormatter friendlyFormatter = DateTimeFormatter
-            .ofPattern("MMM d, yyyy HH:mm z")
-            .withLocale(Locale.ROOT)
-            .withZone(ZoneOffset.UTC);
+        DateTimeFormatter friendlyFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm z", Locale.ROOT).withZone(ZoneOffset.UTC);
         String startStr = friendlyFormatter.format(eventStart);
         String endStr = friendlyFormatter.format(eventEnd);
 
