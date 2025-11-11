@@ -36,6 +36,8 @@ import org.opensearch.ad.model.AnomalyDetectorType;
 import org.opensearch.ad.model.DetectorProfile;
 import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.ad.transport.SuggestAnomalyDetectorParamAction;
+import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
@@ -45,8 +47,13 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.ConfigState;
+import org.opensearch.timeseries.model.ConfigValidationIssue;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.transport.SuggestConfigParamRequest;
+import org.opensearch.timeseries.transport.SuggestConfigParamResponse;
+import org.opensearch.timeseries.transport.ValidateConfigRequest;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.ImmutableList;
@@ -235,6 +242,78 @@ public class AnomalyDetectionNodeClientTests extends HistoricalAnalysisIntegTest
         assertEquals(detector.getName(), response.getDetector().getName());
         assertEquals(ConfigState.DISABLED, response.getDetectorProfile().getState());
         verify(clientSpy, times(1)).execute(any(GetAnomalyDetectorAction.class), any(), any());
+    }
+
+    @Test
+    public void testValidateAnomalyDetector() throws IOException {
+        ingestTestData(indexName, startTime, 1, "test", 10);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(indexName),
+                ImmutableList.of(TestHelpers.randomFeature(true)),
+                null,
+                Instant.now(),
+                1,
+                false,
+                null
+            );
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<ValidateConfigResponse> listener = (ActionListener<ValidateConfigResponse>) args[2];
+            ValidateConfigResponse response = new ValidateConfigResponse((ConfigValidationIssue) null);
+            listener.onResponse(response);
+            return null;
+        }).when(clientSpy).execute(any(ValidateAnomalyDetectorAction.class), any(), any());
+
+        ValidateConfigRequest validateRequest = new ValidateConfigRequest(
+            org.opensearch.timeseries.AnalysisType.AD,
+            detector,
+            "detector",
+            10,
+            10,
+            5,
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30),
+            2
+        );
+
+        ValidateConfigResponse response = adClient.validateAnomalyDetector(validateRequest).actionGet(10000);
+        assertNotNull(response);
+        verify(clientSpy, times(1)).execute(any(ValidateAnomalyDetectorAction.class), any(), any());
+    }
+
+    @Test
+    public void testSuggestAnomalyDetector() throws IOException {
+        ingestTestData(indexName, startTime, 1, "test", 10);
+        AnomalyDetector detector = TestHelpers
+            .randomAnomalyDetector(
+                ImmutableList.of(indexName),
+                ImmutableList.of(TestHelpers.randomFeature(true)),
+                null,
+                Instant.now(),
+                1,
+                false,
+                null
+            );
+
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            ActionListener<SuggestConfigParamResponse> listener = (ActionListener<SuggestConfigParamResponse>) args[2];
+            SuggestConfigParamResponse response = new SuggestConfigParamResponse.Builder().build();
+            listener.onResponse(response);
+            return null;
+        }).when(clientSpy).execute(any(SuggestAnomalyDetectorParamAction.class), any(), any());
+
+        SuggestConfigParamRequest suggestRequest = new SuggestConfigParamRequest(
+            org.opensearch.timeseries.AnalysisType.AD,
+            detector,
+            "detection_interval",
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
+        );
+
+        SuggestConfigParamResponse response = adClient.suggestAnomalyDetector(suggestRequest).actionGet(10000);
+        assertNotNull(response);
+        verify(clientSpy, times(1)).execute(any(SuggestAnomalyDetectorParamAction.class), any(), any());
     }
 
 }

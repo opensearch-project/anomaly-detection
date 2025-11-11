@@ -21,6 +21,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.timeseries.AnalysisType;
@@ -50,7 +51,8 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
         ForecastIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             SuggestForecasterParamAction.NAME,
@@ -63,7 +65,8 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
             FORECAST_FILTER_BY_BACKEND_ROLES,
             AnalysisType.FORECAST,
             searchFeatureDao,
-            Name.getListStrs(Arrays.asList(ForecastSuggestName.values()))
+            Name.getListStrs(Arrays.asList(ForecastSuggestName.values())),
+            namedWriteableRegistry
         );
     }
 

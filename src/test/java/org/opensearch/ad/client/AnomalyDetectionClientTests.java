@@ -18,6 +18,10 @@ import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.transport.SuggestConfigParamRequest;
+import org.opensearch.timeseries.transport.SuggestConfigParamResponse;
+import org.opensearch.timeseries.transport.ValidateConfigRequest;
+import org.opensearch.timeseries.transport.ValidateConfigResponse;
 
 public class AnomalyDetectionClientTests {
 
@@ -31,6 +35,12 @@ public class AnomalyDetectionClientTests {
 
     @Mock
     GetAnomalyDetectorResponse profileResponse;
+
+    @Mock
+    ValidateConfigResponse validateResponse;
+
+    @Mock
+    SuggestConfigParamResponse suggestResponse;
 
     @Before
     public void setUp() {
@@ -51,6 +61,19 @@ public class AnomalyDetectionClientTests {
             @Override
             public void getDetectorProfile(GetConfigRequest profileRequest, ActionListener<GetAnomalyDetectorResponse> listener) {
                 listener.onResponse(profileResponse);
+            }
+
+            @Override
+            public void validateAnomalyDetector(ValidateConfigRequest validateRequest, ActionListener<ValidateConfigResponse> listener) {
+                listener.onResponse(validateResponse);
+            }
+
+            @Override
+            public void suggestAnomalyDetector(
+                SuggestConfigParamRequest suggestRequest,
+                ActionListener<SuggestConfigParamResponse> listener
+            ) {
+                listener.onResponse(suggestResponse);
             }
         };
     }
@@ -79,6 +102,32 @@ public class AnomalyDetectionClientTests {
             null
         );
         assertEquals(profileResponse, anomalyDetectionClient.getDetectorProfile(profileRequest).actionGet());
+    }
+
+    @Test
+    public void validateAnomalyDetector() {
+        ValidateConfigRequest validateRequest = new ValidateConfigRequest(
+            org.opensearch.timeseries.AnalysisType.AD,
+            null,
+            "detector",
+            10,
+            10,
+            5,
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30),
+            2
+        );
+        assertEquals(validateResponse, anomalyDetectionClient.validateAnomalyDetector(validateRequest).actionGet());
+    }
+
+    @Test
+    public void suggestAnomalyDetector() {
+        SuggestConfigParamRequest suggestRequest = new SuggestConfigParamRequest(
+            org.opensearch.timeseries.AnalysisType.AD,
+            null,
+            "detection_interval",
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
+        );
+        assertEquals(suggestResponse, anomalyDetectionClient.suggestAnomalyDetector(suggestRequest).actionGet());
     }
 
 }

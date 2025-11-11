@@ -9,10 +9,13 @@ import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRole
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
@@ -22,6 +25,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
@@ -46,7 +50,7 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
 public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>>
-    extends HandledTransportAction<ValidateConfigRequest, ValidateConfigResponse> {
+    extends HandledTransportAction<ActionRequest, ValidateConfigResponse> {
     public static final Logger logger = LogManager.getLogger(BaseValidateConfigTransportAction.class);
 
     protected final Client client;
@@ -55,6 +59,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected final NamedXContentRegistry xContentRegistry;
     protected final IndexManagementType indexManagement;
     protected final SearchFeatureDao searchFeatureDao;
+    protected final NamedWriteableRegistry namedWriteableRegistry;
     protected volatile Boolean filterByEnabled;
     protected Clock clock;
     protected Settings settings;
@@ -72,7 +77,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         TransportService transportService,
         SearchFeatureDao searchFeatureDao,
         Setting<Boolean> filterByBackendRoleSetting,
-        ValidationAspect validationAspect
+        ValidationAspect validationAspect,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(actionName, transportService, actionFilters, ValidateConfigRequest::new);
         this.client = client;
@@ -80,6 +86,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.indexManagement = indexManagement;
+        this.namedWriteableRegistry = namedWriteableRegistry;
         this.filterByEnabled = filterByBackendRoleSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterByEnabled = it);
         this.searchFeatureDao = searchFeatureDao;
@@ -89,7 +96,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     }
 
     @Override
-    protected void doExecute(Task task, ValidateConfigRequest request, ActionListener<ValidateConfigResponse> listener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<ValidateConfigResponse> listener) {
+        ValidateConfigRequest request = ValidateConfigRequest.fromActionRequest(actionRequest, namedWriteableRegistry);
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(

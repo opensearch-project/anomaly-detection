@@ -6,6 +6,8 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "dependabot:"
+    labels:
+      - "skip-changelog"
     ignore:
       # For all packages, ignore all major versions to minimize breaking issues
       - dependency-name: "*"
@@ -16,3 +18,5 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "dependabot:"
+    labels:
+      - "skip-changelog"
