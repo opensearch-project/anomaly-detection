@@ -32,6 +32,7 @@ public class ValidateForecasterActionHandlerTests extends AbstractForecasterActi
         doThrow(IllegalArgumentException.class).when(forecastISM).doesConfigIndexExist();
         handler = new ValidateForecasterActionHandler(
             clusterService,
+            transportService,
             clientMock,
             clientUtil,
             forecastISM,
@@ -79,6 +80,7 @@ public class ValidateForecasterActionHandlerTests extends AbstractForecasterActi
 
         handler = new ValidateForecasterActionHandler(
             clusterService,
+            transportService,
             clientSpy,
             clientUtil,
             forecastISM,
