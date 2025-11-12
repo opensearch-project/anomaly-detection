@@ -1414,12 +1414,45 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }
     }
 
-    protected String getCustomResultIndexPattern(String customResultIndexAlias) {
-        return String.format(Locale.ROOT, "<%s-history-{now/d}-1>", customResultIndexAlias);
+    /**
+     * Generate rollover index pattern for customer owned indices.
+     * Used by both custom result indices and insights result index.
+     * 
+     * @param indexAlias the alias name for the index
+     * @return rollover pattern
+     */
+    protected String getRolloverIndexPattern(String indexAlias) {
+        return String.format(Locale.ROOT, "<%s-history-{now/d}-1>", indexAlias);
     }
 
+    /**
+     * Generate wildcard pattern to match all history indices for a given alias.
+     * 
+     * @param indexAlias the alias name for the index
+     * @return wildcard pattern like "alias*"
+     */
+    public static String getAllHistoryIndexPattern(String indexAlias) {
+        return String.format(Locale.ROOT, "%s*", indexAlias);
+    }
+
+    /**
+     * method for custom result index rollover pattern.
+     * 
+     * @param customResultIndexAlias the custom result index alias
+     * @return rollover pattern
+     */
+    protected String getCustomResultIndexPattern(String customResultIndexAlias) {
+        return getRolloverIndexPattern(customResultIndexAlias);
+    }
+
+    /**
+     * method to get wildcard pattern for custom result indices.
+     * 
+     * @param customResultIndexAlias the custom result index alias
+     * @return wildcard pattern like "alias*"
+     */
     public static String getAllCustomResultIndexPattern(String customResultIndexAlias) {
-        return String.format(Locale.ROOT, "%s*", customResultIndexAlias);
+        return getAllHistoryIndexPattern(customResultIndexAlias);
     }
 
     public abstract boolean doesCheckpointIndexExist();

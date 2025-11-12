@@ -6,6 +6,8 @@
 package org.opensearch.timeseries;
 
 import org.opensearch.ad.ADJobProcessor;
+import org.opensearch.ad.InsightsJobProcessor;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.forecast.ForecastJobProcessor;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.ScheduledJobParameter;
@@ -36,6 +38,14 @@ public class JobRunner implements ScheduledJobRunner {
             );
         }
         Job jobParameter = (Job) scheduledJobParameter;
+
+        // Route to InsightsJobProcessor if this is the special Insights job
+        if (ADCommonName.INSIGHTS_JOB_NAME.equals(jobParameter.getName())) {
+            InsightsJobProcessor.getInstance().process(jobParameter, context);
+            return;
+        }
+
+        // Route based on analysis type for regular jobs
         switch (jobParameter.getAnalysisType()) {
             case AD:
                 ADJobProcessor.getInstance().process(jobParameter, context);

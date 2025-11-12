@@ -46,6 +46,7 @@ import org.opensearch.ad.ADJobProcessor;
 import org.opensearch.ad.ADTaskProfileRunner;
 import org.opensearch.ad.AnomalyDetectorRunner;
 import org.opensearch.ad.ExecuteADResultResponseRecorder;
+import org.opensearch.ad.InsightsJobProcessor;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.constant.ADCommonName;
@@ -73,6 +74,7 @@ import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
 import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestGetAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestIndexAnomalyDetectorAction;
+import org.opensearch.ad.rest.RestInsightsJobAction;
 import org.opensearch.ad.rest.RestPreviewAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestSearchADTasksAction;
 import org.opensearch.ad.rest.RestSearchAnomalyDetectorAction;
@@ -130,6 +132,8 @@ import org.opensearch.ad.transport.GetAnomalyDetectorAction;
 import org.opensearch.ad.transport.GetAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorAction;
 import org.opensearch.ad.transport.IndexAnomalyDetectorTransportAction;
+import org.opensearch.ad.transport.InsightsJobAction;
+import org.opensearch.ad.transport.InsightsJobTransportAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.RCFPollingAction;
@@ -367,6 +371,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
     private Client client;
     private ClusterService clusterService;
     private ThreadPool threadPool;
+    private NamedXContentRegistry xContentRegistry;
     private ADStats adStats;
     private ForecastStats forecastStats;
     private ClientUtil clientUtil;
@@ -417,6 +422,19 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         adJobRunner.setIndexJobActionHandler(adIndexJobActionHandler);
         adJobRunner.setClock(getClock());
 
+        // Insights
+        InsightsJobProcessor insightsJobRunner = InsightsJobProcessor.getInstance();
+        insightsJobRunner.setClient(client);
+        insightsJobRunner.setThreadPool(threadPool);
+        insightsJobRunner.registerSettings(settings);
+        insightsJobRunner.setIndexManagement(anomalyDetectionIndices);
+        insightsJobRunner.setTaskManager(adTaskManager);
+        insightsJobRunner.setNodeStateManager(stateManager);
+        insightsJobRunner.setExecuteResultResponseRecorder(adResultResponseRecorder);
+        insightsJobRunner.setIndexJobActionHandler(adIndexJobActionHandler);
+        insightsJobRunner.setClock(getClock());
+        insightsJobRunner.setXContentRegistry(xContentRegistry);
+
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
         RestSearchAnomalyDetectorAction searchAnomalyDetectorAction = new RestSearchAnomalyDetectorAction();
@@ -432,6 +450,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         RestSearchTopAnomalyResultAction searchTopAnomalyResultAction = new RestSearchTopAnomalyResultAction();
         RestValidateAnomalyDetectorAction validateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(settings, clusterService);
         RestAnomalyDetectorSuggestAction suggestAnomalyDetectorAction = new RestAnomalyDetectorSuggestAction(settings, clusterService);
+        RestInsightsJobAction insightsJobAction = new RestInsightsJobAction(settings, clusterService);
 
         // Forecast
         RestIndexForecasterAction restIndexForecasterAction = new RestIndexForecasterAction(settings, clusterService);
@@ -476,6 +495,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 searchTopAnomalyResultAction,
                 validateAnomalyDetectorAction,
                 suggestAnomalyDetectorAction,
+                insightsJobAction,
                 // Forecast
                 restIndexForecasterAction,
                 restForecasterJobAction,
@@ -517,6 +537,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         this.client = client;
         this.pluginClient = new PluginClient(client);
         this.threadPool = threadPool;
+        this.xContentRegistry = xContentRegistry;
         Settings settings = environment.settings();
         this.clientUtil = new ClientUtil(client);
         this.indexUtils = new IndexUtils(clusterService, indexNameExpressionResolver);
@@ -1533,6 +1554,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 // Security
                 LegacyOpenDistroAnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
                 AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES,
+                // Insights
+                AnomalyDetectorSettings.INSIGHTS_ENABLED,
                 // Historical
                 LegacyOpenDistroAnomalyDetectorSettings.MAX_BATCH_TASK_PER_NODE,
                 LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS,
@@ -1711,6 +1734,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 new ActionHandler<>(ADSingleStreamResultAction.INSTANCE, ADSingleStreamResultTransportAction.class),
                 new ActionHandler<>(ADHCImputeAction.INSTANCE, ADHCImputeTransportAction.class),
                 new ActionHandler<>(SuggestAnomalyDetectorParamAction.INSTANCE, SuggestAnomalyDetectorParamTransportAction.class),
+                new ActionHandler<>(InsightsJobAction.INSTANCE, InsightsJobTransportAction.class),
+
                 // forecast
                 new ActionHandler<>(IndexForecasterAction.INSTANCE, IndexForecasterTransportAction.class),
                 new ActionHandler<>(ForecastResultAction.INSTANCE, ForecastResultTransportAction.class),
