@@ -182,6 +182,56 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
     }
 
     @Test
+    public void testSkipCorrelationWhenNoDetectorIdsInAnomalies() throws IOException {
+        // An anomaly without detector_id
+        String anomalyJson = TestHelpers
+            .builder()
+            .startObject()
+            .field("anomaly_grade", 0.7)
+            .field("anomaly_score", 2.3)
+            .field("data_start_time", Instant.now().minus(30, ChronoUnit.MINUTES).toEpochMilli())
+            .field("data_end_time", Instant.now().minus(29, ChronoUnit.MINUTES).toEpochMilli())
+            .endObject()
+            .toString();
+
+        SearchHit anomalyHit = new SearchHit(1);
+        anomalyHit.sourceRef(new BytesArray(anomalyJson));
+        anomalyHit.score(1.0f);
+        anomalyHit.shard(new SearchShardTarget("node", new ShardId("test", "uuid", 0), null, null));
+
+        SearchHits anomalySearchHits = new SearchHits(new SearchHit[] { anomalyHit }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f);
+
+        // Return anomalies from results index; we won't reach detector config enrichment
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse searchResponse = mock(SearchResponse.class);
+            when(searchResponse.getHits()).thenReturn(anomalySearchHits);
+            listener.onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        // Lock lifecycle
+        doAnswer(invocation -> {
+            ActionListener<LockModel> listener = invocation.getArgument(2);
+            listener.onResponse(lockModel);
+            return null;
+        }).when(lockService).acquireLock(any(), any(), any());
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(true);
+            return null;
+        }).when(lockService).release(any(), any());
+
+        insightsJobProcessor.process(insightsJob, jobExecutionContext);
+
+        // One search for anomalies, then skip correlation and release lock
+        verify(client, times(1)).search(any(SearchRequest.class), any());
+        verify(lockService, times(1)).release(any(), any());
+        // No index write occurs
+        verify(client, never()).index(any(IndexRequest.class), any());
+    }
+
+    @Test
     public void testProcessWithIntervalSchedule() {
         // Mock lock acquisition
         doAnswer(invocation -> {

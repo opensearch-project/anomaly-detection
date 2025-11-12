@@ -430,6 +430,28 @@ public class MLCommonsClientTests extends OpenSearchTestCase {
         verify(listener, times(1)).onResponse(any(MLMetricsCorrelationOutput.class));
     }
 
+    public void testUnexpectedErrorDuringConversionGracefullyHandled() {
+        // Matrix containing a null value to trigger NPE during float conversion
+        List<List<Double>> matrix = Arrays.asList(Arrays.asList(1.0, null, 3.0));
+
+        MLMetricsCorrelationInput input = new MLMetricsCorrelationInput(
+            matrix,
+            Arrays.asList("m1"),
+            Collections.emptyMap(),
+            Instant.now(),
+            Instant.now(),
+            60000L,
+            Collections.emptyList()
+        );
+
+        @SuppressWarnings("unchecked")
+        ActionListener<MLMetricsCorrelationOutput> listener = mock(ActionListener.class);
+
+        // Should catch exception and degrade to empty output
+        mlCommonsClient.executeMetricsCorrelation(input, listener);
+        verify(listener, times(1)).onResponse(any(MLMetricsCorrelationOutput.class));
+    }
+
     public void testClientReuseability() {
         // Test that the same client can be used multiple times
         List<List<Double>> matrix = Arrays.asList(Arrays.asList(1.0));
