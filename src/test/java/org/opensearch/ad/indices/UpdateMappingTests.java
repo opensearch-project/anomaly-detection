@@ -148,11 +148,12 @@ public class UpdateMappingTests extends AbstractTimeSeriesTest {
         adIndices.update();
         verify(indicesAdminClient, never()).putMapping(any(), any());
         // for an index, we may check doesAliasExists/doesIndexExists for both mapping and setting
-        // 5 indices * mapping/setting checks + 1 doesIndexExist in updateCustomResultIndexMapping = 11
-        verify(clusterService, times(11)).state();
+        // 5 indices * mapping/setting checks + 2 doesIndexExist in updateCustomResultIndexMapping (CUSTOM_RESULT + CUSTOM_INSIGHTS_RESULT)
+        // = 12
+        verify(clusterService, times(12)).state();
         adIndices.update();
         // we will not trigger new check since we have checked all indices before
-        verify(clusterService, times(11)).state();
+        verify(clusterService, times(12)).state();
     }
 
     @SuppressWarnings({ "serial", "unchecked" })

@@ -5,6 +5,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased 3.x](https://github.com/opensearch-project/anomaly-detection/compare/3.0...HEAD)
 ### Features
+- Introduce Insights API ([1610](https://github.com/opensearch-project/anomaly-detection/pull/1610))
 ### Enhancements
 - Adds capability to automatically switch to old access-control if model-group is excluded from protected resources setting ([#1569](https://github.com/opensearch-project/anomaly-detection/pull/1569))
 

@@ -27,7 +27,8 @@ public enum ADTaskType implements TaskType {
     // detector level task to track overall state, init progress, error etc. for HC detector
     HISTORICAL_HC_DETECTOR,
     // entity level task to track just one specific entity's state, init progress, error etc.
-    HISTORICAL_HC_ENTITY;
+    HISTORICAL_HC_ENTITY,
+    INSIGHTS;
 
     public static List<ADTaskType> HISTORICAL_DETECTOR_TASK_TYPES = ImmutableList
         .of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.HISTORICAL_SINGLE_ENTITY, ADTaskType.HISTORICAL);
@@ -35,12 +36,14 @@ public enum ADTaskType implements TaskType {
         .of(ADTaskType.HISTORICAL_HC_DETECTOR, ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.HISTORICAL_HC_ENTITY, ADTaskType.HISTORICAL);
     public static List<ADTaskType> REALTIME_TASK_TYPES = ImmutableList
         .of(ADTaskType.REALTIME_SINGLE_ENTITY, ADTaskType.REALTIME_HC_DETECTOR);
+    public static List<ADTaskType> INSIGHTS_TASK_TYPES = ImmutableList.of(ADTaskType.INSIGHTS);
     public static List<ADTaskType> ALL_DETECTOR_TASK_TYPES = ImmutableList
         .of(
             ADTaskType.REALTIME_SINGLE_ENTITY,
             ADTaskType.REALTIME_HC_DETECTOR,
             ADTaskType.HISTORICAL_SINGLE_ENTITY,
             ADTaskType.HISTORICAL_HC_DETECTOR,
-            ADTaskType.HISTORICAL
+            ADTaskType.HISTORICAL,
+            ADTaskType.INSIGHTS
         );
 }

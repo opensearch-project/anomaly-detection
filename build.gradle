@@ -89,6 +89,7 @@ plugins {
     id 'java-library'
     id 'org.gradle.test-retry' version '1.6.0'
     id "de.undercouch.download" version "5.6.0"
+    id 'com.gradleup.shadow' version '8.3.9'
 }
 
 tasks.withType(JavaCompile) {
@@ -136,6 +137,8 @@ dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
+    compileOnly group: 'org.opensearch', name:'opensearch-ml-common', version: "${opensearch_build}"
+    compileOnly group: 'org.opensearch', name:'opensearch-ml-spi', version: "${opensearch_build}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation group: 'com.google.guava', name: 'guava', version:'33.4.5-jre'
@@ -204,9 +207,84 @@ apply plugin: 'eclipse'
 apply plugin: 'opensearch.pluginzip'
 apply plugin: 'opensearch.java-agent'
 
+// Work around intermittent missing jacocoagent.jar by 
+// extracting it jacocoagent.jar from the Jacoco distribution to build/jacoco/
+tasks.register('prepareJacocoAgent', Copy) {
+    from({ zipTree(configurations.jacocoAgent.singleFile) }) {
+        include 'jacocoagent.jar'
+    }
+    into "$buildDir/jacoco"
+}
+
+// Use the extracted agent for unit tests and disable Gradle's default Jacoco injection
+// to prevent duplicate -javaagent entries.
+tasks.named('test', Test) {
+    // Disable Gradle's default Jacoco injection to avoid transient agent path issues
+    jacoco.enabled = true
+    // Ensure OpenSearch bytecode agent is not attached to unit tests
+    // Build a classpath that prefers main/test outputs and external deps over the shaded jar
+    classpath = files(
+        sourceSets.test.output,
+        sourceSets.main.output,
+        (configurations.testRuntimeClasspath - files(tasks.shadowJar.archiveFile))
+    )
+    doFirst {
+        // Remove any opensearch-agent -javaagent from jvmArgs if present
+        def before = jvmArgs == null ? [] : new ArrayList<String>(jvmArgs)
+        if (before) {
+            // Only strip the OpenSearch java agent; keep Jacoco agent intact
+            def filtered = before.findAll { !(it instanceof String && it.contains('opensearch-agent')) }
+            if (filtered.size() != before.size()) {
+                jvmArgs = filtered
+            }
+        }
+        classpath.files.eachWithIndex { f, idx -> println "${idx+1}) ${f}" }
+    }
+}
+
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     buildVersionQualifier = System.getProperty("build.version_qualifier")
+}
+
+shadowJar {
+    // Only shade the deps that cause conflicts
+    dependencies {
+        include(dependency('com.google.guava:guava'))
+        include(dependency('com.google.guava:failureaccess'))
+        include(dependency('software.amazon.randomcutforest:randomcutforest-core'))
+        include(dependency('software.amazon.randomcutforest:randomcutforest-parkservices'))
+        include(dependency('software.amazon.randomcutforest:randomcutforest-serialization'))
+        exclude(dependency('org.opensearch:opensearch'))
+        exclude(dependency('org.opensearch:opensearch-core'))
+        exclude(dependency('org.opensearch:common-utils'))
+    }
+
+    relocate 'com.google.common', 'org.opensearch.ad.shaded.com.google.common'
+    relocate 'com.google.thirdparty.publicsuffix', 'org.opensearch.ad.shaded.com.google.thirdparty.publicsuffix'
+
+    relocate 'com.amazon.randomcutforest', 'org.opensearch.ad.shaded.com.amazon.randomcutforest'
+
+    exclude 'META-INF/maven/com.google.guava/**'
+    exclude 'META-INF/INDEX.LIST'
+
+    archiveClassifier.set(null)
+}
+
+afterEvaluate {
+    tasks.findByName('generatePomFileForShadowPublication')?.enabled = false
+    tasks.findByName('publishShadowPublicationToMavenLocal')?.enabled = false
+}
+
+jar { enabled = false }
+
+assemble.dependsOn shadowJar
+
+tasks.withType(Zip).matching { it.name == 'bundlePlugin' }.configureEach {
+    dependsOn shadowJar
+    exclude '**/guava-*.jar'
+    exclude '**/failureaccess-*.jar'
+    exclude '**/randomcutforest-*.jar'
 }
 
 allprojects {
@@ -249,7 +327,7 @@ opensearchplugin {
     name = 'opensearch-anomaly-detection'
     description = 'OpenSearch anomaly detector plugin'
     classname = 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
-    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true']
+    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true', 'opensearch-ml;optional=true']
 }
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
@@ -363,6 +441,7 @@ task integTest(type: RestIntegTestTask) {
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
+    jacoco.enabled = true
     retry {
         if (BuildParams.isCi()) {
             maxRetries = 6
@@ -1084,6 +1163,15 @@ jacocoTestCoverageVerification {
 
 check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
+
+jacocoTestReport {
+    dependsOn test, integTest
+    executionData.from = files(test.jacoco.destinationFile, integTest.jacoco.destinationFile)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
 

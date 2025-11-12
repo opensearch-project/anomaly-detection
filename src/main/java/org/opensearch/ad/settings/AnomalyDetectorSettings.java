@@ -189,9 +189,13 @@ public final class AnomalyDetectorSettings {
             Setting.Property.Dynamic
         );
 
+    public static final Setting<Boolean> INSIGHTS_ENABLED = Setting
+        .boolSetting("plugins.anomaly_detection.insights_enabled", false, Setting.Property.NodeScope, Setting.Property.Dynamic);
+
     public static final String ANOMALY_RESULTS_INDEX_MAPPING_FILE = "mappings/anomaly-results.json";
     public static final String ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE = "mappings/anomaly-detection-state.json";
     public static final String CHECKPOINT_INDEX_MAPPING_FILE = "mappings/anomaly-checkpoint.json";
+    public static final String INSIGHTS_RESULT_INDEX_MAPPING_FILE = "mappings/insights-results.json";
 
     // saving checkpoint every 12 hours.
     // To support 1 million entities in 36 data nodes, each node has roughly 28K models.
