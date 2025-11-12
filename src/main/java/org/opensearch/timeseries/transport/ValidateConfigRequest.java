@@ -11,12 +11,18 @@
 
 package org.opensearch.timeseries.transport;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.forecast.model.Forecaster;
@@ -48,11 +54,11 @@ public class ValidateConfigRequest extends ActionRequest {
         }
 
         validationType = in.readString();
-        maxSingleStreamConfigs = in.readInt();
-        maxHCConfigs = in.readInt();
-        maxFeatures = in.readInt();
+        maxSingleStreamConfigs = in.readOptionalInt();
+        maxHCConfigs = in.readOptionalInt();
+        maxFeatures = in.readOptionalInt();
         requestTimeout = in.readTimeValue();
-        maxCategoricalFields = in.readInt();
+        maxCategoricalFields = in.readOptionalInt();
     }
 
     public ValidateConfigRequest(
@@ -75,17 +81,21 @@ public class ValidateConfigRequest extends ActionRequest {
         this.maxCategoricalFields = maxCategoricalFields;
     }
 
+    public ValidateConfigRequest(AnalysisType context, Config config, String validationType) {
+        this(context, config, validationType, null, null, null, TimeValue.timeValueSeconds(60), null);
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeEnum(context);
         config.writeTo(out);
         out.writeString(validationType);
-        out.writeInt(maxSingleStreamConfigs);
-        out.writeInt(maxHCConfigs);
-        out.writeInt(maxFeatures);
+        out.writeOptionalInt(maxSingleStreamConfigs);
+        out.writeOptionalInt(maxHCConfigs);
+        out.writeOptionalInt(maxFeatures);
         out.writeTimeValue(requestTimeout);
-        out.writeInt(maxCategoricalFields);
+        out.writeOptionalInt(maxCategoricalFields);
     }
 
     @Override
@@ -119,5 +129,25 @@ public class ValidateConfigRequest extends ActionRequest {
 
     public Integer getMaxCategoricalFields() {
         return maxCategoricalFields;
+    }
+
+    public static ValidateConfigRequest fromActionRequest(
+        final ActionRequest actionRequest,
+        NamedWriteableRegistry namedWriteableRegistry
+    ) {
+        if (actionRequest instanceof ValidateConfigRequest) {
+            return (ValidateConfigRequest) actionRequest;
+        }
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionRequest.writeTo(osso);
+            try (
+                StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()));
+                NamedWriteableAwareStreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
+                return new ValidateConfigRequest(namedInput);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into ValidateConfigRequest", e);
+        }
     }
 }

@@ -14,6 +14,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.commons.authuser.User;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
@@ -43,7 +44,8 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
         ForecastIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             ValidateForecasterAction.NAME,
@@ -57,12 +59,21 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
             transportService,
             searchFeatureDao,
             FORECAST_FILTER_BY_BACKEND_ROLES,
-            ValidationAspect.FORECASTER
+            ValidationAspect.FORECASTER,
+            namedWriteableRegistry
         );
     }
 
     @Override
-    protected Processor<ValidateConfigResponse> createProcessor(Config forecaster, ValidateConfigRequest request, User user) {
+    protected Processor<ValidateConfigResponse> createProcessor(
+        Config forecaster,
+        ValidateConfigRequest request,
+        User user,
+        Integer maxSingleStreamConfigs,
+        Integer maxHCConfigs,
+        Integer maxFeatures,
+        Integer maxCategoricalFields
+    ) {
         return new ValidateForecasterActionHandler(
             clusterService,
             client,
@@ -70,10 +81,10 @@ public class ValidateForecasterTransportAction extends BaseValidateConfigTranspo
             indexManagement,
             forecaster,
             request.getRequestTimeout(),
-            request.getMaxSingleEntityAnomalyDetectors(),
-            request.getMaxMultiEntityAnomalyDetectors(),
-            request.getMaxAnomalyFeatures(),
-            request.getMaxCategoricalFields(),
+            maxSingleStreamConfigs,
+            maxHCConfigs,
+            maxFeatures,
+            maxCategoricalFields,
             RestRequest.Method.POST,
             xContentRegistry,
             user,

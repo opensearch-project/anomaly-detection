@@ -9,19 +9,26 @@ import static org.opensearch.timeseries.util.ParseUtils.checkFilterByBackendRole
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 
 import java.time.Clock;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.settings.ADNumericSetting;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
@@ -46,7 +53,7 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
 public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>>
-    extends HandledTransportAction<ValidateConfigRequest, ValidateConfigResponse> {
+    extends HandledTransportAction<ActionRequest, ValidateConfigResponse> {
     public static final Logger logger = LogManager.getLogger(BaseValidateConfigTransportAction.class);
 
     protected final Client client;
@@ -55,10 +62,15 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected final NamedXContentRegistry xContentRegistry;
     protected final IndexManagementType indexManagement;
     protected final SearchFeatureDao searchFeatureDao;
+    protected final NamedWriteableRegistry namedWriteableRegistry;
     protected volatile Boolean filterByEnabled;
     protected Clock clock;
     protected Settings settings;
     protected ValidationAspect validationAspect;
+    private volatile Integer maxSingleEntityAnomalyDetectors;
+    private volatile Integer maxMultiEntityAnomalyDetectors;
+    private volatile Integer maxAnomalyFeatures;
+    private volatile Integer maxCategoricalFields;
 
     public BaseValidateConfigTransportAction(
         String actionName,
@@ -72,7 +84,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         TransportService transportService,
         SearchFeatureDao searchFeatureDao,
         Setting<Boolean> filterByBackendRoleSetting,
-        ValidationAspect validationAspect
+        ValidationAspect validationAspect,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(actionName, transportService, actionFilters, ValidateConfigRequest::new);
         this.client = client;
@@ -80,16 +93,37 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.indexManagement = indexManagement;
+        this.namedWriteableRegistry = namedWriteableRegistry;
         this.filterByEnabled = filterByBackendRoleSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterByEnabled = it);
         this.searchFeatureDao = searchFeatureDao;
         this.clock = Clock.systemUTC();
         this.settings = settings;
         this.validationAspect = validationAspect;
+
+        // Initialize cluster settings for node client requests
+        this.maxSingleEntityAnomalyDetectors = AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
+        this.maxMultiEntityAnomalyDetectors = AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS.get(settings);
+        this.maxAnomalyFeatures = AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings);
+        this.maxCategoricalFields = ADNumericSetting.maxCategoricalFields();
+
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(
+                AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                it -> maxSingleEntityAnomalyDetectors = it
+            );
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS, it -> maxMultiEntityAnomalyDetectors = it);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
 
     @Override
-    protected void doExecute(Task task, ValidateConfigRequest request, ActionListener<ValidateConfigResponse> listener) {
+    protected void doExecute(Task task, ActionRequest actionRequest, ActionListener<ValidateConfigResponse> listener) {
+        ValidateConfigRequest request = ValidateConfigRequest.fromActionRequest(actionRequest, namedWriteableRegistry);
         User user = ParseUtils.getUserContext(client);
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
@@ -204,6 +238,17 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         ActionListener<ValidateConfigResponse> listener
     ) {
         storedContext.restore();
+
+        // Resolve settings (from request or cached values)
+        Integer maxSingleEntity = request.getMaxSingleEntityAnomalyDetectors() != null
+            ? request.getMaxSingleEntityAnomalyDetectors()
+            : maxSingleEntityAnomalyDetectors;
+        Integer maxMultiEntity = request.getMaxMultiEntityAnomalyDetectors() != null
+            ? request.getMaxMultiEntityAnomalyDetectors()
+            : maxMultiEntityAnomalyDetectors;
+        Integer maxFeatures = request.getMaxAnomalyFeatures() != null ? request.getMaxAnomalyFeatures() : maxAnomalyFeatures;
+        Integer maxCategorical = request.getMaxCategoricalFields() != null ? request.getMaxCategoricalFields() : maxCategoricalFields;
+
         Config config = request.getConfig();
         ActionListener<ValidateConfigResponse> validateListener = ActionListener.wrap(response -> {
             // forcing response to be empty
@@ -220,7 +265,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         });
         checkIndicesAndExecute(config.getIndices(), () -> {
             try {
-                createProcessor(config, request, user).start(validateListener);
+                createProcessor(config, request, user, maxSingleEntity, maxMultiEntity, maxFeatures, maxCategorical)
+                    .start(validateListener);
             } catch (Exception exception) {
                 String errorMessage = String
                     .format(Locale.ROOT, "Unknown exception caught while validating config %s", request.getConfig());
@@ -230,5 +276,13 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         }, listener);
     }
 
-    protected abstract Processor<ValidateConfigResponse> createProcessor(Config config, ValidateConfigRequest request, User user);
+    protected abstract Processor<ValidateConfigResponse> createProcessor(
+        Config config,
+        ValidateConfigRequest request,
+        User user,
+        Integer maxSingleStreamConfigs,
+        Integer maxHCConfigs,
+        Integer maxFeatures,
+        Integer maxCategoricalFields
+    );
 }

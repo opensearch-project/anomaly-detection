@@ -11,6 +11,8 @@
 
 package org.opensearch.timeseries.transport;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
@@ -20,6 +22,10 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.forecast.constant.ForecastCommonName;
@@ -103,5 +109,26 @@ public class SuggestConfigParamRequest extends ActionRequest implements DocReque
     @Override
     public String id() {
         return config.getId();
+    }
+
+    public static SuggestConfigParamRequest fromActionRequest(
+        final ActionRequest actionRequest,
+        NamedWriteableRegistry namedWriteableRegistry
+    ) {
+        if (actionRequest instanceof SuggestConfigParamRequest) {
+            return (SuggestConfigParamRequest) actionRequest;
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionRequest.writeTo(osso);
+            try (
+                StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()));
+                NamedWriteableAwareStreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
+                return new SuggestConfigParamRequest(namedInput);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into SuggestConfigParamRequest", e);
+        }
     }
 }
