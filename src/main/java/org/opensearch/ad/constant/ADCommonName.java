@@ -25,6 +25,9 @@ public class ADCommonName {
     // The alias of the index in which to write AD result history
     public static final String ANOMALY_RESULT_INDEX_ALIAS = ".opendistro-anomaly-results";
 
+    // The insights result index alias
+    public static final String INSIGHTS_RESULT_INDEX_ALIAS = "opensearch-ad-plugin-insights";
+
     // ======================================
     // Anomaly Detector name for X-Opaque-Id header
     // ======================================
@@ -72,4 +75,10 @@ public class ADCommonName {
     public static final String DUMMY_AD_RESULT_ID = "dummy_ad_result_id";
     public static final String DUMMY_DETECTOR_ID = "dummy_detector_id";
     public static final String CUSTOM_RESULT_INDEX_PREFIX = "opensearch-ad-plugin-result-";
+
+    // ======================================
+    // Insights job
+    // ======================================
+    // The Insights job name
+    public static final String INSIGHTS_JOB_NAME = "insights_job";
 }
