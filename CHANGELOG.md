@@ -11,7 +11,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Adding auto create as an optional field on detectors ([#1602](https://github.com/opensearch-project/anomaly-detection/pull/1602))
 
 ### Bug Fixes
-
+- fix(forecast): auto-expand replicas for default results index on 3AZ domains ([#1615](https://github.com/opensearch-project/anomaly-detection/pull/1615))
 
 ### Infrastructure
 - Test: Prevent oversized bulk requests in synthetic data test ([#1603](https://github.com/opensearch-project/anomaly-detection/pull/1603))
