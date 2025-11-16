@@ -1385,6 +1385,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }, exception -> { logger.error("Fail to roll over result index", exception); }));
     }
 
+    // hello
     protected void initResultIndexDirectly(
         String resultIndexName,
         String alias,
