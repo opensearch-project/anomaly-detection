@@ -15,9 +15,13 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
+import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.transport.JobRequest;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.SuggestConfigParamRequest;
 import org.opensearch.timeseries.transport.SuggestConfigParamResponse;
 import org.opensearch.timeseries.transport.ValidateConfigRequest;
@@ -41,6 +45,12 @@ public class AnomalyDetectionClientTests {
 
     @Mock
     SuggestConfigParamResponse suggestResponse;
+
+    @Mock
+    IndexAnomalyDetectorResponse createResponse;
+
+    @Mock
+    JobResponse startResponse;
 
     @Before
     public void setUp() {
@@ -74,6 +84,19 @@ public class AnomalyDetectionClientTests {
                 ActionListener<SuggestConfigParamResponse> listener
             ) {
                 listener.onResponse(suggestResponse);
+            }
+
+            @Override
+            public void createAnomalyDetector(
+                IndexAnomalyDetectorRequest createRequest,
+                ActionListener<IndexAnomalyDetectorResponse> listener
+            ) {
+                listener.onResponse(createResponse);
+            }
+
+            @Override
+            public void startAnomalyDetector(JobRequest startRequest, ActionListener<JobResponse> listener) {
+                listener.onResponse(startResponse);
             }
         };
     }
@@ -128,6 +151,34 @@ public class AnomalyDetectionClientTests {
             org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
         );
         assertEquals(suggestResponse, anomalyDetectionClient.suggestAnomalyDetector(suggestRequest).actionGet());
+    }
+
+    @Test
+    public void createAnomalyDetector() {
+        IndexAnomalyDetectorRequest createRequest = new IndexAnomalyDetectorRequest(
+            "test-detector-id",
+            1L,
+            1L,
+            org.opensearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE,
+            null,
+            org.opensearch.rest.RestRequest.Method.POST,
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30),
+            10,
+            10,
+            5,
+            2
+        );
+        assertEquals(createResponse, anomalyDetectionClient.createAnomalyDetector(createRequest).actionGet());
+    }
+
+    @Test
+    public void startAnomalyDetector() {
+        JobRequest startRequest = new JobRequest(
+            "test-detector-id",
+            ADIndex.CONFIG.getIndexName(),
+            "/_plugins/_anomaly_detection/detectors/test-detector-id/_start"
+        );
+        assertEquals(startResponse, anomalyDetectionClient.startAnomalyDetector(startRequest).actionGet());
     }
 
 }

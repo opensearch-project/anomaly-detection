@@ -18,6 +18,8 @@ import org.opensearch.action.ActionRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.ad.settings.ADNumericSetting;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -64,6 +66,10 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected Settings settings;
     protected ValidationAspect validationAspect;
     private final Class<ConfigType> configTypeClass;
+    private volatile Integer maxSingleEntityAnomalyDetectors;
+    private volatile Integer maxMultiEntityAnomalyDetectors;
+    private volatile Integer maxAnomalyFeatures;
+    private volatile Integer maxCategoricalFields;
 
     public BaseValidateConfigTransportAction(
         String actionName,
@@ -95,6 +101,25 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.settings = settings;
         this.validationAspect = validationAspect;
         this.configTypeClass = configTypeClass;
+
+        // Initialize cluster settings for node client requests
+        this.maxSingleEntityAnomalyDetectors = AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS.get(settings);
+        this.maxMultiEntityAnomalyDetectors = AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS.get(settings);
+        this.maxAnomalyFeatures = AnomalyDetectorSettings.MAX_ANOMALY_FEATURES.get(settings);
+        this.maxCategoricalFields = ADNumericSetting.maxCategoricalFields();
+
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(
+                AnomalyDetectorSettings.AD_MAX_SINGLE_ENTITY_ANOMALY_DETECTORS,
+                it -> maxSingleEntityAnomalyDetectors = it
+            );
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AnomalyDetectorSettings.AD_MAX_HC_ANOMALY_DETECTORS, it -> maxMultiEntityAnomalyDetectors = it);
+        clusterService
+            .getClusterSettings()
+            .addSettingsUpdateConsumer(AnomalyDetectorSettings.MAX_ANOMALY_FEATURES, it -> maxAnomalyFeatures = it);
     }
 
     @Override
@@ -216,6 +241,17 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         ActionListener<ValidateConfigResponse> listener
     ) {
         storedContext.restore();
+
+        // Resolve settings (from request or cached values)
+        Integer maxSingleEntity = request.getMaxSingleEntityAnomalyDetectors() != null
+            ? request.getMaxSingleEntityAnomalyDetectors()
+            : maxSingleEntityAnomalyDetectors;
+        Integer maxMultiEntity = request.getMaxMultiEntityAnomalyDetectors() != null
+            ? request.getMaxMultiEntityAnomalyDetectors()
+            : maxMultiEntityAnomalyDetectors;
+        Integer maxFeatures = request.getMaxAnomalyFeatures() != null ? request.getMaxAnomalyFeatures() : maxAnomalyFeatures;
+        Integer maxCategorical = request.getMaxCategoricalFields() != null ? request.getMaxCategoricalFields() : maxCategoricalFields;
+
         Config config = request.getConfig();
         ActionListener<ValidateConfigResponse> validateListener = ActionListener.wrap(response -> {
             // forcing response to be empty
@@ -232,7 +268,8 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         });
         checkIndicesAndExecute(config.getIndices(), () -> {
             try {
-                createProcessor(config, request, user).start(validateListener);
+                createProcessor(config, request, user, maxSingleEntity, maxMultiEntity, maxFeatures, maxCategorical)
+                    .start(validateListener);
             } catch (Exception exception) {
                 String errorMessage = String
                     .format(Locale.ROOT, "Unknown exception caught while validating config %s", request.getConfig());
@@ -242,5 +279,13 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         }, listener);
     }
 
-    protected abstract Processor<ValidateConfigResponse> createProcessor(Config config, ValidateConfigRequest request, User user);
+    protected abstract Processor<ValidateConfigResponse> createProcessor(
+        Config config,
+        ValidateConfigRequest request,
+        User user,
+        Integer maxSingleStreamConfigs,
+        Integer maxHCConfigs,
+        Integer maxFeatures,
+        Integer maxCategoricalFields
+    );
 }

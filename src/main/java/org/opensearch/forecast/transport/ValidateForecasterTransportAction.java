@@ -68,7 +68,15 @@ public class ValidateForecasterTransportAction extends
     }
 
     @Override
-    protected Processor<ValidateConfigResponse> createProcessor(Config forecaster, ValidateConfigRequest request, User user) {
+    protected Processor<ValidateConfigResponse> createProcessor(
+        Config forecaster,
+        ValidateConfigRequest request,
+        User user,
+        Integer maxSingleStreamConfigs,
+        Integer maxHCConfigs,
+        Integer maxFeatures,
+        Integer maxCategoricalFields
+    ) {
         return new ValidateForecasterActionHandler(
             clusterService,
             client,
@@ -76,10 +84,10 @@ public class ValidateForecasterTransportAction extends
             indexManagement,
             forecaster,
             request.getRequestTimeout(),
-            request.getMaxSingleEntityAnomalyDetectors(),
-            request.getMaxMultiEntityAnomalyDetectors(),
-            request.getMaxAnomalyFeatures(),
-            request.getMaxCategoricalFields(),
+            maxSingleStreamConfigs,
+            maxHCConfigs,
+            maxFeatures,
+            maxCategoricalFields,
             RestRequest.Method.POST,
             xContentRegistry,
             user,

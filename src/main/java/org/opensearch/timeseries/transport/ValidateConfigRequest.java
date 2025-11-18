@@ -54,11 +54,11 @@ public class ValidateConfigRequest extends ActionRequest {
         }
 
         validationType = in.readString();
-        maxSingleStreamConfigs = in.readInt();
-        maxHCConfigs = in.readInt();
-        maxFeatures = in.readInt();
+        maxSingleStreamConfigs = in.readOptionalInt();
+        maxHCConfigs = in.readOptionalInt();
+        maxFeatures = in.readOptionalInt();
         requestTimeout = in.readTimeValue();
-        maxCategoricalFields = in.readInt();
+        maxCategoricalFields = in.readOptionalInt();
     }
 
     public ValidateConfigRequest(
@@ -81,17 +81,21 @@ public class ValidateConfigRequest extends ActionRequest {
         this.maxCategoricalFields = maxCategoricalFields;
     }
 
+    public ValidateConfigRequest(AnalysisType context, Config config, String validationType) {
+        this(context, config, validationType, null, null, null, TimeValue.timeValueSeconds(60), null);
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeEnum(context);
         config.writeTo(out);
         out.writeString(validationType);
-        out.writeInt(maxSingleStreamConfigs);
-        out.writeInt(maxHCConfigs);
-        out.writeInt(maxFeatures);
+        out.writeOptionalInt(maxSingleStreamConfigs);
+        out.writeOptionalInt(maxHCConfigs);
+        out.writeOptionalInt(maxFeatures);
         out.writeTimeValue(requestTimeout);
-        out.writeInt(maxCategoricalFields);
+        out.writeOptionalInt(maxCategoricalFields);
     }
 
     @Override
@@ -134,7 +138,6 @@ public class ValidateConfigRequest extends ActionRequest {
         if (actionRequest instanceof ValidateConfigRequest) {
             return (ValidateConfigRequest) actionRequest;
         }
-
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
             actionRequest.writeTo(osso);
             try (
