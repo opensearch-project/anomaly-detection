@@ -290,8 +290,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                     .builder()
                     // put 1 primary shards per hot node if possible
                     .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, getNumberOfPrimaryShards())
-                    // 1 replica for better search performance and fail-over
-                    .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
+                    // Support up to 2 replicas at least
+                    .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, customResultIndexAutoExpandReplica)
                     .put(IndexMetadata.SETTING_INDEX_HIDDEN, hiddenIndex)
             );
     }
@@ -1403,13 +1403,6 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         if (defaultResultIndex) {
             adminClient.indices().create(request, markMappingUpToDate(resultIndex, actionListener));
         } else {
-            request
-                .settings(
-                    Settings
-                        .builder()
-                        // Support up to 2 replicas at least
-                        .put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, customResultIndexAutoExpandReplica)
-                );
             adminClient.indices().create(request, actionListener);
         }
     }
