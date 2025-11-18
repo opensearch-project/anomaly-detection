@@ -18,6 +18,7 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.*;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -60,6 +61,7 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
     private final Clock clock;
     private final Class<ConfigType> configTypeClass;
 
+    @Inject
     public BaseJobTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
