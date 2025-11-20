@@ -30,6 +30,7 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.InsightsJobResponse;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -227,57 +228,59 @@ public class InsightsJobActionHandler {
     private void createOrEnableJob(String frequency, User user, ActionListener<InsightsJobResponse> listener) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME);
 
-        client.get(getRequest, ActionListener.wrap(response -> {
-            if (response.isExists()) {
-                // Job exists, check if it's already enabled
-                try (
-                    XContentParser parser = RestHandlerUtils
-                        .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
-                ) {
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    Job existingJob = Job.parse(parser);
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            client.get(getRequest, ActionListener.wrap(response -> {
+                if (response.isExists()) {
+                    // Job exists, check if it's already enabled
+                    try (
+                        XContentParser parser = RestHandlerUtils
+                            .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+                    ) {
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                        Job existingJob = Job.parse(parser);
 
-                    if (existingJob.isEnabled()) {
-                        logger.info("Insights job is already running");
-                        listener.onResponse(new InsightsJobResponse("Insights job is already running"));
-                        return;
-                    }
+                        if (existingJob.isEnabled()) {
+                            logger.info("Insights job is already running");
+                            listener.onResponse(new InsightsJobResponse("Insights job is already running"));
+                            return;
+                        }
 
-                    // Use current user if provided, otherwise keep existing user (for BWC)
-                    Job enabledJob = new Job(
-                        existingJob.getName(),
-                        createSchedule(frequency),
-                        existingJob.getWindowDelay(),
-                        true,
-                        Instant.now(),
-                        null,
-                        Instant.now(),
-                        existingJob.getLockDurationSeconds(),
-                        user != null ? user : existingJob.getUser(),
-                        existingJob.getCustomResultIndexOrAlias(),
-                        existingJob.getAnalysisType()
-                    );
-
-                    indexJob(
-                        enabledJob,
-                        listener,
-                        String.format(Locale.ROOT, "Insights job restarted successfully with frequency: %s", frequency)
-                    );
-
-                } catch (IOException e) {
-                    logger.error("Failed to parse existing insights job", e);
-                    listener
-                        .onFailure(
-                            new OpenSearchStatusException("Failed to parse existing insights job", RestStatus.INTERNAL_SERVER_ERROR)
+                        // Use current user if provided, otherwise keep existing user (for BWC)
+                        Job enabledJob = new Job(
+                            existingJob.getName(),
+                            createSchedule(frequency),
+                            existingJob.getWindowDelay(),
+                            true,
+                            Instant.now(),
+                            null,
+                            Instant.now(),
+                            existingJob.getLockDurationSeconds(),
+                            user != null ? user : existingJob.getUser(),
+                            existingJob.getCustomResultIndexOrAlias(),
+                            existingJob.getAnalysisType()
                         );
+
+                        indexJob(
+                            enabledJob,
+                            listener,
+                            String.format(Locale.ROOT, "Insights job restarted successfully with frequency: %s", frequency)
+                        );
+
+                    } catch (IOException e) {
+                        logger.error("Failed to parse existing insights job", e);
+                        listener
+                            .onFailure(
+                                new OpenSearchStatusException("Failed to parse existing insights job", RestStatus.INTERNAL_SERVER_ERROR)
+                            );
+                    }
+                } else {
+                    createNewJob(frequency, user, listener);
                 }
-            } else {
-                createNewJob(frequency, user, listener);
-            }
-        }, e -> {
-            logger.error("Failed to check for existing insights job", e);
-            listener.onFailure(e);
-        }));
+            }, e -> {
+                logger.error("Failed to check for existing insights job", e);
+                listener.onFailure(e);
+            }));
+        }
     }
 
     /**
@@ -326,14 +329,17 @@ public class InsightsJobActionHandler {
                 .timeout(requestTimeout)
                 .id(job.getName());
 
-            client
-                .index(
-                    indexRequest,
-                    ActionListener.wrap(indexResponse -> { listener.onResponse(new InsightsJobResponse(successMessage)); }, e -> {
-                        logger.error("Failed to index insights job", e);
-                        listener.onFailure(e);
-                    })
-                );
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                client
+                    .index(
+                        indexRequest,
+                        ActionListener
+                            .wrap(indexResponse -> { listener.onResponse(new InsightsJobResponse(successMessage)); }, e -> {
+                                logger.error("Failed to index insights job", e);
+                                listener.onFailure(e);
+                            })
+                    );
+            }
         } catch (IOException e) {
             logger.error("Failed to create index request for insights job", e);
             listener.onFailure(new OpenSearchStatusException("Failed to create index request", RestStatus.INTERNAL_SERVER_ERROR));
@@ -367,11 +373,15 @@ public class InsightsJobActionHandler {
                 }
             }
 
-            return new IntervalSchedule(Instant.now(), interval, unit);
+            Instant now = Instant.now();
+            Instant startTime = now.minus(interval, unit);
+            return new IntervalSchedule(startTime, interval, unit);
 
         } catch (NumberFormatException e) {
             logger.warn("Failed to parse frequency '{}', using default {}h", frequency, DEFAULT_INTERVAL_IN_HOURS);
-            return new IntervalSchedule(Instant.now(), DEFAULT_INTERVAL_IN_HOURS, ChronoUnit.HOURS);
+            Instant now = Instant.now();
+            Instant startTime = now.minus(DEFAULT_INTERVAL_IN_HOURS, ChronoUnit.HOURS);
+            return new IntervalSchedule(startTime, DEFAULT_INTERVAL_IN_HOURS, ChronoUnit.HOURS);
         }
     }
 
