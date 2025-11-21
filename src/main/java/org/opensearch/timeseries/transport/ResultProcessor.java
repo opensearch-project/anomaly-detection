@@ -201,7 +201,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
      * 2) pass parameters using constructors
      *
      */
-    class PageListener implements ActionListener<CompositeRetriever.Page> {
+    protected class PageListener implements ActionListener<CompositeRetriever.Page> {
         private PageIterator pageIterator;
         private String configId;
         private Config config;
@@ -238,6 +238,8 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             } else if (config.getImputationOption() != null) {
                 scheduleImputeHCTask();
             }
+
+            LOG.debug("Entity features empty status for config [{}]: {}", config.getId(), entityFeatures.isEmpty());
 
             if (entityFeatures != null && false == entityFeatures.isEmpty()) {
                 LOG
@@ -490,8 +492,10 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
         long dataEndTime,
         String taskId
     ) {
+        LOG.debug("Starting executeAnalysis for config [{}]", configID);
         // HC logic starts here
         if (config.isHighCardinality()) {
+            LOG.debug("HC logic starts here for config [{}]", configID);
             Optional<Exception> previousException = nodeStateManager.fetchExceptionAndClear(configID);
             if (previousException.isPresent()) {
                 Exception exception = previousException.get();
@@ -499,6 +503,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 if (exception instanceof EndRunException) {
                     EndRunException endRunException = (EndRunException) exception;
                     if (endRunException.isEndNow()) {
+                        LOG.debug("Ending execution immediately for config [{}]", configID);
                         listener.onFailure(exception);
                         return;
                     }
@@ -506,7 +511,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
             }
 
             // assume request are in epoch milliseconds
-            long nextDetectionStartTime = request.getEnd() + config.getIntervalInMilliseconds();
+            long nextDetectionStartTime = request.getEnd() + config.getInferredFrequencyInMilliseconds();
 
             CompositeRetriever compositeRetriever = new CompositeRetriever(
                 dataStartTime,
@@ -523,22 +528,25 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
                 clusterService,
                 analysisType
             );
-
+            LOG.debug("CompositeRetriever created for config [{}]", configID);
             PageIterator pageIterator = null;
 
             try {
                 pageIterator = compositeRetriever.iterator();
             } catch (Exception e) {
+                LOG.error("Exception while creating iterator for config [{}]", configID, e);
                 listener.onFailure(new EndRunException(config.getId(), CommonMessages.INVALID_SEARCH_QUERY_MSG, e, false));
                 return;
             }
 
             PageListener getEntityFeatureslistener = new PageListener(pageIterator, config, dataStartTime, dataEndTime, taskId);
-
+            LOG.debug("PageListener created for config [{}]", configID);
             // hasNext is always true unless time is up at this point (won't happen in normal cases)
             if (pageIterator.hasNext()) {
+                LOG.debug("PageIterator has next page for config [{}]", configID);
                 pageIterator.next(getEntityFeatureslistener);
             } else if (config.getImputationOption() != null) {
+                LOG.debug("Starting imputation for HC config [{}]", configID);
                 imputeHC(dataStartTime, dataEndTime, configID, taskId);
             }
 

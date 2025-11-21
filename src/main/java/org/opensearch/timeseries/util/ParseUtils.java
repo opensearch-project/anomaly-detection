@@ -41,9 +41,7 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
-import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.commons.ConfigConstants;
@@ -629,7 +627,12 @@ public final class ParseUtils {
 
                 User resourceUser = config.getUser();
 
-                if (!filterByBackendRole || checkUserPermissions(requestUser, resourceUser, configId) || isAdmin(requestUser)) {
+                // if resource sharing feature is available, request will be auto-evaluated, hence skip evaluation here
+                String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
+                if (shouldUseResourceAuthz(resourceType)
+                    || !filterByBackendRole
+                    || checkUserPermissions(requestUser, resourceUser, configId)
+                    || isAdmin(requestUser)) {
                     function.accept(config);
                 } else {
                     logger.debug("User: " + requestUser.getName() + " does not have permissions to access config: " + configId);
@@ -697,37 +700,35 @@ public final class ParseUtils {
         return null;
     }
 
+    public static String getResourceTypeFromClassName(String resourceClassName) {
+        if (resourceClassName.equals(AnomalyDetector.class.getSimpleName())) {
+            return ADCommonName.AD_RESOURCE_TYPE;
+        }
+        return ForecastCommonName.FORECAST_RESOURCE_TYPE;
+    }
+
     /**
-     * Checks whether to utilize new ResourAuthz
-     * @param settings which is to be checked for the config
-     * @return true if the resource-sharing feature and filter-by is enabled, false otherwise.
+     * Checks whether to utilize new ResourceAuthz
+     * @param resourceType for which to decide whether to use resource authz
+     * @return true if the resource-sharing feature is enabled, false otherwise.
      */
-    public static boolean shouldUseResourceAuthz(Settings settings) {
-        boolean filterByEnabled = AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES.get(settings);
-        boolean isResourceSharingFeatureEnabled = ResourceSharingClientAccessor.getInstance().getResourceSharingClient() != null;
-        return isResourceSharingFeatureEnabled && filterByEnabled;
+    public static boolean shouldUseResourceAuthz(String resourceType) {
+        var client = ResourceSharingClientAccessor.getInstance().getResourceSharingClient();
+        return client != null && client.isFeatureEnabledForType(resourceType);
     }
 
     /**
      * Verifies whether the user has permission to access the resource.
-     * @param settings to parse filter_by_backend_role setting.
-     * @param onSuccess consumer function to execute if user has permission
-     * @param successArgs arguments to pass to the consumer function
-     * @param fallbackOn501 consumer function to execute if user does not have permission
-     * @param fallbackArgs arguments to pass to the consumer function
+     * @param resourceType the type of resource to be authorized
+     * @param onSuccess consumer function to execute if resource sharing feature is enabled
+     * @param fallbackOn501 consumer function to execute if resource sharing feature is disabled.
      */
-    public static void verifyResourceAccessAndProcessRequest(
-        Settings settings,
-        Consumer<Object[]> onSuccess,
-        Object[] successArgs,
-        Consumer<Object[]> fallbackOn501,
-        Object[] fallbackArgs
-    ) {
+    public static void verifyResourceAccessAndProcessRequest(String resourceType, Runnable onSuccess, Runnable fallbackOn501) {
         // Resource access will be auto-evaluated
-        if (shouldUseResourceAuthz(settings)) {
-            onSuccess.accept(successArgs);
+        if (shouldUseResourceAuthz(resourceType)) {
+            onSuccess.run();
         } else {
-            fallbackOn501.accept(fallbackArgs);
+            fallbackOn501.run();
         }
     }
 

@@ -207,9 +207,9 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
 
     private void createJob(Config config, TransportService transportService, ActionListener<JobResponse> listener) {
         try {
-            IntervalTimeConfiguration interval = (IntervalTimeConfiguration) config.getInterval();
-            Schedule schedule = new IntervalSchedule(Instant.now(), (int) interval.getInterval(), interval.getUnit());
-            Duration duration = Duration.of(interval.getInterval(), interval.getUnit());
+            IntervalTimeConfiguration frequency = (IntervalTimeConfiguration) config.getInferredFrequency();
+            Schedule schedule = new IntervalSchedule(Instant.now(), (int) frequency.getInterval(), frequency.getUnit());
+            Duration duration = Duration.of(frequency.getInterval(), frequency.getUnit());
 
             Job job = new Job(
                 config.getId(),

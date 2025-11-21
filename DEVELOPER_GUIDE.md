@@ -107,6 +107,18 @@ The Distribution Download plugin downloads the latest version of OpenSearch by d
 ./gradlew integTest -PcustomDistributionUrl="https://ci.opensearch.org/ci/dbc/bundle-build/1.2.0/1127/linux/x64/dist/opensearch-1.2.0-linux-x64.tar.gz"
 ```
 
+## Resource Files
+
+### plugin-additional-permissions.yml
+
+This file is intended to supply permissions required by this plugin to security plugin to authenticate the requests as the plugin subject. More on this can be found here:
+https://github.com/opensearch-project/opensearch-plugins/issues/238
+
+### resource-action-groups.yml
+
+This file defined the exhaustive list of action-groups (i.e. access-levels) to be used by users when sharing there resources. More on this feature-proposal can be found here:
+https://github.com/opensearch-project/security/issues/5608
+
 ## Changelog
 
 AD maintains version specific changelog by enforcing a change to the ongoing [CHANGELOG](CHANGELOG.md) file adhering to the [Keep A Changelog](https://keepachangelog.com/en/1.1.0/) format.

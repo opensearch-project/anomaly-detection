@@ -132,8 +132,10 @@ public class CheckpointMaintainWorkerTests extends AbstractRateLimitingTest {
             adapter::convert
         );
 
-        request = new CheckpointMaintainRequest(Integer.MAX_VALUE, detectorId, RequestPriority.LOW, entity.getModelId(detectorId).get());
-        request2 = new CheckpointMaintainRequest(Integer.MAX_VALUE, detectorId, RequestPriority.LOW, entity2.getModelId(detectorId).get());
+        // use Long.MAX_VALUE instead of Integer.MAX_VALUE. Integer.MAX_VALUE is only ~2.1 billion ms after the epoch (Jan 1970),
+        // so it is far behind the stubbed current time (~1.7 trillion ms)
+        request = new CheckpointMaintainRequest(Long.MAX_VALUE, detectorId, RequestPriority.LOW, entity.getModelId(detectorId).get());
+        request2 = new CheckpointMaintainRequest(Long.MAX_VALUE, detectorId, RequestPriority.LOW, entity2.getModelId(detectorId).get());
 
         requests = new ArrayList<>();
         requests.add(request);

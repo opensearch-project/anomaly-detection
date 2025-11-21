@@ -201,6 +201,10 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
     }
 
     private AnomalyDetector randomDetector(List<String> indices, List<Feature> features) throws IOException {
+        IntervalTimeConfiguration interval = new IntervalTimeConfiguration(
+            OpenSearchRestTestCase.randomLongBetween(1, 5),
+            ChronoUnit.MINUTES
+        );
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -210,7 +214,7 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             indices,
             features,
             randomQuery("{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\"}}]}}"),
-            new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            interval,
             new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
             8,
             null,
@@ -228,11 +232,17 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval,
+            null
         );
     }
 
     private AnomalyDetector randomHCDetector(List<String> indices, List<Feature> features) throws IOException {
+        IntervalTimeConfiguration interval = new IntervalTimeConfiguration(
+            OpenSearchRestTestCase.randomLongBetween(1, 5),
+            ChronoUnit.MINUTES
+        );
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -242,7 +252,7 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             indices,
             features,
             randomQuery("{\"bool\":{\"filter\":[{\"exists\":{\"field\":\"value\"}}]}}"),
-            new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
+            interval,
             new IntervalTimeConfiguration(OpenSearchRestTestCase.randomLongBetween(1, 5), ChronoUnit.MINUTES),
             8,
             null,
@@ -260,7 +270,9 @@ public class AnomalyResultTransportActionTests extends ADIntegTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval,
+            null
         );
     }
 

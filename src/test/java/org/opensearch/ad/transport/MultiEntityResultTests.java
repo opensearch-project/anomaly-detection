@@ -28,6 +28,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_PAGE_SIZE;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -70,9 +71,9 @@ import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADCheckpointDao;
+import org.opensearch.ad.ml.ADColdStart;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ADRealTimeInferencer;
-import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.ratelimit.ADCheckpointReadWorker;
 import org.opensearch.ad.ratelimit.ADColdEntityWorker;
@@ -106,6 +107,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.MemoryTracker;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
@@ -116,6 +118,7 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.CompositeRetriever;
 import org.opensearch.timeseries.feature.FeatureManager;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.ratelimit.FeatureRequest;
@@ -178,6 +181,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
     private ADTaskManager adTaskManager;
     private ADSaveResultStrategy resultSaver;
     private ADRealTimeInferencer inferencer;
+    private Entity entity1, entity2, entity3;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -210,10 +214,16 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             return null;
         }).when(stateManager).getConfig(anyString(), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
 
-        settings = Settings.builder().put(AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5)).build();
+        settings = Settings
+            .builder()
+            .put(AnomalyDetectorSettings.AD_COOLDOWN_MINUTES.getKey(), TimeValue.timeValueMinutes(5))
+            .put(AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ.getKey(), TimeValue.timeValueHours(1))
+            .build();
 
         // make sure end time is larger enough than Clock.systemUTC().millis() to get PageIterator.hasNext() to pass
-        request = new AnomalyResultRequest(detectorId, 100, Clock.systemUTC().millis() + 100_000);
+        long endTime = Clock.systemUTC().millis() + 100_000;
+        Instant historyEnd = Instant.ofEpochMilli(endTime);
+        request = new AnomalyResultRequest(detectorId, 100, endTime);
 
         transportService = mock(TransportService.class);
 
@@ -227,7 +237,23 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
 
         featureQuery = mock(FeatureManager.class);
 
-        normalModelManager = mock(ADModelManager.class);
+        // normalModelManager = mock(ADModelManager.class);
+        normalModelManager = new ADModelManager(
+            mock(ADCheckpointDao.class),
+            clock,
+            10,
+            10,
+            10,
+            0.01,
+            10,
+            Duration.ofHours(1),
+            AnomalyDetectorSettings.AD_CHECKPOINT_SAVING_FREQ,
+            mock(ADColdStart.class),
+            mock(FeatureManager.class),
+            mock(MemoryTracker.class),
+            settings,
+            clusterService
+        );
 
         hashRing = mock(HashRing.class);
 
@@ -300,7 +326,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         entityCache = mock(ADPriorityCache.class);
         when(provider.get()).thenReturn(entityCache);
         when(entityCache.get(any(), any()))
-            .thenReturn(MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build()));
+            .thenReturn(MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).historyEnd(historyEnd).build()));
         when(entityCache.selectUpdateCandidate(any(), any(), any())).thenReturn(Pair.of(new ArrayList<Entity>(), new ArrayList<Entity>()));
 
         indexUtil = mock(ADIndexManagement.class);
@@ -323,6 +349,10 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         attrs3.put(serviceField, app0);
         attrs3.put(hostField, server3);
 
+        entity1 = Entity.createEntityByReordering(attrs1);
+        entity2 = Entity.createEntityByReordering(attrs2);
+        entity3 = Entity.createEntityByReordering(attrs3);
+
         inferencer = new ADRealTimeInferencer(
             normalModelManager,
             adStats,
@@ -332,7 +362,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             provider,
             threadPool,
             clock,
-            mock(NodeStateManager.class)
+            mock(SearchFeatureDao.class)
         );
     }
 
@@ -438,7 +468,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
             inferencer
         );
 
-        when(normalModelManager.getResult(any(), any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
+        // when(normalModelManager.getResult(any(), any(), any(), any(), any())).thenReturn(new ThresholdingResult(0, 1, 1));
     }
 
     private void setUpEntityResult(int nodeIndex) {
@@ -754,7 +784,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since we have 3 results in the first page
-        verify(resultWriteQueue, times(3)).put(any());
+        verify(resultWriteQueue, times(3)).putAll(any());
     }
 
     @SuppressWarnings("unchecked")
@@ -856,10 +886,6 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         setUpSearchResponse();
         setUpTransportInterceptor(this::entityResultHandler);
 
-        Entity entity1 = Entity.createEntityByReordering(attrs1);
-        Entity entity2 = Entity.createEntityByReordering(attrs2);
-        Entity entity3 = Entity.createEntityByReordering(attrs3);
-
         // we use ordered attributes values as the key to hashring
         when(hashRing.getOwningNodeWithSameLocalVersionForRealtime(eq(entity1.toString())))
             .thenReturn(Optional.of(testNodes[2].discoveryNode()));
@@ -890,7 +916,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since we have 3 results in the first page
-        verify(resultWriteQueue, times(3)).put(any());
+        verify(resultWriteQueue, times(3)).putAll(any());
     }
 
     public void testCacheSelectionError() throws IOException, InterruptedException {
@@ -1160,7 +1186,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(modelNodeInProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since we have 3 results in the first page
-        verify(resultWriteQueue, times(1)).put(any());
+        verify(resultWriteQueue, times(1)).putAll(any());
     }
 
     public void testPageToString() {
@@ -1277,7 +1303,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since it is end run now, we don't expect any of the normal workflow continues
-        verify(resultWriteQueue, never()).put(any());
+        verify(resultWriteQueue, never()).putAll(any());
     }
 
     public void testEndRunNowFalseInModelNode() throws InterruptedException, IOException {
@@ -1316,7 +1342,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since it is end run now = false, the normal workflow continues
-        verify(resultWriteQueue, times(3)).put(any());
+        verify(resultWriteQueue, times(3)).putAll(any());
         ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
         verify(stateManager).setException(anyString(), exceptionCaptor.capture());
         EndRunException endRunException = (EndRunException) (exceptionCaptor.getValue());
@@ -1351,7 +1377,7 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since OpenSearchTimeoutException is not end run exception (now = true), the normal workflow continues
-        verify(resultWriteQueue, times(3)).put(any());
+        verify(resultWriteQueue, times(3)).putAll(any());
         ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
         verify(stateManager).setException(anyString(), exceptionCaptor.capture());
         Exception actual = exceptionCaptor.getValue();
@@ -1389,10 +1415,12 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         assertTrue(inProgress.await(10000L, TimeUnit.MILLISECONDS));
 
         // since EndRunException is thrown before getting any result, we cannot save anything
-        verify(resultWriteQueue, never()).put(any());
+        verify(resultWriteQueue, never()).putAll(any());
         ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
         verify(stateManager).setException(anyString(), exceptionCaptor.capture());
-        EndRunException endRunException = (EndRunException) (exceptionCaptor.getValue());
+        Exception actual = exceptionCaptor.getValue();
+        assertTrue("actual exception is " + actual, actual instanceof EndRunException);
+        EndRunException endRunException = (EndRunException) (actual);
         assertTrue(!endRunException.isEndNow());
     }
 

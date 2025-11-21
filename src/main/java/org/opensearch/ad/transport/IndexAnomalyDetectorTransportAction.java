@@ -28,6 +28,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.IndexAnomalyDetectorActionHandler;
@@ -103,23 +104,15 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> indexDetector(
-                    user,
-                    detectorId,
-                    method,
-                    listener,
-                    detector -> adExecute(request, user, detector, context, listener)
-                ),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                ADCommonName.AD_RESOURCE_TYPE,
+                () -> indexDetector(user, detectorId, method, listener, detector -> adExecute(request, user, detector, context, listener)),
+                () -> resolveUserAndExecute(
                     user,
                     detectorId,
                     method,
                     listener,
                     (detector) -> adExecute(request, user, detector, context, listener)
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

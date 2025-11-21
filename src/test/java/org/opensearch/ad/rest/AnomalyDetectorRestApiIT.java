@@ -16,6 +16,7 @@ import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandle
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.awaitility.Awaitility;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.opensearch.ad.AnomalyDetectorRestTestCase;
@@ -52,6 +54,7 @@ import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.rest.handler.AbstractTimeSeriesActionHandler;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.RestHandlerUtils;
@@ -147,6 +150,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Feature feature = TestHelpers.randomFeature();
         List<Feature> featureList = ImmutableList.of(feature);
+        TimeConfiguration interval = TestHelpers.randomIntervalTimeConfiguration();
         AnomalyDetector detectorDuplicateName = new AnomalyDetector(
             AnomalyDetector.NO_ID,
             randomLong(),
@@ -156,7 +160,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             detector.getIndices(),
             featureList,
             TestHelpers.randomQuery(),
-            TestHelpers.randomIntervalTimeConfiguration(),
+            interval,
             TestHelpers.randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             TestHelpers.randomUiMetadata(),
@@ -174,6 +178,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
+            null,
+            interval,
             null
         );
 
@@ -230,7 +236,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertTrue("Incorrect version", version > 0);
 
         // Ensure the flattened result index was created
-        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
+        String expectedFlattenedIndex = detector.getCustomResultIndexOrAlias()
+            + "_flattened_"
+            + detector.getName().toLowerCase(Locale.ROOT);
         assertTrue("Alias for flattened result index does not exist", aliasExists(expectedFlattenedIndex));
 
         // Start detector
@@ -241,6 +249,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         boolean resultsAvailable = false;
         int maxRetries = 60;
         int retryIntervalMs = 1000;
+
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(id, client());
+        }
 
         Map<String, Object> searchResults = null;
         for (int attempt = 0; attempt < maxRetries; attempt++) {
@@ -279,9 +291,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Double featureValue = ((Number) firstFeature.get("data")).doubleValue();
 
         // ------------------------------------------------------------------
-        // Validate flattened result index mappings (up to 3 attempts)
+        // Validate flattened result index mappings (up to 30 attempts)
         // ------------------------------------------------------------------
-        final int mappingRetries = 3;     // 1 initial try + 2 more
+        final int mappingRetries = 30;     // 1 initial try + 29 more
         final int mappingRetryInterval = 1_000; // milliseconds
 
         /*
@@ -294,43 +306,60 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
          * "There are still tasks running after this test... [indices:data/write/bulk]".
          * This loop ensures we wait for the asynchronous update to finish.
          */
-        boolean mappingValidated = false;
-        AssertionError lastError = null;
 
         String expectedFieldKey = "feature_data_" + featureName;
-        for (int attempt = 1; attempt <= mappingRetries; attempt++) {
-            try {
+        Awaitility
+            .await("flattened mapping to appear")
+            .pollDelay(Duration.ZERO)
+            .pollInterval(Duration.ofMillis(mappingRetryInterval))
+            // Given mappingRetryInterval = 1_000 ms and mappingRetries = 30,
+            // the Awaitility.atMost(Duration.ofMillis(mappingRetryInterval * (long) mappingRetries))
+            // cap works out to 1_000 * 30 = 30_000 ms. So the wait tops out at thirty seconds before
+            // the assertion is forced.
+            .atMost(Duration.ofMillis(mappingRetryInterval * (long) mappingRetries))
+            .untilAsserted(() -> {
                 Response getIndexResponse = TestHelpers.makeRequest(client(), "GET", expectedFlattenedIndex, ImmutableMap.of(), "", null);
                 Map<String, Object> flattenedResultIndex = entityAsMap(getIndexResponse);
 
-                String indexKey = flattenedResultIndex.keySet().stream().findFirst().orElse(null);
-                Map<String, Object> indexDetails = (Map<String, Object>) flattenedResultIndex.get(indexKey);
-                Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+                // Ensure we got something back
+                assertFalse("Index response is empty", flattenedResultIndex.isEmpty());
 
-                // 1️⃣ dynamic must be true
-                assertEquals("Dynamic field is not set to true", "true", mappings.get("dynamic").toString());
+                boolean fieldFound = false;
+                for (Map.Entry<String, Object> entry : flattenedResultIndex.entrySet()) {
+                    Map<String, Object> indexDetails = (Map<String, Object>) entry.getValue();
+                    assertNotNull("index details missing for " + entry.getKey(), indexDetails);
 
-                // 2️⃣ per-feature flattened field must exist
-                Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+                    Map<String, Object> mappings = (Map<String, Object>) indexDetails.get("mappings");
+                    assertNotNull("mappings missing for " + entry.getKey(), mappings);
 
-                assertTrue("Flattened field '" + expectedFieldKey + "' does not exist", properties.containsKey(expectedFieldKey));
+                    // 1) dynamic must be true
+                    assertEquals("Dynamic field is not set to true for " + entry.getKey(), "true", String.valueOf(mappings.get("dynamic")));
 
-                // If we get here, mapping is as expected ─ break the retry loop
-                mappingValidated = true;
-                break;
-
-            } catch (AssertionError ae) {
-                lastError = ae;
-                if (attempt < mappingRetries) {
-                    Thread.sleep(mappingRetryInterval);   // wait, then retry
+                    // 2) per-feature flattened field must exist in at least one backing index
+                    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+                    assertNotNull("mappings.properties is null for " + entry.getKey(), properties);
+                    if (properties.containsKey(expectedFieldKey)) {
+                        fieldFound = true;
+                        break;
+                    }
                 }
-            }
-        }
 
-        // After retries, surface the original failure if still invalid
-        if (!mappingValidated && lastError != null) {
-            throw lastError;
-        }
+                assertTrue(
+                    "Flattened field '"
+                        + expectedFieldKey
+                        + "' does not exist in any backing index. Available properties in all indices: "
+                        + flattenedResultIndex
+                            .entrySet()
+                            .stream()
+                            .map(
+                                entry -> entry.getKey()
+                                    + ": "
+                                    + ((Map<String, Object>) ((Map<String, Object>) entry.getValue()).get("mappings")).get("properties")
+                            )
+                            .collect(java.util.stream.Collectors.joining(", ")),
+                    fieldFound
+                );
+            });
 
         // Search against flattened result index and validate value
         Response searchFlattenResultIndexResponse = TestHelpers
@@ -377,8 +406,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Create anomaly detector with flattened result index failed", RestStatus.CREATED, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         String id = (String) responseMap.get("_id");
-        String expectedFlattenedIndex = "opensearch-ad-plugin-result-test_flattened_detectorwithflattenresultindex";
-        String expectedPipelineId = "flatten_result_index_ingest_pipeline_detectorwithflattenresultindex";
+        String expectedPipelineId = "flatten_result_index_ingest_pipeline_" + detector.getName().toLowerCase(Locale.ROOT);
         String getIngestPipelineEndpoint = String.format(Locale.ROOT, "_ingest/pipeline/%s", expectedPipelineId);
         Response getPipelineResponse = TestHelpers.makeRequest(client(), "GET", getIngestPipelineEndpoint, ImmutableMap.of(), "", null);
         assertEquals(
@@ -414,7 +442,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             false,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency(),
+            null
         );
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -481,8 +511,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             true,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency(),
+            null
         );
+
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(id, client());
+        }
 
         Response updateResponse = TestHelpers
             .makeRequest(
@@ -616,8 +652,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency(),
+            null
         );
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(id, client());
+        }
         Exception ex = expectThrows(
             ResponseException.class,
             () -> TestHelpers
@@ -684,7 +725,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency(),
+            null
         );
 
         updateClusterSettings(ADEnabledSetting.AD_ENABLED, false);
@@ -718,7 +761,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Update anomaly detector failed", RestStatus.OK, TestHelpers.restStatus(updateResponse));
         Map<String, Object> responseBody = entityAsMap(updateResponse);
         assertEquals("Updated anomaly detector id doesn't match", detector.getId(), responseBody.get("_id"));
-        assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
+
+        if (isResourceSharingFeatureEnabled()) {
+            // The extra write is coming from the Security plugin’s resource‑sharing handler ResourceSharingIndexHandler.
+            // It happen on every index/update when the resource-sharing feature flag is enabled.
+            // ResourceSharingIndexHandler updates the detector document in .opendistro-anomaly-detectors to add the
+            // all_shared_principals field.
+            // The Security plugin registers a post-index listener (ResourceIndexListener) which triggers an UpdateRequest to set
+            // `all_shared_principals` after each detector document index/update.
+            // ResourceIndexListener (postIndex listener): https://tinyurl.com/4mk73vzm
+            // ResourceSharingIndexHandler (issues UpdateRequest for `all_shared_principals`): https://tinyurl.com/yujaez4d
+            assertTrue("Version not incremented", (detector.getVersion().intValue() + 1) <= (int) responseBody.get("_version"));
+        } else {
+            assertEquals("Version not incremented", (detector.getVersion().intValue() + 1), (int) responseBody.get("_version"));
+        }
 
         AnomalyDetector updatedDetector = getConfig(detector.getId(), client());
         assertNotEquals("Anomaly detector last update time not changed", updatedDetector.getLastUpdateTime(), detector.getLastUpdateTime());
@@ -757,7 +813,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector1.getLastBreakingUIChangeTime()
+            detector1.getLastBreakingUIChangeTime(),
+            detector1.getFrequency(),
+            null
         );
 
         TestHelpers
@@ -807,7 +865,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            detector.getFrequency(),
+            null
         );
 
         TestHelpers
@@ -863,7 +923,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency(),
+            null
         );
 
         deleteIndexWithAdminClient(ADCommonName.CONFIG_INDEX);
@@ -1249,7 +1311,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             null,
             null,
             null,
-            detector.getLastBreakingUIChangeTime()
+            detector.getLastBreakingUIChangeTime(),
+            detector.getFrequency(),
+            null
         );
 
         TestHelpers
@@ -1338,10 +1402,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testStartAdJobWithNonexistingDetectorIndex() throws Exception {
+        String message = "no such index [.opendistro-anomaly-detectors]";
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for ";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                "no such index [.opendistro-anomaly-detectors]",
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1356,10 +1424,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testStartAdJobWithNonexistingDetector() throws Exception {
         createRandomAnomalyDetector(true, false, client());
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1458,10 +1530,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             );
         assertEquals("Fail to start AD job", RestStatus.OK, TestHelpers.restStatus(startAdJobResponse));
 
+        String message = CommonMessages.FAIL_TO_FIND_CONFIG_MSG;
+        if (isResourceSharingFeatureEnabled()) {
+            message = "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]";
+        }
         TestHelpers
             .assertFailWith(
                 ResponseException.class,
-                CommonMessages.FAIL_TO_FIND_CONFIG_MSG,
+                message,
                 () -> TestHelpers
                     .makeRequest(
                         client(),
@@ -1640,7 +1716,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains("Historical is running"));
     }
 
-    public void testBackwardCompatibilityWithOpenDistro() throws IOException {
+    public void testBackwardCompatibilityWithOpenDistro() throws IOException, InterruptedException {
+
         // Create a detector
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         // Verify the detector is created using legacy _opendistro API
@@ -1660,8 +1737,13 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertNotEquals("response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("incorrect version", version > 0);
 
-        // Get the detector using new _plugins API
-        AnomalyDetector createdDetector = getConfig(id, client());
+        AnomalyDetector createdDetector;
+        if (isResourceSharingFeatureEnabled()) {
+            createdDetector = waitForSharingVisibility(id, client());
+        } else {
+            // No resource-sharing -> just read it directly
+            createdDetector = getConfig(id, client());
+        }
         assertEquals("Get anomaly detector failed", createdDetector.getId(), id);
 
         // Delete the detector using legacy _opendistro API
@@ -1891,6 +1973,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     ),
                 null
             );
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1911,6 +1994,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testValidateAnomalyDetectorWithInvalidName() throws Exception {
         TestHelpers.createIndex(client(), "test-index", TestHelpers.toHttpEntity("{\"timestamp\": " + Instant.now().toEpochMilli() + "}"));
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -1932,6 +2016,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Map<String, Map<String, String>> messageMap = (Map<String, Map<String, String>>) XContentMapValues
             .extractValue("detector", responseMap);
         assertEquals("invalid detector Name", CommonMessages.INVALID_NAME, messageMap.get("name").get("message"));
+
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryReturningNoData() throws Exception {
@@ -1955,6 +2040,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             CommonMessages.FEATURE_WITH_EMPTY_DATA_MSG + "f-empty",
             messageMap.get("feature_attributes").get("message")
         );
+
     }
 
     public void testValidateAnomalyDetectorWithFeatureQueryRuntimeException() throws Exception {
@@ -1978,6 +2064,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             CommonMessages.FEATURE_WITH_INVALID_QUERY_MSG + "non-numeric-feature",
             messageMap.get("feature_attributes").get("message")
         );
+
     }
 
     public void testValidateAnomalyDetectorWithWrongCategoryField() throws Exception {
@@ -1989,6 +2076,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 Arrays.asList("host.keyword")
             );
         TestHelpers.createIndexWithTimeField(client(), "index-test", TIME_FIELD);
+
         Response resp = TestHelpers
             .makeRequest(
                 client(),
@@ -2011,6 +2099,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testSearchTopAnomalyResultsWithInvalidInputs() throws IOException {
+
         String indexName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         Map<String, String> categoryFieldsAndTypes = new HashMap<String, String>() {
             {
@@ -2043,7 +2132,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception missingEndTimeException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":1}", client());
         });
-        assertTrue(missingEndTimeException.getMessage().contains("Must set both start time and end time with epoch of milliseconds"));
+        String message = "Must set both start time and end time with epoch of milliseconds";
+
+        assertTrue(missingEndTimeException.getMessage().contains(message));
 
         // Start time > end time
         Exception invalidTimeException = expectThrows(IOException.class, () -> {
@@ -2055,7 +2146,12 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         Exception invalidDetectorIdException = expectThrows(IOException.class, () -> {
             searchTopAnomalyResults(detector.getId() + "-invalid", false, "{\"start_time_ms\":1, \"end_time_ms\":2}", client());
         });
-        assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        if (isHttps() && isResourceSharingFeatureEnabled()) {
+            // since no resource-sharing record exists for this document we simply throw 403 with the new feature
+            assertTrue(invalidDetectorIdException.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
+        } else {
+            assertTrue(invalidDetectorIdException.getMessage().contains("Can't find config with id"));
+        }
 
         // Invalid order field
         Exception invalidOrderException = expectThrows(IOException.class, () -> {
@@ -2357,6 +2453,10 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         AnomalyResult anomalyResult = TestHelpers
             .randomHCADAnomalyDetectResult(detector.getId(), null, entityAttrs, 0.5, 0.8, null, 5L, 5L);
         TestHelpers.ingestDataToIndex(client(), customResultIndexName, TestHelpers.toHttpEntity(anomalyResult));
+
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility(detector.getId(), client());
+        }
 
         Response response = searchTopAnomalyResults(detector.getId(), false, "{\"start_time_ms\":0, \"end_time_ms\":10}", client());
         Map<String, Object> responseMap = entityAsMap(response);

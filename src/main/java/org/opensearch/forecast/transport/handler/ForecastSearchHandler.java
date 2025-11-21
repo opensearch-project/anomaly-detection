@@ -15,6 +15,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.timeseries.transport.handler.SearchHandler;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.Client;
 
 /**
@@ -22,7 +23,7 @@ import org.opensearch.transport.client.Client;
  */
 public class ForecastSearchHandler extends SearchHandler {
 
-    public ForecastSearchHandler(Settings settings, ClusterService clusterService, Client client) {
-        super(settings, clusterService, client, ForecastSettings.FORECAST_FILTER_BY_BACKEND_ROLES);
+    public ForecastSearchHandler(Settings settings, ClusterService clusterService, Client client, PluginClient pluginClient) {
+        super(settings, clusterService, client, pluginClient, ForecastSettings.FORECAST_FILTER_BY_BACKEND_ROLES);
     }
 }

@@ -346,7 +346,9 @@ public class ADTask extends TimeSeriesTask {
                 detector.getCustomResultIndexMinAge(),
                 detector.getCustomResultIndexTTL(),
                 detector.getFlattenResultIndexMapping(),
-                detector.getLastBreakingUIChangeTime()
+                detector.getLastBreakingUIChangeTime(),
+                detector.getFrequency(),
+                detector.getAutoCreated()
             );
         return new Builder()
             .taskId(parsedTaskId)

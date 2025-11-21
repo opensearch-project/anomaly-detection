@@ -6,6 +6,7 @@
 package org.opensearch.timeseries.ratelimit;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.opensearch.timeseries.ml.IntermediateResult;
@@ -28,4 +29,15 @@ public interface SaveResultStrategy<IndexableResultType extends IndexableResult,
     );
 
     void saveResult(IndexableResultType result, Config config);
+
+    void saveAllResults(
+        List<RCFResultType> results,
+        Config config,
+        List<Instant> dataStart,
+        List<Instant> dataEnd,
+        String modelId,
+        List<double[]> currentData,
+        Optional<Entity> entity,
+        String taskId
+    );
 }

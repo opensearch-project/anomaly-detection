@@ -34,6 +34,11 @@ public class ADCommonName {
     public static final String AD_PLUGIN_VERSION_FOR_TEST = "NA";
 
     // ======================================
+    // Resource name used in resource-access-control
+    // ======================================
+    public static final String AD_RESOURCE_TYPE = "anomaly-detector";
+
+    // ======================================
     // Historical detectors
     // ======================================
     public static final String AD_TASK = "ad_task";

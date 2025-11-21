@@ -56,6 +56,7 @@ import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
@@ -95,6 +96,10 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
     protected boolean isHttps() {
         return Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
+    }
+
+    protected boolean isResourceSharingFeatureEnabled() {
+        return Optional.ofNullable(System.getProperty("resource_sharing.enabled")).map("true"::equalsIgnoreCase).orElse(false);
     }
 
     @Override
@@ -434,7 +439,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         for (int i = 0; i < users.size(); i++) {
             usersString.add(users.get(i));
         }
-        return TestHelpers
+        Response response = TestHelpers
             .makeRequest(
                 client(),
                 "PUT",
@@ -446,10 +451,14 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                     ),
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
+        // Consume the body so the underlying HTTP connection can be released back to the pool; otherwise the dispatcher
+        // thread stays tied to the response and leaks when the test shuts down.
+        EntityUtils.consume(response.getEntity());
+        return response;
     }
 
     public Response deleteUser(String user) throws IOException {
-        return TestHelpers
+        Response response = TestHelpers
             .makeRequest(
                 client(),
                 "DELETE",
@@ -458,6 +467,10 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 "",
                 ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
             );
+        // Consume the body so the underlying HTTP connection can be released back to the pool; otherwise the dispatcher
+        // thread stays tied to the response and leaks when the test shuts down.
+        EntityUtils.consume(response.getEntity());
+        return response;
     }
 
     public Response deleteAllResourceSharingRecords() throws IOException {
@@ -469,7 +482,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         params.put("conflicts", "proceed");
         params.put("refresh", "true");
 
-        return TestHelpers
+        Response response = TestHelpers
             .makeRequest(
                 adminClient(),
                 "POST",
@@ -479,14 +492,10 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                 ImmutableList
                     .of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"), new BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json"))
             );
-    }
-
-    public Response getResourceSharingEnabledSetting() throws IOException {
-        // use filter_path to return only the persistent setting
-        String endpoint = "/_cluster/settings" + "?filter_path=persistent.plugins.security.experimental.resource_sharing.enabled";
-
-        return TestHelpers
-            .makeRequest(adminClient(), "GET", endpoint, null, "", ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana")));
+        // Consume the body so the underlying HTTP connection can be released back to the pool; otherwise the dispatcher
+        // thread stays tied to the response and leaks when the test shuts down.
+        EntityUtils.consume(response.getEntity());
+        return response;
     }
 
 }

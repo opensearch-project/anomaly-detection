@@ -82,6 +82,8 @@ import com.google.common.collect.Sets;
  *  create/update APIs, this code will check if the validation type is 'model' and if true it will
  *  instantiate the <code>ModelValidationActionHandler</code> class and run the non-blocker validation logic</p>
  *  </ul>
+ *
+ *  @param <T> the response type that extends ActionResponse
  */
 public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionResponse> extends
     AbstractTimeSeriesActionHandler<T, ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager> {
@@ -248,7 +250,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             config.getCustomResultIndexMinAge(),
             config.getCustomResultIndexTTL(),
             config.getFlattenResultIndexMapping(),
-            breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime()
+            breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime(),
+            config.getFrequency(),
+            detector.getAutoCreated()
         );
     }
 

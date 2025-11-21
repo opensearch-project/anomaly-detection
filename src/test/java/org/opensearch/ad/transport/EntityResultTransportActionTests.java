@@ -11,6 +11,7 @@
 
 package org.opensearch.ad.transport;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.startsWith;
@@ -22,7 +23,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,6 +72,8 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.tasks.Task;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -82,16 +84,21 @@ import org.opensearch.timeseries.common.exception.LimitExceededException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.constant.CommonValue;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
+import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.TimeSeriesStat;
 import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
 import org.opensearch.timeseries.transport.EntityResultRequest;
+import org.opensearch.timeseries.util.ModelUtil;
 import org.opensearch.transport.TransportService;
 
+import com.amazon.randomcutforest.parkservices.PredictorCorrector;
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.returntypes.RCFComputeDescriptor;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
@@ -100,7 +107,45 @@ import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
-    EntityADResultTransportAction entityResult;
+    /**
+     * Test-only subclass that exposes {@link EntityADResultTransportAction#doExecute}.
+     * The production class keeps that method protected, so tests outside
+     * org.opensearch.timeseries.transport need this wrapper to invoke it without
+     * changing visibility or relocating the test package.
+     */
+    private static class TestEntityADResultTransportAction extends EntityADResultTransportAction {
+        TestEntityADResultTransportAction(
+            ActionFilters actionFilters,
+            TransportService transportService,
+            CircuitBreakerService adCircuitBreakerService,
+            ADCacheProvider entityCache,
+            NodeStateManager stateManager,
+            ADIndexManagement indexUtil,
+            ADCheckpointReadWorker checkpointReadQueue,
+            ADColdEntityWorker coldEntityQueue,
+            ThreadPool threadPool,
+            ADRealTimeInferencer inferencer
+        ) {
+            super(
+                actionFilters,
+                transportService,
+                adCircuitBreakerService,
+                entityCache,
+                stateManager,
+                indexUtil,
+                checkpointReadQueue,
+                coldEntityQueue,
+                threadPool,
+                inferencer
+            );
+        }
+
+        void doExecuteForTest(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
+            super.doExecute(task, request, listener);
+        }
+    }
+
+    TestEntityADResultTransportAction entityResult;
     ActionFilters actionFilters;
     TransportService transportService;
     ADModelManager manager;
@@ -233,8 +278,8 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
 
         // make sure request data end time is assigned after state initialization to pass Inferencer.tryProcess method time check.
-        start = System.currentTimeMillis() - 10;
-        end = System.currentTimeMillis();
+        start = ModelUtil.getLastInputTimestampSeconds(state.getModel().get());
+        end = start + 10;
         request = new EntityResultRequest(detectorId, entities, start, end, AnalysisType.AD, null);
 
         indexUtil = mock(ADIndexManagement.class);
@@ -274,10 +319,10 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             provider,
             threadPool,
             clock,
-            mock(NodeStateManager.class)
+            mock(SearchFeatureDao.class)
         );
 
-        entityResult = new EntityADResultTransportAction(
+        entityResult = new TestEntityADResultTransportAction(
             actionFilters,
             transportService,
             adCircuitBreakerService,
@@ -298,7 +343,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         when(adCircuitBreakerService.isOpen()).thenReturn(true);
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
 
-        entityResult.doExecute(null, request, future);
+        entityResult.doExecuteForTest(null, request, future);
 
         expectThrows(LimitExceededException.class, () -> future.actionGet(timeoutMs));
     }
@@ -306,11 +351,11 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     public void testNormal() {
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
 
-        entityResult.doExecute(null, request, future);
+        entityResult.doExecuteForTest(null, request, future);
 
         future.actionGet(timeoutMs);
 
-        verify(resultWriteQueue, times(1)).put(any());
+        verify(resultWriteQueue, times(1)).putAll(any());
     }
 
     // test get detector failure
@@ -324,7 +369,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
 
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
 
-        entityResult.doExecute(null, request, future);
+        entityResult.doExecuteForTest(null, request, future);
 
         expectThrows(EndRunException.class, () -> future.actionGet(timeoutMs));
     }
@@ -337,7 +382,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
 
         PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
 
-        entityResult.doExecute(null, request, future);
+        entityResult.doExecuteForTest(null, request, future);
 
         future.actionGet(timeoutMs);
 
@@ -399,10 +444,62 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
     }
 
     public void testFailToScore() {
-        ADModelManager spyModelManager = spy(manager);
-        doThrow(new IllegalArgumentException()).when(spyModelManager).getResult(any(), any(), anyString(), any(), any());
+        ThresholdedRandomCutForest model = setupFailToScoreTest();
+
+        // Default exception without specific message
+        doThrow(new IllegalArgumentException()).when(model).processSequentially(any(), any(), any());
+
+        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
+        entityResult.doExecuteForTest(null, request, future);
+        IllegalArgumentException ex = expectThrows(IllegalArgumentException.class, () -> future.actionGet(timeoutMs));
+        assertNotNull(ex);
+
+        verify(resultWriteQueue, never()).put(any());
+        verify(entityCache, times(1)).removeModel(anyString(), anyString());
+        verify(entityColdStartQueue, times(1)).put(any());
+        Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();
+        assertEquals(1L, ((Long) val).longValue());
+    }
+
+    public void testEntityProcessingWithTimeOrderingException() {
+        ThresholdedRandomCutForest model = setupFailToScoreTest();
+
+        // Exception with specific message containing "incorrect ordering of time"
+        doThrow(new IllegalArgumentException("Data has incorrect ordering of time")).when(model).processSequentially(any(), any(), any());
+
+        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
+        entityResult.doExecuteForTest(null, request, future);
+        IllegalArgumentException ex = expectThrows(IllegalArgumentException.class, () -> future.actionGet(timeoutMs));
+        assertNotNull(ex);
+        assertThat(ex.getMessage(), containsString("incorrect ordering of time"));
+
+        verify(resultWriteQueue, never()).put(any());
+        // no cold start thus no model removal
+        verify(entityCache, never()).removeModel(anyString(), anyString());
+        // Key difference: entityColdStartQueue.put should never be called
+        verify(entityColdStartQueue, never()).put(any());
+        Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();
+        // no model corruption since we deem out of order illealargument exception as not model corruption
+        assertEquals(0L, ((Long) val).longValue());
+    }
+
+    private ThresholdedRandomCutForest setupFailToScoreTest() {
+        @SuppressWarnings("unchecked")
+        ModelState<ThresholdedRandomCutForest> state = mock(ModelState.class);
+        ThresholdedRandomCutForest model = mock(ThresholdedRandomCutForest.class);
+        when(state.getModel()).thenReturn(Optional.of(model));
+        when(state.getModelId()).thenReturn("abc");
+        PredictorCorrector predictorCorrector = mock(PredictorCorrector.class);
+        when(model.getPredictorCorrector()).thenReturn(predictorCorrector);
+        RCFComputeDescriptor lastDescriptor = mock(RCFComputeDescriptor.class);
+        when(predictorCorrector.getLastDescriptor()).thenReturn(lastDescriptor);
+        long lastInputTimestamp = 1000L;
+        when(lastDescriptor.getInputTimestamp()).thenReturn(lastInputTimestamp);
+        // only cache hit entity is able to run RealTimeInferencer.process function
+        when(entityCache.get(eq(cacheHitEntityObj.getModelId(detectorId).get()), any())).thenReturn(state);
+
         inferencer = new ADRealTimeInferencer(
-            spyModelManager,
+            manager,
             adStats,
             checkpointDao,
             entityColdStartQueue,
@@ -410,9 +507,9 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             provider,
             threadPool,
             clock,
-            mock(NodeStateManager.class)
+            mock(SearchFeatureDao.class)
         );
-        entityResult = new EntityADResultTransportAction(
+        entityResult = new TestEntityADResultTransportAction(
             actionFilters,
             transportService,
             adCircuitBreakerService,
@@ -425,24 +522,16 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
             inferencer
         );
 
-        PlainActionFuture<AcknowledgedResponse> future = PlainActionFuture.newFuture();
-
-        entityResult.doExecute(null, request, future);
-
-        future.actionGet(timeoutMs);
-
-        verify(resultWriteQueue, never()).put(any());
-        verify(entityCache, times(1)).removeModel(anyString(), anyString());
-        verify(entityColdStartQueue, times(1)).put(any());
-        Object val = adStats.getStat(StatNames.AD_MODEL_CORRUTPION_COUNT.getName()).getValue();
-        assertEquals(1L, ((Long) val).longValue());
+        return model;
     }
 
     public void testLongIntervalColdEntityMediumPriority() {
         AnomalyDetector longIntervalDetector = mock(AnomalyDetector.class);
-        when(longIntervalDetector.isLongInterval()).thenReturn(true);
+        when(longIntervalDetector.isLongFrequency()).thenReturn(true);
         when(longIntervalDetector.getId()).thenReturn(detectorId);
         when(longIntervalDetector.getCategoryFields()).thenReturn(detector.getCategoryFields());
+        when(longIntervalDetector.getInferredFrequencyInMilliseconds()).thenReturn(TimeSeriesSettings.HOURLY_MAINTENANCE.toMillis() + 1000);
+        when(longIntervalDetector.getIntervalInSeconds()).thenReturn(TimeSeriesSettings.HOURLY_MAINTENANCE.getSeconds() + 1);
 
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
@@ -455,7 +544,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
 
         PlainActionFuture<AcknowledgedResponse> future = new PlainActionFuture<>();
-        entityResult.doExecute(null, request, future);
+        entityResult.doExecuteForTest(null, request, future);
         future.actionGet(timeoutMs);
 
         verify(coldEntityQueue).putAll(argThat(requests -> {
@@ -465,9 +554,11 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
 
     public void testShortIntervalColdEntityLowPriority() {
         AnomalyDetector shortIntervalDetector = mock(AnomalyDetector.class);
-        when(shortIntervalDetector.isLongInterval()).thenReturn(false);
+        when(shortIntervalDetector.isLongFrequency()).thenReturn(false);
         when(shortIntervalDetector.getId()).thenReturn(detectorId);
         when(shortIntervalDetector.getCategoryFields()).thenReturn(detector.getCategoryFields());
+        when(shortIntervalDetector.getInferredFrequencyInMilliseconds()).thenReturn(60000L);
+        when(shortIntervalDetector.getIntervalInSeconds()).thenReturn(60L);
 
         doAnswer(invocation -> {
             ActionListener<Optional<AnomalyDetector>> listener = invocation.getArgument(3);
@@ -480,7 +571,7 @@ public class EntityResultTransportActionTests extends AbstractTimeSeriesTest {
         when(entityCache.selectUpdateCandidate(any(), anyString(), any())).thenReturn(Pair.of(new ArrayList<>(), coldEntities));
 
         PlainActionFuture<AcknowledgedResponse> future = new PlainActionFuture<>();
-        entityResult.doExecute(null, request, future);
+        entityResult.doExecuteForTest(null, request, future);
         future.actionGet(timeoutMs);
 
         verify(coldEntityQueue)

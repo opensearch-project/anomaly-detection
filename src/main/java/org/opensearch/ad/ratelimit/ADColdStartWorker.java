@@ -81,7 +81,8 @@ public class ADColdStartWorker extends
         ADPriorityCache cacheProvider,
         ADModelManager modelManager,
         ADSaveResultStrategy saveStrategy,
-        ADTaskManager taskManager
+        ADTaskManager taskManager,
+        ADCheckpointWriteWorker checkpointWriteWorker
     ) {
         super(
             WORKER_NAME,
@@ -108,7 +109,8 @@ public class ADColdStartWorker extends
             AnalysisType.AD,
             modelManager,
             saveStrategy,
-            taskManager
+            taskManager,
+            checkpointWriteWorker
         );
     }
 

@@ -121,6 +121,7 @@ import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.feature.FeatureManager;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.SingleStreamModelIdMapper;
 import org.opensearch.timeseries.model.FeatureData;
@@ -143,11 +144,12 @@ import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
+import com.amazon.randomcutforest.parkservices.PredictorCorrector;
+import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
+import com.amazon.randomcutforest.parkservices.returntypes.RCFComputeDescriptor;
 import com.google.gson.JsonElement;
 
 import test.org.opensearch.ad.util.JsonDeserializer;
-import test.org.opensearch.ad.util.MLUtil;
-import test.org.opensearch.ad.util.RandomModelStateConfig;
 
 public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private Settings settings;
@@ -174,6 +176,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
     private ADCacheProvider cacheProvider;
     private ADRealTimeInferencer inferencer;
     private ADColdStartWorker coldStartWorker;
+    private long intervalInMinutes;
 
     @BeforeClass
     public static void setUpBeforeClass() {
@@ -219,7 +222,10 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             listener.onResponse(Optional.of(detector));
             return null;
         }).when(stateManager).getConfig(any(String.class), eq(AnalysisType.AD), any(boolean.class), any(ActionListener.class));
-        when(detector.getIntervalInMinutes()).thenReturn(1L);
+        intervalInMinutes = 1L;
+        when(detector.getIntervalInMinutes()).thenReturn(intervalInMinutes);
+        when(detector.getIntervalInSeconds()).thenReturn(intervalInMinutes * 60L);
+        when(detector.getIntervalInMilliseconds()).thenReturn(intervalInMinutes * 60L * 1000L);
 
         hashRing = mock(HashRing.class);
         Optional<DiscoveryNode> localNode = Optional.of(clusterService.state().nodes().getLocalNode());
@@ -371,7 +377,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             cacheProvider,
             threadPool,
             mock(Clock.class),
-            mock(NodeStateManager.class)
+            mock(SearchFeatureDao.class)
         );
     }
 
@@ -624,11 +630,9 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
     }
 
     public void testInsufficientCapacityExceptionDuringRestoringModel() throws InterruptedException {
-        ADModelManager badModelManager = mock(ADModelManager.class);
-        doThrow(new NullPointerException()).when(badModelManager).getResult(any(), any(), any(), any(), any());
-
         inferencer = new ADRealTimeInferencer(
-            badModelManager,
+            // badModelManager,
+            normalModelManager,
             adStats,
             mock(ADCheckpointDao.class),
             coldStartWorker,
@@ -636,13 +640,24 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
             cacheProvider,
             threadPool,
             mock(Clock.class),
-            mock(NodeStateManager.class)
+            mock(SearchFeatureDao.class)
         );
 
         ADPriorityCache adPriorityCache = mock(ADPriorityCache.class);
         when(cacheProvider.get()).thenReturn(adPriorityCache);
-        when(adPriorityCache.get(anyString(), any()))
-            .thenReturn(MLUtil.randomModelState(new RandomModelStateConfig.Builder().fullModel(true).build()));
+        @SuppressWarnings("unchecked")
+        ModelState<ThresholdedRandomCutForest> state = mock(ModelState.class);
+        ThresholdedRandomCutForest model = mock(ThresholdedRandomCutForest.class);
+        when(state.getModel()).thenReturn(Optional.of(model));
+        when(state.getModelId()).thenReturn("abc");
+        PredictorCorrector predictorCorrector = mock(PredictorCorrector.class);
+        when(model.getPredictorCorrector()).thenReturn(predictorCorrector);
+        RCFComputeDescriptor lastDescriptor = mock(RCFComputeDescriptor.class);
+        when(predictorCorrector.getLastDescriptor()).thenReturn(lastDescriptor);
+        doThrow(new NullPointerException()).when(model).processSequentially(any(), any(), any());
+        long lastInputTimestamp = 1000L;
+        when(lastDescriptor.getInputTimestamp()).thenReturn(lastInputTimestamp);
+        when(adPriorityCache.get(anyString(), any())).thenReturn(state);
 
         CountDownLatch inProgress = new CountDownLatch(1);
         doAnswer(invocation -> {
@@ -683,8 +698,8 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
         );
 
         // make sure request data end time is assigned after state initialization to pass Inferencer.tryProcess method time check.
-        long start = System.currentTimeMillis() - 100;
-        long end = System.currentTimeMillis();
+        long start = lastInputTimestamp;
+        long end = start + intervalInMinutes * 60L * 1000L;
         AnomalyResultRequest request = new AnomalyResultRequest(adID, start, end);
         PlainActionFuture<AnomalyResultResponse> listener = new PlainActionFuture<>();
         action.doExecute(null, request, listener);
@@ -1669,7 +1684,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
 
     public void testLongIntervalColdEntityQueue() throws InterruptedException {
         AnomalyDetector longIntervalDetector = mock(AnomalyDetector.class);
-        when(longIntervalDetector.isLongInterval()).thenReturn(true);
+        when(longIntervalDetector.isLongFrequency()).thenReturn(true);
         when(longIntervalDetector.getId()).thenReturn(adID);
         when(longIntervalDetector.getEnabledFeatureIds()).thenReturn(Collections.singletonList(featureId));
         when(longIntervalDetector.getEnabledFeatureNames()).thenReturn(Collections.singletonList(featureName));
@@ -1739,7 +1754,7 @@ public class AnomalyResultTests extends AbstractTimeSeriesTest {
 
     public void testShortIntervalCheckpointQueue() throws InterruptedException {
         AnomalyDetector shortIntervalDetector = mock(AnomalyDetector.class);
-        when(shortIntervalDetector.isLongInterval()).thenReturn(false);
+        when(shortIntervalDetector.isLongFrequency()).thenReturn(false);
         when(shortIntervalDetector.getId()).thenReturn(adID);
         when(shortIntervalDetector.getEnabledFeatureIds()).thenReturn(Collections.singletonList(featureId));
         when(shortIntervalDetector.getEnabledFeatureNames()).thenReturn(Collections.singletonList(featureName));

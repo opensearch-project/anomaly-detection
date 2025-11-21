@@ -1,0 +1,64 @@
+name: Run performance tests
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  Get-CI-Image-Tag:
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    with:
+      product: opensearch
+
+  Run-Performance-Tests:
+    needs: Get-CI-Image-Tag
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Run the BatchADSchedulingCheckpointIT performance test
+        test: [batch_ad_perf]
+      fail-fast: false
+    concurrency:
+      # The concurrency setting is used to limit the concurrency of each test scenario group to ensure they do not run concurrently on the same machine.
+      group: ${{ github.workflow }}-${{ matrix.test }}
+    name: Run performance tests
+
+    container:
+      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
+      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
+      options: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-options }}
+
+    steps:
+      - name: Run start commands
+        run: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-command }}
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Checkout AD
+        uses: actions/checkout@v4
+
+      - name: Build and Run Performance Tests
+        run: |
+          chown -R 1000:1000 `pwd`
+          case ${{ matrix.test }} in
+            batch_ad_perf)
+              su `id -un 1000` -c "./gradlew ':integTest' --tests 'org.opensearch.ad.e2e.BatchADSchedulingCheckpointIT' \
+                -Dtests.seed=B4BA12CCF1D9E825 \
+                -Dtests.security.manager=false \
+                -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
+                -Dtests.locale=ar-JO \
+                -Dtests.timezone=Asia/Samarkand \
+                -Dtests.timeoutSuite=3600000 \
+                -Dtests.output=true \
+                --console=plain \
+                -Dperf=true"
+              ;;
+          esac

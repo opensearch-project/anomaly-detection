@@ -228,8 +228,9 @@ public class PriorityTracker {
     /**
      * Update an entity's priority with count increment
      * @param entityId Entity Id
+     * @return the updated priority
      */
-    public void updatePriority(String entityId) {
+    public float updatePriority(String entityId) {
         PriorityNode node = key2Priority.computeIfAbsent(entityId, k -> new PriorityNode(entityId, 0f));
         // reposition this node
         this.priorityList.remove(node);
@@ -237,6 +238,7 @@ public class PriorityTracker {
         this.priorityList.add(node);
 
         adjustSizeIfRequired();
+        return node.priority;
     }
 
     /**

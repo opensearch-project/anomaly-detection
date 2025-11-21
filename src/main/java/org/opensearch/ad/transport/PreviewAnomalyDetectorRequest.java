@@ -17,6 +17,7 @@ import java.time.Instant;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.DocRequest;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -74,6 +75,11 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest implements DocR
     @Override
     public ActionRequestValidationException validate() {
         return null;
+    }
+
+    @Override
+    public String type() {
+        return ADCommonName.AD_RESOURCE_TYPE;
     }
 
     @Override

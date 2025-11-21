@@ -261,7 +261,9 @@ public abstract class AbstractForecasterActionHandler<T extends ActionResponse> 
             config.getCustomResultIndexMinAge(),
             config.getCustomResultIndexTTL(),
             config.getFlattenResultIndexMapping(),
-            breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime()
+            breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime(),
+            config.getFrequency(),
+            config.getAutoCreated()
         );
     }
 

@@ -168,10 +168,9 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> executeRunOnce(forecastID, request, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                ForecastCommonName.FORECAST_RESOURCE_TYPE,
+                () -> executeRunOnce(forecastID, request, listener),
+                () -> resolveUserAndExecute(
                     user,
                     forecastID,
                     filterByEnabled,
@@ -181,8 +180,7 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
                     clusterService,
                     xContentRegistry,
                     Forecaster.class
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

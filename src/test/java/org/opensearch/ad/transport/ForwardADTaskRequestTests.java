@@ -38,6 +38,7 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.common.exception.VersionException;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
@@ -60,6 +61,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
     }
 
     public void testNullDetectorIdAndTaskAction() throws IOException {
+        IntervalTimeConfiguration interval = (IntervalTimeConfiguration) randomIntervalTimeConfiguration();
         AnomalyDetector detector = new AnomalyDetector(
             null,
             randomLong(),
@@ -69,7 +71,7 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(),
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -87,7 +89,9 @@ public class ForwardADTaskRequestTests extends OpenSearchSingleNodeTestCase {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval,
+            null
         );
         ForwardADTaskRequest request = new ForwardADTaskRequest(detector, null, null, null, null, Version.V_2_1_0);
         ActionRequestValidationException validate = request.validate();

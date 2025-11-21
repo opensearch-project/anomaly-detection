@@ -9,7 +9,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,13 +17,17 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.TreeSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.forecast.caching.ForecastCacheProvider;
 import org.opensearch.forecast.caching.ForecastPriorityCache;
 import org.opensearch.forecast.model.Forecaster;
@@ -33,7 +36,7 @@ import org.opensearch.forecast.ratelimit.ForecastSaveResultStrategy;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.Scheduler.ScheduledCancellable;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -84,7 +87,7 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
             cacheProvider,
             threadPool,
             clock,
-            mock(NodeStateManager.class)
+            mock(SearchFeatureDao.class)
         );
 
         // Set up the Config object with an interval duration
@@ -104,12 +107,12 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
         String modelId = "testModelId";
 
         // Add entries to sampleQueues and modelLocks
-        Map<String, ExpiringValue<PriorityQueue<Sample>>> sampleQueues = inferencer.getSampleQueues();
+        Map<String, ExpiringValue<TreeSet<Sample>>> sampleQueues = inferencer.getSampleQueues();
         Map<String, ExpiringValue<Lock>> modelLocks = inferencer.getModelLocks();
 
         // Create a sample queue and add to sampleQueues
-        PriorityQueue<Sample> sampleQueue = new PriorityQueue<>();
-        ExpiringValue<PriorityQueue<Sample>> expiringSampleQueue = new ExpiringValue<>(sampleQueue, expirationTimeInMillis, clock);
+        TreeSet<Sample> sampleQueue = new TreeSet<>();
+        ExpiringValue<TreeSet<Sample>> expiringSampleQueue = new ExpiringValue<>(sampleQueue, expirationTimeInMillis, clock);
 
         sampleQueues.put(modelId, expiringSampleQueue);
 
@@ -140,12 +143,12 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
         String modelId = "testModelId";
 
         // Add entries to sampleQueues and modelLocks
-        Map<String, ExpiringValue<PriorityQueue<Sample>>> sampleQueues = inferencer.getSampleQueues();
+        Map<String, ExpiringValue<TreeSet<Sample>>> sampleQueues = inferencer.getSampleQueues();
         Map<String, ExpiringValue<Lock>> modelLocks = inferencer.getModelLocks();
 
         // Create a sample queue and add to sampleQueues
-        PriorityQueue<Sample> sampleQueue = new PriorityQueue<>();
-        ExpiringValue<PriorityQueue<Sample>> expiringSampleQueue = new ExpiringValue<>(sampleQueue, expirationTimeInMillis, clock);
+        TreeSet<Sample> sampleQueue = new TreeSet<>();
+        ExpiringValue<TreeSet<Sample>> expiringSampleQueue = new ExpiringValue<>(sampleQueue, expirationTimeInMillis, clock);
 
         sampleQueues.put(modelId, expiringSampleQueue);
 
@@ -170,7 +173,7 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
         assertFalse(modelLocks.containsKey(modelId));
     }
 
-    public void testProcessWithTimeout_LockNotAcquired_TimeoutReached() {
+    public void testProcessWithTimeout_LockNotAcquired_TimeoutReached() throws InterruptedException {
         // Set up the Config object
         when(config.getIntervalInMilliseconds()).thenReturn(60000L); // 60 seconds in milliseconds
         when(config.getWindowDelay()).thenReturn(null);
@@ -203,16 +206,25 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
         when(clock.millis()).thenReturn(nextExecutionEnd + 1); // Set clock.millis() to 61001 to simulate timeout
 
         // Call processWithTimeout
-        boolean result = inferencer.processWithTimeout(modelState, config, "taskId", sample);
+        final CountDownLatch inprogress = new CountDownLatch(1);
+        AtomicBoolean result = new AtomicBoolean(true);
+        inferencer.processWithTimeout(modelState, config, "taskId", sample, ActionListener.wrap(response -> {
+            result.set(response);
+            inprogress.countDown();
+        }, exception -> {
+            inprogress.countDown();
+            fail("should not have exception");
+        }));
 
         // Verify that the method returns false
-        assertFalse(result);
+        assertTrue(inprogress.await(100, TimeUnit.SECONDS));
+        assertFalse(result.get());
 
         // Verify that threadPool.schedule is NOT called
         verify(threadPool, never()).schedule(any(Runnable.class), any(TimeValue.class), anyString());
     }
 
-    public void testProcessWithTimeout_LockNotAcquired_ScheduleRetry() {
+    public void testProcessWithTimeout_LockNotAcquired_ScheduleRetry() throws InterruptedException {
         // Set up the Config object
         when(config.getIntervalInMilliseconds()).thenReturn(60000L); // 60 seconds in milliseconds
         when(config.getWindowDelay()).thenReturn(null);
@@ -242,7 +254,14 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
         long windowDelayMillis = 0L; // Since getWindowDelay() returns null
         long curExecutionEnd = 1000L + windowDelayMillis; // sample data end time + window delay
         long nextExecutionEnd = curExecutionEnd + config.getIntervalInMilliseconds(); // Should be 1000 + 60000 = 61000
-        when(clock.millis()).thenReturn(nextExecutionEnd - 1); // Set clock.millis() to 60999 to simulate timeout not reached
+        // when(clock.millis()).thenReturn(nextExecutionEnd - 1); // Set clock.millis() to 60999 to simulate timeout not reached
+        when(clock.millis()).thenReturn(
+            0L,                // ExpiringValue ctor
+            nextExecutionEnd - 1, // first attempt (if condition + log)
+            nextExecutionEnd - 1,
+            nextExecutionEnd + 1, // second attempt hits timeout branch
+            nextExecutionEnd + 1
+        );
 
         // Mock the threadPool.schedule method to capture the Runnable
         ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
@@ -253,10 +272,21 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
             .thenReturn(mock(ScheduledCancellable.class));
 
         // Call processWithTimeout
-        boolean result = inferencer.processWithTimeout(modelState, config, "taskId", sample);
+        final CountDownLatch inprogress = new CountDownLatch(1);
+        AtomicBoolean result = new AtomicBoolean(true);
+        inferencer.processWithTimeout(modelState, config, "taskId", sample, ActionListener.wrap(response -> {
+            result.set(response);
+            inprogress.countDown();
+        }, exception -> {
+            inprogress.countDown();
+            fail("should not have exception");
+        }));
 
         // Verify that the method returns false
-        assertFalse(result);
+        runnableCaptor.getValue().run();
+        assertTrue(inprogress.await(100, TimeUnit.SECONDS));
+        // timeout reached, not retrying
+        assertFalse(result.get());
 
         // Verify that threadPool.schedule is called
         verify(threadPool, times(1)).schedule(any(Runnable.class), any(TimeValue.class), anyString());
@@ -268,66 +298,5 @@ public class ForecastRealTimeInferencerTests extends OpenSearchTestCase {
         // Verify that the scheduled time is 1 second
         TimeValue scheduledTimeValue = timeValueCaptor.getValue();
         assertEquals(1, scheduledTimeValue.seconds());
-    }
-
-    public void testTryProcess_IncorrectOrderingOfTimeException() {
-        // Set up mocks
-        String modelId = "testModelId";
-        when(modelState.getModelId()).thenReturn(modelId);
-        when(config.getId()).thenReturn("testConfigId");
-        when(sample.getDataEndTime()).thenReturn(Instant.ofEpochMilli(1000L));
-
-        // Mock modelManager to throw IllegalArgumentException with message containing "incorrect ordering of time"
-        IllegalArgumentException exception = new IllegalArgumentException("incorrect ordering of time");
-        when(modelManager.getResult(sample, modelState, modelId, config, "taskId")).thenThrow(exception);
-
-        // Spy on inferencer to verify method calls
-        ForecastRealTimeInferencer spyInferencer = spy(inferencer);
-
-        // Call tryProcess
-        boolean result = spyInferencer.tryProcess(sample, modelState, config, "taskId", 1000L);
-
-        // Verify that the method returns false
-        assertFalse(result);
-
-        // Verify that reColdStart is NOT called
-        verify(spyInferencer, never()).reColdStart(any(), anyString(), any(), any(), anyString());
-    }
-
-    public void testTryProcess_OtherIllegalArgumentException() {
-        // Set up mocks
-        String modelId = "testModelId";
-        when(modelState.getModelId()).thenReturn(modelId);
-        when(config.getId()).thenReturn("testConfigId");
-        when(sample.getDataStartTime()).thenReturn(Instant.ofEpochMilli(1000L));
-        when(sample.getDataEndTime()).thenReturn(Instant.ofEpochMilli(1000L));
-
-        // Mock modelManager to throw IllegalArgumentException with a different message
-        IllegalArgumentException exception = new IllegalArgumentException("some other exception message");
-        when(modelManager.getResult(sample, modelState, modelId, config, "taskId")).thenThrow(exception);
-
-        // Spy on inferencer to verify method calls
-        ForecastRealTimeInferencer spyInferencer = spy(inferencer);
-
-        // Call tryProcess
-        boolean result = spyInferencer.tryProcess(sample, modelState, config, "taskId", 1000L);
-
-        // Verify that the method returns false
-        assertFalse(result);
-
-        // Verify that reColdStart is called once
-        verify(spyInferencer, times(1)).reColdStart(config, modelId, exception, sample, "taskId");
-
-        // Verify that stats.getStat is called with the correct argument
-        verify(stats, times(1)).getStat(anyString());
-
-        // Verify that timeSeriesStat.increment() is called
-        verify(timeSeriesStat, times(1)).increment();
-
-        // Verify that cache.get() is called
-        verify(cacheProvider, times(1)).get();
-
-        // Verify that cache.removeModel is called with correct arguments
-        verify(cache, times(1)).removeModel(config.getId(), modelId);
     }
 }

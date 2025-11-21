@@ -185,7 +185,7 @@ public abstract class CheckpointWriteWorker<RCFModelType, IndexType extends Enum
 
                 modelState.setLastCheckpointTime(clock.instant());
                 CheckpointWriteRequest request = new CheckpointWriteRequest(
-                    System.currentTimeMillis() + config.getIntervalInMilliseconds(),
+                    System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                     configId,
                     priority,
                     // If the document does not already exist, the contents of the upsert element
@@ -237,7 +237,7 @@ public abstract class CheckpointWriteWorker<RCFModelType, IndexType extends Enum
                     allRequests
                         .add(
                             new CheckpointWriteRequest(
-                                System.currentTimeMillis() + config.getIntervalInMilliseconds(),
+                                System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
                                 configId,
                                 priority,
                                 // If the document does not already exist, the contents of the upsert element

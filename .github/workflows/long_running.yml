@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         # each test scenario (rule, hc, single_stream) is treated as a separate job.
-        test: [smoke]
+        test: [smoke, frequency, forecast]
       fail-fast: false
     concurrency:
       # The concurrency setting is used to limit the concurrency of each test scenario group to ensure they do not run concurrently on the same machine.
@@ -51,6 +51,20 @@ jobs:
           case ${{ matrix.test }} in
             smoke)
               su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.SingleStreamSmokeIT' \
+                -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
+                -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
+                -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dlong-running=true \
+                -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
+              ;;
+            frequency)
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.ad.e2e.RealTimeFrequencySmokeIT' \
+                -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
+                -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
+                -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dlong-running=true \
+                -Dtests.timeoutSuite=3600000!  -Dtest.logs=true"
+              ;;
+            forecast)
+              su `id -un 1000` -c "./gradlew integTest --tests 'org.opensearch.forecast.rest.LongRunningForecastRestApiIT' \
                 -Dtests.seed=B4BA12CCF1D9E825 -Dtests.security.manager=false \
                 -Dtests.jvm.argline='-XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m' \
                 -Dtests.locale=ar-JO -Dtests.timezone=Asia/Samarkand -Dlong-running=true \

@@ -261,7 +261,7 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
     public boolean hostIfPossible(Config config, ModelState<RCFModelType> toUpdate) {
         // Although toUpdate may not have samples or model, we'll continue.
         // larger than 1hr interval, don't cache
-        if (toUpdate == null || config.isLongInterval()) {
+        if (toUpdate == null || config.isLongFrequency()) {
             return false;
         }
         String modelId = toUpdate.getModelId();
@@ -283,7 +283,6 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
 
         float priority = modelState.getPriority();
 
-        toUpdate.setLastUsedTime(clock.instant());
         toUpdate.setPriority(priority);
 
         // current buffer's dedicated cache has free slots or can allocate in shared cache
@@ -330,8 +329,7 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
         if (removed == null) {
             return;
         }
-        // set last used time for profile API so that we know when an entities is evicted
-        removed.setLastUsedTime(clock.instant());
+        // setModel sets last used time for profile API so that we know when an entities is evicted
         removed.setModel(null);
         inActiveEntities.put(removed.getModelId(), removed);
     }
@@ -351,7 +349,7 @@ public abstract class PriorityCache<RCFModelType extends ThresholdedRandomCutFor
         List<Entity> hotEntities = new ArrayList<>();
         List<Entity> coldEntities = new ArrayList<>();
 
-        if (config.isLongInterval()) {
+        if (config.isLongFrequency()) {
             // put long interval entities in cold queue as we don't want to cache it
             return Pair.of(hotEntities, new ArrayList<>(cacheMissEntities));
         }

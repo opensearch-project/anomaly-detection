@@ -18,10 +18,13 @@ import java.io.IOException;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.DocRequest;
+import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.timeseries.model.Entity;
 
 public class GetConfigRequest extends ActionRequest implements DocRequest {
@@ -143,6 +146,13 @@ public class GetConfigRequest extends ActionRequest implements DocRequest {
         } catch (IOException e) {
             throw new IllegalArgumentException("failed to parse ActionRequest into GetConfigRequest", e);
         }
+    }
+
+    @Override
+    public String type() {
+        return configIndex.startsWith(ADIndex.CONFIG.getIndexName())
+            ? ADCommonName.AD_RESOURCE_TYPE
+            : ForecastCommonName.FORECAST_RESOURCE_TYPE;
     }
 
     @Override

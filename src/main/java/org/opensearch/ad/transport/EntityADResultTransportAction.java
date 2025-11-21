@@ -11,13 +11,7 @@
 
 package org.opensearch.ad.transport;
 
-import java.util.Optional;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
 import org.opensearch.ad.caching.ADCacheProvider;
 import org.opensearch.ad.caching.ADPriorityCache;
 import org.opensearch.ad.indices.ADIndex;
@@ -38,19 +32,11 @@ import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.core.action.ActionListener;
-import org.opensearch.tasks.Task;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.breaker.CircuitBreakerService;
-import org.opensearch.timeseries.caching.CacheProvider;
-import org.opensearch.timeseries.common.exception.EndRunException;
-import org.opensearch.timeseries.common.exception.LimitExceededException;
-import org.opensearch.timeseries.constant.CommonMessages;
-import org.opensearch.timeseries.transport.EntityResultProcessor;
-import org.opensearch.timeseries.transport.EntityResultRequest;
-import org.opensearch.timeseries.util.ExceptionUtil;
+import org.opensearch.timeseries.transport.AbstractEntityResultTransportAction;
 import org.opensearch.transport.TransportService;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
@@ -74,19 +60,8 @@ import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
  * cold entities, and the model training and inference are connected by serial
  * juxtaposition to limit resource usage.
  */
-public class EntityADResultTransportAction extends HandledTransportAction<EntityResultRequest, AcknowledgedResponse> {
-
-    private static final Logger LOG = LogManager.getLogger(EntityADResultTransportAction.class);
-    private CircuitBreakerService adCircuitBreakerService;
-    private CacheProvider<ThresholdedRandomCutForest, ADPriorityCache> cache;
-    private final NodeStateManager stateManager;
-    private ThreadPool threadPool;
-    private EntityResultProcessor<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker, ADColdEntityWorker> intervalDataProcessor;
-
-    private final ADCacheProvider entityCache;
-    private final ADCheckpointReadWorker checkpointReadQueue;
-    private final ADColdEntityWorker coldEntityQueue;
-    private final ADRealTimeInferencer inferencer;
+public class EntityADResultTransportAction extends
+    AbstractEntityResultTransportAction<ThresholdedRandomCutForest, AnomalyResult, ThresholdingResult, ADIndex, ADIndexManagement, ADCheckpointDao, ADCheckpointWriteWorker, ADColdStart, ADModelManager, ADPriorityCache, ADSaveResultStrategy, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, ADColdStartWorker, ADRealTimeInferencer, ADCheckpointReadWorker, ADColdEntityWorker> {
 
     @Inject
     public EntityADResultTransportAction(
@@ -101,67 +76,19 @@ public class EntityADResultTransportAction extends HandledTransportAction<Entity
         ThreadPool threadPool,
         ADRealTimeInferencer inferencer
     ) {
-        super(EntityADResultAction.NAME, transportService, actionFilters, EntityResultRequest::new);
-        this.adCircuitBreakerService = adCircuitBreakerService;
-        this.cache = entityCache;
-        this.stateManager = stateManager;
-        this.threadPool = threadPool;
-
-        this.entityCache = entityCache;
-        this.checkpointReadQueue = checkpointReadQueue;
-        this.coldEntityQueue = coldEntityQueue;
-        this.intervalDataProcessor = null;
-        this.inferencer = inferencer;
+        super(
+            EntityADResultAction.NAME,
+            transportService,
+            actionFilters,
+            adCircuitBreakerService,
+            entityCache,
+            stateManager,
+            threadPool,
+            TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME,
+            checkpointReadQueue,
+            coldEntityQueue,
+            inferencer
+        );
     }
 
-    @Override
-    protected void doExecute(Task task, EntityResultRequest request, ActionListener<AcknowledgedResponse> listener) {
-        if (adCircuitBreakerService.isOpen()) {
-            threadPool
-                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
-                .execute(() -> cache.get().releaseMemoryForOpenCircuitBreaker());
-            listener.onFailure(new LimitExceededException(request.getConfigId(), CommonMessages.MEMORY_CIRCUIT_BROKEN_ERR_MSG, false));
-            return;
-        }
-
-        try {
-            String detectorId = request.getConfigId();
-
-            Optional<Exception> previousException = stateManager.fetchExceptionAndClear(detectorId);
-
-            if (previousException.isPresent()) {
-                Exception exception = previousException.get();
-                LOG.error("Previous exception of {}: {}", detectorId, exception);
-                if (exception instanceof EndRunException) {
-                    EndRunException endRunException = (EndRunException) exception;
-                    if (endRunException.isEndNow()) {
-                        listener.onFailure(exception);
-                        return;
-                    }
-                }
-
-                listener = ExceptionUtil.wrapListener(listener, exception, detectorId);
-            }
-
-            this.intervalDataProcessor = new EntityResultProcessor<>(
-                entityCache,
-                checkpointReadQueue,
-                coldEntityQueue,
-                inferencer,
-                threadPool,
-                TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
-            );
-
-            stateManager
-                .getConfig(
-                    detectorId,
-                    request.getAnalysisType(),
-                    true,
-                    intervalDataProcessor.onGetConfig(listener, detectorId, request, previousException, request.getAnalysisType())
-                );
-        } catch (Exception exception) {
-            LOG.error("fail to get entity's anomaly grade", exception);
-            listener.onFailure(exception);
-        }
-    }
 }

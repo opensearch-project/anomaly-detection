@@ -107,12 +107,17 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
     public static int batchSize = 1000;
     public static String DAILY_INTERVAL_DATA = "daily_interval";
 
-    /** The anchor used by the original sample‑data loader */
-    private static final Instant ORIGINAL_MARKER = Instant.parse("2018-08-01T00:00:00Z");
+    /** The anchor used by the original sample‑data loader
+     * source: https://tinyurl.com/2s5xx4mc */
+    private static final Instant SAMPLE_LOG_ORIGINAL_MARKER = Instant.parse("2018-08-01T00:00:00Z");
+
+    /** The anchor used by the original sample‑ecommerce loader
+     * source: https://tinyurl.com/5acrxaw2 */
+    private static final Instant SAMPLE_ECOMMERCE_ORIGINAL_MARKER = Instant.parse("2016-12-11T00:00:00Z");
 
     /** How much to shift every timestamp so ORIGINAL_MARKER → now() */
-    private static Duration computeDelta() {
-        return Duration.between(ORIGINAL_MARKER, Instant.now());
+    private static Duration computeDelta(Instant startTimestamp) {
+        return Duration.between(startTimestamp, Instant.now());
     }
 
     /** Mapping for opensearch_dashboards_sample_data_logs (identical to field_mappings.ts) */
@@ -163,6 +168,75 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
         + "    }\n"
         + "  }\n"
         + "}";               // end SAMPLE_LOGS_MAPPING_JSON
+
+    /** Mapping for opensearch_dashboards_sample_data_logs based on ecommerce field mappings structure */
+    public static final String SAMPLE_ECOMMERCE_LOGS_MAPPING_JSON = "{\n"
+        + "  \"settings\": {\n"
+        + "    \"number_of_shards\": 1,\n"
+        + "    \"auto_expand_replicas\": \"0-all\"\n"
+        + "  },\n"
+        + "  \"mappings\": {\n"
+        + "    \"properties\": {\n"
+        + "      \"customer_first_name\": { \"type\": \"keyword\" },\n"
+        + "      \"customer_full_name\": { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"customer_gender\": { \"type\": \"keyword\" },\n"
+        + "      \"customer_id\": { \"type\": \"keyword\" },\n"
+        + "      \"customer_last_name\": { \"type\": \"keyword\" },\n"
+        + "      \"customer_phone\": { \"type\": \"keyword\" },\n"
+        + "      \"day_of_week\": { \"type\": \"keyword\" },\n"
+        + "      \"day_of_week_i\": { \"type\": \"integer\" },\n"
+        + "      \"email\": { \"type\": \"keyword\" },\n"
+        + "      \"event\": {\n"
+        + "        \"properties\": {\n"
+        + "          \"dataset\": { \"type\": \"keyword\" }\n"
+        + "        }\n"
+        + "      },\n"
+        + "      \"geoip\": {\n"
+        + "        \"properties\": {\n"
+        + "          \"city_name\": { \"type\": \"keyword\" },\n"
+        + "          \"continent_name\": { \"type\": \"keyword\" },\n"
+        + "          \"country_iso_code\": { \"type\": \"keyword\" },\n"
+        + "          \"location\": { \"type\": \"geo_point\" },\n"
+        + "          \"region_name\": { \"type\": \"keyword\" }\n"
+        + "        }\n"
+        + "      },\n"
+        + "      \"manufacturer\": { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "      \"order_date\": { \"type\": \"date\" },\n"
+        + "      \"order_id\": { \"type\": \"keyword\" },\n"
+        + "      \"products\": {\n"
+        + "        \"properties\": {\n"
+        + "          \"_id\": { \"type\": \"keyword\" },\n"
+        + "          \"base_price\": { \"type\": \"double\" },\n"
+        + "          \"base_unit_price\": { \"type\": \"double\" },\n"
+        + "          \"category\": { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "          \"created_on\": { \"type\": \"date\" },\n"
+        + "          \"discount_amount\": { \"type\": \"double\" },\n"
+        + "          \"discount_percentage\": { \"type\": \"double\" },\n"
+        + "          \"manufacturer\": { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "          \"min_price\": { \"type\": \"double\" },\n"
+        + "          \"price\": { \"type\": \"double\" },\n"
+        + "          \"product_id\": { \"type\": \"keyword\" },\n"
+        + "          \"product_name\": { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\", \"ignore_above\": 256 } } },\n"
+        + "          \"quantity\": { \"type\": \"integer\" },\n"
+        + "          \"sku\": { \"type\": \"keyword\" },\n"
+        + "          \"tax_amount\": { \"type\": \"double\" },\n"
+        + "          \"taxful_price\": { \"type\": \"double\" },\n"
+        + "          \"taxless_price\": { \"type\": \"double\" },\n"
+        + "          \"unit_discount_amount\": { \"type\": \"double\" }\n"
+        + "        }\n"
+        + "      },\n"
+        + "      \"sku\": { \"type\": \"keyword\" },\n"
+        + "      \"taxful_total_price\": { \"type\": \"double\" },\n"
+        + "      \"taxless_total_price\": { \"type\": \"double\" },\n"
+        + "      \"total_quantity\": { \"type\": \"integer\" },\n"
+        + "      \"total_unique_products\": { \"type\": \"integer\" },\n"
+        + "      \"type\": { \"type\": \"keyword\" },\n"
+        + "      \"user\": { \"type\": \"keyword\" },\n"
+        + "      \"@timestamp\": { \"type\": \"alias\", \"path\": \"order_date\" },\n"
+        + "      \"timestamp\": { \"type\": \"alias\", \"path\": \"order_date\" }\n"
+        + "    }\n"
+        + "  }\n"
+        + "}";               // end SAMPLE_ECOMMERCE_LOGS_MAPPING_JSON
 
     /**
      * In real time AD, we mute a node for a detector if that node keeps returning
@@ -234,7 +308,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                 request = new Request("POST", String.format(Locale.ROOT, "/%s/_refresh", datasetName));
                 client.performRequest(request);
             }
-            Thread.sleep(1_000);
+            Thread.sleep(2_000);
         } while (maxWaitCycles-- >= 0);
         if (maxWaitCycles <= 0) {
             LOG.info("Cannot find hit {}", expectedSize);
@@ -827,7 +901,7 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
             String line;
             int id = 0;
             Instant lastTs = null;
-            final Duration delta = computeDelta();
+            final Duration delta = computeDelta(SAMPLE_LOG_ORIGINAL_MARKER);
 
             while ((line = br.readLine()) != null) {
                 if (line.isBlank()) {
@@ -840,8 +914,84 @@ public class AbstractSyntheticDataTest extends ODFERestTestCase {
                 for (String tf : List.of("timestamp", "utc_time")) {
                     Instant original = Instant.parse(doc.get(tf).getAsString());
                     Instant shifted = original.plus(delta);
-                    doc.addProperty(tf, shifted.toString());   // ISO‑8601 w/ Z
-                    lastTs = shifted;                            // remember newest
+                    doc.addProperty(tf, shifted.toString()); // ISO‑8601 w/ Z
+                    lastTs = shifted; // remember newest
+                }
+
+                bulk.append("{\"index\":{\"_index\":\"").append(dataSet).append("\",\"_id\":\"").append(id++).append("\"}}\n");
+                bulk.append(doc.toString()).append('\n');
+
+                if (id > 0 && id % 1000 == 0) {
+                    TestHelpers
+                        .makeRequest(
+                            client,
+                            "POST",
+                            "_bulk?refresh=wait_for",
+                            null,
+                            toHttpEntity(bulk.toString()),
+                            ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Dashboards"))
+                        );
+                    bulk.setLength(0);
+                }
+            }
+
+            LOG.info("last timestamp {} in id {}", lastTs, id - 1);
+
+            if (bulk.length() > 0) {
+                TestHelpers
+                    .makeRequest(
+                        client,
+                        "POST",
+                        "_bulk?refresh=wait_for",
+                        null,
+                        toHttpEntity(bulk.toString()),
+                        ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Dashboards"))
+                    );
+            }
+
+            waitAllSyntheticDataIngested(id, dataSet, client);
+            return lastTs;
+        }
+    }
+
+    /** Bulk-indexes every document from <code>sample_logs_data.json.gz</code>. */
+    protected Instant loadSampleEcommerce(String dataSet) throws Exception {
+
+        RestClient client = client();
+        createIndex(dataSet, client, SAMPLE_ECOMMERCE_LOGS_MAPPING_JSON);
+
+        try (
+            BufferedReader br = new BufferedReader(
+                new InputStreamReader(
+                    new GZIPInputStream(
+                        AbstractSyntheticDataTest.class.getClassLoader().getResourceAsStream("org/opensearch/ad/e2e/data/ecommerce.json.gz")
+                    ),
+                    StandardCharsets.UTF_8
+                )
+            )
+        ) {
+
+            StringBuilder bulk = new StringBuilder();
+            String line;
+            int id = 0;
+            Instant lastTs = null;
+            final Duration delta = computeDelta(SAMPLE_ECOMMERCE_ORIGINAL_MARKER);
+
+            while ((line = br.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                JsonObject doc = JsonParser.parseString(line).getAsJsonObject();
+
+                /* shift `order_date` */
+                for (String tf : List.of("order_date")) {
+                    if (doc.has(tf) && !doc.get(tf).isJsonNull()) {
+                        Instant original = Instant.parse(doc.get(tf).getAsString());
+                        Instant shifted = original.plus(delta);
+                        doc.addProperty(tf, shifted.toString());   // ISO‑8601 w/ Z
+                        lastTs = shifted;                            // remember newest
+                    }
                 }
 
                 bulk.append("{\"index\":{\"_index\":\"").append(dataSet).append("\",\"_id\":\"").append(id++).append("\"}}\n");

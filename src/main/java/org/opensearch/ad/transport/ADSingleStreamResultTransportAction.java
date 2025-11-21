@@ -75,7 +75,7 @@ public class ADSingleStreamResultTransportAction extends
     @Override
     public ADResultWriteRequest createResultWriteRequest(Config config, AnomalyResult result) {
         return new ADResultWriteRequest(
-            System.currentTimeMillis() + config.getIntervalInMilliseconds(),
+            System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
             config.getId(),
             RequestPriority.MEDIUM,
             result,

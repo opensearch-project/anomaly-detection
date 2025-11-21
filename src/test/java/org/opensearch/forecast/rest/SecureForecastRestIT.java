@@ -5,14 +5,20 @@
 
 package org.opensearch.forecast.rest;
 
+import static org.opensearch.timeseries.TestHelpers.patchSharingInfo;
+import static org.opensearch.timeseries.TestHelpers.shareConfig;
+import static org.opensearch.timeseries.TestHelpers.shareWithUserPayload;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpHeaders;
@@ -23,6 +29,7 @@ import org.apache.logging.log4j.core.Logger;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -31,6 +38,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.commons.rest.SecureRestClientBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.forecast.AbstractForecastSyntheticDataTest;
+import org.opensearch.forecast.constant.ForecastCommonName;
 import org.opensearch.forecast.model.ForecastTaskProfile;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.search.SearchHit;
@@ -67,19 +75,23 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     private static final String ENTITY_VALUE = "S*";
     private static final String PHOENIX_VALUE = "Phoenix";
 
-    private static final String searchForecasterRequest = "{\n"
-        + "    \"query\": {\n"
-        + "        \"bool\": {\n"
-        + "            \"filter\": {\n"
-        + "                \"wildcard\": {\n"
-        + "                    \"indices\": {\n"
-        + "                        \"value\": \"r*\"\n"
-        + "                    }\n"
-        + "                }\n"
-        + "            }\n"
-        + "        }\n"
-        + "    }\n"
-        + "}";
+    private static final String READ_ONLY_AG = "forecast_read_only";
+    private static final String FULL_ACCESS_AG = "forecast_full_access";
+
+    private static final String searchForecasterRequest = """
+        {
+            "query": {
+                "bool": {
+                    "filter": {
+                        "wildcard": {
+                            "indices": {
+                                "value": "r*"
+                            }
+                        }
+                    }
+                }
+            }
+        }""";
 
     private RestClient fullClient;
     private RestClient readClient;
@@ -674,6 +686,9 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         Map<String, Object> responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, fullClient);
+        }
 
         // case 2: given a forecaster Id, read access user cannot start the forecaster
         exception = expectThrows(
@@ -688,11 +703,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     null
                 )
         );
-        Assert
-            .assertTrue(
-                "actual: " + exception.getMessage(),
-                exception.getMessage().contains("no permissions for [cluster:admin/plugin/forecast/forecaster/jobmanagement]")
-            );
+        String message = "no permissions for [cluster:admin/plugin/forecast/forecaster/jobmanagement]";
+        Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
 
         // case 3: given a forecaster Id, full access user can start the forecaster
         response = TestHelpers
@@ -711,20 +723,39 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         // case 4: given a forecaster Id, read access user can read results
         List<SearchHit> hits = waitUntilResultAvailable(readClient);
 
-        // case 5: given a forecaster Id, read access user can look up forecaster configuration
-        response = TestHelpers
-            .makeRequest(
-                readClient,
-                "GET",
-                String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
+        // case 5: given a forecaster Id, read access user can
+        if (isResourceSharingFeatureEnabled()) {
+            // not look up forecaster configuration for full-client's forecaster
+            exception = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        readClient,
+                        "GET",
+                        String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                        ImmutableMap.of(),
+                        (HttpEntity) null,
+                        null
+                    )
             );
+            message = "no permissions for [cluster:admin/plugin/forecast/forecasters/get]";
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
+        } else {
+            // look up forecaster configuration if resource sharing feature is disabled
+            response = TestHelpers
+                .makeRequest(
+                    readClient,
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
 
-        responseMap = entityAsMap(response);
-        String parsedName = (String) ((Map<String, Object>) responseMap.get("forecaster")).get("name");
-        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", NAME, parsedName), NAME, parsedName);
+            responseMap = entityAsMap(response);
+            String parsedName = (String) ((Map<String, Object>) responseMap.get("forecaster")).get("name");
+            assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", NAME, parsedName), NAME, parsedName);
+        }
 
         // case 6: read access user can run top forecast on an HC forecaster
         long forecastFrom = (long) (hits.get(0).getSourceAsMap().get("data_end_time"));
@@ -777,32 +808,68 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 ENTITY_VALUE
             );
 
-        response = TestHelpers
-            .makeRequest(
-                readClient,
-                "POST",
-                String.format(Locale.ROOT, TOP_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                TestHelpers.toHttpEntity(topForcastRequest),
-                null
+        if (isResourceSharingFeatureEnabled()) {
+            // not look up forecaster configuration for full-client's forecaster
+            exception = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        readClient,
+                        "POST",
+                        String.format(Locale.ROOT, TOP_FORECASTER, forecasterId),
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity(topForcastRequest),
+                        null
+                    )
             );
-        responseMap = entityAsMap(response);
-        List<Object> parsedBuckets = (List<Object>) responseMap.get("buckets");
-        assertTrue(parsedBuckets.size() > 0);
+            message = "no permissions for [cluster:admin/plugin/forecast/forecasters/get]";
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    readClient,
+                    "POST",
+                    String.format(Locale.ROOT, TOP_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(topForcastRequest),
+                    null
+                );
+            responseMap = entityAsMap(response);
+            List<Object> parsedBuckets = (List<Object>) responseMap.get("buckets");
+            assertTrue(parsedBuckets.size() > 0);
+        }
 
         // case 7: read access user is able to run profile API
-        response = TestHelpers
-            .makeRequest(
-                readClient,
-                "GET",
-                String.format(Locale.ROOT, PROFILE_ALL_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
+        if (isResourceSharingFeatureEnabled()) {
+            // not look up forecaster configuration for full-client's forecaster
+            exception = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        readClient,
+                        "GET",
+                        String.format(Locale.ROOT, PROFILE_ALL_FORECASTER, forecasterId),
+                        ImmutableMap.of(),
+                        (HttpEntity) null,
+                        null
+                    )
             );
-        responseMap = entityAsMap(response);
-        String parsedState = (String) responseMap.get("state");
-        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", "RUNNING", parsedState), "RUNNING", parsedState);
+            message = "no permissions for [cluster:admin/plugin/forecast/forecasters/get]";
+            Assert.assertTrue("actual: " + exception.getMessage(), exception.getMessage().contains(message));
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    readClient,
+                    "GET",
+                    String.format(Locale.ROOT, PROFILE_ALL_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+            responseMap = entityAsMap(response);
+            String parsedState = (String) responseMap.get("state");
+            assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", "RUNNING", parsedState), "RUNNING", parsedState);
+        }
 
         // case 28: read access user is able to run stats API
         response = TestHelpers.makeRequest(readClient, "GET", STATS_FORECASTER, ImmutableMap.of(), (HttpEntity) null, null);
@@ -1055,7 +1122,12 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
         total = searchResponse.getHits().getTotalHits().value();
-        assertTrue("got: " + total, total > 0);
+        if (isResourceSharingFeatureEnabled()) {
+            // if resource sharing is enabled read client will not be able to see any forecasters since none are share with read user
+            assertEquals(0, total);
+        } else {
+            assertTrue("got: " + total, total > 0);
+        }
 
         // case 18: read access user cannot update forecaster
         ForecastTaskProfile forecastTaskProfile = (ForecastTaskProfile) waitUntilTaskReachState(
@@ -1213,7 +1285,13 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     null
                 )
         );
-        Assert.assertEquals(404, responseException.getResponse().getStatusLine().getStatusCode());
+        int status = responseException.getResponse().getStatusLine().getStatusCode();
+        if (isResourceSharingFeatureEnabled()) {
+            // if feature is enabled, read client will not have access to profile forecasters
+            assertEquals(403, status);
+        } else {
+            Assert.assertEquals(404, status);
+        }
 
         // case 25: Full access user cannot find forecasters that do not share their backend role
         try {
@@ -1229,7 +1307,13 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 );
             searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
             total = searchResponse.getHits().getTotalHits().value();
-            assertTrue("got: " + total, total == 0);
+            if (isResourceSharingFeatureEnabled()) {
+                // if resource sharing feature is enabled, user will be able to find forecasters they have created at the beginning of this
+                // test
+                assertEquals(1, total);
+            } else {
+                assertTrue("got: " + total, total == 0);
+            }
         } finally {
             disableFilterBy();
         }
@@ -1265,6 +1349,10 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
     }
 
     public void testFilterBy() throws IOException {
+        // filter-by should only be test when resource-sharing feature is disabled
+        if (isResourceSharingFeatureEnabled()) {
+            return;
+        }
         try {
             enableFilterBy();
 
@@ -1371,6 +1459,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             long total = searchResponse.getHits().getTotalHits().value();
             assertTrue("got: " + total, total == 1);
 
+            // we don't need to await here when resource-sharing is enabled as we do above, since the entry is expected to be populated.
             response = TestHelpers
                 .makeRequest(
                     devOpsClient,
@@ -1471,6 +1560,332 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         }
     }
 
+    public void testResourceSharing() throws IOException {
+        if (!isResourceSharingFeatureEnabled()) {
+            return;
+        }
+
+        // case 1: Both SDE and DevOps user create a forecaster. They can only see their own forecaster.
+        Response response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        Map<String, Object> responseMap = entityAsMap(response);
+        String devOpsForecasterId = (String) responseMap.get("_id");
+        assertNotNull(devOpsForecasterId);
+
+        String sdeForecasterDef = """
+            {
+                "name": "%s",
+                "description": "OK rate",
+                "time_field": "timestamp",
+                "indices": [ "%s" ],
+                "feature_attributes": [
+                    {
+                        "feature_id": "max1",
+                        "feature_name": "max1",
+                        "feature_enabled": true,
+                        "importance": 1,
+                        "aggregation_query": { "max1": { "max": { "field": "visitCount" } } }
+                    }
+                ],
+                "window_delay": { "period": { "interval": %d, "unit": "MINUTES" } },
+                "ui_metadata": { "aabb": { "ab": "bb" } },
+                "schema_version": 2,
+                "horizon": 24,
+                "forecast_interval": { "period": { "interval": 10, "unit": "MINUTES" } },
+                "category_field": ["%s"]
+            }""";
+
+        windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
+        String sdeForecaster = String
+            .format(Locale.ROOT, sdeForecasterDef, "sde-forcaster", RULE_DATASET_NAME, windowDelayMinutes, ENTITY_NAME);
+
+        response = TestHelpers
+            .makeRequest(
+                sdeClient,
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(sdeForecaster),
+                null
+            );
+        responseMap = entityAsMap(response);
+        String sdeForecasterId = (String) responseMap.get("_id");
+        assertTrue(!sdeForecasterId.equals(devOpsForecasterId));
+
+        Map<String, Object> forecaster = (Map<String, Object>) responseMap.get("forecaster");
+        String responseDescription = (String) forecaster.get("description");
+        assertEquals("Description encoding mismatch", "OK rate", responseDescription);
+
+        // if feature is enabled, we wait until sdeClient's resource sharing entry is populated before searching
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, sdeForecasterId), null, sdeClient);
+
+        response = TestHelpers
+            .makeRequest(
+                sdeClient,
+                "GET",
+                String.format(Locale.ROOT, SEARCH_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(searchForecasterRequest),
+                null
+            );
+        SearchResponse searchResponse = SearchResponse
+            .fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+        long total = searchResponse.getHits().getTotalHits().value();
+        assertTrue("got: " + total, total == 1);
+        assertEquals(searchResponse.getHits().getHits()[0].getId(), sdeForecasterId);
+
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "GET",
+                String.format(Locale.ROOT, SEARCH_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(searchForecasterRequest),
+                null
+            );
+        searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.getEntity().getContent()));
+        total = searchResponse.getHits().getTotalHits().value();
+        assertTrue("got: " + total, total == 1);
+        assertEquals(searchResponse.getHits().getHits()[0].getId(), devOpsForecasterId);
+
+        // case 2: Full access user cannot start/stop/delete forecaster created by other user
+        ResponseException responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    fullClient,
+                    "POST",
+                    String.format(Locale.ROOT, START_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, START_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String startId = (String) responseMap.get("_id");
+        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", devOpsForecasterId, startId), devOpsForecasterId, startId);
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    fullClient,
+                    "POST",
+                    String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String stopId = (String) responseMap.get("_id");
+        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", devOpsForecasterId, stopId), devOpsForecasterId, stopId);
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    fullClient,
+                    "DELETE",
+                    String.format(Locale.ROOT, DELETE_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        // ---------------------------
+        // case 3: SHARING + PATCH + REVOKE semantics
+        // ---------------------------
+
+        // (3a) Owner (devOps) shares READ_ONLY with SDE (users recipient)
+        Response shareROWithSde = shareConfig(
+            devOpsClient,
+            Map.of(),
+            shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, READ_ONLY_AG, sdeUser)
+        );
+        assertEquals(200, shareROWithSde.getStatusLine().getStatusCode());
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, sdeClient);
+
+        // SDE can now GET the devOps forecaster, but cannot start/stop/delete (read-only)
+        Response sdeGetDevOps = TestHelpers
+            .makeRequest(sdeClient, "GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, "", ImmutableList.of());
+        assertEquals(200, sdeGetDevOps.getStatusLine().getStatusCode());
+
+        ResponseException sdeStartForbidden = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "POST",
+                    String.format(Locale.ROOT, START_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, sdeStartForbidden.getResponse().getStatusLine().getStatusCode());
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "POST",
+                    String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        responseException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "DELETE",
+                    String.format(Locale.ROOT, DELETE_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                )
+        );
+        Assert.assertEquals(403, responseException.getResponse().getStatusLine().getStatusCode());
+
+        // (3b) Owner grants FULL_ACCESS to fullUser (users recipient), enabling delegation
+        Response grantFullToFullUser = shareConfig(
+            devOpsClient,
+            Map.of(),
+            shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, FULL_ACCESS_AG, fullUser)
+        );
+        assertEquals(200, grantFullToFullUser.getStatusLine().getStatusCode());
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, fullClient);
+
+        // fullClient can now start/stop
+        response = TestHelpers
+            .makeRequest(
+                fullClient,
+                "POST",
+                String.format(Locale.ROOT, START_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        assertEquals(200, response.getStatusLine().getStatusCode());
+
+        response = TestHelpers
+            .makeRequest(
+                fullClient,
+                "POST",
+                String.format(Locale.ROOT, STOP_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        assertEquals(200, response.getStatusLine().getStatusCode());
+
+        // (3c) fullClient (now full_access) PATCH shares READ_ONLY with phoenix user and SDE's backend role
+        Map<TestHelpers.Recipient, Set<String>> recs = new HashMap<>();
+        recs.put(TestHelpers.Recipient.USERS, Set.of(phoenixReadUser));
+        recs.put(TestHelpers.Recipient.BACKEND_ROLES, Set.of("SDE"));
+        TestHelpers.PatchSharingInfoPayloadBuilder builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).share(recs, READ_ONLY_AG);
+        String patchShareSdeBR = builder.build();
+
+        Response fullAddsSdeBR = patchSharingInfo(fullClient, Map.of(), patchShareSdeBR);
+        assertEquals(200, fullAddsSdeBR.getStatusLine().getStatusCode());
+        waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, phoenixReadClient);
+
+        // (3d) fullClient revokes the direct user-level READ_ONLY for SDE — SDE still has access via backend_role
+        recs = new HashMap<>();
+        recs.put(TestHelpers.Recipient.USERS, Set.of(sdeUser));
+        builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recs, READ_ONLY_AG);
+        String revokeSdeUserRO = builder.build();
+        Response fullRevokesSdeUser = patchSharingInfo(fullClient, Map.of(), revokeSdeUserRO);
+        assertEquals(200, fullRevokesSdeUser.getStatusLine().getStatusCode());
+
+        // SDE still has GET access through backend_role
+        sdeGetDevOps = TestHelpers
+            .makeRequest(sdeClient, "GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, "", ImmutableList.of());
+        assertEquals(200, sdeGetDevOps.getStatusLine().getStatusCode());
+
+        // (3e) fullClient revokes the backend_role READ_ONLY — SDE loses access now
+        recs = new HashMap<>();
+        recs.put(TestHelpers.Recipient.BACKEND_ROLES, Set.of("SDE"));
+        builder = new TestHelpers.PatchSharingInfoPayloadBuilder();
+        builder.configId(devOpsForecasterId).configType(ForecastCommonName.FORECAST_RESOURCE_TYPE).revoke(recs, READ_ONLY_AG);
+        String revokeSdeBR = builder.build();
+
+        Response fullRevokesSdeBR = patchSharingInfo(fullClient, Map.of(), revokeSdeBR);
+        assertEquals(200, fullRevokesSdeBR.getStatusLine().getStatusCode());
+        waitForRevokeNonVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, sdeClient);
+
+        ResponseException sdeGetForbidden = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(sdeClient, "GET", String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId), null, "", ImmutableList.of())
+        );
+        Assert.assertEquals(403, sdeGetForbidden.getResponse().getStatusLine().getStatusCode());
+
+        // (3f) Non-owner without full_access cannot share/revoke: SDE tries to share -> 403
+        ResponseException sdeShareForbidden = expectThrows(
+            ResponseException.class,
+            () -> shareConfig(
+                sdeClient,
+                Map.of(),
+                shareWithUserPayload(devOpsForecasterId, ForecastCommonName.FORECAST_RESOURCE_TYPE, READ_ONLY_AG, noUser)
+            )
+        );
+        Assert.assertEquals(403, sdeShareForbidden.getResponse().getStatusLine().getStatusCode());
+
+        // Finally, owner can delete
+        response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "DELETE",
+                String.format(Locale.ROOT, DELETE_FORECASTER, devOpsForecasterId),
+                ImmutableMap.of(),
+                (HttpEntity) null,
+                null
+            );
+        responseMap = entityAsMap(response);
+        String deleteId = (String) responseMap.get("_id");
+        assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", devOpsForecasterId, deleteId), devOpsForecasterId, deleteId);
+    }
+
     private List<SearchHit> createStartWaitResult(RestClient client) throws IOException, InterruptedException {
         Response response = TestHelpers
             .makeRequest(
@@ -1484,6 +1899,10 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         Map<String, Object> responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
+
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, client);
+        }
 
         response = TestHelpers
             .makeRequest(
@@ -1793,6 +2212,10 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         String forecasterId = (String) responseMap.get("_id");
         assertNotNull(forecasterId);
 
+        if (isResourceSharingFeatureEnabled()) {
+            waitForSharingVisibility("GET", String.format(Locale.ROOT, GET_FORECASTER, forecasterId), null, fullClient);
+        }
+
         responseException = expectThrows(
             ResponseException.class,
             () -> TestHelpers
@@ -1908,4 +2331,13 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
     }
 
+    private static boolean isForbidden(Exception e) {
+        if (e instanceof OpenSearchStatusException) {
+            return ((OpenSearchStatusException) e).status() == RestStatus.FORBIDDEN;
+        }
+        if (e instanceof ResponseException) {
+            return ((ResponseException) e).getResponse().getStatusLine().getStatusCode() == 403;
+        }
+        return false;
+    }
 }

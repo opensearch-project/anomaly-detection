@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -71,6 +72,12 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
     public void setUp() throws Exception {
         super.setUp();
         updateClusterSettings(ForecastEnabledSetting.FORECAST_ENABLED, true);
+        if (isHttps() && isResourceSharingFeatureEnabled()) {
+            // this is needed for tests running with security enabled and resource-sharing flag enabled
+            // the client being used doesn't seem to automatically grant access for some reason
+            createRoleMapping("all_access", new ArrayList<>(Arrays.asList("admin")));
+        }
+
     }
 
     /**
@@ -2082,15 +2089,19 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertEquals("opensearch-forecast-result-b", ((Map<String, Object>) responseMap.get("forecaster")).get("result_index"));
 
         // run once
-        response = TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
-            );
+        if (isResourceSharingFeatureEnabled()) {
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+        }
 
         ForecastTaskProfile forecastTaskProfile = (ForecastTaskProfile) waitUntilTaskReachState(
             forecasterId,
@@ -2640,7 +2651,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         return response;
     }
 
-    public void testCreateDetector() throws Exception {
+    public void testCreateForecaster() throws Exception {
         // Case 1: users cannot specify forecaster id when creating a forecaster
         Instant trainTime = loadRuleData(200);
         String forecasterDef = "{\n"
@@ -2704,7 +2715,7 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         assertNotEquals("response is missing Id", blahId, forecasterId);
     }
 
-    public void testUpdateDetector() throws Exception {
+    public void testUpdateForecaster() throws Exception {
         // Case 1: update non-impactful fields like name or description won't change last breaking change UI time
         Instant trainTime = loadRuleData(200);
         String forecasterDef = "{\n"
@@ -2809,15 +2820,26 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "        }\n"
             + "    }\n"
             + "}";
-        response = TestHelpers
-            .makeRequest(
-                client(),
+
+        if (isResourceSharingFeatureEnabled()) {
+            response = waitForSharingVisibility(
                 "PUT",
                 String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
-                ImmutableMap.of(),
                 TestHelpers.toHttpEntity(formattedForecaster),
-                null
+                client()
             );
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "PUT",
+                    String.format(Locale.ROOT, UPDATE_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(formattedForecaster),
+                    null
+                );
+        }
+
         responseMap = entityAsMap(response);
         assertEquals(null, responseMap.get("last_ui_breaking_change_time"));
 
@@ -3349,18 +3371,24 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             );
         Map<String, Object> responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
-        assertEquals("opensearch-forecast-result-b", ((Map<String, Object>) responseMap.get("forecaster")).get("result_index"));
+        Map<String, Object> forecaster = (Map<String, Object>) responseMap.get("forecaster");
+        assertEquals("opensearch-forecast-result-b", forecaster.get("result_index"));
+        assertEquals(null, forecaster.get("frequency"));
 
         // run once
-        response = TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
-            );
+        if (isResourceSharingFeatureEnabled()) {
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+        }
 
         ForecastTaskProfile forecastTaskProfile = (ForecastTaskProfile) waitUntilTaskReachState(
             forecasterId,
@@ -3710,15 +3738,19 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         responseMap = entityAsMap(response);
         String forecasterId = (String) responseMap.get("_id");
 
-        response = TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
-            );
+        if (isResourceSharingFeatureEnabled()) {
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+        }
 
         // ─── Initial wait ────────────────────────────────────────────────
         Thread.sleep(Duration.ofSeconds(20).toMillis());
@@ -3952,15 +3984,19 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         /* │── run-once until TEST_COMPLETE ─────────────────────────── */
         String forecasterId = createSampleLogForecaster(dataSet, intervalM, history, windowDelay);
 
-        TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
-                ImmutableMap.of(),
-                (HttpEntity) null,
-                null
-            );
+        if (isResourceSharingFeatureEnabled()) {
+            response = waitForSharingVisibility("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId), null, client());
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+        }
 
         waitForState(forecasterId, "run_once_task", "TEST_COMPLETE", Duration.ofSeconds(20), 6, client());
 
@@ -4035,4 +4071,5 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
             + "\n"
             + "}";
     }
+
 }

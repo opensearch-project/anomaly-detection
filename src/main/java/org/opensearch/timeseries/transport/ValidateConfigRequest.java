@@ -11,22 +11,25 @@
 
 package org.opensearch.timeseries.transport;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.action.DocRequest;
-import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.io.stream.InputStreamStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.forecast.indices.ForecastIndex;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.model.Config;
 
-public class ValidateConfigRequest extends ActionRequest implements DocRequest {
+public class ValidateConfigRequest extends ActionRequest {
 
     private final AnalysisType context;
     private final Config config;
@@ -124,16 +127,24 @@ public class ValidateConfigRequest extends ActionRequest implements DocRequest {
         return maxCategoricalFields;
     }
 
-    @Override
-    public String index() {
-        if (context.isAD()) {
-            return ADIndex.CONFIG.getIndexName();
+    public static ValidateConfigRequest fromActionRequest(
+        final ActionRequest actionRequest,
+        NamedWriteableRegistry namedWriteableRegistry
+    ) {
+        if (actionRequest instanceof ValidateConfigRequest) {
+            return (ValidateConfigRequest) actionRequest;
         }
-        return ForecastIndex.CONFIG.getIndexName();
-    }
 
-    @Override
-    public String id() {
-        return config.getId();
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput osso = new OutputStreamStreamOutput(baos)) {
+            actionRequest.writeTo(osso);
+            try (
+                StreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()));
+                NamedWriteableAwareStreamInput namedInput = new NamedWriteableAwareStreamInput(input, namedWriteableRegistry)
+            ) {
+                return new ValidateConfigRequest(namedInput);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to parse ActionRequest into ValidateConfigRequest", e);
+        }
     }
 }

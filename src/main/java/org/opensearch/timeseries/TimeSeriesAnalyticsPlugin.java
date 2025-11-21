@@ -67,6 +67,7 @@ import org.opensearch.ad.ratelimit.ADColdStartWorker;
 import org.opensearch.ad.ratelimit.ADResultWriteWorker;
 import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
 import org.opensearch.ad.rest.RestAnomalyDetectorJobAction;
+import org.opensearch.ad.rest.RestAnomalyDetectorSuggestAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyDetectorAction;
 import org.opensearch.ad.rest.RestDeleteAnomalyResultsAction;
 import org.opensearch.ad.rest.RestExecuteAnomalyDetectorAction;
@@ -149,6 +150,8 @@ import org.opensearch.ad.transport.StatsAnomalyDetectorAction;
 import org.opensearch.ad.transport.StatsAnomalyDetectorTransportAction;
 import org.opensearch.ad.transport.StopDetectorAction;
 import org.opensearch.ad.transport.StopDetectorTransportAction;
+import org.opensearch.ad.transport.SuggestAnomalyDetectorParamAction;
+import org.opensearch.ad.transport.SuggestAnomalyDetectorParamTransportAction;
 import org.opensearch.ad.transport.ThresholdResultAction;
 import org.opensearch.ad.transport.ThresholdResultTransportAction;
 import org.opensearch.ad.transport.ValidateAnomalyDetectorAction;
@@ -259,6 +262,7 @@ import org.opensearch.forecast.transport.ValidateForecasterAction;
 import org.opensearch.forecast.transport.ValidateForecasterTransportAction;
 import org.opensearch.forecast.transport.handler.ForecastIndexMemoryPressureAwareResultHandler;
 import org.opensearch.forecast.transport.handler.ForecastSearchHandler;
+import org.opensearch.identity.PluginSubject;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.jobscheduler.spi.JobSchedulerExtension;
 import org.opensearch.jobscheduler.spi.ScheduledJobParser;
@@ -266,6 +270,7 @@ import org.opensearch.jobscheduler.spi.ScheduledJobRunner;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.jvm.JvmService;
 import org.opensearch.plugins.ActionPlugin;
+import org.opensearch.plugins.IdentityAwarePlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SystemIndexPlugin;
@@ -303,6 +308,7 @@ import org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler;
 import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.timeseries.util.IndexUtils;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
@@ -327,7 +333,13 @@ import io.protostuff.runtime.RuntimeSchema;
 /**
  * Entry point of time series analytics plugin.
  */
-public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, ScriptPlugin, SystemIndexPlugin, JobSchedulerExtension {
+public class TimeSeriesAnalyticsPlugin extends Plugin
+    implements
+        ActionPlugin,
+        ScriptPlugin,
+        SystemIndexPlugin,
+        JobSchedulerExtension,
+        IdentityAwarePlugin {
 
     private static final Logger LOG = LogManager.getLogger(TimeSeriesAnalyticsPlugin.class);
 
@@ -371,6 +383,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
     private ExecuteForecastResultResponseRecorder forecastResultResponseRecorder;
     private ADIndexJobActionHandler adIndexJobActionHandler;
     private ForecastIndexJobActionHandler forecastIndexJobActionHandler;
+
+    private PluginClient pluginClient;
 
     static {
         SpecialPermission.check();
@@ -417,6 +431,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
         RestDeleteAnomalyResultsAction deleteAnomalyResultsAction = new RestDeleteAnomalyResultsAction();
         RestSearchTopAnomalyResultAction searchTopAnomalyResultAction = new RestSearchTopAnomalyResultAction();
         RestValidateAnomalyDetectorAction validateAnomalyDetectorAction = new RestValidateAnomalyDetectorAction(settings, clusterService);
+        RestAnomalyDetectorSuggestAction suggestAnomalyDetectorAction = new RestAnomalyDetectorSuggestAction(settings, clusterService);
 
         // Forecast
         RestIndexForecasterAction restIndexForecasterAction = new RestIndexForecasterAction(settings, clusterService);
@@ -460,6 +475,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 deleteAnomalyResultsAction,
                 searchTopAnomalyResultAction,
                 validateAnomalyDetectorAction,
+                suggestAnomalyDetectorAction,
                 // Forecast
                 restIndexForecasterAction,
                 restForecasterJobAction,
@@ -499,6 +515,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
         // Common components
         // =====================
         this.client = client;
+        this.pluginClient = new PluginClient(client);
         this.threadPool = threadPool;
         Settings settings = environment.settings();
         this.clientUtil = new ClientUtil(client);
@@ -711,7 +728,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            adCheckpointWriteQueue,
             TimeSeriesSettings.MAX_COLD_START_ROUNDS,
             (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes()),
             anomalyDetectionIndices.getSchemaVersion(ADIndex.RESULT)
@@ -806,7 +822,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adPriorityCache,
             adModelManager,
             adSaveResultStrategy,
-            adTaskManager
+            adTaskManager,
+            adCheckpointWriteQueue
         );
 
         Map<String, TimeSeriesStat<?>> adStatsMap = ImmutableMap
@@ -869,7 +886,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             adCacheProvider,
             threadPool,
             getClock(),
-            stateManager
+            searchFeatureDao
         );
 
         ADCheckpointReadWorker adCheckpointReadQueue = new ADCheckpointReadWorker(
@@ -932,7 +949,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 AnomalyDetectorSettings.AD_MAX_RETRY_FOR_BACKOFF
             );
 
-        ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client);
+        ADSearchHandler adSearchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
 
         ResultBulkIndexingHandler<AnomalyResult, ADIndex, ADIndexManagement> anomalyResultHandler = new ResultBulkIndexingHandler<>(
             client,
@@ -1122,7 +1139,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
             featureManager,
             TimeSeriesSettings.HOURLY_MAINTENANCE,
-            forecastCheckpointWriteQueue,
             (int) (AD_COOLDOWN_MINUTES.get(settings).getMinutes()),
             -1, // no hard coded random seed
             -1, // interpolation is disabled so we don't need to specify the number of sampled points
@@ -1204,7 +1220,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastPriorityCache,
             forecastModelManager,
             forecastSaveResultStrategy,
-            forecastTaskManager
+            forecastTaskManager,
+            forecastCheckpointWriteQueue
         );
 
         Map<String, TimeSeriesStat<?>> forecastStatsMap = ImmutableMap
@@ -1256,7 +1273,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             forecastCacheProvider,
             threadPool,
             getClock(),
-            stateManager
+            searchFeatureDao
         );
 
         ForecastCheckpointReadWorker forecastCheckpointReadQueue = new ForecastCheckpointReadWorker(
@@ -1329,7 +1346,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             TimeSeriesSettings.NUM_MIN_SAMPLES
         );
 
-        ForecastSearchHandler forecastSearchHandler = new ForecastSearchHandler(settings, clusterService, client);
+        ForecastSearchHandler forecastSearchHandler = new ForecastSearchHandler(settings, clusterService, client, pluginClient);
 
         forecastIndexJobActionHandler = new ForecastIndexJobActionHandler(
             client,
@@ -1409,7 +1426,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 forecastTaskCacheManager,
                 forecastSaveResultStrategy,
                 new ForecastTaskProfileRunner(),
-                forecastInferencer
+                forecastInferencer,
+                pluginClient
             );
     }
 
@@ -1692,6 +1710,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
                 new ActionHandler<>(ValidateAnomalyDetectorAction.INSTANCE, ValidateAnomalyDetectorTransportAction.class),
                 new ActionHandler<>(ADSingleStreamResultAction.INSTANCE, ADSingleStreamResultTransportAction.class),
                 new ActionHandler<>(ADHCImputeAction.INSTANCE, ADHCImputeTransportAction.class),
+                new ActionHandler<>(SuggestAnomalyDetectorParamAction.INSTANCE, SuggestAnomalyDetectorParamTransportAction.class),
                 // forecast
                 new ActionHandler<>(IndexForecasterAction.INSTANCE, IndexForecasterTransportAction.class),
                 new ActionHandler<>(ForecastResultAction.INSTANCE, ForecastResultTransportAction.class),
@@ -1768,6 +1787,13 @@ public class TimeSeriesAnalyticsPlugin extends Plugin implements ActionPlugin, S
             } catch (Exception e) {
                 LOG.error("Failed to shut down object Pool", e);
             }
+        }
+    }
+
+    @Override
+    public void assignSubject(PluginSubject pluginSubject) {
+        if (this.pluginClient != null) {
+            this.pluginClient.setSubject(pluginSubject);
         }
     }
 }

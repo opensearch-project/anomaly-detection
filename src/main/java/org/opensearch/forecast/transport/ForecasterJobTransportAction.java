@@ -32,7 +32,7 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
 public class ForecasterJobTransportAction extends
-    BaseJobTransportAction<ForecastIndex, ForecastIndexManagement, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastResult, ForecastProfileAction, ExecuteForecastResultResponseRecorder, ForecastIndexJobActionHandler> {
+    BaseJobTransportAction<ForecastIndex, ForecastIndexManagement, TaskCacheManager, ForecastTaskType, ForecastTask, ForecastTaskManager, ForecastResult, ForecastProfileAction, ExecuteForecastResultResponseRecorder, ForecastIndexJobActionHandler, Forecaster> {
 
     @Inject
     public ForecasterJobTransportAction(
@@ -58,7 +58,8 @@ public class ForecasterJobTransportAction extends
             FAIL_TO_STOP_FORECASTER,
             Forecaster.class,
             forecastIndexJobActionHandler,
-            Clock.systemUTC() // inject cannot find clock due to OS limitation
+            Clock.systemUTC(), // inject cannot find clock due to OS limitation
+            Forecaster.class
         );
     }
 }

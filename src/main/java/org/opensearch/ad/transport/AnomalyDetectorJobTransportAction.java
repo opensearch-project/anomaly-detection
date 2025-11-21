@@ -38,7 +38,7 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
 public class AnomalyDetectorJobTransportAction extends
-    BaseJobTransportAction<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction, ExecuteADResultResponseRecorder, ADIndexJobActionHandler> {
+    BaseJobTransportAction<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction, ExecuteADResultResponseRecorder, ADIndexJobActionHandler, AnomalyDetector> {
     @Inject
     public AnomalyDetectorJobTransportAction(
         TransportService transportService,
@@ -63,7 +63,8 @@ public class AnomalyDetectorJobTransportAction extends
             FAIL_TO_STOP_DETECTOR,
             AnomalyDetector.class,
             adIndexJobActionHandler,
-            Clock.systemUTC() // inject cannot find clock due to OS limitation
+            Clock.systemUTC(), // inject cannot find clock due to OS limitation
+            AnomalyDetector.class
         );
     }
 }

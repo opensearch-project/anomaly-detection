@@ -7,6 +7,7 @@ package org.opensearch.timeseries.transport;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.timeseries.constant.CommonMessages.FAIL_TO_GET_CONFIG_MSG;
+import static org.opensearch.timeseries.util.ParseUtils.getResourceTypeFromClassName;
 import static org.opensearch.timeseries.util.ParseUtils.resolveUserAndExecute;
 import static org.opensearch.timeseries.util.ParseUtils.verifyResourceAccessAndProcessRequest;
 import static org.opensearch.timeseries.util.RestHandlerUtils.PROFILE;
@@ -82,7 +83,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
 
     protected final ClusterService clusterService;
     protected final Client client;
-    protected final Settings settings;
     protected final SecurityClientUtil clientUtil;
     protected final Set<String> allProfileTypeStrs;
     protected final Set<ProfileName> allProfileTypes;
@@ -130,7 +130,6 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         super(getConfigAction, transportService, actionFilters, GetConfigRequest::new);
         this.clusterService = clusterService;
         this.client = client;
-        this.settings = settings;
         this.clientUtil = clientUtil;
 
         List<ProfileName> allProfiles = Arrays.asList(ProfileName.values());
@@ -170,11 +169,11 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
         ActionListener<GetConfigResponseType> listener = wrapRestActionListener(actionListener, FAIL_TO_GET_CONFIG_MSG);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
             verifyResourceAccessAndProcessRequest(
-                settings,
-                args -> getExecute(getConfigRequest, listener),
-                new Object[] {},
-                (fallbackArgs) -> resolveUserAndExecute(
+                resourceType,
+                () -> getExecute(getConfigRequest, listener),
+                () -> resolveUserAndExecute(
                     user,
                     configID,
                     filterByEnabled,
@@ -184,8 +183,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
                     clusterService,
                     xContentRegistry,
                     configTypeClass
-                ),
-                new Object[] {}
+                )
             );
 
         } catch (Exception e) {

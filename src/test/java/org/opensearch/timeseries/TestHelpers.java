@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -172,6 +173,9 @@ public class TestHelpers {
     public static final String AD_BASE_PREVIEW_URI = AD_BASE_DETECTORS_URI + "/%s/_preview";
     public static final String AD_BASE_STATS_URI = "/_plugins/_anomaly_detection/stats";
     public static final String AD_BASE_START_DETECTOR_URL = AD_BASE_DETECTORS_URI + "/%s/_start";
+
+    static final String SHARE_CONFIG_URI = "/_plugins/_security/api/resource/share";
+
     public static ImmutableSet<String> HISTORICAL_ANALYSIS_RUNNING_STATS = ImmutableSet
         .of(TaskState.CREATED.name(), TaskState.INIT.name(), TaskState.RUNNING.name());
     // Task may fail if memory circuit breaker triggered.
@@ -250,6 +254,151 @@ public class TestHelpers {
             parser.nextToken();
         }
         return parser;
+    }
+
+    public static Response shareConfig(RestClient client, Map<String, String> params, String payload) throws IOException {
+        return makeRequest(client, "PUT", SHARE_CONFIG_URI, params, payload, null);
+    }
+
+    public static Response patchSharingInfo(RestClient client, Map<String, String> params, String payload) throws IOException {
+        return makeRequest(client, "PATCH", SHARE_CONFIG_URI, params, payload, null);
+    }
+
+    public static String shareWithUserPayload(String resourceId, String resourceIndex, String accessLevel, String user) {
+        return String.format(Locale.ROOT, """
+            {
+              "resource_id": "%s",
+              "resource_type": "%s",
+              "share_with": {
+                "%s" : {
+                    "users": ["%s"]
+                }
+              }
+            }
+            """, resourceId, resourceIndex, accessLevel, user);
+    }
+
+    public enum Recipient {
+        USERS("users"),
+        ROLES("roles"),
+        BACKEND_ROLES("backend_roles");
+
+        private final String name;
+
+        Recipient(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    public static class PatchSharingInfoPayloadBuilder {
+        private String configId;
+        private String configType;
+
+        // accessLevel -> recipientType -> principals
+        private final Map<String, Map<String, Set<String>>> share = new HashMap<>();
+        private final Map<String, Map<String, Set<String>>> revoke = new HashMap<>();
+
+        public PatchSharingInfoPayloadBuilder configId(String resourceId) {
+            this.configId = resourceId;
+            return this;
+        }
+
+        public PatchSharingInfoPayloadBuilder configType(String resourceType) {
+            this.configType = resourceType;
+            return this;
+        }
+
+        public void share(Map<Recipient, Set<String>> recipients, String accessLevel) {
+            mergeInto(share, accessLevel, recipients);
+        }
+
+        public void revoke(Map<Recipient, Set<String>> recipients, String accessLevel) {
+            mergeInto(revoke, accessLevel, recipients);
+        }
+
+        /* -------------------------------- Build -------------------------------- */
+
+        private String buildJsonString(Map<String, Map<String, Set<String>>> input) {
+            List<String> pieces = new ArrayList<>();
+            for (Map.Entry<String, Map<String, Set<String>>> e : input.entrySet()) {
+                try {
+                    String recipientsJson = toRecipientsJson(e.getValue());
+                    pieces.add(String.format(Locale.ROOT, "\"%s\" : %s", e.getKey(), recipientsJson));
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+            return String.join(",", pieces);
+        }
+
+        public String build() {
+            String allShares = buildJsonString(share);
+            String allRevokes = buildJsonString(revoke);
+            return String.format(Locale.ROOT, """
+                {
+                  "resource_id": "%s",
+                  "resource_type": "%s",
+                  "add": {
+                    %s
+                  },
+                  "revoke": {
+                    %s
+                  }
+                }
+                """, configId, configType, allShares, allRevokes);
+        }
+
+        /* ------------------------------ Internals ------------------------------ */
+
+        private static void mergeInto(
+            Map<String, Map<String, Set<String>>> target,
+            String accessLevel,
+            Map<Recipient, Set<String>> incoming
+        ) {
+            if (incoming == null || incoming.isEmpty())
+                return;
+            Map<String, Set<String>> existing = target.computeIfAbsent(accessLevel, k -> new HashMap<>());
+            for (Map.Entry<Recipient, Set<String>> e : incoming.entrySet()) {
+                if (e.getKey() == null)
+                    continue;
+                if (e.getValue() == null || e.getValue().isEmpty())
+                    continue;
+                existing.computeIfAbsent(e.getKey().getName(), k -> new HashSet<>()).addAll(e.getValue());
+            }
+        }
+
+        private static String toRecipientsJson(Map<String, Set<String>> recipients) throws IOException {
+            if (recipients == null) {
+                recipients = Collections.emptyMap();
+            }
+
+            XContentBuilder builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+
+            for (Recipient recipient : Recipient.values()) {
+                String key = recipient.getName();
+                if (recipients.containsKey(key)) {
+                    writeArray(builder, key, recipients.get(key));
+                }
+            }
+
+            builder.endObject();
+            return builder.toString();
+        }
+
+        private static void writeArray(XContentBuilder builder, String field, Set<String> values) throws IOException {
+            builder.startArray(field);
+            if (values != null) {
+                for (String v : values) {
+                    builder.value(v);
+                }
+            }
+            builder.endArray();
+        }
     }
 
     public static Map<String, Object> XContentBuilderToMap(XContentBuilder builder) {
@@ -343,7 +492,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            lastUpdateTime
+            lastUpdateTime,
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            null
         );
     }
 
@@ -399,7 +550,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            new IntervalTimeConfiguration(detectionIntervalInMinutes, ChronoUnit.MINUTES),
+            null
         );
     }
 
@@ -437,6 +590,7 @@ public class TestHelpers {
         String resultIndex
     ) throws IOException {
         List<Feature> features = ImmutableList.of(randomFeature(true));
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             detectorId,
             randomLong(),
@@ -446,7 +600,7 @@ public class TestHelpers {
             indices,
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             new IntervalTimeConfiguration(0, ChronoUnit.MINUTES),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -466,7 +620,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval,
+            null
         );
     }
 
@@ -479,6 +635,7 @@ public class TestHelpers {
     }
 
     public static AnomalyDetector randomAnomalyDetector(String timefield, String indexName, List<Feature> features) throws IOException {
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -488,7 +645,7 @@ public class TestHelpers {
             ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -508,22 +665,25 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now()
+            Instant.now(),
+            interval,
+            null
         );
     }
 
     public static AnomalyDetector randomAnomalyDetectorWithFlattenResultIndex(String timefield, String indexName, List<Feature> features)
         throws IOException {
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
-            "detectorWithFlattenResultIndex",
+            randomAlphaOfLength(10),
             randomAlphaOfLength(30),
             timefield,
             ImmutableList.of(indexName.toLowerCase(Locale.ROOT)),
             features,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -543,11 +703,14 @@ public class TestHelpers {
             null,
             null,
             true,
-            Instant.now()
+            Instant.now(),
+            interval,
+            null
         );
     }
 
     public static AnomalyDetector randomAnomalyDetectorWithEmptyFeature() throws IOException {
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new AnomalyDetector(
             randomAlphaOfLength(10),
             randomLong(),
@@ -557,7 +720,7 @@ public class TestHelpers {
             ImmutableList.of(randomAlphaOfLength(10).toLowerCase(Locale.ROOT)),
             ImmutableList.of(),
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(1, TimeSeriesSettings.MAX_SHINGLE_SIZE),
             null,
@@ -577,7 +740,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval,
+            null
         );
     }
 
@@ -618,7 +783,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval,
+            null
         );
     }
 
@@ -648,6 +815,7 @@ public class TestHelpers {
         private String resultIndex = null;
         private ImputationOption imputationOption = null;
         private List<Rule> rules = null;
+        private Boolean autoCreated = null;
 
         // transform decay (reverse of recencyEmphasis) has to be [0, 1). So we cannot use 1.
         private int recencyEmphasis = randomIntBetween(2, 10000);
@@ -663,6 +831,11 @@ public class TestHelpers {
                 featureAttributes.add(randomFeature(true));
             }
             this.featureAttributes = featureAttributes;
+        }
+
+        public AnomalyDetectorBuilder setAutoCreated(Boolean autoCreated) {
+            this.autoCreated = autoCreated;
+            return this;
         }
 
         public AnomalyDetectorBuilder setDetectorId(String detectorId) {
@@ -797,7 +970,9 @@ public class TestHelpers {
                 null,
                 null,
                 null,
-                lastUpdateTime
+                lastUpdateTime,
+                detectionInterval,
+                autoCreated
             );
         }
     }
@@ -835,7 +1010,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval,
+            null
         );
     }
 
@@ -2012,7 +2189,9 @@ public class TestHelpers {
                 customResultIndexMinAge,
                 customResultIndexTTL,
                 flattenResultIndexMapping,
-                lastUpdateTime
+                lastUpdateTime,
+                forecastInterval,
+                null
             );
         }
     }
@@ -2020,6 +2199,7 @@ public class TestHelpers {
     public static Forecaster randomForecaster() throws IOException {
         Feature feature = randomFeature();
         List<Feature> featureList = ImmutableList.of(feature);
+        TimeConfiguration interval = randomIntervalTimeConfiguration();
         return new Forecaster(
             randomAlphaOfLength(10),
             randomLong(),
@@ -2029,7 +2209,7 @@ public class TestHelpers {
             ImmutableList.of(randomAlphaOfLength(10)),
             featureList,
             randomQuery(),
-            randomIntervalTimeConfiguration(),
+            interval,
             randomIntervalTimeConfiguration(),
             randomIntBetween(4, 20),
             ImmutableMap.of(randomAlphaOfLength(5), randomAlphaOfLength(10)),
@@ -2049,7 +2229,9 @@ public class TestHelpers {
             null,
             null,
             null,
-            Instant.now().truncatedTo(ChronoUnit.SECONDS)
+            Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            interval,
+            null
         );
     }
 

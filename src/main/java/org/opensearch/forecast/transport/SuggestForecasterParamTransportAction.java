@@ -7,6 +7,8 @@ package org.opensearch.forecast.transport;
 
 import static org.opensearch.forecast.settings.ForecastSettings.FORECAST_FILTER_BY_BACKEND_ROLES;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -19,9 +21,11 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.forecast.indices.ForecastIndexManagement;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
@@ -33,7 +37,9 @@ import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
-public class SuggestForecasterParamTransportAction extends BaseSuggestConfigParamTransportAction {
+import com.google.common.collect.Sets;
+
+public class SuggestForecasterParamTransportAction extends BaseSuggestConfigParamTransportAction<Forecaster> {
     public static final Logger logger = LogManager.getLogger(SuggestForecasterParamTransportAction.class);
 
     @Inject
@@ -45,7 +51,8 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
         ForecastIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             SuggestForecasterParamAction.NAME,
@@ -57,7 +64,10 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
             transportService,
             FORECAST_FILTER_BY_BACKEND_ROLES,
             AnalysisType.FORECAST,
-            searchFeatureDao
+            searchFeatureDao,
+            Name.getListStrs(Arrays.asList(ForecastSuggestName.values())),
+            Forecaster.class,
+            namedWriteableRegistry
         );
     }
 
@@ -70,7 +80,7 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
     ) {
         storedContext.restore();
         // if type param isn't blank and isn't a part of possible validation types throws exception
-        Set<SuggestName> params = getParametersToSuggest(request.getParam());
+        Set<? extends Name> params = getParametersToSuggest(request.getParam());
         if (params.isEmpty()) {
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(CommonMessages.NOT_EXISTENT_SUGGEST_TYPE);
@@ -83,7 +93,7 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
         int responseSize = params.size();
         // history suggest interval too as history suggest depends on interval suggest
         // so we don't need to call suggestInterval if history is required
-        if (params.contains(SuggestName.HISTORY) && params.contains(SuggestName.INTERVAL)) {
+        if (params.contains(ForecastSuggestName.HISTORY) && params.contains(ForecastSuggestName.INTERVAL)) {
             responseSize -= 1;
         }
 
@@ -97,9 +107,15 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
             );
 
         // history suggest interval too as history suggest depends on interval suggest
-        if (params.contains(SuggestName.HISTORY)) {
-            suggestHistory(request.getConfig(), user, request.getRequestTimeout(), params.contains(SuggestName.INTERVAL), delegateListener);
-        } else if (params.contains(SuggestName.INTERVAL)) {
+        if (params.contains(ForecastSuggestName.HISTORY)) {
+            suggestHistory(
+                request.getConfig(),
+                user,
+                request.getRequestTimeout(),
+                params.contains(ForecastSuggestName.INTERVAL),
+                delegateListener
+            );
+        } else if (params.contains(ForecastSuggestName.INTERVAL)) {
             suggestInterval(
                 request.getConfig(),
                 user,
@@ -113,13 +129,19 @@ public class SuggestForecasterParamTransportAction extends BaseSuggestConfigPara
             );
         }
 
-        if (params.contains(SuggestName.HORIZON)) {
+        if (params.contains(ForecastSuggestName.HORIZON)) {
             Forecaster forecaster = (Forecaster) config;
             delegateListener.onResponse(new SuggestConfigParamResponse.Builder().horizon(forecaster.suggestHorizon()).build());
         }
 
-        if (params.contains(SuggestName.WINDOW_DELAY)) {
+        if (params.contains(ForecastSuggestName.WINDOW_DELAY)) {
             suggestWindowDelay(request.getConfig(), user, request.getRequestTimeout(), delegateListener);
         }
+    }
+
+    @Override
+    protected Set<? extends Name> getParametersToSuggest(String typesStr) {
+        Set<String> typesInRequest = new HashSet<>(Arrays.asList(typesStr.split(",")));
+        return ForecastSuggestName.getNames(Sets.intersection(allSuggestParamStrs, typesInRequest));
     }
 }

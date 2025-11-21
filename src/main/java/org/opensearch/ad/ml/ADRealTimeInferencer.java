@@ -22,7 +22,8 @@ import org.opensearch.ad.ratelimit.ADSaveResultStrategy;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.threadpool.ThreadPool;
-import org.opensearch.timeseries.NodeStateManager;
+import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.RealTimeInferencer;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
@@ -41,7 +42,7 @@ public class ADRealTimeInferencer extends
         ADCacheProvider cache,
         ThreadPool threadPool,
         Clock clock,
-        NodeStateManager stateManager
+        SearchFeatureDao searchFeatureDao
     ) {
         super(
             modelManager,
@@ -54,7 +55,8 @@ public class ADRealTimeInferencer extends
             threadPool,
             AD_THREAD_POOL_NAME,
             clock,
-            stateManager
+            searchFeatureDao,
+            AnalysisType.AD
         );
     }
 

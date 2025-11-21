@@ -122,6 +122,8 @@ import com.google.common.collect.Sets;
  * Usage of this class requires extending it to implement the abstract methods, which include but are not limited to
  * configuration validation, indexing logic, and model validation. Implementers will benefit from the common utilities
  * and framework provided by this class, focusing on the unique logic pertinent to their specific time series task.
+ * 
+ * @param <T> the response type that extends ActionResponse
  */
 public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, IndexType extends Enum<IndexType> & TimeSeriesIndex, IndexManagementType extends IndexManagement<IndexType>, TaskCacheManagerType extends TaskCacheManager, TaskTypeEnum extends TaskType, TaskClass extends TimeSeriesTask, TaskManagerType extends TaskManager<TaskCacheManagerType, TaskTypeEnum, TaskClass, IndexType, IndexManagementType>>
     implements

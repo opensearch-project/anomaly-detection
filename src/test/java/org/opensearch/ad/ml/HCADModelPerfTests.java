@@ -154,7 +154,6 @@ public class HCADModelPerfTests extends AbstractCosineDataTest {
                 TimeSeriesSettings.THRESHOLD_MIN_PVALUE,
                 featureManager,
                 TimeSeriesSettings.HOURLY_MAINTENANCE,
-                checkpointWriteQueue,
                 seed,
                 TimeSeriesSettings.MAX_COLD_START_ROUNDS,
                 1,

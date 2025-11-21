@@ -24,6 +24,7 @@ import org.junit.Before;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.ADUnitTestCase;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -31,11 +32,13 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.threadpool.ThreadPool;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.Client;
 
 public class ADSearchHandlerTests extends ADUnitTestCase {
 
     private Client client;
+    private PluginClient pluginClient;
     private Settings settings;
     private ClusterService clusterService;
     private ADSearchHandler searchHandler;
@@ -54,7 +57,8 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         clusterSettings = clusterSetting(settings, AD_FILTER_BY_BACKEND_ROLES);
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
         client = mock(Client.class);
-        searchHandler = new ADSearchHandler(settings, clusterService, client);
+        pluginClient = mock(PluginClient.class);
+        searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
 
         ThreadContext threadContext = new ThreadContext(settings);
         threadContext.putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "alice|odfe,aes|engineering,operations");
@@ -69,7 +73,7 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
 
     public void testSearchException() {
         doThrow(new RuntimeException("test")).when(client).search(any(), any());
-        searchHandler.search(request, listener);
+        searchHandler.search(request, ADCommonName.AD_RESOURCE_TYPE, listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -77,8 +81,8 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
-        searchHandler = new ADSearchHandler(settings, clusterService, client);
-        searchHandler.search(request, listener);
+        searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
+        searchHandler.search(request, ADCommonName.AD_RESOURCE_TYPE, listener);
         verify(listener, times(1)).onFailure(any());
     }
 
@@ -86,8 +90,8 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
         settings = Settings.builder().put(AD_FILTER_BY_BACKEND_ROLES.getKey(), true).build();
         clusterService = new ClusterService(settings, clusterSettings, mock(ThreadPool.class), null);
 
-        searchHandler = new ADSearchHandler(settings, clusterService, client);
-        searchHandler.search(matchAllRequest(), listener);
+        searchHandler = new ADSearchHandler(settings, clusterService, client, pluginClient);
+        searchHandler.search(matchAllRequest(), ADCommonName.AD_RESOURCE_TYPE, listener);
         verify(client, times(1)).search(any(), any());
     }
 }

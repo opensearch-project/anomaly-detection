@@ -79,7 +79,7 @@ public class ForecastSingleStreamResultTransportAction extends
     @Override
     public ForecastResultWriteRequest createResultWriteRequest(Config config, ForecastResult result) {
         return new ForecastResultWriteRequest(
-            System.currentTimeMillis() + config.getIntervalInMilliseconds(),
+            System.currentTimeMillis() + config.getInferredFrequencyInMilliseconds(),
             config.getId(),
             RequestPriority.MEDIUM,
             result,
