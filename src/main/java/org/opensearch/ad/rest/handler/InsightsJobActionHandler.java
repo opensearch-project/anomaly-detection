@@ -26,6 +26,7 @@ import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.ad.InsightsJobProcessor;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.InsightsJobResponse;
@@ -44,6 +45,7 @@ import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.transport.client.Client;
 
 /**
@@ -136,39 +138,49 @@ public class InsightsJobActionHandler {
     public void getInsightsJobStatus(ActionListener<InsightsJobResponse> listener) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME);
 
-        client.get(getRequest, ActionListener.wrap(response -> {
-            if (!response.isExists()) {
-                // Job doesn't exist - return stopped status
-                InsightsJobResponse statusResponse = new InsightsJobResponse(ADCommonName.INSIGHTS_JOB_NAME, false, null, null, null, null);
-                listener.onResponse(statusResponse);
-                return;
-            }
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            client.get(getRequest, ActionListener.wrap(response -> {
+                if (!response.isExists()) {
+                    // Job doesn't exist - return stopped status
+                    InsightsJobResponse statusResponse = new InsightsJobResponse(
+                        ADCommonName.INSIGHTS_JOB_NAME,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null
+                    );
+                    listener.onResponse(statusResponse);
+                    return;
+                }
 
-            try (
-                XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
-            ) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                Job job = Job.parse(parser);
+                try (
+                    XContentParser parser = RestHandlerUtils
+                        .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+                ) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    Job job = Job.parse(parser);
 
-                // Return job status with all relevant fields
-                InsightsJobResponse statusResponse = new InsightsJobResponse(
-                    job.getName(),
-                    job.isEnabled(),
-                    job.getEnabledTime(),
-                    job.getDisabledTime(),
-                    job.getLastUpdateTime(),
-                    job.getSchedule()
-                );
-                listener.onResponse(statusResponse);
+                    // Return job status with all relevant fields
+                    InsightsJobResponse statusResponse = new InsightsJobResponse(
+                        job.getName(),
+                        job.isEnabled(),
+                        job.getEnabledTime(),
+                        job.getDisabledTime(),
+                        job.getLastUpdateTime(),
+                        job.getSchedule()
+                    );
+                    listener.onResponse(statusResponse);
 
-            } catch (IOException e) {
-                logger.error("Failed to parse insights job", e);
-                listener.onFailure(new OpenSearchStatusException("Failed to parse insights job", RestStatus.INTERNAL_SERVER_ERROR));
-            }
-        }, e -> {
-            logger.error("Failed to get insights job status", e);
-            listener.onFailure(e);
-        }));
+                } catch (IOException e) {
+                    logger.error("Failed to parse insights job", e);
+                    listener.onFailure(new OpenSearchStatusException("Failed to parse insights job", RestStatus.INTERNAL_SERVER_ERROR));
+                }
+            }, e -> {
+                logger.error("Failed to get insights job status", e);
+                listener.onFailure(e);
+            }));
+        }
     }
 
     /**
@@ -179,47 +191,50 @@ public class InsightsJobActionHandler {
     public void stopInsightsJob(ActionListener<InsightsJobResponse> listener) {
         GetRequest getRequest = new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME);
 
-        client.get(getRequest, ActionListener.wrap(response -> {
-            if (!response.isExists()) {
-                listener.onResponse(new InsightsJobResponse("Insights job is not running"));
-                return;
-            }
-
-            try (
-                XContentParser parser = RestHandlerUtils.createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
-            ) {
-                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                Job job = Job.parse(parser);
-
-                if (!job.isEnabled()) {
-                    listener.onResponse(new InsightsJobResponse("Insights job is already stopped"));
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            client.get(getRequest, ActionListener.wrap(response -> {
+                if (!response.isExists()) {
+                    listener.onResponse(new InsightsJobResponse("Insights job is not running"));
                     return;
                 }
 
-                Job disabledJob = new Job(
-                    job.getName(),
-                    job.getSchedule(),
-                    job.getWindowDelay(),
-                    false,
-                    job.getEnabledTime(),
-                    Instant.now(),
-                    Instant.now(),
-                    job.getLockDurationSeconds(),
-                    job.getUser(),
-                    job.getCustomResultIndexOrAlias(),
-                    job.getAnalysisType()
-                );
+                try (
+                    XContentParser parser = RestHandlerUtils
+                        .createXContentParserFromRegistry(xContentRegistry, response.getSourceAsBytesRef())
+                ) {
+                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                    Job job = Job.parse(parser);
 
-                indexJob(disabledJob, listener, "Insights job stopped successfully");
+                    if (!job.isEnabled()) {
+                        listener.onResponse(new InsightsJobResponse("Insights job is already stopped"));
+                        return;
+                    }
 
-            } catch (IOException e) {
-                logger.error("Failed to parse insights job", e);
-                listener.onFailure(new OpenSearchStatusException("Failed to parse insights job", RestStatus.INTERNAL_SERVER_ERROR));
-            }
-        }, e -> {
-            logger.error("Failed to get insights job", e);
-            listener.onFailure(e);
-        }));
+                    Job disabledJob = new Job(
+                        job.getName(),
+                        job.getSchedule(),
+                        job.getWindowDelay(),
+                        false,
+                        job.getEnabledTime(),
+                        Instant.now(),
+                        Instant.now(),
+                        job.getLockDurationSeconds(),
+                        job.getUser(),
+                        job.getCustomResultIndexOrAlias(),
+                        job.getAnalysisType()
+                    );
+
+                    indexJob(disabledJob, listener, "Insights job stopped successfully");
+
+                } catch (IOException e) {
+                    logger.error("Failed to parse insights job", e);
+                    listener.onFailure(new OpenSearchStatusException("Failed to parse insights job", RestStatus.INTERNAL_SERVER_ERROR));
+                }
+            }, e -> {
+                logger.error("Failed to get insights job", e);
+                listener.onFailure(e);
+            }));
+        }
     }
 
     /**
@@ -334,7 +349,12 @@ public class InsightsJobActionHandler {
                     .index(
                         indexRequest,
                         ActionListener
-                            .wrap(indexResponse -> { listener.onResponse(new InsightsJobResponse(successMessage)); }, e -> {
+                            .wrap(indexResponse -> {
+                                if (job.isEnabled()) {
+                                    scheduleOneTimeInsightsRun(job);
+                                }
+                                listener.onResponse(new InsightsJobResponse(successMessage));
+                            }, e -> {
                                 logger.error("Failed to index insights job", e);
                                 listener.onFailure(e);
                             })
@@ -347,8 +367,47 @@ public class InsightsJobActionHandler {
     }
 
     /**
+     * Schedule a one-time Insights job execution 5 minutes after the job is enabled to pick up more anomalies
+     */
+    private void scheduleOneTimeInsightsRun(Job job) {
+        try {
+            TimeValue delay = TimeValue.timeValueMinutes(5);
+            client
+                .threadPool()
+                .schedule(
+                    () -> {
+                        try {
+                            InsightsJobProcessor processor = InsightsJobProcessor.getInstance();
+                            processor.runOnce(job);
+                        } catch (Exception e) {
+                            logger
+                                .error(
+                                    "Failed to execute one-time Insights job run for job " + job.getName()
+                                        + " scheduled 5 minutes after start",
+                                    e
+                                );
+                        }
+                    },
+                    delay,
+                    TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
+                );
+            logger
+                .info(
+                    "Scheduled one-time Insights job run for job {} to execute in {} minutes",
+                    job.getName(),
+                    delay.minutes()
+                );
+        } catch (Exception e) {
+            logger
+                .error(
+                    "Failed to schedule one-time Insights job run for job " + job.getName() + " 5 minutes after start",
+                    e
+                );
+        }
+    }
+
+    /**
      * Create an IntervalSchedule from frequency string 
-     * e.g., "24h" -> 24 hours
      */
     private IntervalSchedule createSchedule(String frequency) {
         try {
