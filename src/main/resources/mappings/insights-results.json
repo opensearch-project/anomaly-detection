@@ -1,0 +1,86 @@
+{
+    "dynamic": false,
+    "_meta": {
+      "schema_version": 1
+    },
+    "properties": {
+      "task_id": {
+        "type": "keyword"
+      },
+      "window_start": {
+        "type": "date",
+        "format": "strict_date_time||epoch_millis"
+      },
+      "window_end": {
+        "type": "date",
+        "format": "strict_date_time||epoch_millis"
+      },
+      "generated_at": {
+        "type": "date",
+        "format": "strict_date_time||epoch_millis"
+      },
+      "doc_detector_ids": {
+        "type": "keyword"
+      },
+      "doc_indices": {
+        "type": "keyword"
+      },
+      "doc_series_keys": {
+        "type": "keyword"
+      },
+      "paragraphs": {
+        "type": "nested",
+        "properties": {
+          "start": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
+          },
+          "end": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
+          },
+          "text": {
+            "type": "text",
+            "fields": {
+              "raw": {
+                "type": "keyword",
+                "ignore_above": 32766
+              }
+            }
+          },
+          "detector_ids": {
+            "type": "keyword"
+          },
+          "indices": {
+            "type": "keyword"
+          },
+          "entities": {
+            "type": "keyword"
+          },
+          "series_keys": {
+            "type": "keyword"
+          }
+        }
+      },
+      "stats": {
+        "properties": {
+          "num_paragraphs": {
+            "type": "integer"
+          },
+          "num_detectors": {
+            "type": "integer"
+          },
+          "num_indices": {
+            "type": "integer"
+          },
+          "num_series": {
+            "type": "integer"
+          }
+        }
+      },
+      "mlc_raw": {
+        "type": "object",
+        "enabled": false
+      }
+    }
+  }

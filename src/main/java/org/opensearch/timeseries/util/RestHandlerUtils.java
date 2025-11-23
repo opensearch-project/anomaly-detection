@@ -73,6 +73,10 @@ public final class RestHandlerUtils {
     public static final String PREVIEW = "_preview";
     public static final String START_JOB = "_start";
     public static final String STOP_JOB = "_stop";
+    public static final String INSIGHTS_START = "_start";
+    public static final String INSIGHTS_STOP = "_stop";
+    public static final String INSIGHTS_RESULTS = "_results";
+    public static final String INSIGHTS_STATUS = "_status";
     public static final String PROFILE = "_profile";
     public static final String TYPE = "type";
     public static final String ENTITY = "entity";
@@ -98,6 +102,10 @@ public final class RestHandlerUtils {
     public static final String ANOMALY_DETECTOR = "anomaly_detector";
     public static final String ANOMALY_DETECTOR_JOB = "anomaly_detector_job";
     public static final String TOP_ANOMALIES = "_topAnomalies";
+    public static final String INDEX = "index";
+    public static final String FREQUENCY = "frequency";
+    public static final String FROM = "from";
+    public static final String SIZE = "size";
 
     // forecast constants
     public static final String FORECASTER_ID = "forecasterID";
