@@ -313,10 +313,6 @@ public class InsightsJobProcessor extends
     ) {
         log.info("Querying all anomaly results from {} to {}", executionStartTime, executionEndTime);
 
-        User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
-        String user = userInfo.getName();
-        List<String> roles = userInfo.getRoles();
-
         List<AnomalyResult> allAnomalies = new ArrayList<>();
 
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
@@ -344,26 +340,16 @@ public class InsightsJobProcessor extends
             .sort("data_start_time", SortOrder.ASC)
             .sort("_id", SortOrder.ASC);
 
-        InjectSecurity injectSecurity = new InjectSecurity(jobParameter.getName(), settings, localClient.threadPool().getThreadContext());
-        try {
-            injectSecurity.inject(user, roles);
-
-            fetchPagedAnomalies(
-                baseSource,
-                null,
-                allAnomalies,
-                injectSecurity,
-                jobParameter,
-                lockService,
-                lock,
-                executionStartTime,
-                executionEndTime
-            );
-        } catch (Exception e) {
-            injectSecurity.close();
-            log.error("Failed to inject security context for anomaly query", e);
-            releaseLock(jobParameter, lockService, lock);
-        }
+        fetchPagedAnomalies(
+            baseSource,
+            null,
+            allAnomalies,
+            jobParameter,
+            lockService,
+            lock,
+            executionStartTime,
+            executionEndTime
+        );
     }
 
     /**
@@ -373,7 +359,6 @@ public class InsightsJobProcessor extends
         SearchSourceBuilder baseSource,
         Object[] searchAfter,
         List<AnomalyResult> allAnomalies,
-        InjectSecurity injectSecurity,
         Job jobParameter,
         LockService lockService,
         LockModel lock,
@@ -426,7 +411,6 @@ public class InsightsJobProcessor extends
                     releaseLock(jobParameter, lockService, lock);
                 }
 
-                injectSecurity.close();
                 return;
             }
 
@@ -436,7 +420,6 @@ public class InsightsJobProcessor extends
                 baseSource,
                 next,
                 allAnomalies,
-                injectSecurity,
                 jobParameter,
                 lockService,
                 lock,
@@ -449,7 +432,6 @@ public class InsightsJobProcessor extends
             } else {
                 log.error("Failed to query anomaly results", e);
             }
-            injectSecurity.close();
             releaseLock(jobParameter, lockService, lock);
         }));
     }

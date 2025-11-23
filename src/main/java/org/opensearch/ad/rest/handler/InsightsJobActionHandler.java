@@ -351,6 +351,9 @@ public class InsightsJobActionHandler {
                         ActionListener
                             .wrap(indexResponse -> {
                                 if (job.isEnabled()) {
+                                    // Run immediately to generate insights from anomalies in the past interval
+                                    triggerImmediateInsightsRun(job);
+                                    // Schedule one-time run 5 minutes later to pick up anomalies from newly initialized detectors
                                     scheduleOneTimeInsightsRun(job);
                                 }
                                 listener.onResponse(new InsightsJobResponse(successMessage));
@@ -363,6 +366,33 @@ public class InsightsJobActionHandler {
         } catch (IOException e) {
             logger.error("Failed to create index request for insights job", e);
             listener.onFailure(new OpenSearchStatusException("Failed to create index request", RestStatus.INTERNAL_SERVER_ERROR));
+        }
+    }
+
+    /**
+     * Trigger an immediate Insights job execution on the AD thread pool.
+     */
+    private void triggerImmediateInsightsRun(Job job) {
+        try {
+            client
+                .threadPool()
+                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
+                .execute(() -> {
+                    try {
+                        InsightsJobProcessor processor = InsightsJobProcessor.getInstance();
+                        processor.runOnce(job);
+                    } catch (Exception e) {
+                        logger
+                            .error(
+                                "Failed to execute immediate Insights job run for job " + job.getName()
+                                    + " right after start",
+                                e
+                            );
+                    }
+                });
+            logger.info("Triggered immediate Insights job run for job {}", job.getName());
+        } catch (Exception e) {
+            logger.error("Failed to trigger immediate Insights job run for job " + job.getName(), e);
         }
     }
 
@@ -433,8 +463,7 @@ public class InsightsJobActionHandler {
             }
 
             Instant now = Instant.now();
-            Instant startTime = now.minus(interval, unit);
-            return new IntervalSchedule(startTime, interval, unit);
+            return new IntervalSchedule(now, interval, unit);
 
         } catch (NumberFormatException e) {
             logger.warn("Failed to parse frequency '{}', using default {}h", frequency, DEFAULT_INTERVAL_IN_HOURS);
