@@ -15,6 +15,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Infrastructure
 - Test: Prevent oversized bulk requests in synthetic data test ([#1603](https://github.com/opensearch-project/anomaly-detection/pull/1603))
+- Update CI to JDK 25 and gradle to 9.2 ([#1623](https://github.com/opensearch-project/anomaly-detection/pull/1623))
 
 ### Documentation
 ### Maintenance
