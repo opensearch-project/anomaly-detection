@@ -98,6 +98,9 @@ tasks.withType(Test) {
     systemProperty "file.encoding", "UTF-8"
     jvmArgs("--add-opens", "java.base/java.time=ALL-UNNAMED")
     jvmArgs("--add-opens", "java.base/java.util.stream=ALL-UNNAMED")
+    jvmArgs("--add-opens", "jdk.unsupported/sun.misc=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/jdk.internal.reflect=ALL-UNNAMED")
 
     // PowerMock related tests like SearchFeatureDaoTests relies on modifying the bytecode of
     // classes during runtime, which can conflict with the module system introduced in Java 9.
@@ -480,7 +483,7 @@ testClusters.integTest {
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
     configureClusterPlugins(delegate, jobSchedulerFile, securityPluginFile, securityEnabled)
-    nodes.each { it.jvmArgs("-Xms1g", "-Xmx1g") }
+    nodes.each { it.jvmArgs("-Xms1g", "-Xmx1g", "--add-opens=jdk.unsupported/sun.misc=ALL-UNNAMED", "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED", "--add-opens=java.base/jdk.internal.reflect=ALL-UNNAMED") }
 }
 
 testClusters {
