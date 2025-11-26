@@ -139,4 +139,88 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
     public void testValidateCustomIndexForBackendJobNoIndex() throws InterruptedException {
         validateCustomIndexForBackendJobNoIndex(indices);
     }
+
+    /**
+     * Test that insights result index does not exist initially.
+     */
+    public void testInsightsResultIndexNotExists() {
+        boolean exists = indices.doesInsightsResultIndexExist();
+        assertFalse(exists);
+    }
+
+    /**
+     * Test creating insights result index.
+     */
+    public void testInsightsResultIndexExists() throws IOException {
+        indices.initInsightsResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
+            boolean acknowledged = response.isAcknowledged();
+            assertTrue(acknowledged);
+        }, failure -> { throw new RuntimeException("should not fail to create insights index", failure); }));
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+        assertTrue(indices.doesInsightsResultIndexExist());
+    }
+
+    /**
+     * Test that insights result index is not recreated if it already exists.
+     */
+    public void testInsightsResultIndexExistsAndNotRecreate() throws IOException {
+        indices
+            .initInsightsResultIndexIfAbsent(
+                TestHelpers.createActionListener(response -> logger.info("Acknowledged: " + response.isAcknowledged()), failure -> {
+                    throw new RuntimeException("should not fail to create insights index", failure);
+                })
+            );
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+
+        if (client().admin().indices().prepareExists(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS).get().isExists()) {
+            // Second call should not recreate - listener should get null response
+            indices.initInsightsResultIndexIfAbsent(TestHelpers.createActionListener(response -> {
+                // Response should be null when index already exists
+                assertNull(response);
+            }, failure -> { throw new RuntimeException("should not fail when index already exists", failure); }));
+        }
+    }
+
+    /**
+     * Test that insights index mapping is loaded correctly.
+     */
+    public void testGetInsightsResultIndexMapping() throws IOException {
+        String mapping = ADIndexManagement.getInsightsResultMappings();
+        assertNotNull(mapping);
+        assertTrue(mapping.contains("task_id"));
+        assertTrue(mapping.contains("window_start"));
+        assertTrue(mapping.contains("window_end"));
+        assertTrue(mapping.contains("generated_at"));
+        assertTrue(mapping.contains("paragraphs"));
+        assertTrue(mapping.contains("doc_detector_ids"));
+        assertTrue(mapping.contains("doc_indices"));
+        assertTrue(mapping.contains("doc_series_keys"));
+        assertTrue(mapping.contains("stats"));
+        assertTrue(mapping.contains("mlc_raw"));
+    }
+
+    /**
+     * Test that insights index follows custom result index pattern (customer-owned settings).
+     */
+    public void testInsightsIndexHasCustomerOwnedSettings() throws IOException, InterruptedException {
+        indices
+            .initInsightsResultIndexDirectly(
+                TestHelpers.createActionListener(response -> { assertTrue(response.isAcknowledged()); }, failure -> {
+                    throw new RuntimeException("should not fail to create insights index", failure);
+                })
+            );
+
+        TestHelpers.waitForIndexCreationToComplete(client(), ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+
+        // Verify index settings - should have auto-expand replicas like custom result indices
+        org.opensearch.action.admin.indices.settings.get.GetSettingsResponse settingsResponse = client()
+            .admin()
+            .indices()
+            .prepareGetSettings(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS)
+            .get();
+
+        String autoExpandReplicas = settingsResponse
+            .getSetting(settingsResponse.getIndexToSettings().keySet().iterator().next(), "index.auto_expand_replicas");
+        assertEquals("0-2", autoExpandReplicas);
+    }
 }

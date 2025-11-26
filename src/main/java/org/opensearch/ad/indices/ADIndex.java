@@ -38,7 +38,12 @@ public enum ADIndex implements TimeSeriesIndex {
         ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getCheckpointMappings)
     ),
     STATE(ADCommonName.DETECTION_STATE_INDEX, false, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getStateMappings)),
-    CUSTOM_RESULT(CUSTOM_RESULT_INDEX, true, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getResultMappings)),;
+    CUSTOM_RESULT(CUSTOM_RESULT_INDEX, true, ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getResultMappings)),
+    CUSTOM_INSIGHTS_RESULT(
+        ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS,
+        true,
+        ThrowingSupplierWrapper.throwingSupplierWrapper(ADIndexManagement::getInsightsResultMappings)
+    );
 
     private final String indexName;
     // whether we use an alias for the index

@@ -19,6 +19,7 @@ import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_RESULT_HISTO
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_DETECTION_STATE_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.ANOMALY_RESULTS_INDEX_MAPPING_FILE;
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.CHECKPOINT_INDEX_MAPPING_FILE;
+import static org.opensearch.ad.settings.AnomalyDetectorSettings.INSIGHTS_RESULT_INDEX_MAPPING_FILE;
 
 import java.io.IOException;
 import java.util.EnumMap;
@@ -26,6 +27,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteRequest;
@@ -33,6 +35,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
@@ -143,6 +146,16 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
     }
 
     /**
+     * Get insights result index mapping json content.
+     *
+     * @return insights result index mapping
+     * @throws IOException IOException if mapping file can't be read correctly
+     */
+    public static String getInsightsResultMappings() throws IOException {
+        return getMappings(INSIGHTS_RESULT_INDEX_MAPPING_FILE);
+    }
+
+    /**
      * Get anomaly detector state index mapping json content.
      *
      * @return anomaly detector state index mapping
@@ -214,6 +227,52 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
     }
 
     /**
+     * Check if insights result index alias exists.
+     *
+     * @return true if insights result index alias exists
+     */
+    public boolean doesInsightsResultIndexExist() {
+        return doesAliasExist(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+    }
+
+    /**
+     * Create insights result index directly.
+     * Uses the same rollover pattern as custom result indices.
+     *
+     * @param actionListener action called after create index
+     */
+    public void initInsightsResultIndexDirectly(ActionListener<CreateIndexResponse> actionListener) {
+        try {
+            String insightsResultIndexPattern = getRolloverIndexPattern(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+            String mapping = getInsightsResultMappings();
+
+            CreateIndexRequest request = new CreateIndexRequest(insightsResultIndexPattern)
+                .mapping(mapping, XContentType.JSON)
+                .alias(new Alias(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS).writeIndex(true));
+
+            request.settings(Settings.builder().put(IndexMetadata.SETTING_AUTO_EXPAND_REPLICAS, customResultIndexAutoExpandReplica));
+
+            adminClient.indices().create(request, actionListener);
+        } catch (IOException e) {
+            logger.error("Failed to init insights result index", e);
+            actionListener.onFailure(e);
+        }
+    }
+
+    /**
+     * Create insights result index if it does not exist.
+     *
+     * @param actionListener action called after create index
+     */
+    public void initInsightsResultIndexIfAbsent(ActionListener<CreateIndexResponse> actionListener) {
+        if (!doesInsightsResultIndexExist()) {
+            initInsightsResultIndexDirectly(actionListener);
+        } else {
+            actionListener.onResponse(null);
+        }
+    }
+
+    /**
      * Create the state index.
      *
      * @param actionListener action called after create index
@@ -252,12 +311,31 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
 
     @Override
     protected void rolloverAndDeleteHistoryIndex() {
+        // rollover anomaly result index
         rolloverAndDeleteHistoryIndex(
             ADCommonName.ANOMALY_RESULT_INDEX_ALIAS,
             ALL_AD_RESULTS_INDEX_PATTERN,
             AD_RESULT_HISTORY_INDEX_PATTERN,
             ADIndex.RESULT
         );
+
+        // rollover insights result index
+        rolloverAndDeleteInsightsHistoryIndex();
+    }
+
+    /**
+     * rollover and delete old insights result indices.
+     * Uses same retention policy as system result index.
+     */
+    protected void rolloverAndDeleteInsightsHistoryIndex() {
+        if (doesInsightsResultIndexExist()) {
+            rolloverAndDeleteHistoryIndex(
+                ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS,
+                getAllHistoryIndexPattern(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS),
+                getRolloverIndexPattern(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS),
+                ADIndex.CUSTOM_INSIGHTS_RESULT
+            );
+        }
     }
 
     /**
