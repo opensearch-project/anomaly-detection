@@ -43,7 +43,7 @@ public class JobRunnerTests extends OpenSearchTestCase {
         // Test that Insights job name is correctly recognized
         String insightsJobName = ADCommonName.INSIGHTS_JOB_NAME;
         assertNotNull("Insights job name should be defined", insightsJobName);
-        assertEquals("insights_job", insightsJobName);
+        assertEquals("ad_insights_job", insightsJobName);
     }
 
     public void testJobNameMatchingLogic() {
@@ -53,7 +53,7 @@ public class JobRunnerTests extends OpenSearchTestCase {
         String wrongCaseName = "INSIGHTS_JOB";
 
         // Insights job should match exactly
-        assertTrue(insightsName.equals("insights_job"));
+        assertTrue(insightsName.equals("ad_insights_job"));
 
         // Regular job should not match
         assertFalse(regularName.equals("insights_job"));

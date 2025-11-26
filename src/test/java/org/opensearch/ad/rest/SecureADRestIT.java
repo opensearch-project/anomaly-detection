@@ -48,6 +48,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     String aliceUser = "alice";
@@ -1097,6 +1098,25 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             assertEquals(200, response.getStatusLine().getStatusCode());
         }
 
+    }
+
+    public void testInsightsApisUseSystemContextForJobIndex() throws IOException {
+        // Use a non-admin user with AD access (alice) to exercise Insights APIs end-to-end under security
+        String startPath = "/_plugins/_anomaly_detection/insights/_start";
+        String statusPath = "/_plugins/_anomaly_detection/insights/_status";
+        String stopPath = "/_plugins/_anomaly_detection/insights/_stop";
+
+        // Start insights job as alice
+        Response startResp = TestHelpers.makeRequest(aliceClient, "POST", startPath, ImmutableMap.of(), "", null);
+        assertEquals("Start insights job failed", RestStatus.OK, TestHelpers.restStatus(startResp));
+
+        // Status should be accessible and return OK for the same non-admin user
+        Response statusResp = TestHelpers.makeRequest(aliceClient, "GET", statusPath, ImmutableMap.of(), "", null);
+        assertEquals("Get insights job status failed", RestStatus.OK, TestHelpers.restStatus(statusResp));
+
+        // Stop should also be accessible and return OK
+        Response stopResp = TestHelpers.makeRequest(aliceClient, "POST", stopPath, ImmutableMap.of(), "", null);
+        assertEquals("Stop insights job failed", RestStatus.OK, TestHelpers.restStatus(stopResp));
     }
 
 }

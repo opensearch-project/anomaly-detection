@@ -55,6 +55,7 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.JobProcessor;
@@ -81,7 +82,7 @@ public class InsightsJobProcessor extends
 
     private static final Logger log = LogManager.getLogger(InsightsJobProcessor.class);
 
-    private static InsightsJobProcessor INSTANCE;
+    private static volatile InsightsJobProcessor INSTANCE;
     private NamedXContentRegistry xContentRegistry;
     private Settings settings;
 
@@ -340,16 +341,22 @@ public class InsightsJobProcessor extends
             .sort("data_start_time", SortOrder.ASC)
             .sort("_id", SortOrder.ASC);
 
-        fetchPagedAnomalies(
-            baseSource,
-            null,
-            allAnomalies,
-            jobParameter,
-            lockService,
-            lock,
-            executionStartTime,
-            executionEndTime
-        );
+        ThreadContext threadContext = localClient.threadPool().getThreadContext();
+        try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
+            fetchPagedAnomalies(
+                baseSource,
+                null,
+                allAnomalies,
+                jobParameter,
+                lockService,
+                lock,
+                executionStartTime,
+                executionEndTime
+            );
+        } catch (Exception e) {
+            log.error("Failed to query anomaly results for Insights job {}", jobParameter.getName(), e);
+            releaseLock(jobParameter, lockService, lock);
+        }
     }
 
     /**
@@ -410,7 +417,6 @@ public class InsightsJobProcessor extends
                     log.info("No anomalies found in time window, skipping ML correlation");
                     releaseLock(jobParameter, lockService, lock);
                 }
-
                 return;
             }
 
@@ -506,23 +512,40 @@ public class InsightsJobProcessor extends
 
         IndexRequest indexRequest = new IndexRequest(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS).source(insightsDoc);
 
-        InjectSecurity injectSecurity = new InjectSecurity(jobParameter.getName(), settings, localClient.threadPool().getThreadContext());
-        try {
-            injectSecurity.inject(user, roles);
+        // Before writing, validate that the insights result index mapping has not been modified.
+        indexManagement.validateResultIndexMapping(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS, ActionListener.wrap(valid -> {
+            if (!valid) {
+                log.error("Insights result index mapping is not correct; skipping insights write and ending job run");
+                releaseLock(jobParameter, lockService, lock);
+                return;
+            }
 
-            localClient
-                .index(
-                    indexRequest,
-                    ActionListener.runBefore(ActionListener.wrap(response -> { releaseLock(jobParameter, lockService, lock); }, error -> {
-                        log.error("Failed to write insights to index", error);
-                        releaseLock(jobParameter, lockService, lock);
-                    }), () -> injectSecurity.close())
-                );
-        } catch (Exception e) {
-            injectSecurity.close();
-            log.error("Failed to inject security context for insights write", e);
+            InjectSecurity injectSecurity = new InjectSecurity(
+                jobParameter.getName(),
+                settings,
+                localClient.threadPool().getThreadContext()
+            );
+            try {
+                injectSecurity.inject(user, roles);
+
+                localClient
+                    .index(
+                        indexRequest,
+                        ActionListener
+                            .runBefore(ActionListener.wrap(response -> { releaseLock(jobParameter, lockService, lock); }, error -> {
+                                log.error("Failed to write insights to index", error);
+                                releaseLock(jobParameter, lockService, lock);
+                            }), () -> injectSecurity.close())
+                    );
+            } catch (Exception e) {
+                injectSecurity.close();
+                log.error("Failed to inject security context for insights write", e);
+                releaseLock(jobParameter, lockService, lock);
+            }
+        }, e -> {
+            log.error("Failed to validate insights result index mapping", e);
             releaseLock(jobParameter, lockService, lock);
-        }
+        }));
     }
 
     @Override

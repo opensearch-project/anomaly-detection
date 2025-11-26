@@ -64,36 +64,28 @@ public class RestInsightsJobAction extends RestJobAction {
     }
 
     @Override
-    public List<ReplacedRoute> replacedRoutes() {
+    public List<Route> routes() {
         return ImmutableList
             .of(
                 // Start insights job
-                new ReplacedRoute(
+                new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_START),
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, INSIGHTS_START)
+                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_START)
                 ),
                 // Get insights job status
-                new ReplacedRoute(
+                new Route(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_STATUS),
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, INSIGHTS_STATUS)
+                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_STATUS)
                 ),
                 // Stop insights job
-                new ReplacedRoute(
+                new Route(
                     RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_STOP),
-                    RestRequest.Method.POST,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, INSIGHTS_STOP)
+                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_STOP)
                 ),
                 // Get insights results
-                new ReplacedRoute(
+                new Route(
                     RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_RESULTS),
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.LEGACY_OPENDISTRO_AD_BASE_URI, INSIGHTS_RESULTS)
+                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_RESULTS)
                 )
             );
     }

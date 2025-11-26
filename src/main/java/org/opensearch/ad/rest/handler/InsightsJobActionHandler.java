@@ -40,12 +40,12 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
-import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.transport.client.Client;
 
 /**
@@ -260,17 +260,22 @@ public class InsightsJobActionHandler {
                             return;
                         }
 
-                        // Use current user if provided, otherwise keep existing user (for BWC)
+                        IntervalSchedule schedule = createSchedule(frequency);
+                        long lockDurationSeconds = java.time.Duration.of(schedule.getInterval(), schedule.getUnit()).getSeconds();
+
+                        // Keep existing job user if present; only fall back to current user for BWC when job has no user
+                        User effectiveUser = existingJob.getUser() != null ? existingJob.getUser() : user;
+
                         Job enabledJob = new Job(
                             existingJob.getName(),
-                            createSchedule(frequency),
+                            schedule,
                             existingJob.getWindowDelay(),
                             true,
                             Instant.now(),
                             null,
                             Instant.now(),
-                            existingJob.getLockDurationSeconds(),
-                            user != null ? user : existingJob.getUser(),
+                            lockDurationSeconds,
+                            effectiveUser,
                             existingJob.getCustomResultIndexOrAlias(),
                             existingJob.getAnalysisType()
                         );
@@ -304,7 +309,7 @@ public class InsightsJobActionHandler {
     private void createNewJob(String frequency, User user, ActionListener<InsightsJobResponse> listener) {
         try {
             IntervalSchedule schedule = createSchedule(frequency);
-            long lockDurationSeconds = java.time.Duration.of(schedule.getInterval(), schedule.getUnit()).getSeconds() * 2;
+            long lockDurationSeconds = java.time.Duration.of(schedule.getInterval(), schedule.getUnit()).getSeconds();
 
             IntervalTimeConfiguration windowDelay = new IntervalTimeConfiguration(0L, ChronoUnit.MINUTES);
 
@@ -345,23 +350,18 @@ public class InsightsJobActionHandler {
                 .id(job.getName());
 
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-                client
-                    .index(
-                        indexRequest,
-                        ActionListener
-                            .wrap(indexResponse -> {
-                                if (job.isEnabled()) {
-                                    // Run immediately to generate insights from anomalies in the past interval
-                                    triggerImmediateInsightsRun(job);
-                                    // Schedule one-time run 5 minutes later to pick up anomalies from newly initialized detectors
-                                    scheduleOneTimeInsightsRun(job);
-                                }
-                                listener.onResponse(new InsightsJobResponse(successMessage));
-                            }, e -> {
-                                logger.error("Failed to index insights job", e);
-                                listener.onFailure(e);
-                            })
-                    );
+                client.index(indexRequest, ActionListener.wrap(indexResponse -> {
+                    if (job.isEnabled()) {
+                        // Run immediately to generate insights from anomalies in the past interval
+                        triggerImmediateInsightsRun(job);
+                        // Schedule one-time run 5 minutes later to pick up anomalies from newly initialized detectors
+                        scheduleOneTimeInsightsRun(job);
+                    }
+                    listener.onResponse(new InsightsJobResponse(successMessage));
+                }, e -> {
+                    logger.error("Failed to index insights job", e);
+                    listener.onFailure(e);
+                }));
             }
         } catch (IOException e) {
             logger.error("Failed to create index request for insights job", e);
@@ -374,22 +374,14 @@ public class InsightsJobActionHandler {
      */
     private void triggerImmediateInsightsRun(Job job) {
         try {
-            client
-                .threadPool()
-                .executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME)
-                .execute(() -> {
-                    try {
-                        InsightsJobProcessor processor = InsightsJobProcessor.getInstance();
-                        processor.runOnce(job);
-                    } catch (Exception e) {
-                        logger
-                            .error(
-                                "Failed to execute immediate Insights job run for job " + job.getName()
-                                    + " right after start",
-                                e
-                            );
-                    }
-                });
+            client.threadPool().executor(TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME).execute(() -> {
+                try {
+                    InsightsJobProcessor processor = InsightsJobProcessor.getInstance();
+                    processor.runOnce(job);
+                } catch (Exception e) {
+                    logger.error("Failed to execute immediate Insights job run for job " + job.getName() + " right after start", e);
+                }
+            });
             logger.info("Triggered immediate Insights job run for job {}", job.getName());
         } catch (Exception e) {
             logger.error("Failed to trigger immediate Insights job run for job " + job.getName(), e);
@@ -402,37 +394,21 @@ public class InsightsJobActionHandler {
     private void scheduleOneTimeInsightsRun(Job job) {
         try {
             TimeValue delay = TimeValue.timeValueMinutes(5);
-            client
-                .threadPool()
-                .schedule(
-                    () -> {
-                        try {
-                            InsightsJobProcessor processor = InsightsJobProcessor.getInstance();
-                            processor.runOnce(job);
-                        } catch (Exception e) {
-                            logger
-                                .error(
-                                    "Failed to execute one-time Insights job run for job " + job.getName()
-                                        + " scheduled 5 minutes after start",
-                                    e
-                                );
-                        }
-                    },
-                    delay,
-                    TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME
-                );
-            logger
-                .info(
-                    "Scheduled one-time Insights job run for job {} to execute in {} minutes",
-                    job.getName(),
-                    delay.minutes()
-                );
+            client.threadPool().schedule(() -> {
+                try {
+                    InsightsJobProcessor processor = InsightsJobProcessor.getInstance();
+                    processor.runOnce(job);
+                } catch (Exception e) {
+                    logger
+                        .error(
+                            "Failed to execute one-time Insights job run for job " + job.getName() + " scheduled 5 minutes after start",
+                            e
+                        );
+                }
+            }, delay, TimeSeriesAnalyticsPlugin.AD_THREAD_POOL_NAME);
+            logger.info("Scheduled one-time Insights job run for job {} to execute in {} minutes", job.getName(), delay.minutes());
         } catch (Exception e) {
-            logger
-                .error(
-                    "Failed to schedule one-time Insights job run for job " + job.getName() + " 5 minutes after start",
-                    e
-                );
+            logger.error("Failed to schedule one-time Insights job run for job " + job.getName() + " 5 minutes after start", e);
         }
     }
 

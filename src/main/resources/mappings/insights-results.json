@@ -40,13 +40,7 @@
             "format": "strict_date_time||epoch_millis"
           },
           "text": {
-            "type": "text",
-            "fields": {
-              "raw": {
-                "type": "keyword",
-                "ignore_above": 32766
-              }
-            }
+            "type": "text"
           },
           "detector_ids": {
             "type": "keyword"

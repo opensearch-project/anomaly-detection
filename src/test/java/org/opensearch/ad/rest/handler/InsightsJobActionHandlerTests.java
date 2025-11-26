@@ -34,6 +34,7 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.InsightsJobResponse;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.commons.ConfigConstants;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
@@ -145,7 +146,8 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         assertEquals(0L, ((Number) period.get("interval")).longValue());
         assertEquals("MINUTES", ((String) period.get("unit")).toUpperCase(Locale.ROOT));
 
-        long expectedLockSeconds = java.time.Duration.of(12, ChronoUnit.HOURS).getSeconds() * 2;
+        // Lock duration now equals the interval (12h), not 2x
+        long expectedLockSeconds = java.time.Duration.of(12, ChronoUnit.HOURS).getSeconds();
         assertEquals(expectedLockSeconds, ((Number) source.get("lock_duration_seconds")).longValue());
     }
 
@@ -239,5 +241,143 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         handler.startInsightsJob("24h", listener);
 
         verify(listener, times(1)).onFailure(any(OpenSearchStatusException.class));
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public void testStopInsightsJobUsesStashedContextForSystemIndexAccess() throws IOException {
+        Client client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
+
+        ADIndexManagement indexManagement = mock(ADIndexManagement.class);
+
+        IntervalSchedule schedule = new IntervalSchedule(Instant.now(), 24, ChronoUnit.HOURS);
+        IntervalTimeConfiguration windowDelay = new IntervalTimeConfiguration(0L, ChronoUnit.MINUTES);
+        Job existingJob = new Job(
+            ADCommonName.INSIGHTS_JOB_NAME,
+            schedule,
+            windowDelay,
+            true,
+            Instant.now().minus(1, ChronoUnit.HOURS),
+            null,
+            Instant.now().minusSeconds(30),
+            java.time.Duration.of(24, ChronoUnit.HOURS).getSeconds(),
+            null,
+            ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS,
+            AnalysisType.AD
+        );
+
+        GetResponse getResponse = org.opensearch.timeseries.TestHelpers
+            .createGetResponse(existingJob, ADCommonName.INSIGHTS_JOB_NAME, CommonName.JOB_INDEX);
+
+        // Simulate security plugin: if a normal user is in the thread context, accessing the
+        // system job index is forbidden; if there is no user (stashed context), it succeeds.
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            String userInfo = threadPool
+                .getThreadContext()
+                .getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
+            if (userInfo != null) {
+                listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
+            } else {
+                listener.onResponse(getResponse);
+            }
+            return null;
+        }).when(client).get(any(GetRequest.class), any(ActionListener.class));
+
+        // Put a normal user into thread context and verify direct access is forbidden
+        threadPool
+            .getThreadContext()
+            .putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
+
+        ActionListener<GetResponse> directListener = mock(ActionListener.class);
+        client.get(new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME), directListener);
+        verify(directListener, times(1)).onFailure(any(OpenSearchStatusException.class));
+
+        // Now use the handler, which stashes the context before touching the job index
+        InsightsJobActionHandler handler = new InsightsJobActionHandler(
+            client,
+            NamedXContentRegistry.EMPTY,
+            indexManagement,
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
+        );
+
+        ActionListener<InsightsJobResponse> handlerListener = mock(ActionListener.class);
+
+        // Also stub index() so the disabled job write succeeds
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            listener.onResponse(mock(IndexResponse.class));
+            return null;
+        }).when(client).index(any(IndexRequest.class), any(ActionListener.class));
+
+        handler.stopInsightsJob(handlerListener);
+
+        // With stashed (system) context, the same system index access should succeed
+        verify(handlerListener, times(1)).onResponse(any(InsightsJobResponse.class));
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public void testGetInsightsJobStatusUsesStashedContextForSystemIndexAccess() throws IOException {
+        Client client = mock(Client.class);
+        when(client.threadPool()).thenReturn(threadPool);
+
+        ADIndexManagement indexManagement = mock(ADIndexManagement.class);
+
+        IntervalSchedule schedule = new IntervalSchedule(Instant.now(), 24, ChronoUnit.HOURS);
+        IntervalTimeConfiguration windowDelay = new IntervalTimeConfiguration(0L, ChronoUnit.MINUTES);
+        Job existingJob = new Job(
+            ADCommonName.INSIGHTS_JOB_NAME,
+            schedule,
+            windowDelay,
+            true,
+            Instant.now().minus(1, ChronoUnit.HOURS),
+            null,
+            Instant.now().minusSeconds(30),
+            java.time.Duration.of(24, ChronoUnit.HOURS).getSeconds(),
+            null,
+            ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS,
+            AnalysisType.AD
+        );
+
+        GetResponse getResponse = org.opensearch.timeseries.TestHelpers
+            .createGetResponse(existingJob, ADCommonName.INSIGHTS_JOB_NAME, CommonName.JOB_INDEX);
+
+        // Simulate security plugin: if a normal user is in the thread context, accessing the
+        // system job index is forbidden; if there is no user (stashed context), it succeeds.
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            String userInfo = threadPool
+                .getThreadContext()
+                .getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
+            if (userInfo != null) {
+                listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
+            } else {
+                listener.onResponse(getResponse);
+            }
+            return null;
+        }).when(client).get(any(GetRequest.class), any(ActionListener.class));
+
+        // Put a normal user into thread context and verify direct access is forbidden
+        threadPool
+            .getThreadContext()
+            .putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
+
+        ActionListener<GetResponse> directListener = mock(ActionListener.class);
+        client.get(new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME), directListener);
+        verify(directListener, times(1)).onFailure(any(OpenSearchStatusException.class));
+
+        // Now use the handler, which stashes the context before touching the job index
+        InsightsJobActionHandler handler = new InsightsJobActionHandler(
+            client,
+            NamedXContentRegistry.EMPTY,
+            indexManagement,
+            org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
+        );
+
+        ActionListener<InsightsJobResponse> handlerListener = mock(ActionListener.class);
+        handler.getInsightsJobStatus(handlerListener);
+
+        // With stashed (system) context, the same system index access should succeed
+        verify(handlerListener, times(1)).onResponse(any(InsightsJobResponse.class));
     }
 }

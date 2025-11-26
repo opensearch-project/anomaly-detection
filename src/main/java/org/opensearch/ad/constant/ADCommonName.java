@@ -79,6 +79,6 @@ public class ADCommonName {
     // ======================================
     // Insights job
     // ======================================
-    // The Insights job name
-    public static final String INSIGHTS_JOB_NAME = "insights_job";
+    // The AD Insights job name
+    public static final String INSIGHTS_JOB_NAME = "ad_insights_job";
 }
