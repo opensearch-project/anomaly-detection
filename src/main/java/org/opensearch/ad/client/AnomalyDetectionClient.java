@@ -9,9 +9,13 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.ad.transport.GetAnomalyDetectorResponse;
+import org.opensearch.ad.transport.IndexAnomalyDetectorRequest;
+import org.opensearch.ad.transport.IndexAnomalyDetectorResponse;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.timeseries.transport.GetConfigRequest;
+import org.opensearch.timeseries.transport.JobRequest;
+import org.opensearch.timeseries.transport.JobResponse;
 import org.opensearch.timeseries.transport.SuggestConfigParamRequest;
 import org.opensearch.timeseries.transport.SuggestConfigParamResponse;
 import org.opensearch.timeseries.transport.ValidateConfigRequest;
@@ -110,4 +114,40 @@ public interface AnomalyDetectionClient {
      * @param listener a listener to be notified of the result
      */
     void suggestAnomalyDetector(SuggestConfigParamRequest suggestRequest, ActionListener<SuggestConfigParamResponse> listener);
+
+    /**
+     * Create anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#create-anomaly-detector
+     * @param createRequest request to create the detector
+     * @return ActionFuture of IndexAnomalyDetectorResponse
+     */
+    default ActionFuture<IndexAnomalyDetectorResponse> createAnomalyDetector(IndexAnomalyDetectorRequest createRequest) {
+        PlainActionFuture<IndexAnomalyDetectorResponse> actionFuture = PlainActionFuture.newFuture();
+        createAnomalyDetector(createRequest, actionFuture);
+        return actionFuture;
+    }
+
+    /**
+     * Create anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#create-anomaly-detector
+     * @param createRequest request to create the detector
+     * @param listener a listener to be notified of the result
+     */
+    void createAnomalyDetector(IndexAnomalyDetectorRequest createRequest, ActionListener<IndexAnomalyDetectorResponse> listener);
+
+    /**
+     * Start anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#start-detector-job
+     * @param startRequest request to start the detector
+     * @return ActionFuture of JobResponse
+     */
+    default ActionFuture<JobResponse> startAnomalyDetector(JobRequest startRequest) {
+        PlainActionFuture<JobResponse> actionFuture = PlainActionFuture.newFuture();
+        startAnomalyDetector(startRequest, actionFuture);
+        return actionFuture;
+    }
+
+    /**
+     * Start anomaly detector - refer to https://docs.opensearch.org/latest/observing-your-data/ad/api/#start-detector-job
+     * @param startRequest request to start the detector
+     * @param listener a listener to be notified of the result
+     */
+    void startAnomalyDetector(JobRequest startRequest, ActionListener<JobResponse> listener);
 }

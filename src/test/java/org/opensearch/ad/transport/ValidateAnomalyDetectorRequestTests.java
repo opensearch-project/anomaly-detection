@@ -47,8 +47,29 @@ public class ValidateAnomalyDetectorRequestTests extends OpenSearchSingleNodeTes
         request1.writeTo(output);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         ValidateConfigRequest request2 = new ValidateConfigRequest(input);
+    }
+
+    @Test
+    public void testValidateAnomalyDetectorRequestWithNullValues() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
+        String typeStr = "model";
+
+        // Test convenience constructor with null cluster settings
+        ValidateConfigRequest request1 = new ValidateConfigRequest(AnalysisType.AD, detector, typeStr);
+
+        // Test serialization with null values
+        BytesStreamOutput output = new BytesStreamOutput();
+        request1.writeTo(output);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
+        ValidateConfigRequest request2 = new ValidateConfigRequest(input);
+
         assertEquals("serialization has the wrong detector", request2.getConfig(), detector);
+        assertEquals("serialization has the wrong validation type", request2.getValidationType(), typeStr);
+        assertNull("maxSingleStreamConfigs should be null", request2.getMaxSingleEntityAnomalyDetectors());
+        assertNull("maxHCConfigs should be null", request2.getMaxMultiEntityAnomalyDetectors());
+        assertNull("maxFeatures should be null", request2.getMaxAnomalyFeatures());
+
         assertEquals("serialization has the wrong typeStr", request2.getValidationType(), typeStr);
-        assertEquals("serialization has the wrong requestTimeout", request2.getRequestTimeout(), requestTimeout);
+        assertEquals("serialization has the wrong requestTimeout", request2.getRequestTimeout(), TimeValue.timeValueSeconds(60));
     }
 }

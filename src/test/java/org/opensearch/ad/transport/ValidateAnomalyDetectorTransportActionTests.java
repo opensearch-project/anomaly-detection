@@ -548,4 +548,23 @@ public class ValidateAnomalyDetectorTransportActionTests extends ADIntegTestCase
         assertNull(response.getIssue());
     }
 
+    @Test
+    public void testValidateAnomalyDetectorWithNullSettings() throws IOException {
+        AnomalyDetector anomalyDetector = TestHelpers
+            .randomAnomalyDetector(timeField, "test-index", ImmutableList.of(sumValueFeature(nameField, ipField + ".is_error", "test-3")));
+        ingestTestDataValidate(anomalyDetector.getIndices().get(0), Instant.now().minus(1, ChronoUnit.DAYS), 1, "error");
+        ValidateConfigRequest request = new ValidateConfigRequest(
+            AnalysisType.AD,
+            anomalyDetector,
+            ValidationAspect.DETECTOR.getName(),
+            null,
+            null,
+            null,
+            new TimeValue(5_000L),
+            null
+        );
+        ValidateConfigResponse response = client().execute(ValidateAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+        assertNull(response.getIssue());
+    }
+
 }
