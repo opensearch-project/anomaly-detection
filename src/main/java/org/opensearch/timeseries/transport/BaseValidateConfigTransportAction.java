@@ -57,6 +57,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected final ClusterService clusterService;
     protected final NamedXContentRegistry xContentRegistry;
     protected final IndexManagementType indexManagement;
+    protected final TransportService transportService;
     protected final SearchFeatureDao searchFeatureDao;
     protected final NamedWriteableRegistry namedWriteableRegistry;
     protected volatile Boolean filterByEnabled;
@@ -90,6 +91,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.filterByEnabled = filterByBackendRoleSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterByEnabled = it);
+        this.transportService = transportService;
         this.searchFeatureDao = searchFeatureDao;
         this.clock = Clock.systemUTC();
         this.settings = settings;
