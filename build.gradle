@@ -738,7 +738,7 @@ integTest {
     }
 }
 
-task integTestRemote(type: RestIntegTestTask) {
+task integTestRemote(type: Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     systemProperty 'tests.security.manager', 'false'
