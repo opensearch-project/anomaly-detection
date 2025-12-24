@@ -535,14 +535,14 @@ public class MultiEntityResultTests extends AbstractTimeSeriesTest {
         // make PageIterator.next return failure
         doAnswer(invocation -> {
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
-            listener
-                .onFailure(
-                    new SearchPhaseExecutionException(
-                        "search",
-                        allShardsFailedMsg,
-                        new ShardSearchFailure[] { new ShardSearchFailure(new IllegalArgumentException("blah")) }
-                    )
-                );
+            // Create SearchPhaseExecutionException without ShardSearchFailure to avoid log4j NPE
+            // when rendering corrupted stack trace metadata in nested exceptions
+            SearchPhaseExecutionException ex = new SearchPhaseExecutionException(
+                "search",
+                allShardsFailedMsg + "; shardFailures {IllegalArgumentException[blah]}",
+                new ShardSearchFailure[0]
+            );
+            listener.onFailure(ex);
             inProgressLatch.countDown();
             return null;
         }).when(client).search(any(), any());
