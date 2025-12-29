@@ -13,8 +13,6 @@ package org.opensearch.ad.ml;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -42,6 +40,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.secure_sm.AccessController;
 import org.opensearch.timeseries.common.exception.ResourceNotFoundException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.ml.CheckpointDao;
@@ -190,7 +189,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
      * @param listener onResponse is called with null when the operation is completed
      */
     public void putThresholdCheckpoint(String modelId, ThresholdingModel threshold, ActionListener<Void> listener) {
-        String modelCheckpoint = AccessController.doPrivileged((PrivilegedAction<String>) () -> gson.toJson(threshold));
+        String modelCheckpoint = AccessController.doPrivileged(() -> gson.toJson(threshold));
         Map<String, Object> source = new HashMap<>();
         source.put(CommonName.FIELD_MODEL, modelCheckpoint);
         source.put(CommonName.TIMESTAMP, clock.instant().atZone(ZoneOffset.UTC));
@@ -259,7 +258,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
      * @return serialized string
      */
     public Optional<String> toCheckpoint(ThresholdedRandomCutForest model, String modelId) {
-        return AccessController.doPrivileged((PrivilegedAction<Optional<String>>) () -> {
+        return AccessController.doPrivileged(() -> {
             if (model == null) {
                 logger.warn("Empty model");
                 return Optional.empty();
@@ -314,7 +313,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
 
     private String toCheckpoint(ThresholdedRandomCutForest trcf, LinkedBuffer buffer) {
         try {
-            byte[] bytes = AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> {
+            byte[] bytes = AccessController.doPrivileged(() -> {
                 ThresholdedRandomCutForestState trcfState = trcfMapper.toState(trcf);
                 return ProtostuffIOUtil.toByteArray(trcfState, trcfSchema, buffer);
             });
@@ -339,7 +338,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
         String configId
     ) {
         try {
-            return AccessController.doPrivileged((PrivilegedAction<ModelState<ThresholdedRandomCutForest>>) () -> {
+            return AccessController.doPrivileged(() -> {
                 Object modelObj = checkpoint.get(FIELD_MODELV2);
                 if (modelObj == null) {
                     // in case there is old -format checkpoint
@@ -441,10 +440,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
             try {
                 byte[] bytes = Base64.getDecoder().decode(checkpoint);
                 ThresholdedRandomCutForestState state = trcfSchema.newMessage();
-                AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                    ProtostuffIOUtil.mergeFrom(bytes, state, trcfSchema);
-                    return null;
-                });
+                AccessController.doPrivileged(() -> ProtostuffIOUtil.mergeFrom(bytes, state, trcfSchema));
                 trcf = trcfMapper.toModel(state);
             } catch (RuntimeException e) {
                 logger.info("checkpoint to restore: " + checkpoint);
@@ -458,7 +454,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
         if (checkpoint == null || checkpoint.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(AccessController.doPrivileged((PrivilegedAction<RandomCutForest>) () -> {
+        return Optional.ofNullable(AccessController.doPrivileged(() -> {
             try {
                 RandomCutForestState state = converter.convert(checkpoint, Precision.FLOAT_32);
                 return mapper.toModel(state);
@@ -549,12 +545,7 @@ public class ADCheckpointDao extends CheckpointDao<ThresholdedRandomCutForest, A
                 return;
             }
             Optional<ThresholdingModel> model = thresholdCheckpoint
-                .map(
-                    checkpoint -> AccessController
-                        .doPrivileged(
-                            (PrivilegedAction<ThresholdingModel>) () -> gson.fromJson((String) checkpoint, thresholdingModelClass)
-                        )
-                );
+                .map(checkpoint -> AccessController.doPrivileged(() -> gson.fromJson((String) checkpoint, thresholdingModelClass)));
             listener.onResponse(model);
         }, exception -> {
             // expected exception, don't print stack trace

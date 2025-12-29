@@ -10,4 +10,6 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Infrastructure
 ### Documentation
 ### Maintenance
+
+- Replace java.security.AccessController with OpenSearch replacement ([#1631](https://github.com/opensearch-project/anomaly-detection/pull/1631))
 ### Refactoring

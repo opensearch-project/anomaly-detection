@@ -21,8 +21,6 @@ import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_CHECK
 import static org.opensearch.forecast.constant.ForecastCommonName.FORECAST_STATE_INDEX;
 import static org.opensearch.timeseries.constant.CommonName.JOB_INDEX;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -278,6 +276,7 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
+import org.opensearch.secure_sm.AccessController;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -327,7 +326,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import io.protostuff.LinkedBuffer;
-import io.protostuff.Schema;
 import io.protostuff.runtime.RuntimeSchema;
 
 /**
@@ -390,7 +388,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         SpecialPermission.check();
         // gson intialization requires "java.lang.RuntimePermission" "accessDeclaredMembers" to
         // initialize ConstructorConstructor
-        AccessController.doPrivileged((PrivilegedAction<Void>) TimeSeriesAnalyticsPlugin::initGson);
+        AccessController.doPrivileged(TimeSeriesAnalyticsPlugin::initGson);
     }
 
     public TimeSeriesAnalyticsPlugin() {}
@@ -535,21 +533,18 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
 
         long heapSizeBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
 
-        serializeRCFBufferPool = AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
-            @Override
-            public GenericObjectPool<LinkedBuffer> run() {
-                return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
-                    @Override
-                    public LinkedBuffer create() throws Exception {
-                        return LinkedBuffer.allocate(TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES);
-                    }
+        serializeRCFBufferPool = AccessController.doPrivileged(() -> {
+            return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
+                @Override
+                public LinkedBuffer create() throws Exception {
+                    return LinkedBuffer.allocate(TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES);
+                }
 
-                    @Override
-                    public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
-                        return new DefaultPooledObject<>(obj);
-                    }
-                });
-            }
+                @Override
+                public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
+                    return new DefaultPooledObject<>(obj);
+                }
+            });
         });
         serializeRCFBufferPool.setMaxTotal(TimeSeriesSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
         serializeRCFBufferPool.setMaxIdle(TimeSeriesSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
@@ -624,11 +619,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             rcfMapper,
             converter,
             new ThresholdedRandomCutForestMapper(),
-            AccessController
-                .doPrivileged(
-                    (PrivilegedAction<Schema<ThresholdedRandomCutForestState>>) () -> RuntimeSchema
-                        .getSchema(ThresholdedRandomCutForestState.class)
-                ),
+            AccessController.doPrivileged(() -> RuntimeSchema.getSchema(ThresholdedRandomCutForestState.class)),
             HybridThresholdingModel.class,
             anomalyDetectionIndices,
             TimeSeriesSettings.MAX_CHECKPOINT_BYTES,
@@ -1046,7 +1037,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES,
             forecastIndices,
             new RCFCasterMapper(),
-            AccessController.doPrivileged((PrivilegedAction<Schema<RCFCasterState>>) () -> RuntimeSchema.getSchema(RCFCasterState.class)),
+            AccessController.doPrivileged(() -> RuntimeSchema.getSchema(RCFCasterState.class)),
             getClock()
         );
 
@@ -1778,10 +1769,9 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
     public void close() {
         if (serializeRCFBufferPool != null) {
             try {
-                AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                AccessController.doPrivileged(() -> {
                     serializeRCFBufferPool.clear();
                     serializeRCFBufferPool.close();
-                    return null;
                 });
                 serializeRCFBufferPool = null;
             } catch (Exception e) {
