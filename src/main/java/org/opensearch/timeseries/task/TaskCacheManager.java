@@ -172,7 +172,7 @@ public class TaskCacheManager {
             }
             if (newState != null && !TaskState.NOT_ENDED_STATES.contains(newState)) {
                 // If task is done, will remove its realtime task cache.
-                logger.info("Realtime task done with state {}, remove RT task cache for config ", newState, configId);
+                logger.info("Realtime task done with state {}, remove RT task cache for config {}", newState, configId);
                 removeRealtimeTaskCache(configId);
             }
         } else {
