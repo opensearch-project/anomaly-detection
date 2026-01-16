@@ -64,7 +64,6 @@ buildscript {
         bwcFilePath = "src/test/resources/org/opensearch/ad/bwc/"
         bwcJobSchedulerPath = bwcFilePath + "job-scheduler/"
         bwcAnomalyDetectionPath = bwcFilePath + "anomaly-detection/"
-        jacksonVersion = "2.18.2"
         // gradle build won't print logs during test by default unless there is a failure.
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests.
@@ -115,6 +114,18 @@ tasks.withType(AbstractArchiveTask) {
     reproducibleFileOrder = true
 }
 
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'opensearch.opensearchplugin'
+apply plugin: 'opensearch.testclusters'
+apply plugin: 'base'
+apply plugin: 'jacoco'
+apply plugin: 'eclipse'
+apply plugin: 'opensearch.pluginzip'
+apply plugin: 'opensearch.java-agent'
+// opensearch.java plugin is required to use versions from core
+apply plugin: 'opensearch.java'
+
 repositories {
     mavenLocal()
     maven { url = "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
@@ -151,8 +162,8 @@ dependencies {
 
 
     // we inherit jackson-core from opensearch core
-    implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}")
+    implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson_annotations}")
 
     // used for serializing/deserializing rcf models.
     implementation 'io.protostuff:protostuff-core:1.8.0'
@@ -193,16 +204,6 @@ dependencies {
 
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
 }
-
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'opensearch.opensearchplugin'
-apply plugin: 'opensearch.testclusters'
-apply plugin: 'base'
-apply plugin: 'jacoco'
-apply plugin: 'eclipse'
-apply plugin: 'opensearch.pluginzip'
-apply plugin: 'opensearch.java-agent'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -269,7 +270,7 @@ configurations.all {
         force "junit:junit:4.13.2"
 
         force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
-        force("com.fasterxml.jackson.core:jackson-core:${jacksonVersion}")
+        force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
         force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
         force "org.ow2.asm:asm:9.7.1"
     }
@@ -1042,7 +1043,6 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.ad.transport.ADHCImputeRequest',
         'org.opensearch.timeseries.transport.BaseDeleteConfigTransportAction.1',
         'org.opensearch.timeseries.transport.BaseSuggestConfigParamTransportAction',
         'org.opensearch.timeseries.rest.AbstractSearchAction.1',
