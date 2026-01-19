@@ -83,7 +83,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.netflix.nebula.ospackage' version "12.1.0"
+    id 'com.netflix.nebula.ospackage' version "12.2.0"
     id "com.diffplug.spotless" version "6.25.0"
     id 'java-library'
     id 'org.gradle.test-retry' version '1.6.0'
@@ -152,7 +152,7 @@ dependencies {
     implementation 'com.google.guava:guava:33.4.5-jre'
     implementation 'com.google.guava:failureaccess:1.0.3'
     implementation 'org.apache.commons:commons-math3:3.6.1'
-    implementation 'com.google.code.gson:gson:2.11.0'
+    implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'com.yahoo.datasketches:sketches-core:0.13.4'
     implementation 'com.yahoo.datasketches:memory:0.12.2'
     implementation 'org.apache.commons:commons-pool2:2.12.0'
@@ -187,8 +187,8 @@ dependencies {
     testImplementation 'pl.pragmatists:JUnitParams:1.1.1'
     testImplementation 'org.mockito:mockito-core:5.20.0'
     testImplementation 'org.objenesis:objenesis:3.4'
-    testImplementation 'net.bytebuddy:byte-buddy:1.17.7'
-    testImplementation 'net.bytebuddy:byte-buddy-agent:1.17.7'
+    testImplementation 'net.bytebuddy:byte-buddy:1.18.4'
+    testImplementation 'net.bytebuddy:byte-buddy-agent:1.18.4'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.2'
     // jupiter is required to run unit tests not inherited from OpenSearchTestCase (e.g., PreviousValueImputerTests)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.14.2'
@@ -264,14 +264,13 @@ configurations.all {
 
         force "org.mockito:mockito-core:5.20.0"
         force "org.objenesis:objenesis:3.4"
-        force "net.bytebuddy:byte-buddy:1.17.7"
-        force "net.bytebuddy:byte-buddy-agent:1.17.7"
-        force "com.google.code.gson:gson:2.11.0"
+        force "net.bytebuddy:byte-buddy:1.18.4"
+        force "net.bytebuddy:byte-buddy-agent:1.18.4"
+        force "com.google.code.gson:gson:2.13.2"
         force "junit:junit:4.13.2"
 
         force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
-        force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
         force "org.ow2.asm:asm:9.7.1"
     }
 }
