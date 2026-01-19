@@ -271,7 +271,7 @@ configurations.all {
 
         force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
-        force "org.eclipse.platform:org.eclipse.core.runtime:3.29.0" // CVE for < 3.29.0
+        force "org.eclipse.platform:org.eclipse.core.runtime:3.34.100" // CVE for < 3.34.100
         force "org.ow2.asm:asm:9.7.1"
     }
 }
