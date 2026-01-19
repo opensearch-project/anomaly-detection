@@ -4,4 +4,4 @@ numpy==1.26.4
 opensearch_py==3.1.0
 retry2==0.9.2
 scipy==1.16.1
-urllib3>=2.5.0
+urllib3>=2.6.3
