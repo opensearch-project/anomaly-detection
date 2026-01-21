@@ -20,7 +20,7 @@ import java.util.Objects;
  */
 public final class Anomaly {
     // This uniquely identifies the emitting source of the anomaly (e.g., model id).
-    private final String id;
+    private final String modelId;
     // The id of the detector.
     private final String configId;
     // The start time of the anomaly.
@@ -28,8 +28,8 @@ public final class Anomaly {
     // The end time of the anomaly.
     private final Instant dataEndTime;
 
-    public Anomaly(String id, String configId, Instant dataStartTime, Instant dataEndTime) {
-        this.id = Objects.requireNonNull(id, "id");
+    public Anomaly(String modelId, String configId, Instant dataStartTime, Instant dataEndTime) {
+        this.modelId = Objects.requireNonNull(modelId, "modelId");
         this.configId = Objects.requireNonNull(configId, "configId");
         this.dataStartTime = Objects.requireNonNull(dataStartTime, "dataStartTime");
         this.dataEndTime = Objects.requireNonNull(dataEndTime, "dataEndTime");
@@ -39,8 +39,8 @@ public final class Anomaly {
         }
     }
 
-    public String getId() {
-        return id;
+    public String getModelId() {
+        return modelId;
     }
 
     public Instant getDataStartTime() {
@@ -60,10 +60,25 @@ public final class Anomaly {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        Anomaly anomaly = (Anomaly) o;
+        return modelId.equals(anomaly.modelId) && dataStartTime.equals(anomaly.dataStartTime) && dataEndTime.equals(anomaly.dataEndTime);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(modelId, dataStartTime, dataEndTime);
+    }
+
+    @Override
     public String toString() {
         return "Anomaly{"
             + "id='"
-            + id
+            + modelId
             + '\''
             + ", detectorName='"
             + configId
