@@ -23,6 +23,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.Name;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -50,7 +51,8 @@ public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfi
         ADIndexManagement anomalyDetectionIndices,
         ActionFilters actionFilters,
         TransportService transportService,
-        SearchFeatureDao searchFeatureDao
+        SearchFeatureDao searchFeatureDao,
+        NamedWriteableRegistry namedWriteableRegistry
     ) {
         super(
             SuggestAnomalyDetectorParamAction.NAME,
@@ -64,7 +66,9 @@ public class SuggestAnomalyDetectorParamTransportAction extends BaseSuggestConfi
             AnalysisType.AD,
             searchFeatureDao,
             Name.getListStrs(Arrays.asList(ADSuggestName.values())),
-            AnomalyDetector.class
+            AnomalyDetector.class,
+            namedWriteableRegistry
+
         );
     }
 

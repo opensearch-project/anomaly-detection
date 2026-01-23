@@ -31,13 +31,13 @@ jobs:
         run: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-command }}
 
       - name: Set Up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - name: Checkout Branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run integration tests
         run: |
@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload failed logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: logs-${{ matrix.resource_sharing_flag != '' && 'resource-sharing' || 'no-resource-sharing' }}
           path: build/testclusters/integTest-*/logs/*

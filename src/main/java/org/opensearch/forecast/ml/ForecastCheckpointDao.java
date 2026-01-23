@@ -12,8 +12,6 @@
 package org.opensearch.forecast.ml;
 
 import java.io.IOException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -37,6 +35,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
+import org.opensearch.secure_sm.AccessController;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.ml.CheckpointDao;
 import org.opensearch.timeseries.ml.ModelManager;
@@ -158,7 +157,7 @@ public class ForecastCheckpointDao extends CheckpointDao<RCFCaster, ForecastInde
             return Optional.empty();
         }
         try {
-            byte[] bytes = AccessController.doPrivileged((PrivilegedAction<byte[]>) () -> {
+            byte[] bytes = AccessController.doPrivileged(() -> {
                 RCFCasterState casterState = mapper.toState(caster.get());
                 return ProtostuffIOUtil.toByteArray(casterState, rcfCasterSchema, buffer);
             });
@@ -236,10 +235,7 @@ public class ForecastCheckpointDao extends CheckpointDao<RCFCaster, ForecastInde
             try {
                 byte[] bytes = Base64.getDecoder().decode(checkpoint);
                 RCFCasterState state = rcfCasterSchema.newMessage();
-                AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                    ProtostuffIOUtil.mergeFrom(bytes, state, rcfCasterSchema);
-                    return null;
-                });
+                AccessController.doPrivileged(() -> ProtostuffIOUtil.mergeFrom(bytes, state, rcfCasterSchema));
                 rcfCaster = mapper.toModel(state);
             } catch (RuntimeException e) {
                 logger.error("Failed to deserialize RCFCaster model", e);
@@ -281,7 +277,7 @@ public class ForecastCheckpointDao extends CheckpointDao<RCFCaster, ForecastInde
     @Override
     protected ModelState<RCFCaster> fromEntityModelCheckpoint(Map<String, Object> checkpoint, String modelId, String configId) {
         try {
-            return AccessController.doPrivileged((PrivilegedAction<ModelState<RCFCaster>>) () -> {
+            return AccessController.doPrivileged(() -> {
 
                 RCFCaster rcfCaster = loadRCFCaster(checkpoint, modelId);
 
@@ -367,7 +363,7 @@ public class ForecastCheckpointDao extends CheckpointDao<RCFCaster, ForecastInde
     @Override
     protected ModelState<RCFCaster> fromSingleStreamModelCheckpoint(Map<String, Object> checkpoint, String modelId, String configId) {
 
-        return AccessController.doPrivileged((PrivilegedAction<ModelState<RCFCaster>>) () -> {
+        return AccessController.doPrivileged(() -> {
 
             RCFCaster rcfCaster = loadRCFCaster(checkpoint, modelId);
 

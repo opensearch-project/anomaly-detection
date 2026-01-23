@@ -35,8 +35,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -95,6 +93,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
+import org.opensearch.secure_sm.AccessController;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
@@ -181,29 +180,22 @@ public class CheckpointDaoTests extends OpenSearchTestCase {
         mapper.setSaveExecutorContextEnabled(true);
 
         trcfMapper = new ThresholdedRandomCutForestMapper();
-        trcfSchema = AccessController
-            .doPrivileged(
-                (PrivilegedAction<Schema<ThresholdedRandomCutForestState>>) () -> RuntimeSchema
-                    .getSchema(ThresholdedRandomCutForestState.class)
-            );
+        trcfSchema = AccessController.doPrivileged(() -> RuntimeSchema.getSchema(ThresholdedRandomCutForestState.class));
 
         converter = new V1JsonToV3StateConverter();
 
-        serializeRCFBufferPool = spy(AccessController.doPrivileged(new PrivilegedAction<GenericObjectPool<LinkedBuffer>>() {
-            @Override
-            public GenericObjectPool<LinkedBuffer> run() {
-                return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
-                    @Override
-                    public LinkedBuffer create() throws Exception {
-                        return LinkedBuffer.allocate(TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES);
-                    }
+        serializeRCFBufferPool = spy(AccessController.doPrivileged(() -> {
+            return new GenericObjectPool<>(new BasePooledObjectFactory<LinkedBuffer>() {
+                @Override
+                public LinkedBuffer create() throws Exception {
+                    return LinkedBuffer.allocate(TimeSeriesSettings.SERIALIZATION_BUFFER_BYTES);
+                }
 
-                    @Override
-                    public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
-                        return new DefaultPooledObject<>(obj);
-                    }
-                });
-            }
+                @Override
+                public PooledObject<LinkedBuffer> wrap(LinkedBuffer obj) {
+                    return new DefaultPooledObject<>(obj);
+                }
+            });
         }));
         serializeRCFBufferPool.setMaxTotal(TimeSeriesSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);
         serializeRCFBufferPool.setMaxIdle(TimeSeriesSettings.MAX_TOTAL_RCF_SERIALIZATION_BUFFERS);

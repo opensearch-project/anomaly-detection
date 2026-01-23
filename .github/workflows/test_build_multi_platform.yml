@@ -17,8 +17,8 @@ jobs:
     if: github.repository == 'opensearch-project/anomaly-detection'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
         with:
           java-version: 21
           distribution: temurin
@@ -29,19 +29,19 @@ jobs:
     needs: spotless
     strategy:
       matrix:
-        java: [21, 24]
+        java: [21, 25]
     name: Build and Test Anomaly Detection Plugin on Windows
     runs-on: windows-latest
     env:
       JENKINS_URL: build.ci.opensearch.org
     steps:
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
       - name: Checkout Anomaly Detection
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build and Run Tests
         run: |
@@ -57,7 +57,7 @@ jobs:
     needs: [Get-CI-Image-Tag, spotless]
     strategy:
       matrix:
-        java: [21, 24]
+        java: [21, 25]
       fail-fast: false
     name: Build and Test Anomaly detection Plugin on Linux
     runs-on: ubuntu-latest
@@ -75,13 +75,13 @@ jobs:
       - name: Run start commands
         run: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-command }}
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
 
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Assemble / build / mavenlocal / integTest
         run: |
@@ -95,23 +95,23 @@ jobs:
     needs: spotless
     strategy:
       matrix:
-        java: [21, 24]
+        java: [21, 25]
       fail-fast: false
 
     name: Build and Test Anomaly detection Plugin on MacOS
-    runs-on: macos-13
+    runs-on: macos-15-intel
     env:
       JENKINS_URL: build.ci.opensearch.org
 
     steps:
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
 
       - name: Checkout AD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Assemble anomaly-detection
         run: |
