@@ -38,13 +38,16 @@ import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.common.exception.EndRunException;
+import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.client.Client;
@@ -56,6 +59,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class ADIndexManagement extends IndexManagement<ADIndex> {
     private static final Logger logger = LogManager.getLogger(ADIndexManagement.class);
+
+    // cache the insights result mapping configs to avoid repeated parsing
+    private volatile Map<String, Object> INSIGHTS_RESULT_FIELD_CONFIGS;
 
     // The index name pattern to query all the AD result history indices
     public static final String AD_RESULT_HISTORY_INDEX_PATTERN = "<.opendistro-anomaly-results-history-{now/d}-1>";
@@ -153,6 +159,48 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
      */
     public static String getInsightsResultMappings() throws IOException {
         return getMappings(INSIGHTS_RESULT_INDEX_MAPPING_FILE);
+    }
+
+    private void initInsightsResultMapping() throws IOException {
+        if (INSIGHTS_RESULT_FIELD_CONFIGS != null) {
+            return;
+        }
+
+        String mappingJson = getInsightsResultMappings();
+        Map<String, Object> asMap = XContentHelper.convertToMap(new BytesArray(mappingJson), false, XContentType.JSON).v2();
+        Object properties = asMap.get(CommonName.PROPERTIES);
+        if (properties instanceof Map) {
+            INSIGHTS_RESULT_FIELD_CONFIGS = (Map<String, Object>) properties;
+        } else {
+            logger.error("Fail to read insights result mapping file.");
+        }
+    }
+
+    /**
+     * Validate insights result index mapping against the insights mapping file.
+     *
+     * @param resultIndexOrAlias insights result index or alias
+     * @param thenDo listener returns true if insights result index mapping is valid
+     */
+    public void validateInsightsResultIndexMapping(String resultIndexOrAlias, ActionListener<Boolean> thenDo) {
+        getConcreteIndex(resultIndexOrAlias, ActionListener.wrap(concreteIndex -> {
+            if (concreteIndex == null) {
+                thenDo.onResponse(false);
+                return;
+            }
+            try {
+                initInsightsResultMapping();
+                if (INSIGHTS_RESULT_FIELD_CONFIGS == null) {
+                    // failed to populate the field
+                    thenDo.onResponse(false);
+                    return;
+                }
+                validateIndexMapping(concreteIndex, INSIGHTS_RESULT_FIELD_CONFIGS, "insights result index", thenDo);
+            } catch (Exception e) {
+                logger.error("Failed to validate insights result index mapping for index " + concreteIndex, e);
+                thenDo.onResponse(false);
+            }
+        }, thenDo::onFailure));
     }
 
     /**

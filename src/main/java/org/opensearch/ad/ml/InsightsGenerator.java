@@ -18,202 +18,198 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.correlation.Anomaly;
+import org.opensearch.ad.correlation.AnomalyCorrelation;
+import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorMetadata;
-import org.opensearch.ad.model.MLMetricsCorrelationInput;
-import org.opensearch.ad.model.MLMetricsCorrelationOutput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 
-import com.google.gson.Gson;
-
-/** 
- * Transforms ML output into structured insights-results documents
+/**
+ * Transforms correlation output into structured insights-results documents.
  */
 public class InsightsGenerator {
 
-    private static final Logger log = LogManager.getLogger(InsightsGenerator.class);
-    private static final Gson gson = new Gson();
-
     /**
-     * Generate insights document from ML Commons output.
-     * 
-     * @param mlOutput ML Commons correlation results
-     * @param input Original input containing metadata
+     * Generate insights document from AnomalyCorrelation clusters.
+     *
+     * @param clusters Correlation clusters
+     * @param anomalyResultByAnomaly Map of correlation anomaly to raw anomaly result
+     * @param detectorMetadataMap Detector metadata for name/index enrichment
+     * @param executionStartTime Start of analysis window
+     * @param executionEndTime End of analysis window
      * @return XContentBuilder ready to index
      */
-    public static XContentBuilder generateInsights(MLMetricsCorrelationOutput mlOutput, MLMetricsCorrelationInput input)
-        throws IOException {
+    public static XContentBuilder generateInsightsFromClusters(
+        List<AnomalyCorrelation.Cluster> clusters,
+        Map<Anomaly, AnomalyResult> anomalyResultByAnomaly,
+        Map<String, DetectorMetadata> detectorMetadataMap,
+        Instant executionStartTime,
+        Instant executionEndTime
+    ) throws IOException {
+        List<AnomalyCorrelation.Cluster> safeClusters = clusters == null ? new ArrayList<>() : clusters;
+        Map<Anomaly, AnomalyResult> safeAnomalyMap = anomalyResultByAnomaly == null ? new HashMap<>() : anomalyResultByAnomaly;
+        Map<String, DetectorMetadata> safeDetectorMetadata = detectorMetadataMap == null ? new HashMap<>() : detectorMetadataMap;
 
-        log.info("Generating insights from {} inference results", mlOutput.getInferenceResults().size());
+        Set<String> docDetectorIds = new HashSet<>();
+        Set<String> docDetectorNames = new HashSet<>();
+        Set<String> docIndices = new HashSet<>();
+        Set<String> docModelIds = new HashSet<>();
+        Set<String> docEntities = new HashSet<>();
+        int totalAnomalies = 0;
 
-        List<MLMetricsCorrelationOutput.InferenceResult> results = mlOutput.getInferenceResults();
-
-        // Collect all unique detector IDs, indices, and series keys
-        Set<String> allDetectorIds = new HashSet<>();
-        Set<String> allIndices = new HashSet<>();
-        Set<String> allSeriesKeys = new HashSet<>();
-
-        // Generate paragraphs from each inference result
-        List<Map<String, Object>> paragraphs = new ArrayList<>();
-
-        for (MLMetricsCorrelationOutput.InferenceResult result : results) {
-            Map<String, Object> paragraph = generateParagraph(result, input, allDetectorIds, allIndices, allSeriesKeys);
-            if (paragraph != null) {
-                paragraphs.add(paragraph);
+        List<Map<String, Object>> clusterDocs = new ArrayList<>();
+        for (AnomalyCorrelation.Cluster cluster : safeClusters) {
+            if (cluster == null) {
+                continue;
             }
+            List<Anomaly> clusterAnomalies = cluster.getAnomalies();
+            if (clusterAnomalies == null || clusterAnomalies.isEmpty()) {
+                continue;
+            }
+
+            Set<String> clusterDetectorIds = new HashSet<>();
+            Set<String> clusterDetectorNames = new HashSet<>();
+            Set<String> clusterIndices = new HashSet<>();
+            Set<String> clusterEntities = new HashSet<>();
+            Set<String> clusterModelIds = new HashSet<>();
+            List<Map<String, Object>> anomalyDocs = new ArrayList<>();
+
+            for (Anomaly anomaly : clusterAnomalies) {
+                if (anomaly == null) {
+                    continue;
+                }
+                totalAnomalies++;
+
+                String detectorId = anomaly.getConfigId();
+                String modelId = anomaly.getModelId();
+
+                if (detectorId != null) {
+                    clusterDetectorIds.add(detectorId);
+                    docDetectorIds.add(detectorId);
+                }
+                if (modelId != null) {
+                    clusterModelIds.add(modelId);
+                    docModelIds.add(modelId);
+                }
+
+                DetectorMetadata metadata = detectorId != null ? safeDetectorMetadata.get(detectorId) : null;
+                if (metadata != null) {
+                    if (metadata.getDetectorName() != null) {
+                        clusterDetectorNames.add(metadata.getDetectorName());
+                        docDetectorNames.add(metadata.getDetectorName());
+                    }
+                    if (metadata.getIndices() != null) {
+                        clusterIndices.addAll(metadata.getIndices());
+                        docIndices.addAll(metadata.getIndices());
+                    }
+                }
+
+                AnomalyResult rawAnomaly = safeAnomalyMap.get(anomaly);
+                String entityKey = buildEntityKey(rawAnomaly);
+                if (entityKey != null) {
+                    clusterEntities.add(entityKey);
+                    docEntities.add(entityKey);
+                }
+
+                Map<String, Object> anomalyDoc = new HashMap<>();
+                anomalyDoc.put("model_id", modelId);
+                anomalyDoc.put("detector_id", detectorId);
+                anomalyDoc.put("config_id", detectorId);
+                anomalyDoc.put("data_start_time", anomaly.getDataStartTime().toEpochMilli());
+                anomalyDoc.put("data_end_time", anomaly.getDataEndTime().toEpochMilli());
+                anomalyDocs.add(anomalyDoc);
+            }
+
+            Map<String, Object> clusterDoc = new HashMap<>();
+            clusterDoc.put("event_start", cluster.getEventWindow().getStart().toEpochMilli());
+            clusterDoc.put("event_end", cluster.getEventWindow().getEnd().toEpochMilli());
+            clusterDoc
+                .put(
+                    "cluster_text",
+                    generateClusterText(
+                        clusterDetectorIds,
+                        clusterIndices,
+                        clusterEntities,
+                        cluster.getEventWindow().getStart(),
+                        cluster.getEventWindow().getEnd(),
+                        clusterAnomalies.size()
+                    )
+                );
+            clusterDoc.put("detector_ids", new ArrayList<>(clusterDetectorIds));
+            clusterDoc.put("detector_names", new ArrayList<>(clusterDetectorNames));
+            clusterDoc.put("indices", new ArrayList<>(clusterIndices));
+            clusterDoc.put("entities", new ArrayList<>(clusterEntities));
+            clusterDoc.put("model_ids", new ArrayList<>(clusterModelIds));
+            clusterDoc.put("num_anomalies", clusterAnomalies.size());
+            clusterDoc.put("anomalies", anomalyDocs);
+
+            clusterDocs.add(clusterDoc);
         }
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
 
-        // Task metadata
         builder.field("task_id", "task_" + ADCommonName.INSIGHTS_JOB_NAME + "_" + UUID.randomUUID().toString());
-        builder.field("window_start", input.getExecutionStartTime().toEpochMilli());
-        builder.field("window_end", input.getExecutionEndTime().toEpochMilli());
+        builder.field("window_start", executionStartTime.toEpochMilli());
+        builder.field("window_end", executionEndTime.toEpochMilli());
         builder.field("generated_at", Instant.now().toEpochMilli());
 
-        // Denormalized fields for efficient filtering
-        builder.field("doc_detector_ids", new ArrayList<>(allDetectorIds));
-        builder.field("doc_indices", new ArrayList<>(allIndices));
-        builder.field("doc_series_keys", new ArrayList<>(allSeriesKeys));
+        builder.field("doc_detector_names", new ArrayList<>(docDetectorNames));
+        builder.field("doc_detector_ids", new ArrayList<>(docDetectorIds));
+        builder.field("doc_indices", new ArrayList<>(docIndices));
+        builder.field("doc_model_ids", new ArrayList<>(docModelIds));
 
-        // Paragraphs
-        builder.startArray("paragraphs");
-        for (Map<String, Object> paragraph : paragraphs) {
+        builder.startArray("clusters");
+        for (Map<String, Object> clusterDoc : clusterDocs) {
             builder.startObject();
-            for (Map.Entry<String, Object> entry : paragraph.entrySet()) {
+            for (Map.Entry<String, Object> entry : clusterDoc.entrySet()) {
                 builder.field(entry.getKey(), entry.getValue());
             }
             builder.endObject();
         }
         builder.endArray();
 
-        // Statistics
         builder.startObject("stats");
-        builder.field("num_paragraphs", paragraphs.size());
-        builder.field("num_detectors", allDetectorIds.size());
-        builder.field("num_indices", allIndices.size());
-        builder.field("num_series", allSeriesKeys.size());
-        builder.endObject();
-
-        // Raw ML output (stored but not indexed)
-        builder.startObject("mlc_raw");
-        String rawJson = gson.toJson(mlOutput.getRawOutput());
-        java.io.InputStream is = new java.io.ByteArrayInputStream(rawJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        builder.rawField("data", is, org.opensearch.common.xcontent.XContentType.JSON);
+        builder.field("num_clusters", clusterDocs.size());
+        builder.field("num_anomalies", totalAnomalies);
+        builder.field("num_detectors", docDetectorIds.size());
+        builder.field("num_indices", docIndices.size());
+        builder.field("num_series", docEntities.size());
+        builder.field("num_models", docModelIds.size());
         builder.endObject();
 
         builder.endObject();
-
-        log
-            .info(
-                "Generated insights: {} paragraphs, {} detectors, {} indices",
-                paragraphs.size(),
-                allDetectorIds.size(),
-                allIndices.size()
-            );
 
         return builder;
     }
 
-    /**
-     * Generate a single paragraph from an inference result.
-     */
-    private static Map<String, Object> generateParagraph(
-        MLMetricsCorrelationOutput.InferenceResult result,
-        MLMetricsCorrelationInput input,
-        Set<String> allDetectorIds,
-        Set<String> allIndices,
-        Set<String> allSeriesKeys
-    ) {
-        int[] eventWindow = result.getEventWindow();
-        int[] suspectedMetrics = result.getSuspectedMetrics();
+    // Legacy ML-commons correlation generator removed.
 
-        if (eventWindow.length < 2 || suspectedMetrics.length == 0) {
-            log.warn("Invalid inference result: eventWindow={}, suspectedMetrics={}", eventWindow.length, suspectedMetrics.length);
+    private static String buildEntityKey(AnomalyResult anomaly) {
+        if (anomaly == null || anomaly.getEntity() == null || !anomaly.getEntity().isPresent()) {
             return null;
         }
-
-        // Calculate event start/end times from bucket indices
-        List<Instant> bucketTimestamps = input.getBucketTimestamps();
-        int startIdx = (int) eventWindow[0];
-        int endIdx = (int) eventWindow[1];
-
-        // Ensure indices are within bounds
-        if (startIdx < 0 || startIdx >= bucketTimestamps.size() || endIdx < 0 || endIdx >= bucketTimestamps.size()) {
-            log.warn("Event window out of bounds: [{}, {}], bucket count: {}", startIdx, endIdx, bucketTimestamps.size());
+        org.opensearch.timeseries.model.Entity entity = anomaly.getEntity().get();
+        if (entity.getAttributes() == null || entity.getAttributes().isEmpty()) {
             return null;
         }
-
-        Instant eventStart = bucketTimestamps.get(startIdx);
-        Instant eventEnd = bucketTimestamps.get(endIdx);
-
-        // Extract detector IDs, indices, and series keys from suspected metrics
-        List<String> metricKeys = input.getMetricKeys();
-        Map<String, DetectorMetadata> detectorMetadataMap = input.getDetectorMetadataMap();
-
-        Set<String> detectorIds = new HashSet<>();
-        Set<String> indices = new HashSet<>();
-        Set<String> seriesKeys = new HashSet<>();
-        Set<String> entities = new HashSet<>();
-
-        for (int metricIdx : suspectedMetrics) {
-            if (metricIdx >= 0 && metricIdx < metricKeys.size()) {
-                String metricKey = metricKeys.get(metricIdx);
-
-                // Parse metric key: "detector_id" or "detector_id|entity_key"
-                String[] parts = metricKey.split("\\|", 2);
-                String detectorId = parts[0];
-                detectorIds.add(detectorId);
-
-                if (parts.length > 1) {
-                    String seriesKey = parts[1];
-                    seriesKeys.add(seriesKey);
-                    entities.add(seriesKey);
-                }
-
-                // Get detector metadata
-                DetectorMetadata metadata = detectorMetadataMap.get(detectorId);
-                if (metadata != null && metadata.getIndices() != null) {
-                    indices.addAll(metadata.getIndices());
-                }
-            }
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<String, String> entry : entity.getAttributes().entrySet()) {
+            parts.add(entry.getKey() + "=" + entry.getValue());
         }
-
-        // Generate paragraph text
-        String text = generateParagraphText(detectorIds, indices, seriesKeys, eventStart, eventEnd, suspectedMetrics.length);
-
-        // Update global sets
-        allDetectorIds.addAll(detectorIds);
-        allIndices.addAll(indices);
-        allSeriesKeys.addAll(seriesKeys);
-
-        // Build paragraph object
-        Map<String, Object> paragraph = new HashMap<>();
-        paragraph.put("start", eventStart.toString());
-        paragraph.put("end", eventEnd.toString());
-        paragraph.put("text", text);
-        paragraph.put("detector_ids", new ArrayList<>(detectorIds));
-        paragraph.put("indices", new ArrayList<>(indices));
-        paragraph.put("entities", new ArrayList<>(entities));
-        paragraph.put("series_keys", new ArrayList<>(seriesKeys));
-
-        return paragraph;
+        parts.sort(String::compareTo);
+        return String.join(",", parts);
     }
 
-    /**
-     * Generate user-friendly paragraph text.
-     */
-    private static String generateParagraphText(
+    private static String generateClusterText(
         Set<String> detectorIds,
         Set<String> indices,
-        Set<String> seriesKeys,
+        Set<String> entities,
         Instant eventStart,
         Instant eventEnd,
-        int numMetrics
+        int numAnomalies
     ) {
         StringBuilder text = new StringBuilder();
 
@@ -223,16 +219,12 @@ public class InsightsGenerator {
 
         text.append(String.format(Locale.ROOT, "Correlated anomalies detected across %d detector(s)", detectorIds.size()));
 
-        if (!indices.isEmpty()) {
-            text.append(String.format(Locale.ROOT, " in %d index pattern(s)", indices.size()));
-        }
-
-        if (!seriesKeys.isEmpty()) {
-            text.append(String.format(Locale.ROOT, ", affecting %d entities", seriesKeys.size()));
+        if (!entities.isEmpty()) {
+            text.append(String.format(Locale.ROOT, ", affecting %d entities", entities.size()));
         }
 
         text.append(".");
-        text.append(String.format(Locale.ROOT, " Detected from %s to %s with %d correlated metrics.", startStr, endStr, numMetrics));
+        text.append(String.format(Locale.ROOT, " Detected from %s to %s with %d anomaly record(s).", startStr, endStr, numAnomalies));
 
         return text.toString();
     }

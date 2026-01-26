@@ -89,13 +89,15 @@ public class InsightsJobActionHandler {
         User user = ParseUtils.getUserContext(client);
 
         // init insights-results index
-        indexManagement.initInsightsResultIndexIfAbsent(ActionListener.wrap(createIndexResponse -> {
-            // create insights job
-            ensureJobIndexAndCreateJob(frequency, user, listener);
-        }, e -> {
-            logger.error("Failed to initialize insights result index", e);
-            listener.onFailure(e);
-        }));
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            indexManagement.initInsightsResultIndexIfAbsent(ActionListener.wrap(createIndexResponse -> {
+                // create insights job
+                ensureJobIndexAndCreateJob(frequency, user, listener);
+            }, e -> {
+                logger.error("Failed to initialize insights result index", e);
+                listener.onFailure(e);
+            }));
+        }
     }
 
     /**
@@ -103,28 +105,30 @@ public class InsightsJobActionHandler {
      */
     private void ensureJobIndexAndCreateJob(String frequency, User user, ActionListener<InsightsJobResponse> listener) {
         if (!indexManagement.doesJobIndexExist()) {
-            indexManagement.initJobIndex(ActionListener.wrap(response -> {
-                if (response.isAcknowledged()) {
-                    createOrEnableJob(frequency, user, listener);
-                } else {
-                    logger.warn("Created {} with mappings call not acknowledged", CommonName.JOB_INDEX);
-                    listener
-                        .onFailure(
-                            new OpenSearchStatusException(
-                                "Created " + CommonName.JOB_INDEX + " with mappings call not acknowledged",
-                                RestStatus.INTERNAL_SERVER_ERROR
-                            )
-                        );
-                }
-            }, e -> {
-                // If index already exists, proceed anyway
-                if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
-                    createOrEnableJob(frequency, user, listener);
-                } else {
-                    logger.error("Failed to create job index", e);
-                    listener.onFailure(e);
-                }
-            }));
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                indexManagement.initJobIndex(ActionListener.wrap(response -> {
+                    if (response.isAcknowledged()) {
+                        createOrEnableJob(frequency, user, listener);
+                    } else {
+                        logger.warn("Created {} with mappings call not acknowledged", CommonName.JOB_INDEX);
+                        listener
+                            .onFailure(
+                                new OpenSearchStatusException(
+                                    "Created " + CommonName.JOB_INDEX + " with mappings call not acknowledged",
+                                    RestStatus.INTERNAL_SERVER_ERROR
+                                )
+                            );
+                    }
+                }, e -> {
+                    // If index already exists, proceed anyway
+                    if (ExceptionsHelper.unwrapCause(e) instanceof ResourceAlreadyExistsException) {
+                        createOrEnableJob(frequency, user, listener);
+                    } else {
+                        logger.error("Failed to create job index", e);
+                        listener.onFailure(e);
+                    }
+                }));
+            }
         } else {
             createOrEnableJob(frequency, user, listener);
         }

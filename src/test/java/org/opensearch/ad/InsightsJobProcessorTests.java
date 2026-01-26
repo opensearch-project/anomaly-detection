@@ -18,12 +18,8 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.lucene.search.TotalHits;
@@ -50,13 +46,12 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
-import org.opensearch.ml.common.transport.execute.MLExecuteTaskRequest;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.SearchShardTarget;
@@ -175,13 +170,6 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         // Create LockModel
         lockModel = new LockModel(".opendistro-job-scheduler-lock", "insights-job", Instant.now(), 600L, false);
 
-        // Stub ML Commons transport execute to fail fast so processor degrades gracefully
-        doAnswer(invocation -> {
-            @SuppressWarnings("unchecked")
-            ActionListener<Object> listener = (ActionListener<Object>) invocation.getArgument(2);
-            listener.onFailure(new Exception("ml commons not installed"));
-            return null;
-        }).when(client).execute(any(), any(MLExecuteTaskRequest.class), any());
     }
 
     @Test
@@ -376,8 +364,7 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
             return null;
         }).when(lockService).acquireLock(any(), any(), any());
 
-        // Note: Since ML Commons integration requires actual parsing and object creation,
-        // we expect this to eventually fail when trying to call ML Commons
+        // Note: Correlation runs locally; this test focuses on request/response wiring.
         // This test verifies the query flow up to that point
 
         insightsJobProcessor.process(insightsJob, jobExecutionContext);
@@ -405,10 +392,8 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
         // Original thread context has a different user (simulates calling user)
         ThreadContext threadContext = new ThreadContext(settings);
-        threadContext.putTransient(
-            ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT,
-            "request-user||request-role-1,request-role-2"
-        );
+        threadContext
+            .putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "request-user||request-role-1,request-role-2");
         when(threadPool.getThreadContext()).thenReturn(threadContext);
         when(client.threadPool()).thenReturn(threadPool);
 
@@ -691,12 +676,12 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
     }
 
     /**
-     * Test with realistic ML Commons metrics correlation data format.
-     * This test uses actual sample data structure from ML Commons API.
+     * Test with realistic correlation data format (legacy-compatible).
+     * This test uses the legacy sample data structure we still support.
      */
     @Test
-    public void testProcessWithMLCommonsCorrelationData() throws IOException {
-        // Create 3 detector hits (matching the 3 metrics in ML Commons output)
+    public void testProcessWithCorrelationData() throws IOException {
+        // Create 3 detector hits (matching the 3 metrics in legacy output)
         SearchHit detector1 = new SearchHit(1);
         detector1
             .sourceRef(
@@ -875,165 +860,14 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         verify(lockService, times(1)).acquireLock(any(), any(), any());
         verify(lockService, times(1)).release(any(), any());
 
-        // Note: The actual ML Commons call would happen here with the structure:
-        // Input metrics format (3 time series with 125 data points each):
-        // {
-        // "metrics": [
-        // [-1.1635416, -1.5003631, ..., 5.7872133], // Metric 0: detector-1
-        // [1.3037996, 2.7976995, ..., -9.879416], // Metric 1: detector-2
-        // [1.8792984, -3.1561708, ..., -6.4562697] // Metric 2: detector-3|host-01
-        // ]
-        // }
-        //
-        // Expected ML Commons output format:
-        // {
-        // "function_name": "METRICS_CORRELATION",
-        // "output": {
-        // "inference_results": [{
-        // "event_window": [52, 72], // Buckets 52-72 show anomaly
-        // "event_pattern": [0, 0, ..., 0.29, ...], // Probability distribution
-        // "suspected_metrics": [0, 1, 2] // All 3 metrics correlated
-        // }]
-        // }
-        // }
-        //
-        // This would result in an insights document with:
-        // - 3 detector_ids: ["detector-1", "detector-2", "detector-3"]
-        // - 3 indices: ["server-metrics-*", "host-logs-*", "app-logs-*"]
-        // - 1 series_key: ["host-01"]
-        // - Paragraph: "Anomaly cluster detected affecting 3 detector(s) across 3 index pattern(s)
-        // involving 1 series. Event occurred from <bucket-52-time> to <bucket-72-time>
-        // (3 correlated metrics)."
     }
 
     /**
-     * Test ML Commons input building with actual metric data.
-     * Verifies that anomaly results are correctly transformed into the metrics correlation input format.
-     */
-    @Test
-    public void testBuildMLCommonsInputWithRealData() throws IOException {
-        // Create 3 anomalies that should produce the exact input format from your example
-        Instant baseTime = Instant.parse("2025-01-01T00:00:00Z");
-
-        List<Map<String, Object>> anomalyData = new ArrayList<>();
-
-        // Create 125 anomalies (one per minute) for 3 detectors
-        // These will be aggregated into 3 time series with 125 data points each
-        for (int i = 0; i < 125; i++) {
-            Instant dataStart = baseTime.plus(i, ChronoUnit.MINUTES);
-            Instant dataEnd = dataStart.plus(1, ChronoUnit.MINUTES);
-
-            // Detector 1 anomaly
-            Map<String, Object> anomaly1 = new HashMap<>();
-            anomaly1.put("detector_id", "detector-1");
-            anomaly1.put("anomaly_grade", 0.5 + (i / 250.0)); // Varying grades
-            anomaly1.put("anomaly_score", 1.0 + (i / 50.0));
-            anomaly1.put("data_start_time", dataStart.toEpochMilli());
-            anomaly1.put("data_end_time", dataEnd.toEpochMilli());
-            anomalyData.add(anomaly1);
-
-            // Detector 2 anomaly
-            Map<String, Object> anomaly2 = new HashMap<>();
-            anomaly2.put("detector_id", "detector-2");
-            anomaly2.put("anomaly_grade", 0.6 + (i / 300.0));
-            anomaly2.put("anomaly_score", 1.5 + (i / 40.0));
-            anomaly2.put("data_start_time", dataStart.toEpochMilli());
-            anomaly2.put("data_end_time", dataEnd.toEpochMilli());
-            anomalyData.add(anomaly2);
-
-            // Detector 3 anomaly (multi-entity)
-            Map<String, Object> anomaly3 = new HashMap<>();
-            anomaly3.put("detector_id", "detector-3");
-            anomaly3.put("anomaly_grade", 0.7 + (i / 200.0));
-            anomaly3.put("anomaly_score", 2.0 + (i / 30.0));
-            anomaly3.put("data_start_time", dataStart.toEpochMilli());
-            anomaly3.put("data_end_time", dataEnd.toEpochMilli());
-
-            // Add entity
-            Map<String, Object> entity = new HashMap<>();
-            List<Map<String, String>> entityValue = new ArrayList<>();
-            Map<String, String> entityAttr = new HashMap<>();
-            entityAttr.put("name", "host");
-            entityAttr.put("value", "host-01");
-            entityValue.add(entityAttr);
-            entity.put("value", entityValue);
-            anomaly3.put("entity", entity);
-            anomalyData.add(anomaly3);
-        }
-
-        // Verify the input structure would have:
-        // - 3 metrics (detector-1, detector-2, detector-3|host-01)
-        // - 125 data points per metric
-        // - Properly formatted for ML Commons METRICS_CORRELATION
-
-        // Expected format verification
-        // Input should be: {"metrics": [[125 points], [125 points], [125 points]]}
-        assertTrue("Should have 375 anomalies (3 detectors × 125 time points)", anomalyData.size() == 375);
-
-        // Verify detector IDs are unique
-        long uniqueDetectors = anomalyData.stream().map(a -> a.get("detector_id")).distinct().count();
-        assertEquals("Should have 3 unique detectors", 3L, uniqueDetectors);
-
-        // Verify time range spans 125 minutes
-        long minTime = anomalyData.stream().mapToLong(a -> (Long) a.get("data_start_time")).min().orElse(0L);
-        long maxTime = anomalyData.stream().mapToLong(a -> (Long) a.get("data_end_time")).max().orElse(0L);
-        long durationMinutes = ChronoUnit.MINUTES.between(Instant.ofEpochMilli(minTime), Instant.ofEpochMilli(maxTime));
-        assertEquals("Time range should span 125 minutes", 125L, durationMinutes);
-    }
-
-    /**
-     * Test ML Commons output parsing with actual correlation results.
-     * Verifies that the output format from ML Commons is correctly parsed into insights.
-     */
-    @Test
-    public void testParseMLCommonsOutputWithRealData() throws IOException {
-        // Create the exact output structure from your example
-        String mlCommonsOutput = "{\n"
-            + "  \"function_name\": \"METRICS_CORRELATION\",\n"
-            + "  \"output\": {\n"
-            + "    \"inference_results\": [\n"
-            + "      {\n"
-            + "        \"event_window\": [52, 72],\n"
-            + "        \"event_pattern\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3.99625e-05, 0.0001052875, 0.0002605894, 0.00064648513, 0.0014303402, 0.002980127, 0.005871893, 0.010885878, 0.01904726, 0.031481907, 0.04920215, 0.07283493, 0.10219432, 0.1361888, 0.17257516, 0.20853643, 0.24082609, 0.26901975, 0.28376183, 0.29364157, 0.29541212, 0.2832976, 0.29041746, 0.2574534, 0.2610143, 0.22938538, 0.19999361, 0.18074994, 0.15539801, 0.13064545, 0.10544432, 0.081248805, 0.05965102, 0.041305058, 0.027082501, 0.01676033, 0.009760197, 0.005362286, 0.0027713624, 0.0013381141, 0.0006126331, 0.0002634901, 0.000106459476, 4.0407333e-05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n"
-            + "        \"suspected_metrics\": [0, 1, 2]\n"
-            + "      }\n"
-            + "    ]\n"
-            + "  }\n"
-            + "}";
-
-        // Verify the structure contains expected fields
-        assertTrue("Should contain function_name", mlCommonsOutput.contains("function_name"));
-        assertTrue("Should contain METRICS_CORRELATION", mlCommonsOutput.contains("METRICS_CORRELATION"));
-        assertTrue("Should contain inference_results", mlCommonsOutput.contains("inference_results"));
-        assertTrue("Should contain event_window", mlCommonsOutput.contains("event_window"));
-        assertTrue("Should contain suspected_metrics", mlCommonsOutput.contains("suspected_metrics"));
-
-        // Verify event window
-        assertTrue("Event window should start at bucket 52", mlCommonsOutput.contains("[52, 72]"));
-
-        // Verify all 3 metrics are suspected
-        assertTrue("Should identify all 3 metrics as correlated", mlCommonsOutput.contains("[0, 1, 2]"));
-
-        // Verify event pattern exists and has data
-        assertTrue("Should contain event_pattern array", mlCommonsOutput.contains("\"event_pattern\": ["));
-
-        // Verify peak probability values exist (from bucket 52-72 window)
-        assertTrue("Should have peak probability around bucket 60", mlCommonsOutput.contains("0.29541212"));
-        assertTrue("Should have peak probability around bucket 61", mlCommonsOutput.contains("0.29364157"));
-
-        // Verify probability distribution starts at 0
-        assertTrue("Should start with 0 probability", mlCommonsOutput.contains("[0, 0, 0, 0, 0, 0"));
-
-        // Verify probability distribution ends at 0
-        assertTrue("Should end with 0 probability", mlCommonsOutput.contains(", 0, 0, 0, 0, 0]"));
-    }
-
-    /**
-     * Test complete flow: ML Commons input → output → insights index document.
+     * Test complete flow: correlation input → output → insights index document.
      * This test verifies the entire transformation pipeline with real data.
      */
     @Test
-    public void testCompleteMLCommonsFlowWithRealData() throws IOException {
+    public void testCompleteCorrelationFlowWithRealData() throws IOException {
         // Step 1: Set up 3 detectors
         SearchHit detector1 = new SearchHit(1);
         detector1
@@ -1095,8 +929,7 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
             1.0f
         );
 
-        // Step 2: Set up anomalies corresponding to the 3 metrics in your example
-        // These anomalies will be transformed into the metrics array
+        // Step 2: Set up anomalies for correlation
         Instant bucket52Time = Instant.now().minus(73, ChronoUnit.MINUTES);
         Instant bucket72Time = Instant.now().minus(53, ChronoUnit.MINUTES);
 
@@ -1203,7 +1036,7 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         // Step 6: Execute the job
         insightsJobProcessor.process(insightsJob, jobExecutionContext);
 
-        // In this unit test environment ML Commons is stubbed to fail, so the processor may
+        // In this unit test environment the processor may
         // choose to skip indexing. We primarily verify that the flow completes without
         // throwing and that the correlation pipeline can be exercised end-to-end.
     }

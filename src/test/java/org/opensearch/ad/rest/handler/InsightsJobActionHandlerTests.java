@@ -273,9 +273,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         // system job index is forbidden; if there is no user (stashed context), it succeeds.
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
-            String userInfo = threadPool
-                .getThreadContext()
-                .getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
+            String userInfo = threadPool.getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
             if (userInfo != null) {
                 listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
             } else {
@@ -285,9 +283,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         }).when(client).get(any(GetRequest.class), any(ActionListener.class));
 
         // Put a normal user into thread context and verify direct access is forbidden
-        threadPool
-            .getThreadContext()
-            .putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
+        threadPool.getThreadContext().putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
 
         ActionListener<GetResponse> directListener = mock(ActionListener.class);
         client.get(new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME), directListener);
@@ -346,9 +342,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         // system job index is forbidden; if there is no user (stashed context), it succeeds.
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
-            String userInfo = threadPool
-                .getThreadContext()
-                .getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
+            String userInfo = threadPool.getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
             if (userInfo != null) {
                 listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
             } else {
@@ -358,9 +352,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         }).when(client).get(any(GetRequest.class), any(ActionListener.class));
 
         // Put a normal user into thread context and verify direct access is forbidden
-        threadPool
-            .getThreadContext()
-            .putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
+        threadPool.getThreadContext().putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
 
         ActionListener<GetResponse> directListener = mock(ActionListener.class);
         client.get(new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME), directListener);

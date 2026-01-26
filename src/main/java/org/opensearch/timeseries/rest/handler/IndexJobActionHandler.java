@@ -101,7 +101,6 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
 
     /** 
      * Constructor function.
-     *
      * @param client                  ES node client that executes actions on the local node
      * @param indexManagement         index manager
      * @param xContentRegistry        Registry which is used for XContentParser

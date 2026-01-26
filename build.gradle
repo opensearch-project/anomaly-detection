@@ -68,6 +68,13 @@ buildscript {
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests.
         printLogs = "true" == System.getProperty("test.logs", "false")
+
+        // OpenSearch 3.5.0-SNAPSHOT pulls Jackson 2.20.1 for some modules (e.g., Smile, Core), while
+        // `jackson-annotations` 2.20.x is not published on Maven Central yet.
+        // Keep core/databind aligned with OpenSearch, and pin annotations to the latest published 2.19.x.
+        jackson_core_version = System.getProperty("jackson.core.version", "2.20.1")
+        jackson_databind_version = System.getProperty("jackson.databind.version", "2.20.1")
+        jackson_annotations_version = System.getProperty("jackson.annotations.version", "2.19.0")
     }
 
     repositories {
@@ -88,7 +95,6 @@ plugins {
     id 'java-library'
     id 'org.gradle.test-retry' version '1.6.0'
     id "de.undercouch.download" version "5.6.0"
-    id 'com.gradleup.shadow' version '8.3.9'
 }
 
 tasks.withType(JavaCompile) {
@@ -148,8 +154,6 @@ dependencies {
     implementation "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${opensearch_version}"
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
-    compileOnly group: 'org.opensearch', name:'opensearch-ml-common', version: "${opensearch_build}"
-    compileOnly group: 'org.opensearch', name:'opensearch-ml-spi', version: "${opensearch_build}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
     implementation 'com.google.guava:guava:33.4.5-jre'
@@ -165,8 +169,8 @@ dependencies {
 
 
     // we inherit jackson-core from opensearch core
-    implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson_annotations}")
+    implementation("com.fasterxml.jackson.core:jackson-databind:${jackson_databind_version}")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:${jackson_annotations_version}")
 
     // used for serializing/deserializing rcf models.
     implementation 'io.protostuff:protostuff-core:1.8.0'
@@ -213,46 +217,6 @@ ext {
     buildVersionQualifier = System.getProperty("build.version_qualifier")
 }
 
-shadowJar {
-    // Only shade the deps that cause conflicts
-    dependencies {
-        include(dependency('com.google.guava:guava'))
-        include(dependency('com.google.guava:failureaccess'))
-        include(dependency('software.amazon.randomcutforest:randomcutforest-core'))
-        include(dependency('software.amazon.randomcutforest:randomcutforest-parkservices'))
-        include(dependency('software.amazon.randomcutforest:randomcutforest-serialization'))
-        exclude(dependency('org.opensearch:opensearch'))
-        exclude(dependency('org.opensearch:opensearch-core'))
-        exclude(dependency('org.opensearch:common-utils'))
-    }
-
-    relocate 'com.google.common', 'org.opensearch.ad.shaded.com.google.common'
-    relocate 'com.google.thirdparty.publicsuffix', 'org.opensearch.ad.shaded.com.google.thirdparty.publicsuffix'
-
-    relocate 'com.amazon.randomcutforest', 'org.opensearch.ad.shaded.com.amazon.randomcutforest'
-
-    exclude 'META-INF/maven/com.google.guava/**'
-    exclude 'META-INF/INDEX.LIST'
-
-    archiveClassifier.set(null)
-}
-
-afterEvaluate {
-    tasks.findByName('generatePomFileForShadowPublication')?.enabled = false
-    tasks.findByName('publishShadowPublicationToMavenLocal')?.enabled = false
-}
-
-jar { enabled = false }
-
-assemble.dependsOn shadowJar
-
-tasks.withType(Zip).matching { it.name == 'bundlePlugin' }.configureEach {
-    dependsOn shadowJar
-    exclude '**/guava-*.jar'
-    exclude '**/failureaccess-*.jar'
-    exclude '**/randomcutforest-*.jar'
-}
-
 allprojects {
     group = 'org.opensearch'
 
@@ -293,7 +257,7 @@ opensearchplugin {
     name = 'opensearch-anomaly-detection'
     description = 'OpenSearch anomaly detector plugin'
     classname = 'org.opensearch.timeseries.TimeSeriesAnalyticsPlugin'
-    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true', 'opensearch-ml;optional=true']
+    extendedPlugins = ['lang-painless', 'opensearch-job-scheduler', 'opensearch-security;optional=true']
 }
 
 // Handle case where older versions of esplugin doesn't expose the joda time version it uses
@@ -313,7 +277,9 @@ configurations.all {
         force "junit:junit:4.13.2"
 
         force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
-        force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
+        force("com.fasterxml.jackson.core:jackson-core:${jackson_core_version}")
+        force("com.fasterxml.jackson.core:jackson-annotations:${jackson_annotations_version}")
+        force("com.fasterxml.jackson.core:jackson-databind:${jackson_databind_version}")
         force "org.ow2.asm:asm:9.7.1"
     }
 }
@@ -406,7 +372,6 @@ task integTest(type: RestIntegTestTask) {
 tasks.named("check").configure { dependsOn(integTest) }
 
 integTest {
-    jacoco.enabled = true
     retry {
         if (BuildParams.isCi()) {
             maxRetries = 6
@@ -1127,15 +1092,6 @@ jacocoTestCoverageVerification {
 
 check.dependsOn jacocoTestCoverageVerification
 jacocoTestCoverageVerification.dependsOn jacocoTestReport
-
-jacocoTestReport {
-    dependsOn test, integTest
-    executionData.from = files(test.jacoco.destinationFile, integTest.jacoco.destinationFile)
-    reports {
-        xml.required = true
-        html.required = true
-    }
-}
 
 compileJava.options.compilerArgs << "-Xlint:-deprecation,-rawtypes,-serial,-try,-unchecked"
 

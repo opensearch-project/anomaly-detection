@@ -7,7 +7,6 @@ package org.opensearch.ad;
 
 import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedToken;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -16,23 +15,27 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.search.ClearScrollRequest;
+import org.opensearch.action.search.ClearScrollResponse;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.ad.constant.ADCommonName;
+import org.opensearch.ad.correlation.Anomaly;
+import org.opensearch.ad.correlation.AnomalyCorrelation;
 import org.opensearch.ad.indices.ADIndex;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.InsightsGenerator;
-import org.opensearch.ad.ml.MLCommonsClient;
-import org.opensearch.ad.ml.MLMetricsCorrelationInputBuilder;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.ad.model.ADTaskType;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyResult;
 import org.opensearch.ad.model.DetectorMetadata;
-import org.opensearch.ad.model.MLMetricsCorrelationInput;
 import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskCacheManager;
@@ -40,6 +43,8 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.ad.transport.ADProfileAction;
 import org.opensearch.ad.transport.AnomalyResultAction;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.InjectSecurity;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -55,7 +60,6 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.JobProcessor;
@@ -73,7 +77,7 @@ import org.opensearch.transport.client.Client;
  * 1. Runs at a configured frequency (e.g., every 5 minutes, every 24 hours)
  * 2. Queries detectors created by LLM
  * 3. Retrieves anomaly results from the past execution interval
- * 4. Calls ML Commons metrics correlation algorithm
+ * 4. Runs anomaly correlation to group related anomalies
  * 5. Generates insights and writes them to the insights-results index
  * 
  */
@@ -81,6 +85,7 @@ public class InsightsJobProcessor extends
     JobProcessor<ADIndex, ADIndexManagement, ADTaskCacheManager, ADTaskType, ADTask, ADTaskManager, AnomalyResult, ADProfileAction, ExecuteADResultResponseRecorder, ADIndexJobActionHandler> {
 
     private static final Logger log = LogManager.getLogger(InsightsJobProcessor.class);
+    private static final int LOG_PREVIEW_LIMIT = 2000;
 
     private static volatile InsightsJobProcessor INSTANCE;
     private NamedXContentRegistry xContentRegistry;
@@ -89,7 +94,6 @@ public class InsightsJobProcessor extends
     private Client localClient;
     private ThreadPool localThreadPool;
     private String localThreadPoolName;
-    private volatile MLCommonsClient mlCommonsClient;
 
     public static InsightsJobProcessor getInstance() {
         if (INSTANCE != null) {
@@ -128,20 +132,6 @@ public class InsightsJobProcessor extends
     public void setThreadPool(ThreadPool threadPool) {
         super.setThreadPool(threadPool);
         this.localThreadPool = threadPool;
-    }
-
-    private synchronized void initMlCommonsClient() {
-        if (this.mlCommonsClient == null && this.localClient != null && this.xContentRegistry != null) {
-            try {
-                this.mlCommonsClient = new MLCommonsClient(this.localClient, this.xContentRegistry);
-            } catch (NoClassDefFoundError e) {
-                log.warn("ML Commons classes not found; Insights correlation will be skipped", e);
-                this.mlCommonsClient = null;
-            } catch (Throwable t) {
-                log.warn("Failed to initialize ML Commons client; Insights correlation will be skipped", t);
-                this.mlCommonsClient = null;
-            }
-        }
     }
 
     /**
@@ -249,7 +239,20 @@ public class InsightsJobProcessor extends
             log.info("One-time Insights job analyzing data from {} to {} (default 24h window)", executionStartTime, executionEndTime);
         }
 
-        querySystemResultIndex(jobParameter, null, null, executionStartTime, executionEndTime);
+        ActionListener<List<AnomalyResult>> anomaliesListener = ActionListener.wrap(anomalies -> {
+            if (anomalies.isEmpty()) {
+                log.info("No anomalies found in one-time run, skipping correlation");
+                return;
+            }
+
+            ActionListener<Void> completion = ActionListener.wrap(r -> {}, e -> {
+                log.error(new ParameterizedMessage("One-time Insights job {} failed", jobName), e);
+            });
+
+            fetchDetectorMetadataAndProceed(anomalies, jobParameter, executionStartTime, executionEndTime, completion);
+        }, e -> { log.error(new ParameterizedMessage("Failed to query anomaly results for one-time Insights job {}", jobName), e); });
+
+        querySystemResultIndex(jobParameter, executionStartTime, executionEndTime, anomaliesListener);
     }
 
     /**
@@ -293,24 +296,55 @@ public class InsightsJobProcessor extends
 
         log.info("Running Insights job for time window: {} to {}", executionStartTime, executionEndTime);
 
-        querySystemResultIndex(jobParameter, lockService, lock, executionStartTime, executionEndTime);
+        // Guarded listener that ensures the lock is released exactly once regardless of success/failure path
+        ActionListener<Void> lockReleasing = guardedLockReleasingListener(jobParameter, lockService, lock);
+
+        ActionListener<List<AnomalyResult>> anomaliesListener = ActionListener.wrap(anomalies -> {
+            if (anomalies.isEmpty()) {
+                log.info("No anomalies found in time window, skipping correlation");
+                lockReleasing.onResponse(null);
+                return;
+            }
+            fetchDetectorMetadataAndProceed(anomalies, jobParameter, executionStartTime, executionEndTime, lockReleasing);
+        }, lockReleasing::onFailure);
+
+        querySystemResultIndex(jobParameter, executionStartTime, executionEndTime, anomaliesListener);
+    }
+
+    /**
+     * a lock-releasing listener that guarantees the lock is released at most once.
+     */
+    private ActionListener<Void> guardedLockReleasingListener(Job jobParameter, LockService lockService, LockModel lock) {
+        AtomicBoolean done = new AtomicBoolean(false);
+
+        return ActionListener.wrap(r -> {
+            if (done.compareAndSet(false, true)) {
+                releaseLock(jobParameter, lockService, lock);
+            } else {
+                log.warn("Lock already released for Insights job {}", jobParameter.getName());
+            }
+        }, e -> {
+            if (done.compareAndSet(false, true)) {
+                log.error(new ParameterizedMessage("Insights job {} failed", jobParameter.getName()), e);
+                releaseLock(jobParameter, lockService, lock);
+            } else {
+                log.warn("Lock already released for Insights job {} (got extra failure)", jobParameter.getName(), e);
+            }
+        });
     }
 
     /**
      * Query all anomalies from system result index for the given time window.
      * 
      * @param jobParameter The insights job
-     * @param lockService Lock service for releasing lock
-     * @param lock The acquired lock
      * @param executionStartTime Start of analysis window
      * @param executionEndTime End of analysis window
      */
     private void querySystemResultIndex(
         Job jobParameter,
-        LockService lockService,
-        LockModel lock,
         Instant executionStartTime,
-        Instant executionEndTime
+        Instant executionEndTime,
+        ActionListener<List<AnomalyResult>> listener
     ) {
         log.info("Querying all anomaly results from {} to {}", executionStartTime, executionEndTime);
 
@@ -330,169 +364,229 @@ public class InsightsJobProcessor extends
         boolQuery.filter(QueryBuilders.rangeQuery("anomaly_grade").gt(0));
 
         final int pageSize = 10000;
+        final TimeValue scrollKeepAlive = TimeValue.timeValueMinutes(5);
 
         SearchSourceBuilder baseSource = new SearchSourceBuilder()
             .query(boolQuery)
             .size(pageSize)
-            .fetchSource(
-                new String[] { "detector_id", "entity", "data_start_time", "data_end_time", "anomaly_grade", "anomaly_score" },
-                null
-            )
-            .sort("data_start_time", SortOrder.ASC)
-            .sort("_id", SortOrder.ASC);
+            .fetchSource(new String[] { "detector_id", "model_id", "entity", "data_start_time", "data_end_time", "anomaly_grade" }, null)
+            .sort("_doc", SortOrder.ASC);
+
+        SearchRequest searchRequest = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS).source(baseSource).scroll(scrollKeepAlive);
+        logAnomalyResultsQueryPreview(searchRequest, baseSource, pageSize, scrollKeepAlive, executionStartTime, executionEndTime);
 
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
-            fetchPagedAnomalies(
-                baseSource,
-                null,
-                allAnomalies,
-                jobParameter,
-                lockService,
-                lock,
-                executionStartTime,
-                executionEndTime
-            );
+            localClient.search(searchRequest, ActionListener.wrap(searchResponse -> {
+                String scrollId = searchResponse.getScrollId();
+                SearchHit[] hits = searchResponse.getHits().getHits();
+                parseAnomalyHits(hits, allAnomalies);
+
+                if (hits.length == 0 || hits.length < pageSize) {
+                    log
+                        .info(
+                            "Successfully parsed {} anomalies in time window {} to {}",
+                            allAnomalies.size(),
+                            executionStartTime,
+                            executionEndTime
+                        );
+                    clearScroll(scrollId);
+                    listener.onResponse(allAnomalies);
+                    return;
+                }
+
+                fetchScrolledAnomalies(scrollId, scrollKeepAlive, pageSize, allAnomalies, executionStartTime, executionEndTime, listener);
+            }, e -> {
+                if (e.getMessage() != null && (e.getMessage().contains("no such index") || e.getMessage().contains("index_not_found"))) {
+                    log.info("Anomaly results index does not exist yet (no anomalies recorded)");
+                } else {
+                    log.error("Failed to query anomaly results", e);
+                }
+                listener.onFailure(e);
+            }));
         } catch (Exception e) {
             log.error("Failed to query anomaly results for Insights job {}", jobParameter.getName(), e);
-            releaseLock(jobParameter, lockService, lock);
+            listener.onFailure(e);
         }
     }
 
     /**
      * Fetch anomalies with pagination
      */
-    private void fetchPagedAnomalies(
-        SearchSourceBuilder baseSource,
-        Object[] searchAfter,
+    private void fetchScrolledAnomalies(
+        String scrollId,
+        TimeValue scrollKeepAlive,
+        int pageSize,
         List<AnomalyResult> allAnomalies,
-        Job jobParameter,
-        LockService lockService,
-        LockModel lock,
         Instant executionStartTime,
-        Instant executionEndTime
+        Instant executionEndTime,
+        ActionListener<List<AnomalyResult>> listener
     ) {
-        SearchSourceBuilder pageSource = new SearchSourceBuilder()
-            .query(baseSource.query())
-            .size(baseSource.size())
-            .fetchSource(baseSource.fetchSource())
-            .sort("data_start_time", SortOrder.ASC)
-            .sort("_id", SortOrder.ASC);
+        SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId).scroll(scrollKeepAlive);
+        ThreadContext threadContext = localClient.threadPool().getThreadContext();
+        // anomaly results are stored in system index, so use stashed context
+        try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
+            localClient.searchScroll(scrollRequest, ActionListener.wrap(searchResponse -> {
+                String nextScrollId = searchResponse.getScrollId();
+                SearchHit[] hits = searchResponse.getHits().getHits();
+                parseAnomalyHits(hits, allAnomalies);
 
-        if (searchAfter != null) {
-            pageSource.searchAfter(searchAfter);
-        }
-
-        SearchRequest pageRequest = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS).source(pageSource);
-
-        localClient.search(pageRequest, ActionListener.wrap(searchResponse -> {
-            SearchHit[] hits = searchResponse.getHits().getHits();
-
-            for (SearchHit hit : hits) {
-                try {
-                    XContentParser parser = org.opensearch.timeseries.util.RestHandlerUtils
-                        .createXContentParserFromRegistry(xContentRegistry, hit.getSourceRef());
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                    AnomalyResult anomaly = AnomalyResult.parse(parser);
-                    allAnomalies.add(anomaly);
-                } catch (Exception e) {
-                    log.warn("Failed to parse anomaly from {} (document may be incomplete)", hit.getId(), e);
+                if (hits.length == 0 || hits.length < pageSize) {
+                    log
+                        .info(
+                            "Successfully parsed {} anomalies in time window {} to {}",
+                            allAnomalies.size(),
+                            executionStartTime,
+                            executionEndTime
+                        );
+                    clearScroll(nextScrollId);
+                    listener.onResponse(allAnomalies);
+                    return;
                 }
-            }
 
-            // when search results is less than one page
-            if (hits.length == 0 || hits.length < baseSource.size()) {
-                log
-                    .info(
-                        "Successfully parsed {} anomalies in time window {} to {}",
-                        allAnomalies.size(),
-                        executionStartTime,
-                        executionEndTime
-                    );
-
-                if (!allAnomalies.isEmpty()) {
-                    // Enrich detector metadata (names, indices) before correlation
-                    fetchDetectorMetadataAndProceed(allAnomalies, jobParameter, lockService, lock, executionStartTime, executionEndTime);
+                fetchScrolledAnomalies(
+                    nextScrollId,
+                    scrollKeepAlive,
+                    pageSize,
+                    allAnomalies,
+                    executionStartTime,
+                    executionEndTime,
+                    listener
+                );
+            }, e -> {
+                clearScroll(scrollId);
+                if (e.getMessage() != null && (e.getMessage().contains("no such index") || e.getMessage().contains("index_not_found"))) {
+                    log.info("Anomaly results index does not exist yet (no anomalies recorded)");
                 } else {
-                    log.info("No anomalies found in time window, skipping ML correlation");
-                    releaseLock(jobParameter, lockService, lock);
+                    log.error("Failed to query anomaly results", e);
                 }
-                return;
-            }
+                listener.onFailure(e);
+            }));
+        }
+    }
 
-            // continue to next page
-            Object[] next = hits[hits.length - 1].getSortValues();
-            fetchPagedAnomalies(
-                baseSource,
-                next,
-                allAnomalies,
-                jobParameter,
-                lockService,
-                lock,
-                executionStartTime,
-                executionEndTime
-            );
-        }, e -> {
-            if (e.getMessage() != null && (e.getMessage().contains("no such index") || e.getMessage().contains("index_not_found"))) {
-                log.info("Anomaly results index does not exist yet (no anomalies recorded)");
-            } else {
-                log.error("Failed to query anomaly results", e);
+    private void parseAnomalyHits(SearchHit[] hits, List<AnomalyResult> allAnomalies) {
+        for (SearchHit hit : hits) {
+            try {
+                XContentParser parser = org.opensearch.timeseries.util.RestHandlerUtils
+                    .createXContentParserFromRegistry(xContentRegistry, hit.getSourceRef());
+                ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                AnomalyResult anomaly = AnomalyResult.parse(parser);
+                allAnomalies.add(anomaly);
+            } catch (Exception e) {
+                log.warn("Failed to parse anomaly from {} (document may be incomplete)", hit.getId(), e);
             }
-            releaseLock(jobParameter, lockService, lock);
-        }));
+        }
+    }
+
+    private void clearScroll(String scrollId) {
+        if (scrollId == null || scrollId.isEmpty()) {
+            return;
+        }
+        ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
+        clearScrollRequest.addScrollId(scrollId);
+        ThreadContext threadContext = localClient.threadPool().getThreadContext();
+        // anomaly results are stored in system index, so use stashed context
+        try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
+            localClient.clearScroll(clearScrollRequest, ActionListener.wrap(ClearScrollResponse::isSucceeded, e -> {
+                log.warn("Failed to clear scroll {}", scrollId, e);
+            }));
+        }
     }
 
     /**
-     * Process anomalies with ML Commons metrics correlation.
-     * 
+     * Process anomalies with anomaly correlation.
+     *
      * @param jobParameter The insights job
-     * @param lockService Lock service for releasing lock
-     * @param lock The acquired lock
      * @param anomalies All collected anomalies
      * @param detectorMetadataMap Detector metadata for insights generation
      * @param executionStartTime Start of analysis window
      * @param executionEndTime End of analysis window
      */
-    private void processAnomaliesWithMLCommons(
+    private void processAnomaliesWithCorrelation(
         Job jobParameter,
-        LockService lockService,
-        LockModel lock,
         List<AnomalyResult> anomalies,
         Map<String, DetectorMetadata> detectorMetadataMap,
+        List<AnomalyDetector> detectors,
         Instant executionStartTime,
-        Instant executionEndTime
+        Instant executionEndTime,
+        ActionListener<Void> completionListener
     ) {
-        MLMetricsCorrelationInput input = MLMetricsCorrelationInputBuilder
-            .buildInput(anomalies, detectorMetadataMap, executionStartTime, executionEndTime);
-
-        log.info("Built correlation input: {} metrics × {} buckets", input.getNumMetrics(), input.getNumBuckets());
-
-        if (input.getNumMetrics() == 0) {
-            releaseLock(jobParameter, lockService, lock);
+        if (detectors == null || detectors.isEmpty()) {
+            log.warn("No detector configs available for correlation; skipping insights generation");
+            completionListener.onResponse(null);
             return;
         }
 
-        initMlCommonsClient();
-        if (mlCommonsClient == null) {
-            log.info("Skipping ML correlation because ML Commons is not available");
-            releaseLock(jobParameter, lockService, lock);
-            return;
-        }
-        mlCommonsClient.executeMetricsCorrelation(input, ActionListener.wrap(mlOutput -> {
-            log.info("ML Commons correlation completed, found {} event clusters", mlOutput.getInferenceResults().size());
-
-            try {
-                XContentBuilder insightsDoc = InsightsGenerator.generateInsights(mlOutput, input);
-                writeInsightsToIndex(jobParameter, lockService, lock, insightsDoc);
-
-            } catch (IOException e) {
-                log.error("Failed to generate insights document", e);
-                releaseLock(jobParameter, lockService, lock);
+        try {
+            CorrelationPayload payload = buildCorrelationPayload(anomalies);
+            if (payload.anomalies.isEmpty()) {
+                completionListener.onResponse(null);
+                return;
             }
-        }, error -> {
-            log.error("ML Commons correlation failed", error);
-            releaseLock(jobParameter, lockService, lock);
-        }));
+
+            log.info("AnomalyCorrelation input: {} anomalies, {} detectors", payload.anomalies.size(), detectors.size());
+            logCorrelationInputPreview(payload.anomalies);
+            logCorrelationDetectorsPreview(detectors);
+            List<AnomalyCorrelation.Cluster> clusters = AnomalyCorrelation.clusterWithEventWindows(payload.anomalies, detectors, false);
+            logCorrelationClustersPreview(clusters);
+            log.info("Anomaly correlation completed, found {} event clusters", clusters.size());
+
+            XContentBuilder insightsDoc = InsightsGenerator
+                .generateInsightsFromClusters(
+                    clusters,
+                    payload.anomalyResultByAnomaly,
+                    detectorMetadataMap,
+                    executionStartTime,
+                    executionEndTime
+                );
+            writeInsightsToIndex(jobParameter, insightsDoc, completionListener);
+        } catch (Exception e) {
+            log.error("Anomaly correlation failed", e);
+            completionListener.onFailure(e);
+        }
+    }
+
+    private static final class CorrelationPayload {
+        private final List<Anomaly> anomalies;
+        private final java.util.IdentityHashMap<Anomaly, AnomalyResult> anomalyResultByAnomaly;
+
+        private CorrelationPayload(List<Anomaly> anomalies, java.util.IdentityHashMap<Anomaly, AnomalyResult> anomalyResultByAnomaly) {
+            this.anomalies = anomalies;
+            this.anomalyResultByAnomaly = anomalyResultByAnomaly;
+        }
+    }
+
+    private CorrelationPayload buildCorrelationPayload(List<AnomalyResult> anomalies) {
+        List<Anomaly> correlationAnomalies = new ArrayList<>();
+        java.util.IdentityHashMap<Anomaly, AnomalyResult> anomalyResultByAnomaly = new java.util.IdentityHashMap<>();
+
+        for (AnomalyResult anomaly : anomalies) {
+            Instant start = anomaly.getDataStartTime();
+            Instant end = anomaly.getDataEndTime();
+            if (start == null || end == null || !end.isAfter(start)) {
+                continue;
+            }
+
+            String modelId = anomaly.getModelId();
+            if (modelId == null) {
+                modelId = org.opensearch.timeseries.model.IndexableResult.getEntityId(anomaly.getEntity(), anomaly.getConfigId());
+            }
+            if (modelId == null) {
+                modelId = anomaly.getConfigId();
+            }
+
+            String configId = anomaly.getConfigId();
+            if (configId == null) {
+                continue;
+            }
+
+            Anomaly correlationAnomaly = new Anomaly(modelId, configId, start, end);
+            correlationAnomalies.add(correlationAnomaly);
+            anomalyResultByAnomaly.put(correlationAnomaly, anomaly);
+        }
+
+        return new CorrelationPayload(correlationAnomalies, anomalyResultByAnomaly);
     }
 
     /**
@@ -500,11 +594,11 @@ public class InsightsJobProcessor extends
      * 
      * @param jobParameter The insights job
      * @param lockService Lock service for releasing lock
-     * @param lock The acquired lock
      * @param insightsDoc Generated insights document
      */
-    private void writeInsightsToIndex(Job jobParameter, LockService lockService, LockModel lock, XContentBuilder insightsDoc) {
+    private void writeInsightsToIndex(Job jobParameter, XContentBuilder insightsDoc, ActionListener<Void> completionListener) {
         log.info("Writing insights to index: {}", ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+        logInsightsDocPreview(insightsDoc);
 
         User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
         String user = userInfo.getName();
@@ -513,10 +607,10 @@ public class InsightsJobProcessor extends
         IndexRequest indexRequest = new IndexRequest(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS).source(insightsDoc);
 
         // Before writing, validate that the insights result index mapping has not been modified.
-        indexManagement.validateResultIndexMapping(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS, ActionListener.wrap(valid -> {
+        indexManagement.validateInsightsResultIndexMapping(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS, ActionListener.wrap(valid -> {
             if (!valid) {
                 log.error("Insights result index mapping is not correct; skipping insights write and ending job run");
-                releaseLock(jobParameter, lockService, lock);
+                completionListener.onResponse(null);
                 return;
             }
 
@@ -531,20 +625,19 @@ public class InsightsJobProcessor extends
                 localClient
                     .index(
                         indexRequest,
-                        ActionListener
-                            .runBefore(ActionListener.wrap(response -> { releaseLock(jobParameter, lockService, lock); }, error -> {
-                                log.error("Failed to write insights to index", error);
-                                releaseLock(jobParameter, lockService, lock);
-                            }), () -> injectSecurity.close())
+                        ActionListener.runBefore(ActionListener.wrap(response -> { completionListener.onResponse(null); }, error -> {
+                            log.error("Failed to write insights to index", error);
+                            completionListener.onFailure(error);
+                        }), () -> injectSecurity.close())
                     );
             } catch (Exception e) {
                 injectSecurity.close();
                 log.error("Failed to inject security context for insights write", e);
-                releaseLock(jobParameter, lockService, lock);
+                completionListener.onFailure(e);
             }
         }, e -> {
             log.error("Failed to validate insights result index mapping", e);
-            releaseLock(jobParameter, lockService, lock);
+            completionListener.onFailure(e);
         }));
     }
 
@@ -574,15 +667,14 @@ public class InsightsJobProcessor extends
     }
 
     /**
-     * Fetch detector configs for the detectors present in anomalies and proceed to ML correlation.
+     * Fetch detector configs for the detectors present in anomalies and proceed to correlation.
      */
     private void fetchDetectorMetadataAndProceed(
         List<AnomalyResult> anomalies,
         Job jobParameter,
-        LockService lockService,
-        LockModel lock,
         Instant executionStartTime,
-        Instant executionEndTime
+        Instant executionEndTime,
+        ActionListener<Void> completionListener
     ) {
         Set<String> detectorIds = new HashSet<>();
         for (AnomalyResult anomaly : anomalies) {
@@ -592,60 +684,63 @@ public class InsightsJobProcessor extends
         }
 
         if (detectorIds.isEmpty()) {
-            log.warn("No detector IDs present in anomalies, skipping ML correlation");
-            releaseLock(jobParameter, lockService, lock);
+            log.warn("No detector IDs present in anomalies, skipping correlation");
+            completionListener.onResponse(null);
             return;
         }
 
-        SearchSourceBuilder source = new SearchSourceBuilder()
-            .query(QueryBuilders.termsQuery("_id", detectorIds))
-            .size(detectorIds.size())
-            .fetchSource(new String[] { "name", "indices" }, null);
+        SearchSourceBuilder source = new SearchSourceBuilder().query(QueryBuilders.termsQuery("_id", detectorIds)).size(detectorIds.size());
 
         SearchRequest request = new SearchRequest(ADCommonName.CONFIG_INDEX).source(source);
 
-        User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
-        String user = userInfo.getName();
-        List<String> roles = userInfo.getRoles();
-        InjectSecurity injectSecurity = new InjectSecurity(jobParameter.getName(), settings, localClient.threadPool().getThreadContext());
-        try {
-            injectSecurity.inject(user, roles);
-
-            localClient.search(request, ActionListener.runBefore(ActionListener.wrap(response -> {
+        ThreadContext threadContext = localClient.threadPool().getThreadContext();
+        try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
+            localClient.search(request, ActionListener.wrap(response -> {
                 Map<String, DetectorMetadata> metadataMap = new HashMap<>();
+                List<AnomalyDetector> detectors = new ArrayList<>();
 
                 for (SearchHit hit : response.getHits().getHits()) {
-                    try {
-                        String id = hit.getId();
+                    String id = hit.getId();
+                    try (
+                        XContentParser parser = org.opensearch.timeseries.util.RestHandlerUtils
+                            .createXContentParserFromRegistry(xContentRegistry, hit.getSourceRef())
+                    ) {
+                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                        AnomalyDetector detector = AnomalyDetector.parse(parser, id, hit.getVersion());
+                        detectors.add(detector);
+                        metadataMap.put(id, new DetectorMetadata(id, detector.getName(), detector.getIndices()));
+                    } catch (Exception e) {
+                        log.warn("Failed to parse detector config {}", id, e);
                         Map<String, Object> src = hit.getSourceAsMap();
                         String name = src != null ? (String) src.get("name") : null;
                         @SuppressWarnings("unchecked")
                         List<String> indices = src != null ? (List<String>) src.get("indices") : new ArrayList<>();
                         metadataMap.put(id, new DetectorMetadata(id, name, indices));
-                    } catch (Exception e) {
-                        log.warn("Failed to extract detector metadata from {}", hit.getId(), e);
                     }
                 }
 
-                processAnomaliesWithMLCommons(
+                processAnomaliesWithCorrelation(
                     jobParameter,
-                    lockService,
-                    lock,
                     anomalies,
                     metadataMap,
+                    detectors,
                     executionStartTime,
-                    executionEndTime
+                    executionEndTime,
+                    completionListener
                 );
             }, e -> {
                 log.error("Failed to fetch detector configs for metadata enrichment, proceeding with minimal metadata", e);
                 Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
-                processAnomaliesWithMLCommons(jobParameter, lockService, lock, anomalies, fallback, executionStartTime, executionEndTime);
-            }), () -> injectSecurity.close()));
-        } catch (Exception e) {
-            injectSecurity.close();
-            log.error("Failed to inject security context for detector metadata fetch", e);
-            Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
-            processAnomaliesWithMLCommons(jobParameter, lockService, lock, anomalies, fallback, executionStartTime, executionEndTime);
+                processAnomaliesWithCorrelation(
+                    jobParameter,
+                    anomalies,
+                    fallback,
+                    new ArrayList<>(),
+                    executionStartTime,
+                    executionEndTime,
+                    completionListener
+                );
+            }));
         }
     }
 
@@ -662,5 +757,138 @@ public class InsightsJobProcessor extends
 
         log.info("Built detector metadata from {} anomalies, found {} unique detectors", anomalies.size(), metadataMap.size());
         return metadataMap;
+    }
+
+    private void logCorrelationInputPreview(List<Anomaly> anomalies) {
+        if (!log.isInfoEnabled()) {
+            return;
+        }
+        if (anomalies == null || anomalies.isEmpty()) {
+            return;
+        }
+        int previewCount = Math.min(3, anomalies.size());
+        if (previewCount == 0) {
+            return;
+        }
+        StringBuilder preview = new StringBuilder();
+        preview.append("[");
+        for (int i = 0; i < previewCount; i++) {
+            Anomaly anomaly = anomalies.get(i);
+            if (i > 0) {
+                preview.append(", ");
+            }
+            preview
+                .append("{modelId=")
+                .append(anomaly.getModelId())
+                .append(", detectorId=")
+                .append(anomaly.getConfigId())
+                .append(", start=")
+                .append(anomaly.getDataStartTime())
+                .append(", end=")
+                .append(anomaly.getDataEndTime())
+                .append("}");
+        }
+        preview.append("]");
+        log.info("AnomalyCorrelation input preview: {}", preview);
+    }
+
+    private void logInsightsDocPreview(XContentBuilder insightsDoc) {
+        if (!log.isInfoEnabled()) {
+            return;
+        }
+        try {
+            log.info("Insights document preview: {}", truncate(insightsDoc.toString()));
+        } catch (Exception e) {
+            log.warn("Failed to serialize insights document for logging", e);
+        }
+    }
+
+    private void logAnomalyResultsQueryPreview(
+        SearchRequest request,
+        SearchSourceBuilder source,
+        int pageSize,
+        TimeValue scrollKeepAlive,
+        Instant executionStartTime,
+        Instant executionEndTime
+    ) {
+        if (!log.isInfoEnabled()) {
+            return;
+        }
+        String index = request != null && request.indices() != null ? String.join(",", request.indices()) : "(none)";
+        log
+            .info(
+                "Anomaly results query: index={}, window=[{}, {}], pageSize={}, scrollKeepAlive={}",
+                index,
+                executionStartTime,
+                executionEndTime,
+                pageSize,
+                scrollKeepAlive
+            );
+        if (source != null) {
+            log.info("Anomaly results SearchSource: {}", truncate(source.toString()));
+        }
+    }
+
+    private void logCorrelationDetectorsPreview(List<AnomalyDetector> detectors) {
+        if (!log.isInfoEnabled() || detectors == null || detectors.isEmpty()) {
+            return;
+        }
+        int previewCount = Math.min(3, detectors.size());
+        StringBuilder preview = new StringBuilder();
+        preview.append("[");
+        for (int i = 0; i < previewCount; i++) {
+            AnomalyDetector d = detectors.get(i);
+            if (i > 0) {
+                preview.append(", ");
+            }
+            if (d == null) {
+                preview.append("{null}");
+                continue;
+            }
+            preview
+                .append("{id=")
+                .append(d.getId())
+                .append(", name=")
+                .append(d.getName())
+                .append(", interval=")
+                .append(d.getInterval())
+                .append("}");
+        }
+        preview.append("]");
+        log.info("AnomalyCorrelation detectors preview: total={}, sample={}", detectors.size(), preview);
+    }
+
+    private void logCorrelationClustersPreview(List<AnomalyCorrelation.Cluster> clusters) {
+        if (!log.isInfoEnabled() || clusters == null || clusters.isEmpty()) {
+            return;
+        }
+        int previewCount = Math.min(3, clusters.size());
+        StringBuilder preview = new StringBuilder();
+        preview.append("[");
+        for (int i = 0; i < previewCount; i++) {
+            AnomalyCorrelation.Cluster c = clusters.get(i);
+            if (i > 0) {
+                preview.append(", ");
+            }
+            if (c == null) {
+                preview.append("{null}");
+                continue;
+            }
+            preview
+                .append("{eventWindow=")
+                .append(c.getEventWindow())
+                .append(", anomalyCount=")
+                .append(c.getAnomalies() != null ? c.getAnomalies().size() : 0)
+                .append("}");
+        }
+        preview.append("]");
+        log.info("AnomalyCorrelation clusters preview: total={}, sample={}", clusters.size(), preview);
+    }
+
+    private String truncate(String value) {
+        if (value == null || value.length() <= LOG_PREVIEW_LIMIT) {
+            return value;
+        }
+        return value.substring(0, LOG_PREVIEW_LIMIT) + "...(truncated)";
     }
 }

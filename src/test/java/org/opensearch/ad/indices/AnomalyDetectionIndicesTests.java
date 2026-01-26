@@ -191,12 +191,14 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
         assertTrue(mapping.contains("window_start"));
         assertTrue(mapping.contains("window_end"));
         assertTrue(mapping.contains("generated_at"));
-        assertTrue(mapping.contains("paragraphs"));
         assertTrue(mapping.contains("doc_detector_ids"));
+        assertTrue(mapping.contains("doc_detector_names"));
         assertTrue(mapping.contains("doc_indices"));
-        assertTrue(mapping.contains("doc_series_keys"));
+        assertTrue(mapping.contains("doc_model_ids"));
+        assertTrue(mapping.contains("clusters"));
+        assertTrue(mapping.contains("cluster_text"));
+        assertTrue(mapping.contains("anomalies"));
         assertTrue(mapping.contains("stats"));
-        assertTrue(mapping.contains("mlc_raw"));
     }
 
     /**

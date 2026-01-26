@@ -21,11 +21,16 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
@@ -1101,22 +1106,114 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     }
 
     public void testInsightsApisUseSystemContextForJobIndex() throws IOException {
-        // Use a non-admin user with AD access (alice) to exercise Insights APIs end-to-end under security
+        // Use a non-admin user with AD full access (alice) to exercise Insights APIs end-to-end under security
         String startPath = "/_plugins/_anomaly_detection/insights/_start";
         String statusPath = "/_plugins/_anomaly_detection/insights/_status";
         String stopPath = "/_plugins/_anomaly_detection/insights/_stop";
 
-        // Start insights job as alice
+        // 1) Alice creates a detector and starts realtime detection so that anomalies are generated
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        assertNotNull(aliceDetector.getId());
+
+        String startDetectorEndpoint = String.format(Locale.ROOT, TestHelpers.AD_BASE_START_DETECTOR_URL, aliceDetector.getId());
+        Response startDetectorResp = TestHelpers
+            .makeRequest(aliceClient, "POST", startDetectorEndpoint, ImmutableMap.of(), (HttpEntity) null, null);
+        assertEquals("Start detector failed", RestStatus.OK, TestHelpers.restStatus(startDetectorResp));
+
+        // Wait briefly for anomaly results to appear in the system index (admin client can query system indices)
+        boolean anomaliesAvailable = false;
+        int maxRetries = 30;
+        int retryIntervalMs = 2000;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            Response searchResultsResp = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    "/.opendistro-anomaly-results*/_search",
+                    ImmutableMap.of(),
+                    new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    null
+                );
+            Map<String, Object> searchResults = entityAsMap(searchResultsResp);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> hits = (List<Map<String, Object>>) ((Map<String, Object>) searchResults.get("hits")).get("hits");
+            if (hits != null && !hits.isEmpty()) {
+                anomaliesAvailable = true;
+                break;
+            }
+            try {
+                Thread.sleep(retryIntervalMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        assertTrue("Expected anomaly results to be generated before starting insights", anomaliesAvailable);
+
+        // 2) Start insights job as alice
         Response startResp = TestHelpers.makeRequest(aliceClient, "POST", startPath, ImmutableMap.of(), "", null);
         assertEquals("Start insights job failed", RestStatus.OK, TestHelpers.restStatus(startResp));
 
-        // Status should be accessible and return OK for the same non-admin user
-        Response statusResp = TestHelpers.makeRequest(aliceClient, "GET", statusPath, ImmutableMap.of(), "", null);
-        assertEquals("Get insights job status failed", RestStatus.OK, TestHelpers.restStatus(statusResp));
+        // 3) Wait for insights to be generated into the customer-owned insights index
+        boolean insightsAvailable = false;
+        Map<String, Object> insightsSearchResults = null;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            Response searchInsightsResp = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
+                    ImmutableMap.of(),
+                    new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    null
+                );
+            insightsSearchResults = entityAsMap(searchInsightsResp);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> hits = (List<Map<String, Object>>) ((Map<String, Object>) insightsSearchResults.get("hits"))
+                .get("hits");
+            if (hits != null && !hits.isEmpty()) {
+                insightsAvailable = true;
+                break;
+            }
+            try {
+                Thread.sleep(retryIntervalMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        assertTrue("Expected insights to be generated after starting insights job", insightsAvailable);
 
-        // Stop should also be accessible and return OK
+        // 4) Query insights results as a normal AD full-access user (alice) via the public API
+        Response aliceInsightsResp = TestHelpers
+            .makeRequest(aliceClient, "GET", "/_plugins/_anomaly_detection/insights/_results", ImmutableMap.of(), "", null);
+        assertEquals("Alice should be able to query insights results", RestStatus.OK, TestHelpers.restStatus(aliceInsightsResp));
+
+        // 5) Stop insights job as alice
         Response stopResp = TestHelpers.makeRequest(aliceClient, "POST", stopPath, ImmutableMap.of(), "", null);
         assertEquals("Stop insights job failed", RestStatus.OK, TestHelpers.restStatus(stopResp));
+
+        // 6) Now verify that a read-only / non-write user (bob) cannot start/stop insights job
+        IOException exception = expectThrows(IOException.class, () -> {
+            TestHelpers.makeRequest(bobClient, "POST", startPath, ImmutableMap.of(), "", null);
+        });
+        Assert
+            .assertTrue(
+                "bob should not have permission to start insights job",
+                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/insights/start]")
+                    || exception.getMessage().contains("no permissions for [cluster:admin/opensearch/ad/insights/start]")
+            );
+
+        exception = expectThrows(
+            IOException.class,
+            () -> { TestHelpers.makeRequest(bobClient, "POST", stopPath, ImmutableMap.of(), "", null); }
+        );
+        Assert
+            .assertTrue(
+                "bob should not have permission to stop insights job",
+                exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/insights/stop]")
+                    || exception.getMessage().contains("no permissions for [cluster:admin/opensearch/ad/insights/stop]")
+            );
     }
 
 }
