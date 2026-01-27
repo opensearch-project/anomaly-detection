@@ -11,16 +11,10 @@
 
 package org.opensearch.ad.transport;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.rest.handler.InsightsJobActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
@@ -29,11 +23,6 @@ import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.SearchHit;
-import org.opensearch.search.builder.SearchSourceBuilder;
-import org.opensearch.search.sort.SortOrder;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.transport.InsightsJobRequest;
 import org.opensearch.transport.TransportService;
@@ -61,6 +50,7 @@ public class InsightsJobTransportAction extends HandledTransportAction<InsightsJ
             client,
             xContentRegistry,
             indexManagement,
+            settings,
             AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.get(settings)
         );
     }
@@ -73,8 +63,6 @@ public class InsightsJobTransportAction extends HandledTransportAction<InsightsJ
             handleStatusOperation(request, listener);
         } else if (request.isStopOperation()) {
             handleStopOperation(request, listener);
-        } else if (request.isResultsOperation()) {
-            handleResultsOperation(request, listener);
         } else {
             listener.onFailure(new IllegalArgumentException("Unknown operation"));
         }
@@ -92,65 +80,5 @@ public class InsightsJobTransportAction extends HandledTransportAction<InsightsJ
 
     private void handleStopOperation(InsightsJobRequest request, ActionListener<InsightsJobResponse> listener) {
         jobHandler.stopInsightsJob(listener);
-    }
-
-    private void handleResultsOperation(InsightsJobRequest request, ActionListener<InsightsJobResponse> listener) {
-        try {
-            BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-
-            if (request.getDetectorId() != null && !request.getDetectorId().isEmpty()) {
-                boolQuery.must(QueryBuilders.termQuery("doc_detector_ids", request.getDetectorId()));
-            }
-
-            if (request.getIndex() != null && !request.getIndex().isEmpty()) {
-                boolQuery.must(QueryBuilders.termQuery("doc_indices", request.getIndex()));
-            }
-
-            if (!boolQuery.hasClauses()) {
-                boolQuery.must(QueryBuilders.matchAllQuery());
-            }
-
-            SearchRequest searchRequest = new SearchRequest(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS)
-                .source(
-                    new SearchSourceBuilder()
-                        .query(boolQuery)
-                        .from(request.getFrom())
-                        .size(request.getSize())
-                        .sort("generated_at", SortOrder.DESC)
-                );
-
-            client.search(searchRequest, ActionListener.wrap(searchResponse -> {
-                long totalHits = searchResponse.getHits().getTotalHits() != null ? searchResponse.getHits().getTotalHits().value() : 0;
-                log.debug("Search completed, found {} hits", totalHits);
-                handleSearchResponse(searchResponse, listener);
-            }, e -> {
-                if (e.getMessage() != null && e.getMessage().contains("No mapping found")) {
-                    listener.onResponse(new InsightsJobResponse(new ArrayList<>(), 0L));
-                } else {
-                    log.error("Failed to search insights results", e);
-                    listener.onFailure(e);
-                }
-            }));
-
-        } catch (Exception e) {
-            log.error("Error building search request for insights results", e);
-            listener.onFailure(e);
-        }
-    }
-
-    private void handleSearchResponse(SearchResponse searchResponse, ActionListener<InsightsJobResponse> listener) {
-        try {
-            List<String> results = new ArrayList<>();
-
-            for (SearchHit hit : searchResponse.getHits().getHits()) {
-                results.add(hit.getSourceAsString());
-            }
-
-            long totalHits = searchResponse.getHits().getTotalHits() != null ? searchResponse.getHits().getTotalHits().value() : 0;
-            listener.onResponse(new InsightsJobResponse(results, totalHits));
-        } catch (Exception e) {
-            log.error("Error processing search response", e);
-            listener.onFailure(e);
-        }
     }
 }

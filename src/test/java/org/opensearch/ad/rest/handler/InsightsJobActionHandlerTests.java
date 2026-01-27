@@ -33,6 +33,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.InsightsJobResponse;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.core.action.ActionListener;
@@ -114,6 +115,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             client,
             NamedXContentRegistry.EMPTY,
             indexManagement,
+            Settings.EMPTY,
             org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
         );
 
@@ -194,6 +196,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             client,
             NamedXContentRegistry.EMPTY,
             indexManagement,
+            Settings.EMPTY,
             org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
         );
 
@@ -234,6 +237,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             client,
             NamedXContentRegistry.EMPTY,
             indexManagement,
+            Settings.EMPTY,
             org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
         );
 
@@ -294,6 +298,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             client,
             NamedXContentRegistry.EMPTY,
             indexManagement,
+            Settings.EMPTY,
             org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
         );
 
@@ -363,6 +368,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             client,
             NamedXContentRegistry.EMPTY,
             indexManagement,
+            Settings.EMPTY,
             org.opensearch.common.unit.TimeValue.timeValueSeconds(30)
         );
 

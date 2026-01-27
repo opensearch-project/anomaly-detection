@@ -58,12 +58,17 @@ import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.search.SearchHit;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortOrder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.JobProcessor;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.transport.ResultRequest;
@@ -86,6 +91,7 @@ public class InsightsJobProcessor extends
 
     private static final Logger log = LogManager.getLogger(InsightsJobProcessor.class);
     private static final int LOG_PREVIEW_LIMIT = 2000;
+    private static final String RESULT_INDEX_AGG_NAME = "result_index";
 
     private static volatile InsightsJobProcessor INSTANCE;
     private NamedXContentRegistry xContentRegistry;
@@ -240,7 +246,7 @@ public class InsightsJobProcessor extends
         }
 
         ActionListener<List<AnomalyResult>> anomaliesListener = ActionListener.wrap(anomalies -> {
-            if (anomalies.isEmpty()) {
+            if (anomalies == null || anomalies.isEmpty()) {
                 log.info("No anomalies found in one-time run, skipping correlation");
                 return;
             }
@@ -252,7 +258,7 @@ public class InsightsJobProcessor extends
             fetchDetectorMetadataAndProceed(anomalies, jobParameter, executionStartTime, executionEndTime, completion);
         }, e -> { log.error(new ParameterizedMessage("Failed to query anomaly results for one-time Insights job {}", jobName), e); });
 
-        querySystemResultIndex(jobParameter, executionStartTime, executionEndTime, anomaliesListener);
+        queryCustomResultIndex(jobParameter, executionStartTime, executionEndTime, anomaliesListener);
     }
 
     /**
@@ -300,7 +306,7 @@ public class InsightsJobProcessor extends
         ActionListener<Void> lockReleasing = guardedLockReleasingListener(jobParameter, lockService, lock);
 
         ActionListener<List<AnomalyResult>> anomaliesListener = ActionListener.wrap(anomalies -> {
-            if (anomalies.isEmpty()) {
+            if (anomalies == null || anomalies.isEmpty()) {
                 log.info("No anomalies found in time window, skipping correlation");
                 lockReleasing.onResponse(null);
                 return;
@@ -308,7 +314,7 @@ public class InsightsJobProcessor extends
             fetchDetectorMetadataAndProceed(anomalies, jobParameter, executionStartTime, executionEndTime, lockReleasing);
         }, lockReleasing::onFailure);
 
-        querySystemResultIndex(jobParameter, executionStartTime, executionEndTime, anomaliesListener);
+        queryCustomResultIndex(jobParameter, executionStartTime, executionEndTime, anomaliesListener);
     }
 
     /**
@@ -334,78 +340,167 @@ public class InsightsJobProcessor extends
     }
 
     /**
-     * Query all anomalies from system result index for the given time window.
-     * 
+     * Query all anomalies from custom result indices for the given time window.
+     *
      * @param jobParameter The insights job
      * @param executionStartTime Start of analysis window
      * @param executionEndTime End of analysis window
      */
-    private void querySystemResultIndex(
+    private void queryCustomResultIndex(
         Job jobParameter,
         Instant executionStartTime,
         Instant executionEndTime,
         ActionListener<List<AnomalyResult>> listener
     ) {
-        log.info("Querying all anomaly results from {} to {}", executionStartTime, executionEndTime);
+        log.info("Querying anomaly results from {} to {}", executionStartTime, executionEndTime);
 
-        List<AnomalyResult> allAnomalies = new ArrayList<>();
+        resolveCustomResultIndexPatterns(jobParameter, ActionListener.wrap(indexPatterns -> {
+            if (indexPatterns == null || indexPatterns.isEmpty()) {
+                log.info("No custom result indices found; skipping anomaly query");
+                listener.onResponse(new ArrayList<>());
+                return;
+            }
 
-        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+            List<AnomalyResult> allAnomalies = new ArrayList<>();
 
-        boolQuery
-            .filter(
-                QueryBuilders
-                    .rangeQuery("data_start_time")
-                    .gte(executionStartTime.toEpochMilli())
-                    .lte(executionEndTime.toEpochMilli())
-                    .format("epoch_millis")
+            BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
+            boolQuery
+                .filter(
+                    QueryBuilders
+                        .rangeQuery("data_start_time")
+                        .gte(executionStartTime.toEpochMilli())
+                        .lte(executionEndTime.toEpochMilli())
+                        .format("epoch_millis")
+                );
+
+            boolQuery.filter(QueryBuilders.rangeQuery("anomaly_grade").gt(0));
+
+            final int pageSize = 10000;
+            final TimeValue scrollKeepAlive = TimeValue.timeValueMinutes(5);
+
+            SearchSourceBuilder baseSource = new SearchSourceBuilder()
+                .query(boolQuery)
+                .size(pageSize)
+                .fetchSource(
+                    new String[] { "detector_id", "model_id", "entity", "data_start_time", "data_end_time", "anomaly_grade" },
+                    null
+                )
+                .sort("_doc", SortOrder.ASC);
+
+            SearchRequest searchRequest = new SearchRequest(indexPatterns.toArray(new String[0]))
+                .source(baseSource)
+                .scroll(scrollKeepAlive);
+            logAnomalyResultsQueryPreview(searchRequest, baseSource, pageSize, scrollKeepAlive, executionStartTime, executionEndTime);
+
+            User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
+            String user = userInfo.getName();
+            List<String> roles = userInfo.getRoles();
+            InjectSecurity injectSecurity = new InjectSecurity(
+                jobParameter.getName(),
+                settings,
+                localClient.threadPool().getThreadContext()
             );
+            try {
+                // anomaly results are stored in custom result indices; use job user credentials to search
+                injectSecurity.inject(user, roles);
+                localClient.search(searchRequest, ActionListener.runBefore(ActionListener.wrap(searchResponse -> {
+                    String scrollId = searchResponse.getScrollId();
+                    SearchHit[] hits = searchResponse.getHits().getHits();
+                    try {
+                        parseAnomalyHits(hits, allAnomalies);
+                    } catch (Exception parseException) {
+                        // Best effort cleanup: if parsing unexpectedly fails, clear the scroll id we currently hold.
+                        clearScroll(jobParameter, scrollId);
+                        listener.onFailure(parseException);
+                        return;
+                    }
 
-        boolQuery.filter(QueryBuilders.rangeQuery("anomaly_grade").gt(0));
+                    if (hits.length == 0 || hits.length < pageSize) {
+                        log
+                            .info(
+                                "Successfully parsed {} anomalies in time window {} to {}",
+                                allAnomalies.size(),
+                                executionStartTime,
+                                executionEndTime
+                            );
+                        clearScroll(jobParameter, scrollId);
+                        listener.onResponse(allAnomalies);
+                        return;
+                    }
 
-        final int pageSize = 10000;
-        final TimeValue scrollKeepAlive = TimeValue.timeValueMinutes(5);
+                    fetchScrolledAnomalies(
+                        jobParameter,
+                        scrollId,
+                        scrollKeepAlive,
+                        pageSize,
+                        allAnomalies,
+                        executionStartTime,
+                        executionEndTime,
+                        listener
+                    );
+                }, e -> {
+                    if (e.getMessage() != null
+                        && (e.getMessage().contains("no such index") || e.getMessage().contains("index_not_found"))) {
+                        log.info("Anomaly results index does not exist yet (no anomalies recorded)");
+                    } else {
+                        log.error("Failed to query anomaly results", e);
+                    }
+                    listener.onFailure(e);
+                }), injectSecurity::close));
+            } catch (Exception e) {
+                injectSecurity.close();
+                log.error("Failed to query anomaly results for Insights job {}", jobParameter.getName(), e);
+                listener.onFailure(e);
+            }
+        }, listener::onFailure));
+    }
 
-        SearchSourceBuilder baseSource = new SearchSourceBuilder()
-            .query(boolQuery)
-            .size(pageSize)
-            .fetchSource(new String[] { "detector_id", "model_id", "entity", "data_start_time", "data_end_time", "anomaly_grade" }, null)
-            .sort("_doc", SortOrder.ASC);
+    /**
+     * Resolve custom result index patterns (alias*) used by detectors.
+     * We rely on the detector config's `result_index` field (stored as an alias since 2.15) and query all history indices via wildcard.
+     */
+    private void resolveCustomResultIndexPatterns(Job jobParameter, ActionListener<List<String>> listener) {
+        SearchSourceBuilder source = new SearchSourceBuilder()
+            .aggregation(new TermsAggregationBuilder(RESULT_INDEX_AGG_NAME).field(Config.RESULT_INDEX_FIELD).size(10000))
+            .size(0);
 
-        SearchRequest searchRequest = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS).source(baseSource).scroll(scrollKeepAlive);
-        logAnomalyResultsQueryPreview(searchRequest, baseSource, pageSize, scrollKeepAlive, executionStartTime, executionEndTime);
-
+        SearchRequest request = new SearchRequest(ADCommonName.CONFIG_INDEX).source(source);
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
+        // detector configs are stored in system index; use stashed context
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
-            localClient.search(searchRequest, ActionListener.wrap(searchResponse -> {
-                String scrollId = searchResponse.getScrollId();
-                SearchHit[] hits = searchResponse.getHits().getHits();
-                parseAnomalyHits(hits, allAnomalies);
-
-                if (hits.length == 0 || hits.length < pageSize) {
-                    log
-                        .info(
-                            "Successfully parsed {} anomalies in time window {} to {}",
-                            allAnomalies.size(),
-                            executionStartTime,
-                            executionEndTime
-                        );
-                    clearScroll(scrollId);
-                    listener.onResponse(allAnomalies);
+            localClient.search(request, ActionListener.wrap(response -> {
+                List<String> patterns = new ArrayList<>();
+                Aggregations aggregations = response.getAggregations();
+                if (aggregations == null) {
+                    listener.onResponse(patterns);
                     return;
                 }
 
-                fetchScrolledAnomalies(scrollId, scrollKeepAlive, pageSize, allAnomalies, executionStartTime, executionEndTime, listener);
-            }, e -> {
-                if (e.getMessage() != null && (e.getMessage().contains("no such index") || e.getMessage().contains("index_not_found"))) {
-                    log.info("Anomaly results index does not exist yet (no anomalies recorded)");
-                } else {
-                    log.error("Failed to query anomaly results", e);
+                // Iterate instead of using Aggregations#get(...) (final method in core; harder to mock in unit tests).
+                StringTerms resultIndicesAgg = null;
+                for (Aggregation agg : aggregations) {
+                    if (agg instanceof StringTerms && RESULT_INDEX_AGG_NAME.equals(agg.getName())) {
+                        resultIndicesAgg = (StringTerms) agg;
+                        break;
+                    }
                 }
-                listener.onFailure(e);
-            }));
+                if (resultIndicesAgg == null || resultIndicesAgg.getBuckets() == null) {
+                    listener.onResponse(patterns);
+                    return;
+                }
+
+                for (StringTerms.Bucket bucket : resultIndicesAgg.getBuckets()) {
+                    String alias = bucket.getKeyAsString();
+                    if (alias == null || alias.isEmpty()) {
+                        continue;
+                    }
+                    patterns.add(IndexManagement.getAllCustomResultIndexPattern(alias));
+                }
+
+                listener.onResponse(patterns);
+            }, listener::onFailure));
         } catch (Exception e) {
-            log.error("Failed to query anomaly results for Insights job {}", jobParameter.getName(), e);
             listener.onFailure(e);
         }
     }
@@ -414,6 +509,7 @@ public class InsightsJobProcessor extends
      * Fetch anomalies with pagination
      */
     private void fetchScrolledAnomalies(
+        Job jobParameter,
         String scrollId,
         TimeValue scrollKeepAlive,
         int pageSize,
@@ -423,13 +519,23 @@ public class InsightsJobProcessor extends
         ActionListener<List<AnomalyResult>> listener
     ) {
         SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId).scroll(scrollKeepAlive);
-        ThreadContext threadContext = localClient.threadPool().getThreadContext();
-        // anomaly results are stored in system index, so use stashed context
-        try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
-            localClient.searchScroll(scrollRequest, ActionListener.wrap(searchResponse -> {
+        User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
+        String user = userInfo.getName();
+        List<String> roles = userInfo.getRoles();
+        InjectSecurity injectSecurity = new InjectSecurity(jobParameter.getName(), settings, localClient.threadPool().getThreadContext());
+        try {
+            injectSecurity.inject(user, roles);
+            localClient.searchScroll(scrollRequest, ActionListener.runBefore(ActionListener.wrap(searchResponse -> {
                 String nextScrollId = searchResponse.getScrollId();
                 SearchHit[] hits = searchResponse.getHits().getHits();
-                parseAnomalyHits(hits, allAnomalies);
+                try {
+                    parseAnomalyHits(hits, allAnomalies);
+                } catch (Exception parseException) {
+                    // If parsing fails after we have a newer scroll id, clear that (not the previous one).
+                    clearScroll(jobParameter, nextScrollId != null ? nextScrollId : scrollId);
+                    listener.onFailure(parseException);
+                    return;
+                }
 
                 if (hits.length == 0 || hits.length < pageSize) {
                     log
@@ -439,12 +545,13 @@ public class InsightsJobProcessor extends
                             executionStartTime,
                             executionEndTime
                         );
-                    clearScroll(nextScrollId);
+                    clearScroll(jobParameter, nextScrollId);
                     listener.onResponse(allAnomalies);
                     return;
                 }
 
                 fetchScrolledAnomalies(
+                    jobParameter,
                     nextScrollId,
                     scrollKeepAlive,
                     pageSize,
@@ -454,14 +561,17 @@ public class InsightsJobProcessor extends
                     listener
                 );
             }, e -> {
-                clearScroll(scrollId);
+                clearScroll(jobParameter, scrollId);
                 if (e.getMessage() != null && (e.getMessage().contains("no such index") || e.getMessage().contains("index_not_found"))) {
                     log.info("Anomaly results index does not exist yet (no anomalies recorded)");
                 } else {
                     log.error("Failed to query anomaly results", e);
                 }
                 listener.onFailure(e);
-            }));
+            }), injectSecurity::close));
+        } catch (Exception e) {
+            injectSecurity.close();
+            listener.onFailure(e);
         }
     }
 
@@ -479,18 +589,25 @@ public class InsightsJobProcessor extends
         }
     }
 
-    private void clearScroll(String scrollId) {
+    private void clearScroll(Job jobParameter, String scrollId) {
         if (scrollId == null || scrollId.isEmpty()) {
             return;
         }
         ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
         clearScrollRequest.addScrollId(scrollId);
-        ThreadContext threadContext = localClient.threadPool().getThreadContext();
-        // anomaly results are stored in system index, so use stashed context
-        try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
-            localClient.clearScroll(clearScrollRequest, ActionListener.wrap(ClearScrollResponse::isSucceeded, e -> {
-                log.warn("Failed to clear scroll {}", scrollId, e);
-            }));
+        User userInfo = SecurityUtil.getUserFromJob(jobParameter, settings);
+        String user = userInfo.getName();
+        List<String> roles = userInfo.getRoles();
+        InjectSecurity injectSecurity = new InjectSecurity(jobParameter.getName(), settings, localClient.threadPool().getThreadContext());
+        try {
+            injectSecurity.inject(user, roles);
+            localClient
+                .clearScroll(clearScrollRequest, ActionListener.runBefore(ActionListener.wrap(ClearScrollResponse::isSucceeded, e -> {
+                    log.warn("Failed to clear scroll {}", scrollId, e);
+                }), injectSecurity::close));
+        } catch (Exception e) {
+            injectSecurity.close();
+            log.warn("Failed to clear scroll {}", scrollId, e);
         }
     }
 
@@ -610,7 +727,7 @@ public class InsightsJobProcessor extends
         indexManagement.validateInsightsResultIndexMapping(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS, ActionListener.wrap(valid -> {
             if (!valid) {
                 log.error("Insights result index mapping is not correct; skipping insights write and ending job run");
-                completionListener.onResponse(null);
+                completionListener.onFailure(new IllegalStateException("Insights result index mapping is not correct"));
                 return;
             }
 
@@ -694,6 +811,7 @@ public class InsightsJobProcessor extends
         SearchRequest request = new SearchRequest(ADCommonName.CONFIG_INDEX).source(source);
 
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
+        // detector configs are stored in system index; use stashed context
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
             localClient.search(request, ActionListener.wrap(response -> {
                 Map<String, DetectorMetadata> metadataMap = new HashMap<>();
@@ -741,6 +859,8 @@ public class InsightsJobProcessor extends
                     completionListener
                 );
             }));
+        } catch (Exception e) {
+            completionListener.onFailure(e);
         }
     }
 

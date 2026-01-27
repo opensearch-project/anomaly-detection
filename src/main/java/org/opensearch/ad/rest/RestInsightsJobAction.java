@@ -8,15 +8,10 @@
 package org.opensearch.ad.rest;
 
 import static org.opensearch.ad.settings.AnomalyDetectorSettings.AD_REQUEST_TIMEOUT;
-import static org.opensearch.timeseries.util.RestHandlerUtils.DETECTOR_ID;
 import static org.opensearch.timeseries.util.RestHandlerUtils.FREQUENCY;
-import static org.opensearch.timeseries.util.RestHandlerUtils.FROM;
-import static org.opensearch.timeseries.util.RestHandlerUtils.INDEX;
-import static org.opensearch.timeseries.util.RestHandlerUtils.INSIGHTS_RESULTS;
 import static org.opensearch.timeseries.util.RestHandlerUtils.INSIGHTS_START;
 import static org.opensearch.timeseries.util.RestHandlerUtils.INSIGHTS_STATUS;
 import static org.opensearch.timeseries.util.RestHandlerUtils.INSIGHTS_STOP;
-import static org.opensearch.timeseries.util.RestHandlerUtils.SIZE;
 
 import java.io.IOException;
 import java.util.List;
@@ -43,7 +38,6 @@ import com.google.common.collect.ImmutableList;
  * This class consists of the REST handler to handle request to start, get results, check status, and stop insights job.
  * POST /_plugins/_anomaly_detection/insights/_start - Start insights job
  * GET /_plugins/_anomaly_detection/insights/_status - Get insights job status
- * GET /_plugins/_anomaly_detection/insights/_results - Get latest insights results
  * POST /_plugins/_anomaly_detection/insights/_stop - Stop insights job
  */
 public class RestInsightsJobAction extends RestJobAction {
@@ -81,11 +75,6 @@ public class RestInsightsJobAction extends RestJobAction {
                 new Route(
                     RestRequest.Method.POST,
                     String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_STOP)
-                ),
-                // Get insights results
-                new Route(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/insights/%s", TimeSeriesAnalyticsPlugin.AD_BASE_URI, INSIGHTS_RESULTS)
                 )
             );
     }
@@ -109,13 +98,6 @@ public class RestInsightsJobAction extends RestJobAction {
             insightsJobRequest = parseStartRequest(request, rawPath);
         } else if (rawPath.contains(INSIGHTS_STATUS)) {
             insightsJobRequest = new InsightsJobRequest(rawPath);
-        } else if (rawPath.contains(INSIGHTS_RESULTS)) {
-            String detectorId = request.param(DETECTOR_ID);
-            String index = request.param(INDEX);
-            int from = request.paramAsInt(FROM, 0);
-            int size = request.paramAsInt(SIZE, 20);
-
-            insightsJobRequest = new InsightsJobRequest(detectorId, index, from, size, rawPath);
         } else if (rawPath.contains(INSIGHTS_STOP)) {
             insightsJobRequest = new InsightsJobRequest(rawPath);
         } else {

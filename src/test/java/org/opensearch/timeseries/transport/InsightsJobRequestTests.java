@@ -38,18 +38,15 @@ public class InsightsJobRequestTests extends OpenSearchTestCase {
         assertEquals(rawPathBase + "_start", copy.getRawPath());
     }
 
-    public void testResultsRequestSerialization() throws IOException {
-        InsightsJobRequest request = new InsightsJobRequest("detector-1", "index-a", 5, 10, rawPathBase + "_results");
+    public void testStatusRequestSerialization() throws IOException {
+        InsightsJobRequest request = new InsightsJobRequest(rawPathBase + "_status");
         BytesStreamOutput out = new BytesStreamOutput();
         request.writeTo(out);
         StreamInput in = out.bytes().streamInput();
         InsightsJobRequest copy = new InsightsJobRequest(in);
 
-        assertEquals("detector-1", copy.getDetectorId());
-        assertEquals("index-a", copy.getIndex());
-        assertEquals(5, copy.getFrom());
-        assertEquals(10, copy.getSize());
-        assertTrue(copy.isResultsOperation());
+        assertTrue(copy.isStatusOperation());
+        assertEquals(rawPathBase + "_status", copy.getRawPath());
     }
 
     public void testStopRequestSerialization() throws IOException {
@@ -61,15 +58,5 @@ public class InsightsJobRequestTests extends OpenSearchTestCase {
 
         assertTrue(copy.isStopOperation());
         assertEquals(rawPathBase + "_stop", copy.getRawPath());
-    }
-
-    public void testValidationRejectsNegativeFrom() {
-        InsightsJobRequest request = new InsightsJobRequest("det", "index", -1, 10, rawPathBase + "_results");
-        assertNotNull(request.validate());
-    }
-
-    public void testValidationRejectsNonPositiveSize() {
-        InsightsJobRequest request = new InsightsJobRequest("det", "index", 0, 0, rawPathBase + "_results");
-        assertNotNull(request.validate());
     }
 }

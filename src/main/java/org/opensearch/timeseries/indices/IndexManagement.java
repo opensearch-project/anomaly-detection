@@ -1253,6 +1253,12 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             boolean correctMapping = true;
             for (String fieldName : expectedFieldConfigs.keySet()) {
                 Object expectedField = expectedFieldConfigs.get(fieldName);
+                // the field might be a map or map of map
+                // example: map: {type=date, format=strict_date_time||epoch_millis}
+                // map of map: {type=nested, properties={likelihood={type=double}, value_list={type=nested,
+                // properties={data={type=double},
+                // feature_id={type=keyword}}}}}
+                // if it is a map of map, Object.equals can compare them regardless of order
                 if (!actualSchema.containsKey(fieldName)) {
                     logger.warn("mapping mismatch due to missing {}", fieldName);
                     correctMapping = false;

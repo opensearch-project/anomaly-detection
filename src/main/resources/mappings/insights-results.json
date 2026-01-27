@@ -4,9 +4,6 @@
       "schema_version": 1
     },
     "properties": {
-      "task_id": {
-        "type": "keyword"
-      },
       "window_start": {
         "type": "date",
         "format": "strict_date_time||epoch_millis"

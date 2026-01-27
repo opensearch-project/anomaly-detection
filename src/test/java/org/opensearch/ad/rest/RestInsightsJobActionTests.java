@@ -105,29 +105,8 @@ public class RestInsightsJobActionTests extends OpenSearchTestCase {
         assertNotNull(action.prepareRequest(request, mock(NodeClient.class)));
     }
 
-    public void testPrepareRequestResultsPathWhenEnabled() throws IOException {
-        Settings settings = Settings
-            .builder()
-            .put(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT.getKey(), TimeValue.timeValueSeconds(10))
-            .put(AnomalyDetectorSettings.INSIGHTS_ENABLED.getKey(), true)
-            .build();
-
-        Set<Setting<?>> clusterSettingSet = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        clusterSettingSet.add(AnomalyDetectorSettings.AD_REQUEST_TIMEOUT);
-        clusterSettingSet.add(AnomalyDetectorSettings.INSIGHTS_ENABLED);
-        ClusterSettings clusterSettings = new ClusterSettings(settings, clusterSettingSet);
-        clusterService = org.opensearch.timeseries.TestHelpers.createClusterService(threadPool, clusterSettings);
-
-        RestInsightsJobAction action = new RestInsightsJobAction(settings, clusterService);
-
-        FakeRestRequest request = new FakeRestRequest.Builder(NamedXContentRegistry.EMPTY)
-            .withMethod(RestRequest.Method.GET)
-            .withPath(String.format(Locale.ROOT, "%s/insights/_results", TimeSeriesAnalyticsPlugin.AD_BASE_URI))
-            .withParams(java.util.Map.of("from", "0", "size", "10"))
-            .build();
-
-        assertNotNull(action.prepareRequest(request, mock(NodeClient.class)));
-    }
+    // NOTE: Insights results are stored in a customer-owned index and should be retrieved via standard OpenSearch `_search`.
+    // The Insights plugin REST handler no longer exposes a dedicated `/insights/_results` endpoint.
 
     public void testPrepareRequestStopPathWhenEnabled() throws IOException {
         Settings settings = Settings

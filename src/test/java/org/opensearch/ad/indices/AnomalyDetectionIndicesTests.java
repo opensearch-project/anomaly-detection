@@ -187,7 +187,6 @@ public class AnomalyDetectionIndicesTests extends IndexManagementIntegTestCase<A
     public void testGetInsightsResultIndexMapping() throws IOException {
         String mapping = ADIndexManagement.getInsightsResultMappings();
         assertNotNull(mapping);
-        assertTrue(mapping.contains("task_id"));
         assertTrue(mapping.contains("window_start"));
         assertTrue(mapping.contains("window_end"));
         assertTrue(mapping.contains("generated_at"));

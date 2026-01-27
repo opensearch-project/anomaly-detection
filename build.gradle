@@ -68,13 +68,6 @@ buildscript {
         // It is useful to record intermediately information like prediction precision and recall.
         // This option turn on log printing during tests.
         printLogs = "true" == System.getProperty("test.logs", "false")
-
-        // OpenSearch 3.5.0-SNAPSHOT pulls Jackson 2.20.1 for some modules (e.g., Smile, Core), while
-        // `jackson-annotations` 2.20.x is not published on Maven Central yet.
-        // Keep core/databind aligned with OpenSearch, and pin annotations to the latest published 2.19.x.
-        jackson_core_version = System.getProperty("jackson.core.version", "2.20.1")
-        jackson_databind_version = System.getProperty("jackson.databind.version", "2.20.1")
-        jackson_annotations_version = System.getProperty("jackson.annotations.version", "2.19.0")
     }
 
     repositories {
@@ -169,8 +162,8 @@ dependencies {
 
 
     // we inherit jackson-core from opensearch core
-    implementation("com.fasterxml.jackson.core:jackson-databind:${jackson_databind_version}")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:${jackson_annotations_version}")
+    implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson_annotations}")
 
     // used for serializing/deserializing rcf models.
     implementation 'io.protostuff:protostuff-core:1.8.0'
@@ -277,9 +270,7 @@ configurations.all {
         force "junit:junit:4.13.2"
 
         force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
-        force("com.fasterxml.jackson.core:jackson-core:${jackson_core_version}")
-        force("com.fasterxml.jackson.core:jackson-annotations:${jackson_annotations_version}")
-        force("com.fasterxml.jackson.core:jackson-databind:${jackson_databind_version}")
+        force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
         force "org.ow2.asm:asm:9.7.1"
     }
 }

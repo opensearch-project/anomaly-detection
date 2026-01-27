@@ -1108,28 +1108,34 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     public void testInsightsApisUseSystemContextForJobIndex() throws IOException {
         // Use a non-admin user with AD full access (alice) to exercise Insights APIs end-to-end under security
         String startPath = "/_plugins/_anomaly_detection/insights/_start";
-        String statusPath = "/_plugins/_anomaly_detection/insights/_status";
         String stopPath = "/_plugins/_anomaly_detection/insights/_stop";
 
-        // 1) Alice creates a detector and starts realtime detection so that anomalies are generated
-        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
-        assertNotNull(aliceDetector.getId());
+        // 1) Alice creates a detector with custom result index and starts realtime detection so anomalies are generated there.
+        // Insights job queries custom result indices, so this test must use a custom-result detector.
+        AnomalyDetector baseDetector = createRandomAnomalyDetector(false, false, aliceClient);
+        assertNotNull(baseDetector.getId());
+        String customResultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX
+            + "secure-it-insights-"
+            + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
+        TestHelpers.createIndexWithTimeField(client(), baseDetector.getIndices().getFirst(), baseDetector.getTimeField());
+        AnomalyDetector aliceDetector = createAnomalyDetector(cloneDetector(baseDetector, customResultIndex), true, aliceClient);
+        assertEquals(customResultIndex, aliceDetector.getCustomResultIndexOrAlias());
 
         String startDetectorEndpoint = String.format(Locale.ROOT, TestHelpers.AD_BASE_START_DETECTOR_URL, aliceDetector.getId());
         Response startDetectorResp = TestHelpers
             .makeRequest(aliceClient, "POST", startDetectorEndpoint, ImmutableMap.of(), (HttpEntity) null, null);
         assertEquals("Start detector failed", RestStatus.OK, TestHelpers.restStatus(startDetectorResp));
 
-        // Wait briefly for anomaly results to appear in the system index (admin client can query system indices)
+        // Wait briefly for anomaly results to appear in the custom result index
         boolean anomaliesAvailable = false;
         int maxRetries = 30;
         int retryIntervalMs = 2000;
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             Response searchResultsResp = TestHelpers
                 .makeRequest(
-                    client(),
+                    aliceClient,
                     "POST",
-                    "/.opendistro-anomaly-results*/_search",
+                    "/" + customResultIndex + "*/_search",
                     ImmutableMap.of(),
                     new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
                     null
@@ -1160,7 +1166,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             Response searchInsightsResp = TestHelpers
                 .makeRequest(
-                    client(),
+                    aliceClient,
                     "POST",
                     "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
                     ImmutableMap.of(),
@@ -1184,10 +1190,21 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         }
         assertTrue("Expected insights to be generated after starting insights job", insightsAvailable);
 
-        // 4) Query insights results as a normal AD full-access user (alice) via the public API
-        Response aliceInsightsResp = TestHelpers
-            .makeRequest(aliceClient, "GET", "/_plugins/_anomaly_detection/insights/_results", ImmutableMap.of(), "", null);
-        assertEquals("Alice should be able to query insights results", RestStatus.OK, TestHelpers.restStatus(aliceInsightsResp));
+        // 4) Insights results are stored in a customer-owned index; validate alice can access via standard _search
+        Response aliceInsightsSearchResp = TestHelpers
+            .makeRequest(
+                aliceClient,
+                "POST",
+                "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
+                ImmutableMap.of(),
+                new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                null
+            );
+        assertEquals(
+            "Alice should be able to query insights results via _search",
+            RestStatus.OK,
+            TestHelpers.restStatus(aliceInsightsSearchResp)
+        );
 
         // 5) Stop insights job as alice
         Response stopResp = TestHelpers.makeRequest(aliceClient, "POST", stopPath, ImmutableMap.of(), "", null);
@@ -1214,6 +1231,27 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
                 exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/insights/stop]")
                     || exception.getMessage().contains("no permissions for [cluster:admin/opensearch/ad/insights/stop]")
             );
+
+        // 7) Bob should still be able to read insights via standard _search (customer-owned index)
+        Response bobInsightsSearchResp = TestHelpers
+            .makeRequest(
+                bobClient,
+                "POST",
+                "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
+                ImmutableMap.of(),
+                new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                null
+            );
+        assertEquals(
+            "Bob should be able to query insights results via _search",
+            RestStatus.OK,
+            TestHelpers.restStatus(bobInsightsSearchResp)
+        );
+        Map<String, Object> bobInsightsSearchResults = entityAsMap(bobInsightsSearchResp);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> bobHits = (List<Map<String, Object>>) ((Map<String, Object>) bobInsightsSearchResults.get("hits"))
+            .get("hits");
+        assertTrue("Expected bob to be able to read at least one insights document", bobHits != null && !bobHits.isEmpty());
     }
 
 }

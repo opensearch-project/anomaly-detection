@@ -173,12 +173,12 @@ public class ADClusterEventListenerTests extends AbstractTimeSeriesTest {
             // let 2nd clusterChanged method call start
             inProgressLatch.countDown();
             // wait for 2nd clusterChanged method to finish
-            buildCircleLatch.await(10, TimeUnit.SECONDS);
+            assertTrue("Timed out waiting for 2nd clusterChanged call", buildCircleLatch.await(30, TimeUnit.SECONDS));
             listener.onResponse(true);
             return null;
         }).when(hashRing).buildCircles(any(), any());
         new Thread(new ListenerRunnable()).start();
-        inProgressLatch.await(10, TimeUnit.SECONDS);
+        assertTrue("Timed out waiting for first clusterChanged to enter in-progress state", inProgressLatch.await(30, TimeUnit.SECONDS));
         listener.clusterChanged(new ClusterChangedEvent("bar", newClusterState, oldClusterState));
         buildCircleLatch.countDown();
         assertTrue(testAppender.containsMessage(ClusterEventListener.IN_PROGRESS_MSG));

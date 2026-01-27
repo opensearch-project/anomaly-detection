@@ -16,9 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
-import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.correlation.Anomaly;
 import org.opensearch.ad.correlation.AnomalyCorrelation;
 import org.opensearch.ad.model.AnomalyResult;
@@ -151,7 +149,6 @@ public class InsightsGenerator {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
 
-        builder.field("task_id", "task_" + ADCommonName.INSIGHTS_JOB_NAME + "_" + UUID.randomUUID().toString());
         builder.field("window_start", executionStartTime.toEpochMilli());
         builder.field("window_end", executionEndTime.toEpochMilli());
         builder.field("generated_at", Instant.now().toEpochMilli());

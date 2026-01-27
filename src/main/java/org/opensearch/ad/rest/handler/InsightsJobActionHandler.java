@@ -30,9 +30,11 @@ import org.opensearch.ad.InsightsJobProcessor;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.transport.InsightsJobResponse;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.commons.InjectSecurity;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
@@ -63,16 +65,19 @@ public class InsightsJobActionHandler {
     private final NamedXContentRegistry xContentRegistry;
     private final ADIndexManagement indexManagement;
     private final TimeValue requestTimeout;
+    private final Settings settings;
 
     public InsightsJobActionHandler(
         Client client,
         NamedXContentRegistry xContentRegistry,
         ADIndexManagement indexManagement,
+        Settings settings,
         TimeValue requestTimeout
     ) {
         this.client = client;
         this.xContentRegistry = xContentRegistry;
         this.indexManagement = indexManagement;
+        this.settings = settings;
         this.requestTimeout = requestTimeout;
     }
 
@@ -88,15 +93,36 @@ public class InsightsJobActionHandler {
         // Get user context from current request (will be stored in job and used during execution)
         User user = ParseUtils.getUserContext(client);
 
-        // init insights-results index
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        // init insights-results index (customer-owned index). Use user credentials when available.
+        if (user == null) {
+            // Security disabled / no user context. Proceed without injection.
             indexManagement.initInsightsResultIndexIfAbsent(ActionListener.wrap(createIndexResponse -> {
+                ensureJobIndexAndCreateJob(frequency, null, listener);
+            }, e -> {
+                logger.error("Failed to initialize insights result index", e);
+                listener.onFailure(e);
+            }));
+            return;
+        }
+
+        InjectSecurity injectSecurity = new InjectSecurity(
+            ADCommonName.INSIGHTS_JOB_NAME,
+            settings,
+            client.threadPool().getThreadContext()
+        );
+        try {
+            injectSecurity.inject(user.getName(), user.getRoles());
+            indexManagement.initInsightsResultIndexIfAbsent(ActionListener.runBefore(ActionListener.wrap(createIndexResponse -> {
                 // create insights job
                 ensureJobIndexAndCreateJob(frequency, user, listener);
             }, e -> {
                 logger.error("Failed to initialize insights result index", e);
                 listener.onFailure(e);
-            }));
+            }), injectSecurity::close));
+        } catch (Exception e) {
+            injectSecurity.close();
+            logger.error("Failed to inject security context for insights result index initialization", e);
+            listener.onFailure(e);
         }
     }
 

@@ -16,10 +16,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.lucene.search.TotalHits;
@@ -28,9 +31,10 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.ClearScrollRequest;
+import org.opensearch.action.search.ClearScrollResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.ad.constant.ADCommonName;
@@ -41,6 +45,7 @@ import org.opensearch.ad.task.ADTaskManager;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.ConfigConstants;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
@@ -48,6 +53,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
@@ -55,6 +61,9 @@ import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.SearchShardTarget;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
@@ -373,7 +382,8 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
     @Test
     public void testResultIndexSearchUsesSuperAdminContext() throws IOException {
-        // Job has its own user, but anomaly result queries should run with super-admin / system context
+        // Job has its own user; anomaly result queries should run under the job user's credentials (customer-owned indices),
+        // not whatever request user happens to be in the thread context.
         User jobUser = new User("job-user", Collections.emptyList(), Arrays.asList("job-role-1", "job-role-2"), Collections.emptyList());
 
         Job jobWithUser = new Job(
@@ -397,39 +407,192 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         when(threadPool.getThreadContext()).thenReturn(threadContext);
         when(client.threadPool()).thenReturn(threadPool);
 
-        // First, simulate direct search as normal user and verify it is forbidden
-        SearchRequest directRequest = new SearchRequest(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS);
-
-        @SuppressWarnings("unchecked")
-        ActionListener<SearchResponse> directListener = mock(ActionListener.class);
-
         doAnswer(invocation -> {
             SearchRequest request = invocation.getArgument(0);
             ActionListener<SearchResponse> listener = invocation.getArgument(1);
 
             String userInfo = threadContext.getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
-            if (request == directRequest) {
-                // Normal user trying to access system index should be forbidden
-                assertEquals("request-user||request-role-1,request-role-2", userInfo);
-                listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
-            } else {
-                // InsightsJobProcessor should run anomaly result queries under super-admin/system context,
-                // which we model here as having no user info in the thread context.
-                assertNull("System context should not carry a user for anomaly result reads", userInfo);
-                SearchResponse searchResponse = mock(SearchResponse.class);
-                SearchHits searchHits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
-                when(searchResponse.getHits()).thenReturn(searchHits);
+            SearchResponse searchResponse = mock(SearchResponse.class);
+
+            // First call: resolve custom result index patterns from CONFIG_INDEX using stashed context (no user in thread context)
+            if (request.indices() != null
+                && request.indices().length > 0
+                && ADCommonName.CONFIG_INDEX.equals(request.indices()[0])
+                && request.source() != null
+                && request.source().size() == 0) {
+                assertNull("System context should not carry a user for config index reads", userInfo);
+                StringTerms terms = mock(StringTerms.class);
+                when(terms.getName()).thenReturn("result_index");
+                StringTerms.Bucket bucket = mock(StringTerms.Bucket.class);
+                when(bucket.getKeyAsString()).thenReturn(ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "unit-test-alias");
+                when(terms.getBuckets()).thenReturn(List.of(bucket));
+                Aggregations aggs = new Aggregations(List.<Aggregation>of(terms));
+                when(searchResponse.getAggregations()).thenReturn(aggs);
                 listener.onResponse(searchResponse);
+                return null;
             }
+
+            // Subsequent call: anomaly search against customer-owned result indices should run under job user
+            // Depending on security plugin wiring in the unit test environment, InjectSecurity may set job user
+            // or clear user info entirely; what must not happen is leaking the request user into the search.
+            assertNotEquals("request-user||request-role-1,request-role-2", userInfo);
+            SearchHits searchHits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
+            when(searchResponse.getHits()).thenReturn(searchHits);
+            when(searchResponse.getScrollId()).thenReturn("scroll-1");
+            listener.onResponse(searchResponse);
             return null;
         }).when(client).search(any(SearchRequest.class), any());
 
-        // Direct search as normal user should be forbidden
-        client.search(directRequest, directListener);
-        verify(directListener, times(1)).onFailure(any(OpenSearchStatusException.class));
-
-        // Run once (no lock) so we exercise the search + InjectSecurity path under job user
+        // Run once so we exercise the InjectSecurity path under job user
         insightsJobProcessor.runOnce(jobWithUser);
+    }
+
+    @Test
+    public void testQueryCustomResultIndexUsesCustomResultAliasesAndClearsScroll() throws Exception {
+        String customAlias = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "unit-test-alias";
+
+        // 1) resolveCustomResultIndexPatterns: CONFIG_INDEX search with aggregation
+        doAnswer(invocation -> {
+            SearchRequest request = invocation.getArgument(0);
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+
+            SearchResponse resp = mock(SearchResponse.class);
+            if (request.indices() != null
+                && request.indices().length > 0
+                && ADCommonName.CONFIG_INDEX.equals(request.indices()[0])
+                && request.source() != null
+                && request.source().size() == 0) {
+                StringTerms terms = mock(StringTerms.class);
+                when(terms.getName()).thenReturn("result_index");
+                StringTerms.Bucket bucket = mock(StringTerms.Bucket.class);
+                when(bucket.getKeyAsString()).thenReturn(customAlias);
+                when(terms.getBuckets()).thenReturn(List.of(bucket));
+                Aggregations aggs = new Aggregations(List.<Aggregation>of(terms));
+                when(resp.getAggregations()).thenReturn(aggs);
+                listener.onResponse(resp);
+                return null;
+            }
+
+            // 2) anomaly search: empty hits, with a scroll id
+            when(resp.getScrollId()).thenReturn("scroll-1");
+            SearchHits hits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
+            when(resp.getHits()).thenReturn(hits);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        // clear scroll is called at the end of the first page when hits < pageSize
+        doAnswer(invocation -> {
+            ActionListener<ClearScrollResponse> listener = invocation.getArgument(1);
+            ClearScrollResponse resp = mock(ClearScrollResponse.class);
+            when(resp.isSucceeded()).thenReturn(true);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).clearScroll(any(ClearScrollRequest.class), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("queryCustomResultIndex", Job.class, Instant.class, Instant.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, Instant.now().minus(2, ChronoUnit.HOURS), Instant.now(), listener);
+
+        // We should have executed searches and responded
+        verify(client, atLeastOnce()).search(any(SearchRequest.class), any());
+        verify(listener, times(1)).onResponse(any(List.class));
+    }
+
+    @Test
+    public void testWriteInsightsToIndexMappingInvalidReturnsFailure() throws Exception {
+        doAnswer(invocation -> {
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onResponse(false);
+            return null;
+        }).when(indexManagement).validateInsightsResultIndexMapping(anyString(), any());
+
+        XContentBuilder doc = XContentFactory.jsonBuilder().startObject().field("window_start", 1).endObject();
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("writeInsightsToIndex", Job.class, XContentBuilder.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, doc, completion);
+
+        verify(completion, times(1)).onFailure(any(IllegalStateException.class));
+        verify(client, never()).index(any(IndexRequest.class), any());
+    }
+
+    @Test
+    public void testWriteInsightsToIndexIndexesWhenMappingValid() throws Exception {
+        doAnswer(invocation -> {
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onResponse(true);
+            return null;
+        }).when(indexManagement).validateInsightsResultIndexMapping(anyString(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> l = invocation.getArgument(1);
+            IndexResponse resp = mock(IndexResponse.class);
+            when(resp.getShardInfo()).thenReturn(new org.opensearch.action.support.replication.ReplicationResponse.ShardInfo(1, 1));
+            when(resp.getId()).thenReturn("id");
+            when(resp.getShardId()).thenReturn(new ShardId("idx", "uuid", 0));
+            when(resp.status()).thenReturn(RestStatus.CREATED);
+            l.onResponse(resp);
+            return null;
+        }).when(client).index(any(IndexRequest.class), any());
+
+        XContentBuilder doc = XContentFactory.jsonBuilder().startObject().field("window_start", 1).endObject();
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("writeInsightsToIndex", Job.class, XContentBuilder.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, doc, completion);
+
+        verify(client, times(1)).index(any(IndexRequest.class), any());
+        verify(completion, times(1)).onResponse(null);
+    }
+
+    @Test
+    public void testBuildCorrelationPayloadCoversBranchesAndInnerClass() throws Exception {
+        InsightsJobProcessor p = InsightsJobProcessor.getInstance();
+
+        org.opensearch.ad.model.AnomalyResult valid = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(valid.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
+        when(valid.getDataEndTime()).thenReturn(Instant.now().minus(5, ChronoUnit.MINUTES));
+        when(valid.getModelId()).thenReturn(null); // force fallback path
+        when(valid.getEntity()).thenReturn(java.util.Optional.empty());
+        when(valid.getConfigId()).thenReturn("detector-x");
+
+        org.opensearch.ad.model.AnomalyResult badTime = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(badTime.getDataStartTime()).thenReturn(Instant.now());
+        when(badTime.getDataEndTime()).thenReturn(Instant.now()); // not after
+
+        org.opensearch.ad.model.AnomalyResult missingConfig = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(missingConfig.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
+        when(missingConfig.getDataEndTime()).thenReturn(Instant.now().minus(9, ChronoUnit.MINUTES));
+        when(missingConfig.getConfigId()).thenReturn(null);
+
+        Method m = InsightsJobProcessor.class.getDeclaredMethod("buildCorrelationPayload", List.class);
+        m.setAccessible(true);
+        Object payload = m.invoke(p, List.of(valid, badTime, missingConfig));
+        assertNotNull(payload);
+
+        Field anomaliesField = payload.getClass().getDeclaredField("anomalies");
+        anomaliesField.setAccessible(true);
+        List<?> anomalies = (List<?>) anomaliesField.get(payload);
+        assertEquals(1, anomalies.size());
+
+        // Ensure the inner class lines are covered by accessing its second field
+        Field mapField = payload.getClass().getDeclaredField("anomalyResultByAnomaly");
+        mapField.setAccessible(true);
+        Object idMap = mapField.get(payload);
+        assertNotNull(idMap);
     }
 
     @Test

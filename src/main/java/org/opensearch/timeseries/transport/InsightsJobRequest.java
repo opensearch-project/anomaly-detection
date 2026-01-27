@@ -21,8 +21,6 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 public class InsightsJobRequest extends ActionRequest {
 
     private String frequency;
-    private String detectorId;
-    private String index;
     private int from;
     private int size;
     private String rawPath;
@@ -41,23 +39,6 @@ public class InsightsJobRequest extends ActionRequest {
     }
 
     /**
-     * Constructor for get results operation with filters
-     * @param detectorId
-     * @param index
-     * @param from
-     * @param size
-     * @param rawPath
-     */
-    public InsightsJobRequest(String detectorId, String index, int from, int size, String rawPath) {
-        super();
-        this.detectorId = detectorId;
-        this.index = index;
-        this.from = from;
-        this.size = size;
-        this.rawPath = rawPath;
-    }
-
-    /**
      * Constructor for stop operation
      * @param rawPath
      */
@@ -71,8 +52,6 @@ public class InsightsJobRequest extends ActionRequest {
     public InsightsJobRequest(StreamInput in) throws IOException {
         super(in);
         this.frequency = in.readOptionalString();
-        this.detectorId = in.readOptionalString();
-        this.index = in.readOptionalString();
         this.from = in.readInt();
         this.size = in.readInt();
         this.rawPath = in.readString();
@@ -82,8 +61,6 @@ public class InsightsJobRequest extends ActionRequest {
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeOptionalString(frequency);
-        out.writeOptionalString(detectorId);
-        out.writeOptionalString(index);
         out.writeInt(from);
         out.writeInt(size);
         out.writeString(rawPath);
@@ -93,31 +70,11 @@ public class InsightsJobRequest extends ActionRequest {
     public ActionRequestValidationException validate() {
         ActionRequestValidationException validationException = null;
 
-        if (rawPath != null && rawPath.contains("_results")) {
-            if (from < 0) {
-                validationException = new ActionRequestValidationException();
-                validationException.addValidationError("from parameter must be non-negative");
-            }
-            if (size <= 0) {
-                if (validationException == null) {
-                    validationException = new ActionRequestValidationException();
-                }
-                validationException.addValidationError("size parameter must be positive");
-            }
-        }
         return validationException;
     }
 
     public String getFrequency() {
         return frequency;
-    }
-
-    public String getDetectorId() {
-        return detectorId;
-    }
-
-    public String getIndex() {
-        return index;
     }
 
     public int getFrom() {
@@ -142,9 +99,5 @@ public class InsightsJobRequest extends ActionRequest {
 
     public boolean isStopOperation() {
         return rawPath != null && rawPath.contains("_stop");
-    }
-
-    public boolean isResultsOperation() {
-        return rawPath != null && rawPath.contains("_results");
     }
 }
