@@ -20,10 +20,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.lucene.search.TotalHits;
 import org.junit.Before;
@@ -37,8 +40,10 @@ import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.ClearScrollResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
+import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.task.ADTaskCacheManager;
 import org.opensearch.ad.task.ADTaskManager;
@@ -57,6 +62,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
+import org.opensearch.jobscheduler.spi.schedule.Schedule;
 import org.opensearch.jobscheduler.spi.utils.LockService;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -556,6 +562,691 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
         verify(client, times(1)).index(any(IndexRequest.class), any());
         verify(completion, times(1)).onResponse(null);
+    }
+
+    @Test
+    public void testGuardedLockReleasingListenerReleasesOnlyOnce() throws Exception {
+        LockService ls = mock(LockService.class);
+        LockModel lock = lockModel;
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onResponse(true);
+            return null;
+        }).when(ls).release(any(), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("guardedLockReleasingListener", Job.class, LockService.class, LockModel.class);
+        m.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> lockReleasing = (ActionListener<Void>) m.invoke(insightsJobProcessor, insightsJob, ls, lock);
+
+        lockReleasing.onResponse(null);
+        lockReleasing.onResponse(null);
+        lockReleasing.onFailure(new RuntimeException("boom"));
+
+        verify(ls, times(1)).release(any(), any());
+    }
+
+    @Test
+    public void testGuardedLockReleasingListenerFailureFirstStillReleasesOnlyOnce() throws Exception {
+        LockService ls = mock(LockService.class);
+        LockModel lock = lockModel;
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onResponse(true);
+            return null;
+        }).when(ls).release(any(), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("guardedLockReleasingListener", Job.class, LockService.class, LockModel.class);
+        m.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> lockReleasing = (ActionListener<Void>) m.invoke(insightsJobProcessor, insightsJob, ls, lock);
+
+        lockReleasing.onFailure(new RuntimeException("boom"));
+        lockReleasing.onResponse(null); // should be ignored (already released)
+
+        verify(ls, times(1)).release(any(), any());
+    }
+
+    @Test
+    public void testGuardedLockReleasingListenerNullLockServiceDoesNotThrow() throws Exception {
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("guardedLockReleasingListener", Job.class, LockService.class, LockModel.class);
+        m.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> lockReleasing = (ActionListener<Void>) m.invoke(insightsJobProcessor, insightsJob, null, lockModel);
+
+        // Should not throw; releaseLock() is a no-op when lockService is null.
+        lockReleasing.onResponse(null);
+        lockReleasing.onResponse(null); // cover "already released" branch too
+    }
+
+    @Test
+    public void testProcessAnomaliesWithCorrelationNullDetectorsSkips() throws Exception {
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod(
+                "processAnomaliesWithCorrelation",
+                Job.class,
+                List.class,
+                Map.class,
+                List.class,
+                Instant.class,
+                Instant.class,
+                ActionListener.class
+            );
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m
+            .invoke(
+                insightsJobProcessor,
+                insightsJob,
+                Collections.emptyList(),
+                Collections.emptyMap(),
+                null,
+                Instant.now().minus(1, ChronoUnit.HOURS),
+                Instant.now(),
+                completion
+            );
+
+        verify(completion, times(1)).onResponse(null);
+        verify(client, never()).index(any(IndexRequest.class), any());
+    }
+
+    @Test
+    public void testBuildDetectorMetadataFromAnomaliesDedupesDetectorIds() throws Exception {
+        org.opensearch.ad.model.AnomalyResult a1 = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(a1.getDetectorId()).thenReturn("d1");
+        org.opensearch.ad.model.AnomalyResult a2 = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(a2.getDetectorId()).thenReturn("d1"); // duplicate: covers containsKey == true branch
+        org.opensearch.ad.model.AnomalyResult a3 = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(a3.getDetectorId()).thenReturn("d2");
+
+        Method m = InsightsJobProcessor.class.getDeclaredMethod("buildDetectorMetadataFromAnomalies", List.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        Map<String, org.opensearch.ad.model.DetectorMetadata> map = (Map<String, org.opensearch.ad.model.DetectorMetadata>) m
+            .invoke(insightsJobProcessor, List.of(a1, a2, a3));
+        assertEquals(2, map.size());
+        assertTrue(map.containsKey("d1"));
+        assertTrue(map.containsKey("d2"));
+    }
+
+    @Test
+    public void testTruncateReturnsOriginalWhenShortAndAddsSuffixWhenLong() throws Exception {
+        Method m = InsightsJobProcessor.class.getDeclaredMethod("truncate", String.class);
+        m.setAccessible(true);
+
+        String shortVal = "abc";
+        assertEquals(shortVal, m.invoke(insightsJobProcessor, shortVal));
+
+        String longVal = "a".repeat(3000);
+        String truncated = (String) m.invoke(insightsJobProcessor, longVal);
+        assertNotNull(truncated);
+        assertTrue(truncated.contains("(truncated)"));
+        assertTrue(truncated.length() < longVal.length());
+    }
+
+    @Test
+    public void testWriteInsightsToIndexMappingValidationFailureCallbackPropagates() throws Exception {
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onFailure(new RuntimeException("mapping validation failed"));
+            return null;
+        }).when(indexManagement).validateInsightsResultIndexMapping(anyString(), any());
+
+        XContentBuilder doc = XContentFactory.jsonBuilder().startObject().field("window_start", 1).endObject();
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("writeInsightsToIndex", Job.class, XContentBuilder.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, doc, completion);
+
+        verify(completion, times(1)).onFailure(any(RuntimeException.class));
+        verify(client, never()).index(any(IndexRequest.class), any());
+    }
+
+    @Test
+    public void testWriteInsightsToIndexIndexFailurePropagates() throws Exception {
+        doAnswer(invocation -> {
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onResponse(true);
+            return null;
+        }).when(indexManagement).validateInsightsResultIndexMapping(anyString(), any());
+
+        doAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            ActionListener<IndexResponse> l = invocation.getArgument(1);
+            l.onFailure(new RuntimeException("index failed"));
+            return null;
+        }).when(client).index(any(IndexRequest.class), any());
+
+        XContentBuilder doc = XContentFactory.jsonBuilder().startObject().field("window_start", 1).endObject();
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("writeInsightsToIndex", Job.class, XContentBuilder.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, doc, completion);
+
+        verify(completion, times(1)).onFailure(any(RuntimeException.class));
+        verify(client, times(1)).index(any(IndexRequest.class), any());
+    }
+
+    @Test
+    public void testResolveCustomResultIndexPatternsBucketsNullReturnsEmpty() throws Exception {
+        StringTerms correct = mock(StringTerms.class);
+        when(correct.getName()).thenReturn("result_index");
+        when(correct.getBuckets()).thenReturn(null); // covers buckets-null branch
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse resp = mock(SearchResponse.class);
+            when(resp.getAggregations()).thenReturn(new Aggregations(List.<Aggregation>of(correct)));
+            listener.onResponse(resp);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        Method m = InsightsJobProcessor.class.getDeclaredMethod("resolveCustomResultIndexPatterns", Job.class, ActionListener.class);
+        m.setAccessible(true);
+
+        AtomicReference<List<String>> out = new AtomicReference<>();
+        @SuppressWarnings("unchecked")
+        ActionListener<List<String>> listener = ActionListener.wrap(out::set, e -> fail("did not expect failure"));
+        m.invoke(insightsJobProcessor, insightsJob, listener);
+
+        assertNotNull(out.get());
+        assertEquals(0, out.get().size());
+    }
+
+    @Test
+    public void testQueryCustomResultIndexSearchFailureNonIndexNotFound() throws Exception {
+        String customAlias = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "unit-test-alias";
+
+        doAnswer(invocation -> {
+            SearchRequest request = invocation.getArgument(0);
+            @SuppressWarnings("unchecked")
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+
+            // 1) resolveCustomResultIndexPatterns CONFIG_INDEX aggregation
+            if (request.indices() != null
+                && request.indices().length > 0
+                && ADCommonName.CONFIG_INDEX.equals(request.indices()[0])
+                && request.source() != null
+                && request.source().size() == 0) {
+                SearchResponse resp = mock(SearchResponse.class);
+                StringTerms terms = mock(StringTerms.class);
+                when(terms.getName()).thenReturn("result_index");
+                StringTerms.Bucket bucket = mock(StringTerms.Bucket.class);
+                when(bucket.getKeyAsString()).thenReturn(customAlias);
+                when(terms.getBuckets()).thenReturn(List.of(bucket));
+                when(resp.getAggregations()).thenReturn(new Aggregations(List.<Aggregation>of(terms)));
+                listener.onResponse(resp);
+                return null;
+            }
+
+            // 2) anomaly search failure with non-index-not-found message (covers else branch)
+            listener.onFailure(new RuntimeException("boom"));
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("queryCustomResultIndex", Job.class, Instant.class, Instant.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, Instant.now().minus(2, ChronoUnit.HOURS), Instant.now(), listener);
+
+        verify(listener, times(1)).onFailure(any(Exception.class));
+    }
+
+    @Test
+    public void testProcessWithNonIntervalScheduleFallsBackTo24Hours() {
+        // Non-IntervalSchedule should use fallback window computation.
+        Schedule nonInterval = mock(Schedule.class);
+        Job job = new Job(
+            ADCommonName.INSIGHTS_JOB_NAME,
+            nonInterval,
+            new IntervalTimeConfiguration(0L, ChronoUnit.MINUTES),
+            true,
+            Instant.now(),
+            null,
+            Instant.now(),
+            600L,
+            new User("test-user", Collections.emptyList(), Arrays.asList("test-role"), Collections.emptyList()),
+            ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS,
+            AnalysisType.AD
+        );
+
+        doAnswer(invocation -> {
+            ActionListener<LockModel> listener = invocation.getArgument(2);
+            listener.onResponse(lockModel);
+            return null;
+        }).when(lockService).acquireLock(any(), any(), any());
+
+        // resolveCustomResultIndexPatterns() returns empty because aggs are null.
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse resp = mock(SearchResponse.class);
+            when(resp.getAggregations()).thenReturn(null);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> listener = invocation.getArgument(1);
+            listener.onResponse(true);
+            return null;
+        }).when(lockService).release(any(), any());
+
+        insightsJobProcessor.process(job, jobExecutionContext);
+
+        verify(lockService, times(1)).acquireLock(any(), any(), any());
+        verify(lockService, times(1)).release(any(), any());
+        verify(client, times(1)).search(any(SearchRequest.class), any());
+    }
+
+    @Test
+    public void testRunOnceWithNonIntervalScheduleAndNoCustomIndicesSkipsCorrelation() {
+        Schedule nonInterval = mock(Schedule.class);
+        Job job = new Job(
+            ADCommonName.INSIGHTS_JOB_NAME,
+            nonInterval,
+            new IntervalTimeConfiguration(0L, ChronoUnit.MINUTES),
+            true,
+            Instant.now(),
+            null,
+            Instant.now(),
+            600L,
+            new User("test-user", Collections.emptyList(), Arrays.asList("test-role"), Collections.emptyList()),
+            ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS,
+            AnalysisType.AD
+        );
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse resp = mock(SearchResponse.class);
+            when(resp.getAggregations()).thenReturn(null); // => no index patterns
+            listener.onResponse(resp);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        insightsJobProcessor.runOnce(job);
+        verify(client, times(1)).search(any(SearchRequest.class), any());
+    }
+
+    @Test
+    public void testResolveCustomResultIndexPatternsSkipsEmptyAliasAndIgnoresWrongAggName() throws Exception {
+        StringTerms wrong = mock(StringTerms.class);
+        when(wrong.getName()).thenReturn("not_result_index");
+
+        StringTerms correct = mock(StringTerms.class);
+        when(correct.getName()).thenReturn("result_index");
+
+        StringTerms.Bucket empty = mock(StringTerms.Bucket.class);
+        when(empty.getKeyAsString()).thenReturn("");
+        StringTerms.Bucket ok = mock(StringTerms.Bucket.class);
+        when(ok.getKeyAsString()).thenReturn(ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "alias-x");
+        when(correct.getBuckets()).thenReturn(List.of(empty, ok));
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse resp = mock(SearchResponse.class);
+            when(resp.getAggregations()).thenReturn(new Aggregations(List.<Aggregation>of(wrong, correct)));
+            listener.onResponse(resp);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        Method m = InsightsJobProcessor.class.getDeclaredMethod("resolveCustomResultIndexPatterns", Job.class, ActionListener.class);
+        m.setAccessible(true);
+
+        AtomicReference<List<String>> out = new AtomicReference<>();
+        @SuppressWarnings("unchecked")
+        ActionListener<List<String>> listener = ActionListener.wrap(out::set, e -> fail("did not expect failure"));
+        m.invoke(insightsJobProcessor, insightsJob, listener);
+
+        assertNotNull(out.get());
+        assertEquals(1, out.get().size());
+        assertTrue("Expected wildcard pattern for alias", out.get().get(0).contains("alias-x"));
+    }
+
+    @Test
+    public void testClearScrollWithEmptyIdDoesNothing() throws Exception {
+        Method m = InsightsJobProcessor.class.getDeclaredMethod("clearScroll", Job.class, String.class);
+        m.setAccessible(true);
+
+        m.invoke(insightsJobProcessor, insightsJob, "");
+        verify(client, never()).clearScroll(any(ClearScrollRequest.class), any());
+    }
+
+    @Test
+    public void testFetchScrolledAnomaliesStopsWhenHitsLessThanPageSizeClearsNextScrollId() throws Exception {
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse resp = mock(SearchResponse.class);
+            when(resp.getScrollId()).thenReturn("scroll-next");
+            SearchHits hits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
+            when(resp.getHits()).thenReturn(hits);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).searchScroll(any(SearchScrollRequest.class), any());
+
+        ArgumentCaptor<ClearScrollRequest> clearReq = ArgumentCaptor.forClass(ClearScrollRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<ClearScrollResponse> listener = invocation.getArgument(1);
+            ClearScrollResponse resp = mock(ClearScrollResponse.class);
+            when(resp.isSucceeded()).thenReturn(true);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).clearScroll(clearReq.capture(), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod(
+                "fetchScrolledAnomalies",
+                Job.class,
+                String.class,
+                TimeValue.class,
+                int.class,
+                List.class,
+                Instant.class,
+                Instant.class,
+                ActionListener.class
+            );
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
+        List<org.opensearch.ad.model.AnomalyResult> all = new ArrayList<>();
+        m
+            .invoke(
+                insightsJobProcessor,
+                insightsJob,
+                "scroll-prev",
+                TimeValue.timeValueMinutes(5),
+                10000,
+                all,
+                Instant.now().minus(1, ChronoUnit.HOURS),
+                Instant.now(),
+                listener
+            );
+
+        verify(listener, times(1)).onResponse(any(List.class));
+        assertNotNull(clearReq.getValue());
+        assertTrue(clearReq.getValue().getScrollIds().contains("scroll-next"));
+    }
+
+    @Test
+    public void testFetchScrolledAnomaliesParseExceptionClearsNewestScrollIdAndFails() throws Exception {
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+            SearchResponse resp = mock(SearchResponse.class);
+            when(resp.getScrollId()).thenReturn("scroll-newest");
+            SearchHits hits = new SearchHits(new SearchHit[] { null }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f);
+            when(resp.getHits()).thenReturn(hits);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).searchScroll(any(SearchScrollRequest.class), any());
+
+        ArgumentCaptor<ClearScrollRequest> clearReq = ArgumentCaptor.forClass(ClearScrollRequest.class);
+        doAnswer(invocation -> {
+            ActionListener<ClearScrollResponse> listener = invocation.getArgument(1);
+            ClearScrollResponse resp = mock(ClearScrollResponse.class);
+            when(resp.isSucceeded()).thenReturn(true);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).clearScroll(clearReq.capture(), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod(
+                "fetchScrolledAnomalies",
+                Job.class,
+                String.class,
+                TimeValue.class,
+                int.class,
+                List.class,
+                Instant.class,
+                Instant.class,
+                ActionListener.class
+            );
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
+        List<org.opensearch.ad.model.AnomalyResult> all = new ArrayList<>();
+        m
+            .invoke(
+                insightsJobProcessor,
+                insightsJob,
+                "scroll-prev",
+                TimeValue.timeValueMinutes(5),
+                10000,
+                all,
+                Instant.now().minus(1, ChronoUnit.HOURS),
+                Instant.now(),
+                listener
+            );
+
+        verify(listener, times(1)).onFailure(any(Exception.class));
+        assertNotNull(clearReq.getValue());
+        assertTrue(clearReq.getValue().getScrollIds().contains("scroll-newest"));
+    }
+
+    @Test
+    public void testParseAnomalyHitsBadJsonDoesNotThrowOrAdd() throws Exception {
+        // Use a real registry for this parsing test to avoid mock behavior surprises.
+        insightsJobProcessor.setXContentRegistry(NamedXContentRegistry.EMPTY);
+        try {
+            SearchHit bad = new SearchHit(1);
+            bad.sourceRef(new BytesArray("not-json"));
+
+            Method m = InsightsJobProcessor.class.getDeclaredMethod("parseAnomalyHits", SearchHit[].class, List.class);
+            m.setAccessible(true);
+
+            List<org.opensearch.ad.model.AnomalyResult> out = new ArrayList<>();
+            m.invoke(insightsJobProcessor, new Object[] { new SearchHit[] { bad }, out });
+            assertEquals(0, out.size());
+        } finally {
+            insightsJobProcessor.setXContentRegistry(xContentRegistry);
+        }
+    }
+
+    @Test
+    public void testRunInsightsJobNullLockSkips() throws Exception {
+        LockService ls = mock(LockService.class);
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("runInsightsJob", Job.class, LockService.class, LockModel.class, Instant.class, Instant.class);
+        m.setAccessible(true);
+        m.invoke(insightsJobProcessor, insightsJob, ls, null, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now());
+        verify(ls, never()).release(any(), any());
+    }
+
+    @Test
+    public void testFetchDetectorMetadataNoDetectorIds() throws Exception {
+        org.opensearch.ad.model.AnomalyResult a = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(a.getDetectorId()).thenReturn(null);
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod(
+                "fetchDetectorMetadataAndProceed",
+                List.class,
+                Job.class,
+                Instant.class,
+                Instant.class,
+                ActionListener.class
+            );
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, List.of(a), insightsJob, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now(), completion);
+        verify(completion, times(1)).onResponse(null);
+    }
+
+    @Test
+    public void testFetchDetectorMetadataSearchFailureFallsBack() throws Exception {
+        // anomaly with detector id so we attempt config search
+        org.opensearch.ad.model.AnomalyResult a = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(a.getDetectorId()).thenReturn("detector-1");
+        when(a.getConfigId()).thenReturn("detector-1");
+        when(a.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
+        when(a.getDataEndTime()).thenReturn(Instant.now().minus(5, ChronoUnit.MINUTES));
+        when(a.getModelId()).thenReturn("m1");
+        when(a.getEntity()).thenReturn(java.util.Optional.empty());
+
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> l = invocation.getArgument(1);
+            l.onFailure(new RuntimeException("config index failure"));
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod(
+                "fetchDetectorMetadataAndProceed",
+                List.class,
+                Job.class,
+                Instant.class,
+                Instant.class,
+                ActionListener.class
+            );
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, List.of(a), insightsJob, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now(), completion);
+
+        // Fallback path ends up skipping correlation due to empty detector configs list
+        verify(completion, times(1)).onResponse(null);
+    }
+
+    @Test
+    public void testProcessAnomaliesWithCorrelationHappyPathWritesInsights() throws Exception {
+        // one valid anomaly result
+        org.opensearch.ad.model.AnomalyResult a = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(a.getConfigId()).thenReturn("detector-1");
+        when(a.getDetectorId()).thenReturn("detector-1");
+        when(a.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
+        when(a.getDataEndTime()).thenReturn(Instant.now().minus(5, ChronoUnit.MINUTES));
+        when(a.getModelId()).thenReturn("m1");
+        when(a.getEntity()).thenReturn(java.util.Optional.empty());
+
+        // minimal detector config for correlation
+        AnomalyDetector d = mock(AnomalyDetector.class);
+        when(d.getId()).thenReturn("detector-1");
+        when(d.getName()).thenReturn("d1");
+        when(d.getIndices()).thenReturn(List.of("index-1"));
+        when(d.getInterval()).thenReturn(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES));
+
+        Map<String, org.opensearch.ad.model.DetectorMetadata> md = Map
+            .of("detector-1", new org.opensearch.ad.model.DetectorMetadata("detector-1", "d1", List.of("index-1")));
+
+        doAnswer(invocation -> {
+            ActionListener<Boolean> l = invocation.getArgument(1);
+            l.onResponse(true);
+            return null;
+        }).when(indexManagement).validateInsightsResultIndexMapping(anyString(), any());
+
+        doAnswer(invocation -> {
+            ActionListener<IndexResponse> l = invocation.getArgument(1);
+            IndexResponse resp = mock(IndexResponse.class);
+            when(resp.getShardInfo()).thenReturn(new org.opensearch.action.support.replication.ReplicationResponse.ShardInfo(1, 1));
+            when(resp.getId()).thenReturn("id");
+            when(resp.getShardId()).thenReturn(new ShardId("idx", "uuid", 0));
+            when(resp.status()).thenReturn(RestStatus.CREATED);
+            l.onResponse(resp);
+            return null;
+        }).when(client).index(any(IndexRequest.class), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod(
+                "processAnomaliesWithCorrelation",
+                Job.class,
+                List.class,
+                Map.class,
+                List.class,
+                Instant.class,
+                Instant.class,
+                ActionListener.class
+            );
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<Void> completion = mock(ActionListener.class);
+        m
+            .invoke(
+                insightsJobProcessor,
+                insightsJob,
+                List.of(a),
+                md,
+                List.of(d),
+                Instant.now().minus(1, ChronoUnit.HOURS),
+                Instant.now(),
+                completion
+            );
+
+        verify(client, times(1)).index(any(IndexRequest.class), any());
+        verify(completion, times(1)).onResponse(null);
+    }
+
+    @Test
+    public void testQueryCustomResultIndexParseExceptionClearsScrollAndFails() throws Exception {
+        // 1) patterns resolution returns one custom result index alias*
+        doAnswer(invocation -> {
+            SearchRequest request = invocation.getArgument(0);
+            ActionListener<SearchResponse> listener = invocation.getArgument(1);
+
+            SearchResponse resp = mock(SearchResponse.class);
+            if (request.indices() != null
+                && request.indices().length > 0
+                && ADCommonName.CONFIG_INDEX.equals(request.indices()[0])
+                && request.source() != null
+                && request.source().size() == 0) {
+                StringTerms terms = mock(StringTerms.class);
+                when(terms.getName()).thenReturn("result_index");
+                StringTerms.Bucket bucket = mock(StringTerms.Bucket.class);
+                when(bucket.getKeyAsString()).thenReturn(ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "bad-parse");
+                when(terms.getBuckets()).thenReturn(List.of(bucket));
+                Aggregations aggs = new Aggregations(List.<Aggregation>of(terms));
+                when(resp.getAggregations()).thenReturn(aggs);
+                listener.onResponse(resp);
+                return null;
+            }
+
+            // 2) anomaly search: include a null hit to trigger the parse exception path
+            when(resp.getScrollId()).thenReturn("scroll-err");
+            SearchHits hits = new SearchHits(new SearchHit[] { null }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f);
+            when(resp.getHits()).thenReturn(hits);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).search(any(SearchRequest.class), any());
+
+        doAnswer(invocation -> {
+            ActionListener<ClearScrollResponse> listener = invocation.getArgument(1);
+            ClearScrollResponse resp = mock(ClearScrollResponse.class);
+            when(resp.isSucceeded()).thenReturn(true);
+            listener.onResponse(resp);
+            return null;
+        }).when(client).clearScroll(any(ClearScrollRequest.class), any());
+
+        Method m = InsightsJobProcessor.class
+            .getDeclaredMethod("queryCustomResultIndex", Job.class, Instant.class, Instant.class, ActionListener.class);
+        m.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
+        m.invoke(insightsJobProcessor, insightsJob, Instant.now().minus(2, ChronoUnit.HOURS), Instant.now(), listener);
+
+        verify(listener, times(1)).onFailure(any(Exception.class));
+        verify(client, times(1)).clearScroll(any(ClearScrollRequest.class), any());
     }
 
     @Test
