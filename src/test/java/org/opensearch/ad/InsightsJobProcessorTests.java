@@ -59,6 +59,9 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.jobscheduler.spi.JobExecutionContext;
 import org.opensearch.jobscheduler.spi.LockModel;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
@@ -456,6 +459,8 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
     @Test
     public void testQueryCustomResultIndexUsesCustomResultAliasesAndClearsScroll() throws Exception {
         String customAlias = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "unit-test-alias";
+        Instant end = Instant.now();
+        Instant start = end.minus(2, ChronoUnit.HOURS);
 
         // 1) resolveCustomResultIndexPatterns: CONFIG_INDEX search with aggregation
         doAnswer(invocation -> {
@@ -480,6 +485,35 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
             }
 
             // 2) anomaly search: empty hits, with a scroll id
+            assertNotNull(request.source());
+            QueryBuilder query = request.source().query();
+            assertTrue(query instanceof BoolQueryBuilder);
+            List<QueryBuilder> filters = ((BoolQueryBuilder) query).filter();
+
+            RangeQueryBuilder executionStart = null;
+            RangeQueryBuilder grade = null;
+            for (QueryBuilder f : filters) {
+                if (f instanceof RangeQueryBuilder == false) {
+                    continue;
+                }
+                RangeQueryBuilder r = (RangeQueryBuilder) f;
+                if ("execution_start_time".equals(r.fieldName())) {
+                    executionStart = r;
+                } else if ("anomaly_grade".equals(r.fieldName())) {
+                    grade = r;
+                }
+            }
+            assertNotNull(executionStart);
+            assertNotNull(grade);
+
+            // execution_start_time within window
+            assertEquals(start.toEpochMilli(), executionStart.from());
+            assertEquals(end.toEpochMilli(), executionStart.to());
+
+            // anomaly_grade > 0
+            assertEquals(0, grade.from());
+            assertFalse(grade.includeLower());
+
             when(resp.getScrollId()).thenReturn("scroll-1");
             SearchHits hits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
             when(resp.getHits()).thenReturn(hits);
@@ -502,7 +536,7 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
         @SuppressWarnings("unchecked")
         ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
-        m.invoke(insightsJobProcessor, insightsJob, Instant.now().minus(2, ChronoUnit.HOURS), Instant.now(), listener);
+        m.invoke(insightsJobProcessor, insightsJob, start, end, listener);
 
         // We should have executed searches and responded
         verify(client, atLeastOnce()).search(any(SearchRequest.class), any());
@@ -1130,24 +1164,46 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
     @Test
     public void testProcessAnomaliesWithCorrelationHappyPathWritesInsights() throws Exception {
-        // one valid anomaly result
+        // Two valid anomaly results so includeSingletons=false correlation still yields a non-empty cluster list.
         org.opensearch.ad.model.AnomalyResult a = mock(org.opensearch.ad.model.AnomalyResult.class);
         when(a.getConfigId()).thenReturn("detector-1");
         when(a.getDetectorId()).thenReturn("detector-1");
-        when(a.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
-        when(a.getDataEndTime()).thenReturn(Instant.now().minus(5, ChronoUnit.MINUTES));
+        Instant start = Instant.now().minus(10, ChronoUnit.MINUTES);
+        Instant end = Instant.now().minus(5, ChronoUnit.MINUTES);
+        when(a.getDataStartTime()).thenReturn(start);
+        when(a.getDataEndTime()).thenReturn(end);
         when(a.getModelId()).thenReturn("m1");
         when(a.getEntity()).thenReturn(java.util.Optional.empty());
 
-        // minimal detector config for correlation
+        org.opensearch.ad.model.AnomalyResult b = mock(org.opensearch.ad.model.AnomalyResult.class);
+        when(b.getConfigId()).thenReturn("detector-2");
+        when(b.getDetectorId()).thenReturn("detector-2");
+        // Same interval as 'a' to ensure strong temporal overlap and correlation edge.
+        when(b.getDataStartTime()).thenReturn(start);
+        when(b.getDataEndTime()).thenReturn(end);
+        when(b.getModelId()).thenReturn("m2");
+        when(b.getEntity()).thenReturn(java.util.Optional.empty());
+
+        // minimal detector configs for correlation
         AnomalyDetector d = mock(AnomalyDetector.class);
         when(d.getId()).thenReturn("detector-1");
         when(d.getName()).thenReturn("d1");
         when(d.getIndices()).thenReturn(List.of("index-1"));
         when(d.getInterval()).thenReturn(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES));
 
+        AnomalyDetector d2 = mock(AnomalyDetector.class);
+        when(d2.getId()).thenReturn("detector-2");
+        when(d2.getName()).thenReturn("d2");
+        when(d2.getIndices()).thenReturn(List.of("index-2"));
+        when(d2.getInterval()).thenReturn(new IntervalTimeConfiguration(1, ChronoUnit.MINUTES));
+
         Map<String, org.opensearch.ad.model.DetectorMetadata> md = Map
-            .of("detector-1", new org.opensearch.ad.model.DetectorMetadata("detector-1", "d1", List.of("index-1")));
+            .of(
+                "detector-1",
+                new org.opensearch.ad.model.DetectorMetadata("detector-1", "d1", List.of("index-1")),
+                "detector-2",
+                new org.opensearch.ad.model.DetectorMetadata("detector-2", "d2", List.of("index-2"))
+            );
 
         doAnswer(invocation -> {
             ActionListener<Boolean> l = invocation.getArgument(1);
@@ -1185,9 +1241,9 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
             .invoke(
                 insightsJobProcessor,
                 insightsJob,
-                List.of(a),
+                List.of(a, b),
                 md,
-                List.of(d),
+                List.of(d, d2),
                 Instant.now().minus(1, ChronoUnit.HOURS),
                 Instant.now(),
                 completion
@@ -1199,6 +1255,8 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
     @Test
     public void testQueryCustomResultIndexParseExceptionClearsScrollAndFails() throws Exception {
+        Instant end = Instant.now();
+        Instant start = end.minus(2, ChronoUnit.HOURS);
         // 1) patterns resolution returns one custom result index alias*
         doAnswer(invocation -> {
             SearchRequest request = invocation.getArgument(0);
@@ -1222,6 +1280,33 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
             }
 
             // 2) anomaly search: include a null hit to trigger the parse exception path
+            assertNotNull(request.source());
+            QueryBuilder query = request.source().query();
+            assertTrue(query instanceof BoolQueryBuilder);
+            List<QueryBuilder> filters = ((BoolQueryBuilder) query).filter();
+
+            RangeQueryBuilder executionStart = null;
+            RangeQueryBuilder grade = null;
+            for (QueryBuilder f : filters) {
+                if (f instanceof RangeQueryBuilder == false) {
+                    continue;
+                }
+                RangeQueryBuilder r = (RangeQueryBuilder) f;
+                if ("execution_start_time".equals(r.fieldName())) {
+                    executionStart = r;
+                } else if ("anomaly_grade".equals(r.fieldName())) {
+                    grade = r;
+                }
+            }
+            assertNotNull(executionStart);
+            assertNotNull(grade);
+
+            assertEquals(start.toEpochMilli(), executionStart.from());
+            assertEquals(end.toEpochMilli(), executionStart.to());
+
+            assertEquals(0, grade.from());
+            assertFalse(grade.includeLower());
+
             when(resp.getScrollId()).thenReturn("scroll-err");
             SearchHits hits = new SearchHits(new SearchHit[] { null }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f);
             when(resp.getHits()).thenReturn(hits);
@@ -1243,7 +1328,7 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
 
         @SuppressWarnings("unchecked")
         ActionListener<List<org.opensearch.ad.model.AnomalyResult>> listener = mock(ActionListener.class);
-        m.invoke(insightsJobProcessor, insightsJob, Instant.now().minus(2, ChronoUnit.HOURS), Instant.now(), listener);
+        m.invoke(insightsJobProcessor, insightsJob, start, end, listener);
 
         verify(listener, times(1)).onFailure(any(Exception.class));
         verify(client, times(1)).clearScroll(any(ClearScrollRequest.class), any());

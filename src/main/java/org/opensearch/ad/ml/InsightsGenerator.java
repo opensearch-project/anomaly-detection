@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.opensearch.ad.correlation.Anomaly;
@@ -37,16 +38,19 @@ public class InsightsGenerator {
      * @param detectorMetadataMap Detector metadata for name/index enrichment
      * @param executionStartTime Start of analysis window
      * @param executionEndTime End of analysis window
-     * @return XContentBuilder ready to index
+     * @return Optional empty if clusters is null/empty (or produces no valid cluster docs); otherwise a builder ready to index
      */
-    public static XContentBuilder generateInsightsFromClusters(
+    public static Optional<XContentBuilder> generateInsightsFromClusters(
         List<AnomalyCorrelation.Cluster> clusters,
         Map<Anomaly, AnomalyResult> anomalyResultByAnomaly,
         Map<String, DetectorMetadata> detectorMetadataMap,
         Instant executionStartTime,
         Instant executionEndTime
     ) throws IOException {
-        List<AnomalyCorrelation.Cluster> safeClusters = clusters == null ? new ArrayList<>() : clusters;
+        if (clusters == null || clusters.isEmpty()) {
+            return Optional.empty();
+        }
+        List<AnomalyCorrelation.Cluster> safeClusters = clusters;
         Map<Anomaly, AnomalyResult> safeAnomalyMap = anomalyResultByAnomaly == null ? new HashMap<>() : anomalyResultByAnomaly;
         Map<String, DetectorMetadata> safeDetectorMetadata = detectorMetadataMap == null ? new HashMap<>() : detectorMetadataMap;
 
@@ -54,7 +58,6 @@ public class InsightsGenerator {
         Set<String> docDetectorNames = new HashSet<>();
         Set<String> docIndices = new HashSet<>();
         Set<String> docModelIds = new HashSet<>();
-        Set<String> docEntities = new HashSet<>();
         int totalAnomalies = 0;
 
         List<Map<String, Object>> clusterDocs = new ArrayList<>();
@@ -108,13 +111,11 @@ public class InsightsGenerator {
                 String entityKey = buildEntityKey(rawAnomaly);
                 if (entityKey != null) {
                     clusterEntities.add(entityKey);
-                    docEntities.add(entityKey);
                 }
 
                 Map<String, Object> anomalyDoc = new HashMap<>();
                 anomalyDoc.put("model_id", modelId);
                 anomalyDoc.put("detector_id", detectorId);
-                anomalyDoc.put("config_id", detectorId);
                 anomalyDoc.put("data_start_time", anomaly.getDataStartTime().toEpochMilli());
                 anomalyDoc.put("data_end_time", anomaly.getDataEndTime().toEpochMilli());
                 anomalyDocs.add(anomalyDoc);
@@ -146,6 +147,11 @@ public class InsightsGenerator {
             clusterDocs.add(clusterDoc);
         }
 
+        if (clusterDocs.isEmpty()) {
+            // No valid clusters (e.g., null clusters or clusters with no anomalies)
+            return Optional.empty();
+        }
+
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
 
@@ -173,13 +179,12 @@ public class InsightsGenerator {
         builder.field("num_anomalies", totalAnomalies);
         builder.field("num_detectors", docDetectorIds.size());
         builder.field("num_indices", docIndices.size());
-        builder.field("num_series", docEntities.size());
-        builder.field("num_models", docModelIds.size());
+        builder.field("num_series", docModelIds.size());
         builder.endObject();
 
         builder.endObject();
 
-        return builder;
+        return Optional.of(builder);
     }
 
     // Legacy ML-commons correlation generator removed.

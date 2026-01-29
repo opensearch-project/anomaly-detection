@@ -60,8 +60,10 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
                 new DetectorMetadata("detector-2", "Detector Two", List.of("index-2"))
             );
 
-        var builder = InsightsGenerator
+        var builderOpt = InsightsGenerator
             .generateInsightsFromClusters(List.of(cluster), anomalyResultByAnomaly, detectorMetadata, windowStart, windowEnd);
+        assertTrue(builderOpt.isPresent());
+        var builder = builderOpt.get();
 
         Map<String, Object> asMap = XContentHelper.convertToMap(new BytesArray(builder.toString()), false, XContentType.JSON).v2();
 
@@ -91,18 +93,7 @@ public class InsightsGeneratorTests extends OpenSearchTestCase {
         Instant windowStart = Instant.now().minus(2, ChronoUnit.HOURS);
         Instant windowEnd = Instant.now().minus(1, ChronoUnit.HOURS);
 
-        var builder = InsightsGenerator.generateInsightsFromClusters(null, null, null, windowStart, windowEnd);
-        Map<String, Object> asMap = XContentHelper.convertToMap(new BytesArray(builder.toString()), false, XContentType.JSON).v2();
-
-        assertEquals(windowStart.toEpochMilli(), ((Number) asMap.get("window_start")).longValue());
-        assertEquals(windowEnd.toEpochMilli(), ((Number) asMap.get("window_end")).longValue());
-
-        List<Map<String, Object>> clusters = (List<Map<String, Object>>) asMap.get("clusters");
-        assertNotNull(clusters);
-        assertTrue(clusters.isEmpty());
-
-        Map<String, Object> stats = (Map<String, Object>) asMap.get("stats");
-        assertEquals(0, ((Number) stats.get("num_clusters")).intValue());
-        assertEquals(0, ((Number) stats.get("num_anomalies")).intValue());
+        var builderOpt = InsightsGenerator.generateInsightsFromClusters(null, null, null, windowStart, windowEnd);
+        assertTrue(builderOpt.isEmpty());
     }
 }

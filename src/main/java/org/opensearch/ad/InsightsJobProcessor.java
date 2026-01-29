@@ -368,7 +368,7 @@ public class InsightsJobProcessor extends
             boolQuery
                 .filter(
                     QueryBuilders
-                        .rangeQuery("data_start_time")
+                        .rangeQuery("execution_start_time")
                         .gte(executionStartTime.toEpochMilli())
                         .lte(executionEndTime.toEpochMilli())
                         .format("epoch_millis")
@@ -649,7 +649,7 @@ public class InsightsJobProcessor extends
             logCorrelationClustersPreview(clusters);
             log.info("Anomaly correlation completed, found {} event clusters", clusters.size());
 
-            XContentBuilder insightsDoc = InsightsGenerator
+            java.util.Optional<XContentBuilder> insightsDoc = InsightsGenerator
                 .generateInsightsFromClusters(
                     clusters,
                     payload.anomalyResultByAnomaly,
@@ -657,7 +657,12 @@ public class InsightsJobProcessor extends
                     executionStartTime,
                     executionEndTime
                 );
-            writeInsightsToIndex(jobParameter, insightsDoc, completionListener);
+            if (insightsDoc.isEmpty()) {
+                log.info("No insights document generated (clusters empty); skipping write to insights index");
+                completionListener.onResponse(null);
+                return;
+            }
+            writeInsightsToIndex(jobParameter, insightsDoc.get(), completionListener);
         } catch (Exception e) {
             log.error("Anomaly correlation failed", e);
             completionListener.onFailure(e);

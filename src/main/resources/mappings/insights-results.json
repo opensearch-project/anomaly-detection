@@ -69,9 +69,6 @@
               "detector_id": {
                 "type": "keyword"
               },
-              "config_id": {
-                "type": "keyword"
-              },
               "data_start_time": {
                 "type": "date",
                 "format": "strict_date_time||epoch_millis"
@@ -99,9 +96,6 @@
             "type": "integer"
           },
           "num_series": {
-            "type": "integer"
-          },
-          "num_models": {
             "type": "integer"
           }
         }
