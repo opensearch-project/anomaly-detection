@@ -750,6 +750,9 @@ task integTestRemote(type: Test) {
 
     // Only rest case can run with remote cluster
     if (System.getProperty("tests.rest.cluster") != null) {
+        // Remote clusters are shared across test JVMs; serialize to avoid cross-test index wipes.
+        maxParallelForks = 1
+        forkEvery = 0
         filter {
             includeTestsMatching "org.opensearch.ad.rest.*IT"
             includeTestsMatching "org.opensearch.ad.e2e.*IT"

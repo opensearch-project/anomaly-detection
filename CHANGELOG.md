@@ -11,6 +11,8 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Enhancements
 ### Bug Fixes
+- Fix remote integ test flakiness from shared index cleanup ([#1654](https://github.com/opensearch-project/anomaly-detection/pull/1654))
+
 ### Infrastructure
 ### Documentation
 ### Maintenance
