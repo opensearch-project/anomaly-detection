@@ -185,7 +185,7 @@ dependencies {
 
     testImplementation 'org.awaitility:awaitility:4.3.0'
     testImplementation 'pl.pragmatists:JUnitParams:1.1.1'
-    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-core:5.21.0'
     testImplementation 'org.objenesis:objenesis:3.4'
     testImplementation 'net.bytebuddy:byte-buddy:1.18.4'
     testImplementation 'net.bytebuddy:byte-buddy-agent:1.18.4'
@@ -262,7 +262,7 @@ configurations.all {
         force "org.apache.httpcomponents.core5:httpcore5:${versions.httpcore5}"
         force "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
 
-        force "org.mockito:mockito-core:5.20.0"
+        force "org.mockito:mockito-core:5.21.0"
         force "org.objenesis:objenesis:3.4"
         force "net.bytebuddy:byte-buddy:1.18.4"
         force "net.bytebuddy:byte-buddy-agent:1.18.4"
