@@ -173,8 +173,8 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.18.0'
 
 
-    implementation "org.jacoco:org.jacoco.agent:0.8.13"
-    implementation ("org.jacoco:org.jacoco.ant:0.8.13") {
+    implementation "org.jacoco:org.jacoco.agent:0.8.14"
+    implementation ("org.jacoco:org.jacoco.ant:0.8.14") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'
         exclude group: 'org.ow2.asm', module: 'asm'
         exclude group: 'org.ow2.asm', module: 'asm-tree'
