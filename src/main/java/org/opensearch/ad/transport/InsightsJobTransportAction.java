@@ -25,6 +25,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.transport.InsightsJobRequest;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -39,6 +40,7 @@ public class InsightsJobTransportAction extends HandledTransportAction<InsightsJ
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        PluginClient pluginClient,
         ClusterService clusterService,
         Settings settings,
         NamedXContentRegistry xContentRegistry,
@@ -48,6 +50,7 @@ public class InsightsJobTransportAction extends HandledTransportAction<InsightsJ
         this.client = client;
         this.jobHandler = new InsightsJobActionHandler(
             client,
+            pluginClient,
             xContentRegistry,
             indexManagement,
             settings,

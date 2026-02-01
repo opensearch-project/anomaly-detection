@@ -28,6 +28,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.transport.InsightsJobRequest;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -42,6 +43,7 @@ public class InsightsJobTransportActionTests extends OpenSearchTestCase {
     public void setUpTransportAction() throws Exception {
         transportService = mock(TransportService.class);
         client = mock(Client.class);
+        PluginClient pluginClient = mock(PluginClient.class);
         ClusterService clusterService = mock(ClusterService.class);
         ADIndexManagement indexManagement = mock(ADIndexManagement.class);
 
@@ -54,6 +56,7 @@ public class InsightsJobTransportActionTests extends OpenSearchTestCase {
             transportService,
             new ActionFilters(Collections.emptySet()),
             client,
+            pluginClient,
             clusterService,
             settings,
             NamedXContentRegistry.EMPTY,

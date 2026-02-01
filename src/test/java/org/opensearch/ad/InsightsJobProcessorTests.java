@@ -80,6 +80,7 @@ import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.Client;
 
 public class InsightsJobProcessorTests extends OpenSearchTestCase {
@@ -952,6 +953,183 @@ public class InsightsJobProcessorTests extends OpenSearchTestCase {
         assertNotNull(out.get());
         assertEquals(1, out.get().size());
         assertTrue("Expected wildcard pattern for alias", out.get().get(0).contains("alias-x"));
+    }
+
+    @Test
+    public void testResolveCustomResultIndexPatternsUsesPluginClientWhenPresent() throws Exception {
+        PluginClient pluginClient = mock(PluginClient.class);
+        insightsJobProcessor.setPluginClient(pluginClient);
+        try {
+            String alias = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "pc-alias";
+
+            doAnswer(invocation -> {
+                ActionListener<SearchResponse> listener = invocation.getArgument(1);
+                SearchResponse resp = mock(SearchResponse.class);
+                StringTerms terms = mock(StringTerms.class);
+                when(terms.getName()).thenReturn("result_index");
+                StringTerms.Bucket bucket = mock(StringTerms.Bucket.class);
+                when(bucket.getKeyAsString()).thenReturn(alias);
+                when(terms.getBuckets()).thenReturn(List.of(bucket));
+                when(resp.getAggregations()).thenReturn(new Aggregations(List.<Aggregation>of(terms)));
+                listener.onResponse(resp);
+                return null;
+            }).when(pluginClient).search(any(SearchRequest.class), any());
+
+            Method m = InsightsJobProcessor.class.getDeclaredMethod("resolveCustomResultIndexPatterns", Job.class, ActionListener.class);
+            m.setAccessible(true);
+
+            AtomicReference<List<String>> out = new AtomicReference<>();
+            @SuppressWarnings("unchecked")
+            ActionListener<List<String>> listener = ActionListener.wrap(out::set, e -> fail("did not expect failure"));
+            m.invoke(insightsJobProcessor, insightsJob, listener);
+
+            verify(pluginClient, times(1)).search(any(SearchRequest.class), any());
+            verify(client, never()).search(any(SearchRequest.class), any());
+            assertNotNull(out.get());
+            assertEquals(1, out.get().size());
+            assertTrue(out.get().get(0).contains("pc-alias"));
+        } finally {
+            insightsJobProcessor.setPluginClient(null);
+        }
+    }
+
+    @Test
+    public void testResolveCustomResultIndexPatternsFallsBackWhenPluginClientNotInitialized() throws Exception {
+        PluginClient pluginClient = mock(PluginClient.class);
+        insightsJobProcessor.setPluginClient(pluginClient);
+        try {
+            doAnswer(invocation -> { throw new IllegalStateException("PluginClient is not initialized."); })
+                .when(pluginClient)
+                .search(any(SearchRequest.class), any());
+
+            String alias = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX + "fallback-alias";
+            doAnswer(invocation -> {
+                ActionListener<SearchResponse> listener = invocation.getArgument(1);
+                SearchResponse resp = mock(SearchResponse.class);
+                StringTerms terms = mock(StringTerms.class);
+                when(terms.getName()).thenReturn("result_index");
+                StringTerms.Bucket bucket = mock(StringTerms.Bucket.class);
+                when(bucket.getKeyAsString()).thenReturn(alias);
+                when(terms.getBuckets()).thenReturn(List.of(bucket));
+                when(resp.getAggregations()).thenReturn(new Aggregations(List.<Aggregation>of(terms)));
+                listener.onResponse(resp);
+                return null;
+            }).when(client).search(any(SearchRequest.class), any());
+
+            Method m = InsightsJobProcessor.class.getDeclaredMethod("resolveCustomResultIndexPatterns", Job.class, ActionListener.class);
+            m.setAccessible(true);
+
+            AtomicReference<List<String>> out = new AtomicReference<>();
+            @SuppressWarnings("unchecked")
+            ActionListener<List<String>> listener = ActionListener.wrap(out::set, e -> fail("did not expect failure"));
+            m.invoke(insightsJobProcessor, insightsJob, listener);
+
+            verify(pluginClient, times(1)).search(any(SearchRequest.class), any());
+            verify(client, times(1)).search(any(SearchRequest.class), any());
+            assertNotNull(out.get());
+            assertEquals(1, out.get().size());
+            assertTrue(out.get().get(0).contains("fallback-alias"));
+        } finally {
+            insightsJobProcessor.setPluginClient(null);
+        }
+    }
+
+    @Test
+    public void testFetchDetectorMetadataUsesPluginClientWhenPresent() throws Exception {
+        PluginClient pluginClient = mock(PluginClient.class);
+        insightsJobProcessor.setPluginClient(pluginClient);
+        try {
+            org.opensearch.ad.model.AnomalyResult a = mock(org.opensearch.ad.model.AnomalyResult.class);
+            when(a.getDetectorId()).thenReturn("detector-1");
+            when(a.getConfigId()).thenReturn("detector-1");
+            when(a.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
+            when(a.getDataEndTime()).thenReturn(Instant.now().minus(5, ChronoUnit.MINUTES));
+            when(a.getModelId()).thenReturn("m1");
+            when(a.getEntity()).thenReturn(java.util.Optional.empty());
+
+            doAnswer(invocation -> {
+                ActionListener<SearchResponse> listener = invocation.getArgument(1);
+                SearchResponse resp = mock(SearchResponse.class);
+
+                // Return a "minimal" detector doc that will likely fail strict parsing, but is map-parsable for fallback metadata.
+                SearchHit hit = new SearchHit(1);
+                hit.sourceRef(new BytesArray("{\"name\":\"d1\",\"indices\":[\"index-1\"]}"));
+                SearchHits hits = new SearchHits(new SearchHit[] { hit }, new TotalHits(1, TotalHits.Relation.EQUAL_TO), 1.0f);
+                when(resp.getHits()).thenReturn(hits);
+                listener.onResponse(resp);
+                return null;
+            }).when(pluginClient).search(any(SearchRequest.class), any());
+
+            Method m = InsightsJobProcessor.class
+                .getDeclaredMethod(
+                    "fetchDetectorMetadataAndProceed",
+                    List.class,
+                    Job.class,
+                    Instant.class,
+                    Instant.class,
+                    ActionListener.class
+                );
+            m.setAccessible(true);
+
+            @SuppressWarnings("unchecked")
+            ActionListener<Void> completion = mock(ActionListener.class);
+            m.invoke(insightsJobProcessor, List.of(a), insightsJob, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now(), completion);
+
+            verify(pluginClient, times(1)).search(any(SearchRequest.class), any());
+            verify(client, never()).search(any(SearchRequest.class), any());
+            verify(completion, times(1)).onResponse(null);
+        } finally {
+            insightsJobProcessor.setPluginClient(null);
+        }
+    }
+
+    @Test
+    public void testFetchDetectorMetadataFallsBackWhenPluginClientNotInitialized() throws Exception {
+        PluginClient pluginClient = mock(PluginClient.class);
+        insightsJobProcessor.setPluginClient(pluginClient);
+        try {
+            doAnswer(invocation -> { throw new IllegalStateException("PluginClient is not initialized."); })
+                .when(pluginClient)
+                .search(any(SearchRequest.class), any());
+
+            org.opensearch.ad.model.AnomalyResult a = mock(org.opensearch.ad.model.AnomalyResult.class);
+            when(a.getDetectorId()).thenReturn("detector-1");
+            when(a.getConfigId()).thenReturn("detector-1");
+            when(a.getDataStartTime()).thenReturn(Instant.now().minus(10, ChronoUnit.MINUTES));
+            when(a.getDataEndTime()).thenReturn(Instant.now().minus(5, ChronoUnit.MINUTES));
+            when(a.getModelId()).thenReturn("m1");
+            when(a.getEntity()).thenReturn(java.util.Optional.empty());
+
+            doAnswer(invocation -> {
+                ActionListener<SearchResponse> listener = invocation.getArgument(1);
+                SearchResponse resp = mock(SearchResponse.class);
+                SearchHits hits = new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0.0f);
+                when(resp.getHits()).thenReturn(hits);
+                listener.onResponse(resp);
+                return null;
+            }).when(client).search(any(SearchRequest.class), any());
+
+            Method m = InsightsJobProcessor.class
+                .getDeclaredMethod(
+                    "fetchDetectorMetadataAndProceed",
+                    List.class,
+                    Job.class,
+                    Instant.class,
+                    Instant.class,
+                    ActionListener.class
+                );
+            m.setAccessible(true);
+
+            @SuppressWarnings("unchecked")
+            ActionListener<Void> completion = mock(ActionListener.class);
+            m.invoke(insightsJobProcessor, List.of(a), insightsJob, Instant.now().minus(1, ChronoUnit.HOURS), Instant.now(), completion);
+
+            verify(pluginClient, times(1)).search(any(SearchRequest.class), any());
+            verify(client, times(1)).search(any(SearchRequest.class), any());
+            verify(completion, times(1)).onResponse(null);
+        } finally {
+            insightsJobProcessor.setPluginClient(null);
+        }
     }
 
     @Test

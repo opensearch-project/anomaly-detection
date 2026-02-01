@@ -72,6 +72,7 @@ import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Job;
 import org.opensearch.timeseries.transport.ResultRequest;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.timeseries.util.SecurityUtil;
 import org.opensearch.transport.client.Client;
 
@@ -100,6 +101,7 @@ public class InsightsJobProcessor extends
     private Client localClient;
     private ThreadPool localThreadPool;
     private String localThreadPoolName;
+    private PluginClient pluginClient;
 
     public static InsightsJobProcessor getInstance() {
         if (INSTANCE != null) {
@@ -126,6 +128,10 @@ public class InsightsJobProcessor extends
 
     public void setXContentRegistry(NamedXContentRegistry xContentRegistry) {
         this.xContentRegistry = xContentRegistry;
+    }
+
+    public void setPluginClient(PluginClient pluginClient) {
+        this.pluginClient = pluginClient;
     }
 
     @Override
@@ -469,37 +475,69 @@ public class InsightsJobProcessor extends
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
         // detector configs are stored in system index; use stashed context
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
-            localClient.search(request, ActionListener.wrap(response -> {
-                List<String> patterns = new ArrayList<>();
-                Aggregations aggregations = response.getAggregations();
-                if (aggregations == null) {
-                    listener.onResponse(patterns);
-                    return;
-                }
-
-                // Iterate instead of using Aggregations#get(...) (final method in core; harder to mock in unit tests).
-                StringTerms resultIndicesAgg = null;
-                for (Aggregation agg : aggregations) {
-                    if (agg instanceof StringTerms && RESULT_INDEX_AGG_NAME.equals(agg.getName())) {
-                        resultIndicesAgg = (StringTerms) agg;
-                        break;
+            Client systemClient = pluginClient != null ? pluginClient : localClient;
+            try {
+                systemClient.search(request, ActionListener.wrap(response -> {
+                    List<String> patterns = new ArrayList<>();
+                    Aggregations aggregations = response.getAggregations();
+                    if (aggregations == null) {
+                        listener.onResponse(patterns);
+                        return;
                     }
-                }
-                if (resultIndicesAgg == null || resultIndicesAgg.getBuckets() == null) {
-                    listener.onResponse(patterns);
-                    return;
-                }
 
-                for (StringTerms.Bucket bucket : resultIndicesAgg.getBuckets()) {
-                    String alias = bucket.getKeyAsString();
-                    if (alias == null || alias.isEmpty()) {
-                        continue;
+                    // Iterate instead of using Aggregations#get(...) (final method in core; harder to mock in unit tests).
+                    StringTerms resultIndicesAgg = null;
+                    for (Aggregation agg : aggregations) {
+                        if (agg instanceof StringTerms && RESULT_INDEX_AGG_NAME.equals(agg.getName())) {
+                            resultIndicesAgg = (StringTerms) agg;
+                            break;
+                        }
                     }
-                    patterns.add(IndexManagement.getAllCustomResultIndexPattern(alias));
-                }
+                    if (resultIndicesAgg == null || resultIndicesAgg.getBuckets() == null) {
+                        listener.onResponse(patterns);
+                        return;
+                    }
 
-                listener.onResponse(patterns);
-            }, listener::onFailure));
+                    for (StringTerms.Bucket bucket : resultIndicesAgg.getBuckets()) {
+                        String alias = bucket.getKeyAsString();
+                        if (alias == null || alias.isEmpty()) {
+                            continue;
+                        }
+                        patterns.add(IndexManagement.getAllCustomResultIndexPattern(alias));
+                    }
+
+                    listener.onResponse(patterns);
+                }, listener::onFailure));
+            } catch (IllegalStateException e) {
+                // PluginClient present but subject not initialized; fall back to stashed regular client.
+                localClient.search(request, ActionListener.wrap(response -> {
+                    List<String> patterns = new ArrayList<>();
+                    Aggregations aggregations = response.getAggregations();
+                    if (aggregations == null) {
+                        listener.onResponse(patterns);
+                        return;
+                    }
+                    StringTerms resultIndicesAgg = null;
+                    for (Aggregation agg : aggregations) {
+                        if (agg instanceof StringTerms && RESULT_INDEX_AGG_NAME.equals(agg.getName())) {
+                            resultIndicesAgg = (StringTerms) agg;
+                            break;
+                        }
+                    }
+                    if (resultIndicesAgg == null || resultIndicesAgg.getBuckets() == null) {
+                        listener.onResponse(patterns);
+                        return;
+                    }
+                    for (StringTerms.Bucket bucket : resultIndicesAgg.getBuckets()) {
+                        String alias = bucket.getKeyAsString();
+                        if (alias == null || alias.isEmpty()) {
+                            continue;
+                        }
+                        patterns.add(IndexManagement.getAllCustomResultIndexPattern(alias));
+                    }
+                    listener.onResponse(patterns);
+                }, listener::onFailure));
+            }
         } catch (Exception e) {
             listener.onFailure(e);
         }
@@ -818,52 +856,103 @@ public class InsightsJobProcessor extends
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
         // detector configs are stored in system index; use stashed context
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
-            localClient.search(request, ActionListener.wrap(response -> {
-                Map<String, DetectorMetadata> metadataMap = new HashMap<>();
-                List<AnomalyDetector> detectors = new ArrayList<>();
+            Client systemClient = pluginClient != null ? pluginClient : localClient;
+            try {
+                systemClient.search(request, ActionListener.wrap(response -> {
+                    Map<String, DetectorMetadata> metadataMap = new HashMap<>();
+                    List<AnomalyDetector> detectors = new ArrayList<>();
 
-                for (SearchHit hit : response.getHits().getHits()) {
-                    String id = hit.getId();
-                    try (
-                        XContentParser parser = org.opensearch.timeseries.util.RestHandlerUtils
-                            .createXContentParserFromRegistry(xContentRegistry, hit.getSourceRef())
-                    ) {
-                        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-                        AnomalyDetector detector = AnomalyDetector.parse(parser, id, hit.getVersion());
-                        detectors.add(detector);
-                        metadataMap.put(id, new DetectorMetadata(id, detector.getName(), detector.getIndices()));
-                    } catch (Exception e) {
-                        log.warn("Failed to parse detector config {}", id, e);
-                        Map<String, Object> src = hit.getSourceAsMap();
-                        String name = src != null ? (String) src.get("name") : null;
-                        @SuppressWarnings("unchecked")
-                        List<String> indices = src != null ? (List<String>) src.get("indices") : new ArrayList<>();
-                        metadataMap.put(id, new DetectorMetadata(id, name, indices));
+                    for (SearchHit hit : response.getHits().getHits()) {
+                        String id = hit.getId();
+                        try (
+                            XContentParser parser = org.opensearch.timeseries.util.RestHandlerUtils
+                                .createXContentParserFromRegistry(xContentRegistry, hit.getSourceRef())
+                        ) {
+                            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                            AnomalyDetector detector = AnomalyDetector.parse(parser, id, hit.getVersion());
+                            detectors.add(detector);
+                            metadataMap.put(id, new DetectorMetadata(id, detector.getName(), detector.getIndices()));
+                        } catch (Exception e) {
+                            log.warn("Failed to parse detector config {}", id, e);
+                            Map<String, Object> src = hit.getSourceAsMap();
+                            String name = src != null ? (String) src.get("name") : null;
+                            @SuppressWarnings("unchecked")
+                            List<String> indices = src != null ? (List<String>) src.get("indices") : new ArrayList<>();
+                            metadataMap.put(id, new DetectorMetadata(id, name, indices));
+                        }
                     }
-                }
 
-                processAnomaliesWithCorrelation(
-                    jobParameter,
-                    anomalies,
-                    metadataMap,
-                    detectors,
-                    executionStartTime,
-                    executionEndTime,
-                    completionListener
-                );
-            }, e -> {
-                log.error("Failed to fetch detector configs for metadata enrichment, proceeding with minimal metadata", e);
-                Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
-                processAnomaliesWithCorrelation(
-                    jobParameter,
-                    anomalies,
-                    fallback,
-                    new ArrayList<>(),
-                    executionStartTime,
-                    executionEndTime,
-                    completionListener
-                );
-            }));
+                    processAnomaliesWithCorrelation(
+                        jobParameter,
+                        anomalies,
+                        metadataMap,
+                        detectors,
+                        executionStartTime,
+                        executionEndTime,
+                        completionListener
+                    );
+                }, e -> {
+                    log.error("Failed to fetch detector configs for metadata enrichment, proceeding with minimal metadata", e);
+                    Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
+                    processAnomaliesWithCorrelation(
+                        jobParameter,
+                        anomalies,
+                        fallback,
+                        new ArrayList<>(),
+                        executionStartTime,
+                        executionEndTime,
+                        completionListener
+                    );
+                }));
+            } catch (IllegalStateException e) {
+                // PluginClient present but subject not initialized; fall back to stashed regular client.
+                localClient.search(request, ActionListener.wrap(response -> {
+                    Map<String, DetectorMetadata> metadataMap = new HashMap<>();
+                    List<AnomalyDetector> detectors = new ArrayList<>();
+
+                    for (SearchHit hit : response.getHits().getHits()) {
+                        String id = hit.getId();
+                        try (
+                            XContentParser parser = org.opensearch.timeseries.util.RestHandlerUtils
+                                .createXContentParserFromRegistry(xContentRegistry, hit.getSourceRef())
+                        ) {
+                            ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
+                            AnomalyDetector detector = AnomalyDetector.parse(parser, id, hit.getVersion());
+                            detectors.add(detector);
+                            metadataMap.put(id, new DetectorMetadata(id, detector.getName(), detector.getIndices()));
+                        } catch (Exception ex) {
+                            log.warn("Failed to parse detector config {}", id, ex);
+                            Map<String, Object> src = hit.getSourceAsMap();
+                            String name = src != null ? (String) src.get("name") : null;
+                            @SuppressWarnings("unchecked")
+                            List<String> indices = src != null ? (List<String>) src.get("indices") : new ArrayList<>();
+                            metadataMap.put(id, new DetectorMetadata(id, name, indices));
+                        }
+                    }
+
+                    processAnomaliesWithCorrelation(
+                        jobParameter,
+                        anomalies,
+                        metadataMap,
+                        detectors,
+                        executionStartTime,
+                        executionEndTime,
+                        completionListener
+                    );
+                }, e2 -> {
+                    log.error("Failed to fetch detector configs for metadata enrichment, proceeding with minimal metadata", e2);
+                    Map<String, DetectorMetadata> fallback = buildDetectorMetadataFromAnomalies(anomalies);
+                    processAnomaliesWithCorrelation(
+                        jobParameter,
+                        anomalies,
+                        fallback,
+                        new ArrayList<>(),
+                        executionStartTime,
+                        executionEndTime,
+                        completionListener
+                    );
+                }));
+            }
         } catch (Exception e) {
             completionListener.onFailure(e);
         }
