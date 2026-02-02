@@ -149,7 +149,7 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    implementation 'com.google.guava:guava:33.4.5-jre'
+    implementation 'com.google.guava:guava:33.5.0-jre'
     implementation 'com.google.guava:failureaccess:1.0.3'
     implementation 'org.apache.commons:commons-math3:3.6.1'
     implementation 'com.google.code.gson:gson:2.13.2'
@@ -269,7 +269,7 @@ configurations.all {
         force "com.google.code.gson:gson:2.13.2"
         force "junit:junit:4.13.2"
 
-        force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
+        force "com.google.guava:guava:33.5.0-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
         force "org.ow2.asm:asm:9.9.1"
     }
