@@ -173,8 +173,8 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.18.0'
 
 
-    implementation "org.jacoco:org.jacoco.agent:0.8.13"
-    implementation ("org.jacoco:org.jacoco.ant:0.8.13") {
+    implementation "org.jacoco:org.jacoco.agent:0.8.14"
+    implementation ("org.jacoco:org.jacoco.ant:0.8.14") {
         exclude group: 'org.ow2.asm', module: 'asm-commons'
         exclude group: 'org.ow2.asm', module: 'asm'
         exclude group: 'org.ow2.asm', module: 'asm-tree'
@@ -185,7 +185,7 @@ dependencies {
 
     testImplementation 'org.awaitility:awaitility:4.3.0'
     testImplementation 'pl.pragmatists:JUnitParams:1.1.1'
-    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-core:5.21.0'
     testImplementation 'org.objenesis:objenesis:3.4'
     testImplementation 'net.bytebuddy:byte-buddy:1.18.4'
     testImplementation 'net.bytebuddy:byte-buddy-agent:1.18.4'
@@ -262,7 +262,7 @@ configurations.all {
         force "org.apache.httpcomponents.core5:httpcore5:${versions.httpcore5}"
         force "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
 
-        force "org.mockito:mockito-core:5.20.0"
+        force "org.mockito:mockito-core:5.21.0"
         force "org.objenesis:objenesis:3.4"
         force "net.bytebuddy:byte-buddy:1.18.4"
         force "net.bytebuddy:byte-buddy-agent:1.18.4"
@@ -271,7 +271,7 @@ configurations.all {
 
         force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
-        force "org.ow2.asm:asm:9.7.1"
+        force "org.ow2.asm:asm:9.9.1"
     }
 }
 
