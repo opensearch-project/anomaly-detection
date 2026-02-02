@@ -95,7 +95,7 @@ import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
-import org.opensearch.transport.TransportService;
+import org.opensearch.transport.*;
 import org.opensearch.transport.client.Client;
 
 import com.google.common.collect.Sets;
@@ -156,6 +156,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     protected final ConfigUpdateConfirmer<IndexType, IndexManagementType, TaskCacheManagerType, TaskTypeEnum, TaskClass, TaskManagerType> handler;
     protected final ClusterService clusterService;
     protected final NamedXContentRegistry xContentRegistry;
+    protected final TransportService transportService;
     protected final TimeValue requestTimeout;
     protected final WriteRequest.RefreshPolicy refreshPolicy;
     protected final Long seqNo;
@@ -217,6 +218,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
         this.method = method;
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
+        this.transportService = transportService;
         this.requestTimeout = requestTimeout;
         this.refreshPolicy = refreshPolicy;
         this.seqNo = seqNo;
@@ -321,13 +323,86 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             listener.onFailure(createValidationException(AbstractTimeSeriesActionHandler.INVALID_NAME_SIZE, ValidationIssueType.NAME));
             return;
         }
-        validateTimeField(indexingDryRun, listener);
+        validateTimeFieldInAllClusters(indexingDryRun, listener);
     }
 
-    protected void validateTimeField(boolean indexingDryRun, ActionListener<T> listener) {
+    protected void validateTimeFieldInAllClusters(boolean indexingDryRun, ActionListener<T> listener) {
+        List<String> wildcardClusterIndices = config.getIndices().stream().filter(idx -> idx.startsWith("*:")).toList();
+        List<String> nonWildcardClusterIndices = config.getIndices().stream().filter(idx -> !idx.startsWith("*:")).toList();
+
+        Map<String, List<String>> clusterIndicesMap = new HashMap<>();
+
+        // if no wildcard cluster indices found, fallback to typical validation
+        if (wildcardClusterIndices.isEmpty()) {
+            if (!nonWildcardClusterIndices.isEmpty()) {
+                HashMap<String, List<String>> nonWildcardMap = CrossClusterConfigUtils
+                    .separateClusterIndexes(nonWildcardClusterIndices, clusterService);
+                clusterIndicesMap.putAll(nonWildcardMap);
+                validateTimeField(clusterIndicesMap, indexingDryRun, listener);
+            } else {
+                listener
+                    .onFailure(
+                        new ValidationException(
+                            "No indices specified for time field validation.",
+                            ValidationIssueType.TIMEFIELD_FIELD,
+                            configValidationAspect
+                        )
+                    );
+            }
+            return;
+        }
+
+        // if there are wildcard cluster indices, check for remote clusters. throw exception if none configured
+        RemoteClusterService remoteClusterService = transportService.getRemoteClusterService();
+        Set<String> remoteClusters = remoteClusterService.getRegisteredRemoteClusterNames();
+
+        if (remoteClusters.isEmpty()) {
+            listener
+                .onFailure(
+                    new ValidationException(
+                        "Indices with wildcard cluster prefix specified, but no remote clusters are configured. Please configure remote clusters or remove the wildcard cluster prefix from the indices.",
+                        ValidationIssueType.TIMEFIELD_FIELD,
+                        configValidationAspect
+                    )
+                );
+            return;
+        }
+
+        // For each remote cluster, add all indices matching the wildcard pattern
+        for (String remote : remoteClusters) {
+            List<String> remoteIndices = wildcardClusterIndices
+                .stream()
+                .map(idx -> idx.substring(2)) // remove "*:" prefix
+                .toList();
+
+            if (!remoteIndices.isEmpty()) {
+                clusterIndicesMap.put(remote, remoteIndices);
+            }
+        }
+
+        // add non-wildcard indices (local or explicit remote) to the map
+        if (!nonWildcardClusterIndices.isEmpty()) {
+            HashMap<String, List<String>> nonWildcardIndicesMap = CrossClusterConfigUtils
+                .separateClusterIndexes(nonWildcardClusterIndices, clusterService);
+            clusterIndicesMap.putAll(nonWildcardIndicesMap);
+        }
+
+        if (clusterIndicesMap.isEmpty()) {
+            listener
+                .onFailure(
+                    new ValidationException(
+                        "No indices found for time field validation.",
+                        ValidationIssueType.TIMEFIELD_FIELD,
+                        configValidationAspect
+                    )
+                );
+        } else {
+            validateTimeField(clusterIndicesMap, indexingDryRun, listener);
+        }
+    }
+
+    protected void validateTimeField(Map<String, List<String>> clusterIndicesMap, boolean indexingDryRun, ActionListener<T> listener) {
         String givenTimeField = config.getTimeField();
-        HashMap<String, List<String>> clusterIndicesMap = CrossClusterConfigUtils
-            .separateClusterIndexes(config.getIndices(), clusterService);
 
         ActionListener<MergeableList<Optional<double[]>>> validateGetMappingForTimeFieldListener = ActionListener.wrap(response -> {
             prepareConfigIndexing(indexingDryRun, listener);
@@ -732,7 +807,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
                         )
                 );
         } else {
-            validateCategoricalFieldsInAllIndices(configId, indexingDryRun, listener);
+            validateCategoricalFieldsInAllClusters(configId, indexingDryRun, listener);
         }
 
     }
@@ -794,18 +869,83 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             }
             listener.onFailure(new IllegalArgumentException(errorMsg));
         } else {
-            validateCategoricalFieldsInAllIndices(detectorId, indexingDryRun, listener);
+            validateCategoricalFieldsInAllClusters(detectorId, indexingDryRun, listener);
         }
     }
 
-    protected void validateCategoricalFieldsInAllIndices(String configId, boolean indexingDryRun, ActionListener<T> listener) {
-        HashMap<String, List<String>> clusterIndicesMap = CrossClusterConfigUtils
-            .separateClusterIndexes(config.getIndices(), clusterService);
+    protected void validateCategoricalFieldsInAllClusters(String configId, boolean indexingDryRun, ActionListener<T> listener) {
+        List<String> wildcardClusterIndices = config.getIndices().stream().filter(idx -> idx.startsWith("*:")).toList();
+        List<String> nonWildcardClusterIndices = config.getIndices().stream().filter(idx -> !idx.startsWith("*:")).toList();
 
-        Iterator<Map.Entry<String, List<String>>> iterator = clusterIndicesMap.entrySet().iterator();
+        HashMap<String, List<String>> clusterIndicesMap = new HashMap<>();
 
-        validateCategoricalField(iterator, configId, indexingDryRun, listener);
+        // if no wildcard cluster indices found, fallback to typical validation
+        if (wildcardClusterIndices.isEmpty()) {
+            if (!nonWildcardClusterIndices.isEmpty()) {
+                HashMap<String, List<String>> nonWildcardIndicesMap = CrossClusterConfigUtils
+                    .separateClusterIndexes(nonWildcardClusterIndices, clusterService);
+                clusterIndicesMap.putAll(nonWildcardIndicesMap);
+                validateCategoricalField(clusterIndicesMap.entrySet().iterator(), configId, indexingDryRun, listener);
+            } else {
+                listener
+                    .onFailure(
+                        new ValidationException(
+                            "No indices specified for categorical field validation.",
+                            ValidationIssueType.CATEGORY,
+                            configValidationAspect
+                        )
+                    );
+            }
+            return;
+        }
 
+        // if there are wildcard cluster indices, check for remote clusters. throw exception if none configured
+        RemoteClusterService remoteClusterService = transportService.getRemoteClusterService();
+        Set<String> remoteClusters = remoteClusterService.getRegisteredRemoteClusterNames();
+
+        if (remoteClusters.isEmpty()) {
+            listener
+                .onFailure(
+                    new ValidationException(
+                        "Indices with wildcard cluster prefix specified, but no remote clusters are configured. Please configure remote clusters or remove the wildcard cluster prefix from the indices.",
+                        ValidationIssueType.CATEGORY,
+                        configValidationAspect
+                    )
+                );
+            return;
+        }
+
+        // for each remote cluster, add all indices with wildcard cluster prefix
+        for (String remote : remoteClusters) {
+            List<String> remoteIndices = wildcardClusterIndices
+                .stream()
+                .map(idx -> idx.substring(2)) // remove "*:" prefix
+                .toList();
+
+            if (!remoteIndices.isEmpty()) {
+                clusterIndicesMap.put(remote, remoteIndices);
+            }
+        }
+
+        // add non-wildcard cluster indices (local or explicit remote) to the map
+        if (!nonWildcardClusterIndices.isEmpty()) {
+            HashMap<String, List<String>> nonWildcardIndicesMap = CrossClusterConfigUtils
+                .separateClusterIndexes(nonWildcardClusterIndices, clusterService);
+            clusterIndicesMap.putAll(nonWildcardIndicesMap);
+        }
+
+        if (clusterIndicesMap.isEmpty()) {
+            listener
+                .onFailure(
+                    new ValidationException(
+                        "No indices found for categorical field validation.",
+                        ValidationIssueType.CATEGORY,
+                        configValidationAspect
+                    )
+                );
+        } else {
+            validateCategoricalField(clusterIndicesMap.entrySet().iterator(), configId, indexingDryRun, listener);
+        }
     }
 
     protected void validateCategoricalField(
