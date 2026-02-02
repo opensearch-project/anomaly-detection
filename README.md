@@ -30,7 +30,7 @@ You can use this plugin with the same version of the [OpenSearch Alerting Plugin
   
 ## Documentation
 
-Please see [our documentation](https://opensearch.org/docs/monitoring-plugins/ad/index/).
+Please see [our documentation](https://docs.opensearch.org/latest/observing-your-data/ad/index/).
 
 
 ## Contributing
