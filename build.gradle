@@ -86,7 +86,7 @@ plugins {
     id 'com.netflix.nebula.ospackage' version "12.2.0"
     id "com.diffplug.spotless" version "6.25.0"
     id 'java-library'
-    id 'org.gradle.test-retry' version '1.6.0'
+    id 'org.gradle.test-retry' version '1.6.4'
     id "de.undercouch.download" version "5.6.0"
 }
 
@@ -149,13 +149,13 @@ dependencies {
     compileOnly "org.opensearch:opensearch-job-scheduler-spi:${job_scheduler_version}"
     implementation "org.opensearch:common-utils:${common_utils_version}"
     implementation "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
-    implementation 'com.google.guava:guava:33.4.5-jre'
+    implementation 'com.google.guava:guava:33.5.0-jre'
     implementation 'com.google.guava:failureaccess:1.0.3'
     implementation 'org.apache.commons:commons-math3:3.6.1'
     implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'com.yahoo.datasketches:sketches-core:0.13.4'
     implementation 'com.yahoo.datasketches:memory:0.12.2'
-    implementation 'org.apache.commons:commons-pool2:2.12.0'
+    implementation 'org.apache.commons:commons-pool2:2.13.1'
     implementation 'software.amazon.randomcutforest:randomcutforest-serialization:4.4.0'
     implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.4.0'
     implementation 'software.amazon.randomcutforest:randomcutforest-core:4.4.0'
@@ -170,7 +170,7 @@ dependencies {
     implementation 'io.protostuff:protostuff-runtime:1.8.0'
     implementation 'io.protostuff:protostuff-api:1.8.0'
     implementation 'io.protostuff:protostuff-collectionschema:1.8.0'
-    implementation 'org.apache.commons:commons-lang3:3.18.0'
+    implementation 'org.apache.commons:commons-lang3:3.20.0'
 
 
     implementation "org.jacoco:org.jacoco.agent:0.8.14"
@@ -186,7 +186,7 @@ dependencies {
     testImplementation 'org.awaitility:awaitility:4.3.0'
     testImplementation 'pl.pragmatists:JUnitParams:1.1.1'
     testImplementation 'org.mockito:mockito-core:5.21.0'
-    testImplementation 'org.objenesis:objenesis:3.4'
+    testImplementation 'org.objenesis:objenesis:3.5'
     testImplementation 'net.bytebuddy:byte-buddy:1.18.4'
     testImplementation 'net.bytebuddy:byte-buddy-agent:1.18.4'
     testCompileOnly 'org.apiguardian:apiguardian-api:1.1.2'
@@ -263,13 +263,13 @@ configurations.all {
         force "org.apache.httpcomponents.client5:httpclient5:${versions.httpclient5}"
 
         force "org.mockito:mockito-core:5.21.0"
-        force "org.objenesis:objenesis:3.4"
+        force "org.objenesis:objenesis:3.5"
         force "net.bytebuddy:byte-buddy:1.18.4"
         force "net.bytebuddy:byte-buddy-agent:1.18.4"
         force "com.google.code.gson:gson:2.13.2"
         force "junit:junit:4.13.2"
 
-        force "com.google.guava:guava:33.4.5-jre" // CVE for 31.1
+        force "com.google.guava:guava:33.5.0-jre" // CVE for 31.1
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
         force "org.ow2.asm:asm:9.9.1"
     }
