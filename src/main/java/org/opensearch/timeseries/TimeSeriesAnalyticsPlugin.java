@@ -432,7 +432,6 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         insightsJobRunner.setIndexJobActionHandler(adIndexJobActionHandler);
         insightsJobRunner.setClock(getClock());
         insightsJobRunner.setXContentRegistry(xContentRegistry);
-        insightsJobRunner.setPluginClient(pluginClient);
 
         RestGetAnomalyDetectorAction restGetAnomalyDetectorAction = new RestGetAnomalyDetectorAction();
         RestIndexAnomalyDetectorAction restIndexAnomalyDetectorAction = new RestIndexAnomalyDetectorAction(settings, clusterService);
