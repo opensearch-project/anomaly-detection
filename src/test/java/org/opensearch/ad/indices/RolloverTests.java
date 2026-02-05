@@ -64,6 +64,7 @@ import org.opensearch.search.internal.InternalSearchResponse;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.client.AdminClient;
@@ -136,7 +137,12 @@ public class RolloverTests extends AbstractTimeSeriesTest {
 
         doAnswer(invocation -> {
             ClusterStateRequest clusterStateRequest = invocation.getArgument(0);
-            assertEquals(ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN, clusterStateRequest.indices()[0]);
+            // Accept both system result index pattern and insights index pattern
+            String requestedPattern = clusterStateRequest.indices()[0];
+            assertTrue(
+                requestedPattern.equals(ADIndexManagement.ALL_AD_RESULTS_INDEX_PATTERN)
+                    || requestedPattern.equals(IndexManagement.getAllHistoryIndexPattern(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS))
+            );
             @SuppressWarnings("unchecked")
             ActionListener<ClusterStateResponse> listener = (ActionListener<ClusterStateResponse>) invocation.getArgument(1);
             listener.onResponse(new ClusterStateResponse(clusterName, clusterState, true));
@@ -399,5 +405,80 @@ public class RolloverTests extends AbstractTimeSeriesTest {
             return null;
         }).when(client).search(any(), any());
 
+    }
+
+    /**
+     * Test that insights index rollover is included in the main rollover process.
+     */
+    public void testRolloverAndDeleteHistoryIndex_includesInsightsIndex() {
+        // Set up flexible rollover that accepts both system and insights indices
+        doAnswer(invocation -> {
+            RolloverRequest request = invocation.getArgument(0);
+            @SuppressWarnings("unchecked")
+            ActionListener<RolloverResponse> listener = (ActionListener<RolloverResponse>) invocation.getArgument(1);
+
+            String alias = request.indices()[0];
+            // Accept both system result index and insights index
+            assertTrue(alias.equals(ADCommonName.ANOMALY_RESULT_INDEX_ALIAS) || alias.equals(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS));
+
+            listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
+            return null;
+        }).when(indicesClient).rolloverIndex(any(), any());
+
+        setUpGetConfigs_withNoCustomResultIndexAlias();
+
+        // Add insights index to metadata
+        Metadata.Builder metaBuilder = Metadata
+            .builder()
+            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
+            .put(indexMeta("opensearch-ad-plugin-insights-history-2025.10.30-000001", 1L, ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS), true);
+        clusterState = ClusterState.builder(clusterName).metadata(metaBuilder.build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+
+        adIndices.rolloverAndDeleteHistoryIndex();
+
+        // Should rollover both system result index and insights index
+        verify(indicesClient, times(2)).rolloverIndex(any(), any());
+        // Note: search is not called because config index doesn't actually exist in test setup
+    }
+
+    /**
+     * Test that insights index uses correct rollover pattern.
+     */
+    public void testInsightsIndexRolloverPattern() {
+        setUpGetConfigs_withNoCustomResultIndexAlias();
+
+        // Mock rollover to verify insights index pattern
+        doAnswer(invocation -> {
+            RolloverRequest request = invocation.getArgument(0);
+            @SuppressWarnings("unchecked")
+            ActionListener<RolloverResponse> listener = (ActionListener<RolloverResponse>) invocation.getArgument(1);
+
+            String alias = request.indices()[0];
+            if (alias.equals(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS)) {
+                // Verify insights index rollover request
+                CreateIndexRequest createIndexRequest = request.getCreateIndexRequest();
+                String expectedPattern = String
+                    .format(java.util.Locale.ROOT, "<%s-history-{now/d}-1>", ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
+                assertEquals(expectedPattern, createIndexRequest.index());
+                // Just verify that mappings are present (not empty)
+                assertFalse(createIndexRequest.mappings().isEmpty());
+            }
+
+            listener.onResponse(new RolloverResponse(null, null, Collections.emptyMap(), request.isDryRun(), true, true, true));
+            return null;
+        }).when(indicesClient).rolloverIndex(any(), any());
+
+        Metadata.Builder metaBuilder = Metadata
+            .builder()
+            .put(indexMeta(".opendistro-anomaly-results-history-2020.06.24-000003", 1L, ADCommonName.ANOMALY_RESULT_INDEX_ALIAS), true)
+            .put(indexMeta("opensearch-ad-plugin-insights-history-2025.10.30-000001", 1L, ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS), true);
+        clusterState = ClusterState.builder(clusterName).metadata(metaBuilder.build()).build();
+        when(clusterService.state()).thenReturn(clusterState);
+
+        adIndices.rolloverAndDeleteHistoryIndex();
+
+        // Both system result and insights indices will be rolled over
+        verify(indicesClient, times(2)).rolloverIndex(any(), any());
     }
 }

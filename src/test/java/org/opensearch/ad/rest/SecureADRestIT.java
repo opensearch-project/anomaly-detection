@@ -21,11 +21,16 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
@@ -38,6 +43,7 @@ import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.commons.authuser.User;
@@ -48,6 +54,7 @@ import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     String aliceUser = "alice";
@@ -1097,6 +1104,229 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             assertEquals(200, response.getStatusLine().getStatusCode());
         }
 
+    }
+
+    public void testInsightsApisUseSystemContextForJobIndex() throws IOException {
+        // Use a non-admin user with AD full access (alice) to exercise Insights APIs end-to-end under security
+        String startPath = "/_plugins/_anomaly_detection/insights/_start";
+        String statusPath = "/_plugins/_anomaly_detection/insights/_status";
+        String stopPath = "/_plugins/_anomaly_detection/insights/_stop";
+        // Insights APIs are gated by a cluster setting. Enable it for this test using system/admin context.
+        // Use transient to avoid leaking state across the integ test suite.
+        Response enableInsights = TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_cluster/settings",
+                ImmutableMap.of(),
+                new StringEntity("{\"transient\":{\"plugins.anomaly_detection.insights_enabled\":true}}", ContentType.APPLICATION_JSON),
+                null
+            );
+        assertEquals("Failed to enable insights feature for test", RestStatus.OK, TestHelpers.restStatus(enableInsights));
+
+        try {
+            // 1) Alice creates a detector with custom result index and starts realtime detection so anomalies are generated there.
+            // Insights job queries custom result indices, so this test must use a custom-result detector.
+            AnomalyDetector baseDetector = createRandomAnomalyDetector(false, false, aliceClient);
+            assertNotNull(baseDetector.getId());
+            String customResultIndex = ADCommonName.CUSTOM_RESULT_INDEX_PREFIX
+                + "secure-it-insights-"
+                + randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
+            TestHelpers.createIndexWithTimeField(client(), baseDetector.getIndices().getFirst(), baseDetector.getTimeField());
+            AnomalyDetector aliceDetector = createAnomalyDetector(cloneDetector(baseDetector, customResultIndex), true, aliceClient);
+            assertEquals(customResultIndex, aliceDetector.getCustomResultIndexOrAlias());
+
+            String startDetectorEndpoint = String.format(Locale.ROOT, TestHelpers.AD_BASE_START_DETECTOR_URL, aliceDetector.getId());
+            Response startDetectorResp = TestHelpers
+                .makeRequest(aliceClient, "POST", startDetectorEndpoint, ImmutableMap.of(), (HttpEntity) null, null);
+            assertEquals("Start detector failed", RestStatus.OK, TestHelpers.restStatus(startDetectorResp));
+
+            // Wait briefly for anomaly results to appear in the custom result index.
+            // Insights correlation uses includeSingleton=false, so we want at least 2 anomalies to reduce flakiness.
+            boolean anomaliesAvailable = false;
+            int maxRetries = 30;
+            int retryIntervalMs = 2000;
+            for (int attempt = 0; attempt < maxRetries; attempt++) {
+                Response searchResultsResp = TestHelpers
+                    .makeRequest(
+                        aliceClient,
+                        "POST",
+                        "/" + customResultIndex + "*/_search",
+                        ImmutableMap.of(),
+                        new StringEntity(
+                            "{\"size\":0,\"track_total_hits\":true,\"query\":{\"match_all\":{}}}",
+                            ContentType.APPLICATION_JSON
+                        ),
+                        null
+                    );
+                Map<String, Object> searchResults = entityAsMap(searchResultsResp);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> hitsObj = (Map<String, Object>) searchResults.get("hits");
+                Object totalObj = hitsObj == null ? null : hitsObj.get("total");
+                long totalHits = 0;
+                if (totalObj instanceof Number) {
+                    totalHits = ((Number) totalObj).longValue();
+                } else if (totalObj instanceof Map) {
+                    Object value = ((Map<String, Object>) totalObj).get("value");
+                    if (value instanceof Number) {
+                        totalHits = ((Number) value).longValue();
+                    }
+                }
+                if (totalHits >= 2) {
+                    anomaliesAvailable = true;
+                    break;
+                }
+                try {
+                    Thread.sleep(retryIntervalMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            assertTrue("Expected at least 2 anomaly results to be generated before starting insights", anomaliesAvailable);
+
+            // 2) Start insights job as alice
+            Response startResp = TestHelpers.makeRequest(aliceClient, "POST", startPath, ImmutableMap.of(), "", null);
+            assertEquals("Start insights job failed", RestStatus.OK, TestHelpers.restStatus(startResp));
+
+            // 2b) Verify Insights job is enabled via status API (core security + job-index correctness property)
+            Response statusResp = TestHelpers.makeRequest(aliceClient, "GET", statusPath, ImmutableMap.of(), "", null);
+            assertEquals("Status insights job failed", RestStatus.OK, TestHelpers.restStatus(statusResp));
+            Map<String, Object> statusMap = entityAsMap(statusResp);
+            Object enabled = statusMap.get("enabled");
+            assertTrue("Expected insights job to be enabled after starting", enabled instanceof Boolean && (Boolean) enabled);
+
+            // Best-effort: verify the job doc exists via direct REST get.
+            //
+            // NOTE: In security-enabled clusters, direct REST access to system indices can be masked as 404 even when the
+            // document exists (to avoid information leakage). The authoritative assertion is the status API above, which
+            // reads via system context.
+            try {
+                Response jobDoc = TestHelpers
+                    .makeRequest(
+                        client(),
+                        "GET",
+                        "/" + org.opensearch.timeseries.constant.CommonName.JOB_INDEX + "/_doc/" + ADCommonName.INSIGHTS_JOB_NAME,
+                        ImmutableMap.of(),
+                        "",
+                        null
+                    );
+                // If the REST call succeeds (some environments allow this for admin), assert the doc is present.
+                Map<String, Object> jobDocMap = entityAsMap(jobDoc);
+                Object found = jobDocMap.get("found");
+                assertTrue("Expected insights job doc to exist in job index", found instanceof Boolean && (Boolean) found);
+            } catch (ResponseException re) {
+                // Expected in many security-enabled clusters: system-index direct reads are masked as 404.
+                assertEquals(
+                    "Expected system-index doc GET to be masked as NOT_FOUND under security",
+                    404,
+                    re.getResponse().getStatusLine().getStatusCode()
+                );
+            }
+
+            // 3) Best-effort: wait for insights to be generated into the customer-owned insights index.
+            // This can be timing-sensitive; we still assert that _search is permitted and the job is enabled.
+            boolean insightsAvailable = false;
+            Map<String, Object> insightsSearchResults = null;
+            int insightsRetries = 60;
+            for (int attempt = 0; attempt < insightsRetries; attempt++) {
+                Response searchInsightsResp = TestHelpers
+                    .makeRequest(
+                        aliceClient,
+                        "POST",
+                        "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
+                        ImmutableMap.of(),
+                        new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                        null
+                    );
+                insightsSearchResults = entityAsMap(searchInsightsResp);
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> hits = (List<Map<String, Object>>) ((Map<String, Object>) insightsSearchResults.get("hits"))
+                    .get("hits");
+                if (hits != null && !hits.isEmpty()) {
+                    insightsAvailable = true;
+                    break;
+                }
+                try {
+                    Thread.sleep(retryIntervalMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            // No hard assert here: insights generation may be delayed/flaky in integ environments.
+
+            // 4) Insights results are stored in a customer-owned index; validate alice can access via standard _search
+            Response aliceInsightsSearchResp = TestHelpers
+                .makeRequest(
+                    aliceClient,
+                    "POST",
+                    "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
+                    ImmutableMap.of(),
+                    new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    null
+                );
+            assertEquals(
+                "Alice should be able to query insights results via _search",
+                RestStatus.OK,
+                TestHelpers.restStatus(aliceInsightsSearchResp)
+            );
+
+            // 5) Stop insights job as alice
+            Response stopResp = TestHelpers.makeRequest(aliceClient, "POST", stopPath, ImmutableMap.of(), "", null);
+            assertEquals("Stop insights job failed", RestStatus.OK, TestHelpers.restStatus(stopResp));
+
+            // 6) Verify that an anomaly_read_access user (bob) cannot start/stop insights job.
+            ResponseException exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers.makeRequest(bobClient, "POST", startPath, ImmutableMap.of(), "", null);
+            });
+            assertEquals(
+                "bob should not have permission to start insights job",
+                RestStatus.FORBIDDEN,
+                RestStatus.fromCode(exception.getResponse().getStatusLine().getStatusCode())
+            );
+
+            exception = expectThrows(ResponseException.class, () -> {
+                TestHelpers.makeRequest(bobClient, "POST", stopPath, ImmutableMap.of(), "", null);
+            });
+            assertEquals(
+                "bob should not have permission to stop insights job",
+                RestStatus.FORBIDDEN,
+                RestStatus.fromCode(exception.getResponse().getStatusLine().getStatusCode())
+            );
+
+            // 7) anomaly_read_access users should still be able to read insights via standard _search (customer-owned index)
+            Response bobInsightsSearchResp = TestHelpers
+                .makeRequest(
+                    bobClient,
+                    "POST",
+                    "/" + ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS + "/_search",
+                    ImmutableMap.of(),
+                    new StringEntity("{\"size\":1,\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    null
+                );
+            assertEquals(
+                "Bob should be able to query insights results via _search",
+                RestStatus.OK,
+                TestHelpers.restStatus(bobInsightsSearchResp)
+            );
+            // Best-effort: if insights were generated, bob should see them too, but we don't hard-fail on timing.
+        } finally {
+            // Disable insights after test to avoid leaking cluster state to other integ tests.
+            Response disableInsights = TestHelpers
+                .makeRequest(
+                    client(),
+                    "PUT",
+                    "/_cluster/settings",
+                    ImmutableMap.of(),
+                    new StringEntity(
+                        "{\"transient\":{\"plugins.anomaly_detection.insights_enabled\":false}}",
+                        ContentType.APPLICATION_JSON
+                    ),
+                    null
+                );
+            assertEquals("Failed to disable insights feature after test", RestStatus.OK, TestHelpers.restStatus(disableInsights));
+        }
     }
 
 }

@@ -1,0 +1,104 @@
+{
+    "dynamic": false,
+    "_meta": {
+      "schema_version": 1
+    },
+    "properties": {
+      "window_start": {
+        "type": "date",
+        "format": "strict_date_time||epoch_millis"
+      },
+      "window_end": {
+        "type": "date",
+        "format": "strict_date_time||epoch_millis"
+      },
+      "generated_at": {
+        "type": "date",
+        "format": "strict_date_time||epoch_millis"
+      },
+      "doc_detector_names": {
+        "type": "keyword"
+      },
+      "doc_detector_ids": {
+        "type": "keyword"
+      },
+      "doc_indices": {
+        "type": "keyword"
+      },
+      "doc_model_ids": {
+        "type": "keyword"
+      },
+      "clusters": {
+        "type": "nested",
+        "properties": {
+          "event_start": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
+          },
+          "event_end": {
+            "type": "date",
+            "format": "strict_date_time||epoch_millis"
+          },
+          "cluster_text": {
+            "type": "text"
+          },
+          "detector_ids": {
+            "type": "keyword"
+          },
+          "detector_names": {
+            "type": "keyword"
+          },
+          "indices": {
+            "type": "keyword"
+          },
+          "entities": {
+            "type": "keyword"
+          },
+          "model_ids": {
+            "type": "keyword"
+          },
+          "num_anomalies": {
+            "type": "integer"
+          },
+          "anomalies": {
+            "type": "nested",
+            "properties": {
+              "model_id": {
+                "type": "keyword"
+              },
+              "detector_id": {
+                "type": "keyword"
+              },
+              "data_start_time": {
+                "type": "date",
+                "format": "strict_date_time||epoch_millis"
+              },
+              "data_end_time": {
+                "type": "date",
+                "format": "strict_date_time||epoch_millis"
+              }
+            }
+          }
+        }
+      },
+      "stats": {
+        "properties": {
+          "num_clusters": {
+            "type": "integer"
+          },
+          "num_anomalies": {
+            "type": "integer"
+          },
+          "num_detectors": {
+            "type": "integer"
+          },
+          "num_indices": {
+            "type": "integer"
+          },
+          "num_series": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }

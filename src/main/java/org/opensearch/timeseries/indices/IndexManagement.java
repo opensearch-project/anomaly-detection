@@ -1188,36 +1188,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                     // failed to populate the field
                     thenDo.onResponse(false);
                 }
-                IndexMetadata indexMetadata = clusterService.state().metadata().index(concreteIndex);
-                Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
-                String propertyName = CommonName.PROPERTIES;
-                if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
-                    thenDo.onResponse(false);
-                }
-                LinkedHashMap<String, Object> mapping = (LinkedHashMap<String, Object>) indexMapping.get(propertyName);
-                boolean correctResultIndexMapping = true;
-
-                for (String fieldName : RESULT_FIELD_CONFIGS.keySet()) {
-                    Object defaultSchema = RESULT_FIELD_CONFIGS.get(fieldName);
-                    // the field might be a map or map of map
-                    // example: map: {type=date, format=strict_date_time||epoch_millis}
-                    // map of map: {type=nested, properties={likelihood={type=double}, value_list={type=nested,
-                    // properties={data={type=double},
-                    // feature_id={type=keyword}}}}}
-                    // if it is a map of map, Object.equals can compare them regardless of order
-                    if (!mapping.containsKey(fieldName)) {
-                        logger.warn("mapping mismatch due to missing {}", fieldName);
-                        correctResultIndexMapping = false;
-                        break;
-                    }
-                    Object actualSchema = mapping.get(fieldName);
-                    if (!isSchemaSuperset(actualSchema, defaultSchema)) {
-                        logger.warn("mapping mismatch due to {}", fieldName);
-                        correctResultIndexMapping = false;
-                        break;
-                    }
-                }
-                thenDo.onResponse(correctResultIndexMapping);
+                validateIndexMapping(concreteIndex, RESULT_FIELD_CONFIGS, "result index", thenDo);
             } catch (Exception e) {
                 logger.error("Failed to validate result index mapping for index " + concreteIndex, e);
                 thenDo.onResponse(false);
@@ -1231,7 +1202,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
      * @param schema2 the subset schema object
      * @return true if schema1 is a superset of schema2
      */
-    private boolean isSchemaSuperset(Object schema1, Object schema2) {
+    protected boolean isSchemaSuperset(Object schema1, Object schema2) {
         if (schema1 == schema2) {
             return true;
         }
@@ -1253,6 +1224,58 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             return true;
         }
         return schema1.equals(schema2);
+    }
+
+    /**
+     * Shared mapping validation logic: check that the concrete index mapping is a superset of the expected schema.
+     */
+    protected void validateIndexMapping(
+        String concreteIndex,
+        Map<String, Object> expectedFieldConfigs,
+        String indexTypeNameForLog,
+        ActionListener<Boolean> thenDo
+    ) {
+        if (concreteIndex == null || expectedFieldConfigs == null) {
+            thenDo.onResponse(false);
+            return;
+        }
+        try {
+            IndexMetadata indexMetadata = clusterService.state().metadata().index(concreteIndex);
+            Map<String, Object> indexMapping = indexMetadata.mapping().sourceAsMap();
+            String propertyName = CommonName.PROPERTIES;
+            if (!indexMapping.containsKey(propertyName) || !(indexMapping.get(propertyName) instanceof LinkedHashMap)) {
+                thenDo.onResponse(false);
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            LinkedHashMap<String, Object> actualSchema = (LinkedHashMap<String, Object>) indexMapping.get(propertyName);
+
+            boolean correctMapping = true;
+            for (String fieldName : expectedFieldConfigs.keySet()) {
+                Object expectedField = expectedFieldConfigs.get(fieldName);
+                // the field might be a map or map of map
+                // example: map: {type=date, format=strict_date_time||epoch_millis}
+                // map of map: {type=nested, properties={likelihood={type=double}, value_list={type=nested,
+                // properties={data={type=double},
+                // feature_id={type=keyword}}}}}
+                // if it is a map of map, Object.equals can compare them regardless of order
+                if (!actualSchema.containsKey(fieldName)) {
+                    logger.warn("mapping mismatch due to missing {}", fieldName);
+                    correctMapping = false;
+                    break;
+                }
+                Object actualField = actualSchema.get(fieldName);
+                if (!isSchemaSuperset(actualField, expectedField)) {
+                    logger.warn("mapping mismatch due to {}", fieldName);
+                    correctMapping = false;
+                    break;
+                }
+            }
+            thenDo.onResponse(correctMapping);
+        } catch (Exception e) {
+            logger.error("Failed to validate {} mapping for index {}", indexTypeNameForLog, concreteIndex, e);
+            thenDo.onResponse(false);
+        }
     }
 
     /**
@@ -1407,12 +1430,45 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         }
     }
 
-    protected String getCustomResultIndexPattern(String customResultIndexAlias) {
-        return String.format(Locale.ROOT, "<%s-history-{now/d}-1>", customResultIndexAlias);
+    /**
+     * Generate rollover index pattern for customer owned indices.
+     * Used by both custom result indices and insights result index.
+     * 
+     * @param indexAlias the alias name for the index
+     * @return rollover pattern
+     */
+    protected String getRolloverIndexPattern(String indexAlias) {
+        return String.format(Locale.ROOT, "<%s-history-{now/d}-1>", indexAlias);
     }
 
+    /**
+     * Generate wildcard pattern to match all history indices for a given alias.
+     * 
+     * @param indexAlias the alias name for the index
+     * @return wildcard pattern like "alias*"
+     */
+    public static String getAllHistoryIndexPattern(String indexAlias) {
+        return String.format(Locale.ROOT, "%s*", indexAlias);
+    }
+
+    /**
+     * method for custom result index rollover pattern.
+     * 
+     * @param customResultIndexAlias the custom result index alias
+     * @return rollover pattern
+     */
+    protected String getCustomResultIndexPattern(String customResultIndexAlias) {
+        return getRolloverIndexPattern(customResultIndexAlias);
+    }
+
+    /**
+     * method to get wildcard pattern for custom result indices.
+     * 
+     * @param customResultIndexAlias the custom result index alias
+     * @return wildcard pattern like "alias*"
+     */
     public static String getAllCustomResultIndexPattern(String customResultIndexAlias) {
-        return String.format(Locale.ROOT, "%s*", customResultIndexAlias);
+        return getAllHistoryIndexPattern(customResultIndexAlias);
     }
 
     public abstract boolean doesCheckpointIndexExist();

@@ -99,9 +99,8 @@ public abstract class IndexJobActionHandler<IndexType extends Enum<IndexType> & 
     private final ActionType<StopConfigResponse> stopConfigAction;
     protected final NodeStateManager nodeStateManager;
 
-    /**
+    /** 
      * Constructor function.
-     *
      * @param client                  ES node client that executes actions on the local node
      * @param indexManagement         index manager
      * @param xContentRegistry        Registry which is used for XContentParser
