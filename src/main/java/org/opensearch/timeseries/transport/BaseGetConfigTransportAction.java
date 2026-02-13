@@ -35,6 +35,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
+import org.opensearch.common.inject.*;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -105,6 +106,7 @@ public abstract class BaseGetConfigTransportAction<GetConfigResponseType extends
     private final TaskProfileRunnerType taskProfileRunner;
     protected final String configIndexName;
 
+    @Inject
     public BaseGetConfigTransportAction(
         TransportService transportService,
         DiscoveryNodeFilterer nodeFilter,

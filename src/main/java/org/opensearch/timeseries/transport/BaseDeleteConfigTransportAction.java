@@ -28,6 +28,7 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.model.ADTask;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.*;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -73,6 +74,7 @@ public abstract class BaseDeleteConfigTransportAction<TaskCacheManagerType exten
     private final List<TaskTypeEnum> batchTaskTypes;
     protected final String configIndexName;
 
+    @Inject
     public BaseDeleteConfigTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,

@@ -78,6 +78,7 @@ public class ValidateAnomalyDetectorTransportAction extends BaseValidateConfigTr
             clusterService,
             client,
             clientUtil,
+            transportService,
             indexManagement,
             detector,
             request.getRequestTimeout(),
