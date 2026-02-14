@@ -1,21 +1,11 @@
-backport 2.x:
-  - "*"
-  - "*/*"
-  - "*/**/*"
-  - "*/**/**/*"
-  - "*/**/**/**/*"
-  - "*/**/**/**/**/*"
-  - "*/**/**/**/**/**/*"
-  - "*/**/**/**/**/**/**/*"
-  - "*/**/**/**/**/**/**/**/*"
-  - "*/**/**/**/**/**/**/**/**/*"
-  - ".github/**/*"
-
 infra:
-  - ".github/**/*"
-  - "build.gradle"
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+      - any-glob-to-any-file: "build.gradle"
 
 documentation:
-  - "*.md"
-  - "release-notes/*"
-  - "docs/*"
+  - changed-files:
+      - any-glob-to-any-file: "*.md"
+      - any-glob-to-any-file: "release-notes/**"
+      - any-glob-to-any-file: "docs/**"
+
