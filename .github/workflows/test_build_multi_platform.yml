@@ -119,14 +119,55 @@ jobs:
       - name: Build and Run Tests
         run: |
           ./gradlew build -x spotlessJava
+      - name: Summarize JaCoCo Reports
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          summarize() {
+            local file="$1"
+            local label="$2"
+            if [[ ! -f "$file" ]]; then
+              echo "Missing coverage report: $file"
+              exit 1
+            fi
+
+            local line_counter
+            line_counter=$(grep -o '<counter type="LINE" missed="[0-9]*" covered="[0-9]*"/>' "$file" | tail -1)
+            local branch_counter
+            branch_counter=$(grep -o '<counter type="BRANCH" missed="[0-9]*" covered="[0-9]*"/>' "$file" | tail -1)
+
+            if [[ -z "$line_counter" || -z "$branch_counter" ]]; then
+              echo "Unable to parse coverage counters from: $file"
+              exit 1
+            fi
+
+            echo "${label} report: $file"
+            echo "  ${line_counter}"
+            echo "  ${branch_counter}"
+          }
+
+          summarize "./build/reports/jacoco/test/jacocoTestReport.xml" "combined"
+          summarize "./build/reports/jacoco/integTest/jacocoIntegTestReport.xml" "integ"
       # coverage.gradle is only applied in single local node test
-      - name: Upload Coverage Report
+      - name: Upload Combined Coverage Report
         uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          file: ./build/reports/jacoco/test/jacocoTestReport.xml
+          name: combined-jacoco-java${{ matrix.java }}
+          files: ./build/reports/jacoco/test/jacocoTestReport.xml
+          disable_search: true
           flags: plugin
+      - name: Upload integTest Coverage Report
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          name: integ-jacoco-java${{ matrix.java }}
+          files: ./build/reports/jacoco/integTest/jacocoIntegTestReport.xml
+          disable_search: true
+          flags: plugin_integtest
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal

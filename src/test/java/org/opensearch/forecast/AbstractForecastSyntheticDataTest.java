@@ -52,7 +52,7 @@ import org.opensearch.timeseries.model.Config;
 import com.google.common.collect.ImmutableMap;
 
 public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest {
-    public static final int MAX_RETRY_TIMES = 200;
+    public static final int MAX_RETRY_TIMES = 300;
     protected static final String SUGGEST_INTERVAL_URI;
     protected static final String SUGGEST_INTERVAL_HORIZON_HISTORY_URI;
     protected static final String SUGGEST_INTERVAL_HORIZON_HISTORY_DELAY_URI;
@@ -171,7 +171,9 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
         int i = 0;
         ForecastTaskProfile forecastTaskProfile = null;
         // Increase retryTimes if some task can't reach done state
-        while ((forecastTaskProfile == null || !targetStates.contains(forecastTaskProfile.getTask().getState())) && i < MAX_RETRY_TIMES) {
+        while ((forecastTaskProfile == null
+            || forecastTaskProfile.getTask() == null
+            || !targetStates.contains(forecastTaskProfile.getTask().getState())) && i < MAX_RETRY_TIMES) {
             try {
                 forecastTaskProfile = getForecastTaskProfile(forecasterId, client);
             } catch (Exception e) {
@@ -182,6 +184,18 @@ public class AbstractForecastSyntheticDataTest extends AbstractSyntheticDataTest
             i++;
         }
         assertNotNull(forecastTaskProfile);
+        assertNotNull("forecast task should not be null", forecastTaskProfile.getTask());
+        assertTrue(
+            String
+                .format(
+                    Locale.ROOT,
+                    "Expected task state in %s but got %s after %d retries",
+                    targetStates,
+                    forecastTaskProfile.getTask().getState(),
+                    i
+                ),
+            targetStates.contains(forecastTaskProfile.getTask().getState())
+        );
         results.add(forecastTaskProfile);
         results.add(i);
         return results;

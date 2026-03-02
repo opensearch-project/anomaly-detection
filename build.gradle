@@ -1045,7 +1045,6 @@ List<String> jacocoExclusions = [
 
         // TODO: add test coverage (kaituo)
         'org.opensearch.forecast.*',
-        'org.opensearch.timeseries.transport.BaseDeleteConfigTransportAction.1',
         'org.opensearch.timeseries.transport.BaseSuggestConfigParamTransportAction',
         'org.opensearch.timeseries.rest.AbstractSearchAction.1',
         'org.opensearch.ad.transport.ADSingleStreamResultTransportAction',
