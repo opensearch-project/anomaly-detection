@@ -10,11 +10,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.index.seqno.SequenceNumbers.UNASSIGNED_SEQ_NO;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -23,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.junit.AfterClass;
@@ -48,12 +51,14 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.jobscheduler.spi.schedule.IntervalSchedule;
 import org.opensearch.tasks.Task;
 import org.opensearch.telemetry.tracing.noop.NoopTracer;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -205,6 +210,118 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
         verify(client).get(any(), any());
     }
 
+    public void testDeleteADTransportAction_DoExecuteCatchException() {
+        ThreadPool mockThreadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(threadPool, mockThreadPool);
+        when(mockThreadPool.getThreadContext()).thenThrow(new RuntimeException("error stashing thread context"));
+
+        future = mock(PlainActionFuture.class);
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
+        action.doExecute(mock(Task.class), request, future);
+
+        verify(future).onFailure(any(OpenSearchStatusException.class));
+    }
+
+    public void testDeleteADTransportAction_StateDeleteFailure() {
+        mockMissingConfigAndDeleteTasks();
+        mockDeleteSequence(DocWriteResponse.Result.DELETED, new RuntimeException("failed to delete config state"), null);
+
+        future = mock(PlainActionFuture.class);
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
+        action.doExecute(mock(Task.class), request, future);
+
+        verify(client, times(2)).delete(any(), any());
+        verify(future).onFailure(any(RuntimeException.class));
+    }
+
+    public void testDeleteADTransportAction_ConfigDeleteFailure() {
+        mockMissingConfigAndDeleteTasks();
+        mockDeleteSequence(
+            DocWriteResponse.Result.DELETED,
+            DocWriteResponse.Result.DELETED,
+            new RuntimeException("failed to delete config doc")
+        );
+
+        future = mock(PlainActionFuture.class);
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
+        action.doExecute(mock(Task.class), request, future);
+
+        verify(client, times(3)).delete(any(), any());
+        verify(future).onFailure(any(RuntimeException.class));
+    }
+
+    public void testDeleteADTransportAction_JobDisabledShouldDelete() throws IOException {
+        mockExistingConfig();
+        mockGetLatestTaskDone();
+        mockDeleteTasks();
+        when(clusterService.state()).thenReturn(createClusterState());
+
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) invocation.getArguments()[1];
+            listener.onResponse(createJobGetResponse("1234", true, false, false));
+            return null;
+        }).when(client).get(any(), any());
+
+        mockDeleteSequence(DocWriteResponse.Result.DELETED, DocWriteResponse.Result.DELETED, DocWriteResponse.Result.DELETED);
+
+        future = mock(PlainActionFuture.class);
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
+        action.doExecute(mock(Task.class), request, future);
+
+        verify(adTaskManager).getAndExecuteOnLatestConfigLevelTask(eq("1234"), any(), any(), eq(transportService), eq(false), any());
+        verify(client, times(3)).delete(any(), any());
+        verify(future).onResponse(any());
+        verify(future, never()).onFailure(any());
+    }
+
+    public void testDeleteADTransportAction_JobNotExistsShouldDelete() throws IOException {
+        mockExistingConfig();
+        mockGetLatestTaskDone();
+        mockDeleteTasks();
+        when(clusterService.state()).thenReturn(createClusterState());
+
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) invocation.getArguments()[1];
+            listener.onResponse(createJobGetResponse("1234", false, false, false));
+            return null;
+        }).when(client).get(any(), any());
+
+        mockDeleteSequence(DocWriteResponse.Result.DELETED, DocWriteResponse.Result.DELETED, DocWriteResponse.Result.DELETED);
+
+        future = mock(PlainActionFuture.class);
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
+        action.doExecute(mock(Task.class), request, future);
+
+        verify(adTaskManager).getAndExecuteOnLatestConfigLevelTask(eq("1234"), any(), any(), eq(transportService), eq(false), any());
+        verify(client, times(3)).delete(any(), any());
+        verify(future).onResponse(any());
+        verify(future, never()).onFailure(any());
+    }
+
+    public void testDeleteADTransportAction_JobParseIOExceptionShouldDelete() throws IOException {
+        mockExistingConfig();
+        mockGetLatestTaskDone();
+        mockDeleteTasks();
+        when(clusterService.state()).thenReturn(createClusterState());
+
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = (ActionListener<GetResponse>) invocation.getArguments()[1];
+            listener.onResponse(createJobGetResponse("1234", true, true, true));
+            return null;
+        }).when(client).get(any(), any());
+
+        mockDeleteSequence(DocWriteResponse.Result.DELETED, DocWriteResponse.Result.DELETED, DocWriteResponse.Result.DELETED);
+
+        future = mock(PlainActionFuture.class);
+        DeleteConfigRequest request = new DeleteConfigRequest("1234", ADIndex.CONFIG.getIndexName());
+        action.doExecute(mock(Task.class), request, future);
+
+        verify(adTaskManager).getAndExecuteOnLatestConfigLevelTask(eq("1234"), any(), any(), eq(transportService), eq(false), any());
+        verify(client, times(3)).delete(any(), any());
+        verify(future).onResponse(any());
+        verify(future, never()).onFailure(any());
+    }
+
     private ClusterState createClusterState() {
         Map<String, IndexMetadata> immutableOpenMap = new HashMap<>();
         immutableOpenMap
@@ -319,5 +436,118 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
             listener.onResponse(getResponse);
             return null;
         }).when(client).get(any(), any());
+    }
+
+    private void mockExistingConfig() {
+        doAnswer(invocation -> {
+            Consumer<Optional<AnomalyDetector>> consumer = (Consumer<Optional<AnomalyDetector>>) invocation.getArguments()[2];
+            consumer.accept(Optional.of(mock(AnomalyDetector.class)));
+            return null;
+        }).when(nodeStatemanager).getConfig(any(), any(), any(), any());
+    }
+
+    private void mockMissingConfigAndDeleteTasks() {
+        doAnswer(invocation -> {
+            Consumer<Optional<AnomalyDetector>> consumer = (Consumer<Optional<AnomalyDetector>>) invocation.getArguments()[2];
+            consumer.accept(Optional.empty());
+            return null;
+        }).when(nodeStatemanager).getConfig(any(), any(), any(), any());
+        mockDeleteTasks();
+    }
+
+    private void mockGetLatestTaskDone() {
+        doAnswer(invocation -> {
+            Consumer<Optional<ADTask>> consumer = (Consumer<Optional<ADTask>>) invocation.getArguments()[2];
+            consumer.accept(Optional.empty());
+            return null;
+        }).when(adTaskManager).getAndExecuteOnLatestConfigLevelTask(eq("1234"), any(), any(), eq(transportService), eq(false), any());
+    }
+
+    private void mockDeleteTasks() {
+        doAnswer(invocation -> {
+            ExecutorFunction function = (ExecutorFunction) invocation.getArguments()[1];
+            function.execute();
+            return null;
+        }).when(adTaskManager).deleteTasks(eq("1234"), any(), any());
+    }
+
+    private void mockDeleteSequence(Object firstResult, Object secondResultOrException, Object thirdResultOrException) {
+        AtomicInteger counter = new AtomicInteger(0);
+        doAnswer(invocation -> {
+            ActionListener<DeleteResponse> listener = (ActionListener<DeleteResponse>) invocation.getArguments()[1];
+            int call = counter.incrementAndGet();
+            // Delete order is fixed in BaseDeleteConfigTransportAction: job doc -> state doc -> config doc.
+            if (call == 1) {
+                if (firstResult instanceof Exception) {
+                    listener.onFailure((Exception) firstResult);
+                } else {
+                    listener.onResponse(createDeleteResponse((DocWriteResponse.Result) firstResult));
+                }
+                return null;
+            }
+            if (call == 2) {
+                if (secondResultOrException instanceof Exception) {
+                    listener.onFailure((Exception) secondResultOrException);
+                } else {
+                    listener.onResponse(createDeleteResponse((DocWriteResponse.Result) secondResultOrException));
+                }
+                return null;
+            }
+            if (call == 3) {
+                if (thirdResultOrException instanceof Exception) {
+                    listener.onFailure((Exception) thirdResultOrException);
+                } else if (thirdResultOrException instanceof DocWriteResponse.Result) {
+                    listener.onResponse(createDeleteResponse((DocWriteResponse.Result) thirdResultOrException));
+                }
+                return null;
+            }
+            fail("Unexpected delete call count: " + call);
+            return null;
+        }).when(client).delete(any(), any());
+    }
+
+    private DeleteResponse createDeleteResponse(DocWriteResponse.Result result) {
+        DeleteResponse response = mock(DeleteResponse.class);
+        when(response.getResult()).thenReturn(result);
+        return response;
+    }
+
+    private GetResponse createJobGetResponse(String id, boolean exists, boolean enabled, boolean malformedJobSource) throws IOException {
+        BytesReference source = null;
+        if (exists) {
+            if (malformedJobSource) {
+                source = new BytesArray("{\"name\":\"1234\",\"schedule\":");
+            } else {
+                source = BytesReference
+                    .bytes(
+                        new Job(
+                            "1234",
+                            jobParameter.getSchedule(),
+                            jobParameter.getWindowDelay(),
+                            enabled,
+                            Instant.now().minusSeconds(60),
+                            Instant.now(),
+                            Instant.now(),
+                            60L,
+                            TestHelpers.randomUser(),
+                            jobParameter.getCustomResultIndexOrAlias(),
+                            AnalysisType.AD
+                        ).toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS)
+                    );
+            }
+        }
+        return new GetResponse(
+            new GetResult(
+                CommonName.JOB_INDEX,
+                id,
+                UNASSIGNED_SEQ_NO,
+                0,
+                -1,
+                exists,
+                source,
+                Collections.emptyMap(),
+                Collections.emptyMap()
+            )
+        );
     }
 }

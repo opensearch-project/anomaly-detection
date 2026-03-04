@@ -2145,7 +2145,9 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         customMinForecastValue(forecasterId, forecastFrom, 600000);
         topForecastSizeVerification(forecasterId, forecastFrom);
 
-        // case 2: cannot run once while forecaster is started
+        // case 2: cannot run once while forecaster is started.
+        // START_FORECASTER checks realtime-task state, not run-once-task state. In multi-node/high-load
+        // runs, a prior run-once task may still be finishing when realtime start succeeds.
         response = TestHelpers
             .makeRequest(
                 client(),
@@ -2173,7 +2175,13 @@ public class ForecastRestApiIT extends AbstractForecastSyntheticDataTest {
         );
 
         String reason = ex.getMessage();
-        assertTrue("actual: " + reason, reason.contains("Cannot run once " + forecasterId + " when real time job is running."));
+        // Depending on timing, run-once can be rejected either because realtime is enabled
+        // or because a previous run-once task has not finished yet.
+        assertTrue(
+            "actual: " + reason,
+            reason.contains("Cannot run once " + forecasterId + " when real time job is running.")
+                || reason.contains("cannot start a new test for " + forecasterId + " since current test hasn't finished.")
+        );
 
         // case 3: stop forecaster
         response = TestHelpers

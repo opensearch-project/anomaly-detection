@@ -234,6 +234,17 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         int version = (int) responseMap.get("_version");
         assertNotEquals("Response is missing Id", AnomalyDetector.NO_ID, id);
         assertTrue("Incorrect version", version > 0);
+        // AD search API does not search only the passed index by default. It searches
+        // both ALL_AD_RESULTS_INDEX_PATTERN and your provided index unless
+        // only_query_custom_result_index=true is set.
+        Map<String, String> searchOnlyFlattenedIndex = ImmutableMap.of("only_query_custom_result_index", "true");
+        // Search body: term filter on detector_id, size:1, sorted by execution_end_time desc
+        String flattenedIndexSearchQuery = String
+            .format(
+                Locale.ROOT,
+                "{\"size\":1,\"sort\":[{\"execution_end_time\":{\"order\":\"desc\"}}],\"query\":{\"term\":{\"detector_id\":\"%s\"}}}",
+                id
+            );
 
         // Ensure the flattened result index was created
         String expectedFlattenedIndex = detector.getCustomResultIndexOrAlias()
@@ -261,8 +272,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                     client(),
                     "POST",
                     TestHelpers.AD_BASE_RESULT_URI + "/_search/" + expectedFlattenedIndex,
-                    ImmutableMap.of(),
-                    new StringEntity("{\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                    searchOnlyFlattenedIndex,
+                    new StringEntity(flattenedIndexSearchQuery, ContentType.APPLICATION_JSON),
                     null
                 );
             searchResults = entityAsMap(searchAllResponse);
@@ -287,7 +298,9 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertFalse("Feature data list should not be empty", featureDataList.isEmpty());
 
         Map<String, Object> firstFeature = featureDataList.get(0);
-        String featureName = (String) firstFeature.get("feature_name");
+        // Expected flattened field key now comes from detector config
+        String expectedFeatureName = detector.getFeatureAttributes().get(0).getName();
+        assertEquals("Unexpected feature name in result payload", expectedFeatureName, firstFeature.get("feature_name"));
         Double featureValue = ((Number) firstFeature.get("data")).doubleValue();
 
         // ------------------------------------------------------------------
@@ -307,7 +320,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
          * This loop ensures we wait for the asynchronous update to finish.
          */
 
-        String expectedFieldKey = "feature_data_" + featureName;
+        String expectedFieldKey = "feature_data_" + expectedFeatureName;
         Awaitility
             .await("flattened mapping to appear")
             .pollDelay(Duration.ZERO)
@@ -367,8 +380,8 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 client(),
                 "POST",
                 TestHelpers.AD_BASE_RESULT_URI + "/_search/" + expectedFlattenedIndex,
-                ImmutableMap.of(),
-                new StringEntity("{\"query\":{\"match_all\":{}}}", ContentType.APPLICATION_JSON),
+                searchOnlyFlattenedIndex,
+                new StringEntity(flattenedIndexSearchQuery, ContentType.APPLICATION_JSON),
                 null
             );
         Map<String, Object> flattenedResultIndexSearchResults = entityAsMap(searchFlattenResultIndexResponse);

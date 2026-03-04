@@ -38,6 +38,22 @@ jacocoTestReport {
     }
 }
 
+task jacocoIntegTestReport(type: JacocoReport) {
+    dependsOn integTest
+    executionData.from = [integTest.jacoco.destinationFile]
+    sourceSets sourceSets.main
+    reports {
+        html.getRequired().set(true)
+        html.outputLocation.set(project.layout.buildDirectory.dir("reports/jacoco/integTest/html"))
+        csv.getRequired().set(true)
+        csv.outputLocation.set(project.layout.buildDirectory.file("reports/jacoco/integTest/jacocoIntegTestReport.csv"))
+        xml.getRequired().set(true)
+        xml.outputLocation.set(project.layout.buildDirectory.file("reports/jacoco/integTest/jacocoIntegTestReport.xml"))
+    }
+}
+
+check.dependsOn jacocoIntegTestReport
+
 testClusters.integTest {
     jvmArgs " ${integTest.jacoco.getAsJvmArg()}"
 

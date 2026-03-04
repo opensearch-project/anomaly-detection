@@ -10,6 +10,12 @@ coverage:
           - "!cli/"
         flags:
           - plugin
+      plugin_integtest:
+        target: auto
+        paths:
+          - "!cli/"
+        flags:
+          - plugin_integtest
     patch: off
 comment:
   layout: "reach, diff, flags, files"
@@ -20,4 +26,6 @@ comment:
   branches: null
 flags:
   plugin:
+    carryforward: true
+  plugin_integtest:
     carryforward: true
