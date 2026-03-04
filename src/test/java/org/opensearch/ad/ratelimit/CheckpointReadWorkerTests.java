@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -199,9 +200,9 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },
-            // important: use time relative to the model's last input timestamp so that the time
-            // gap is not too large and won't trigger cold start.
-            ModelUtil.getLastInputTimestampSeconds(state.getModel().get()) * 1000,
+            // Align with both model state and queued checkpoint samples to avoid duplicate
+            // second-level timestamps when scoring.
+            getSafeDataStartTimeMillis(state),
             entity,
             null
         );
@@ -211,9 +212,9 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },
-            // important: use time relative to the model's last input timestamp so that the time
-            // gap is not too large and won't trigger cold start.
-            ModelUtil.getLastInputTimestampSeconds(state.getModel().get()) * 1000,
+            // Align with both model state and queued checkpoint samples to avoid duplicate
+            // second-level timestamps when scoring.
+            getSafeDataStartTimeMillis(state),
             entity2,
             null
         );
@@ -223,12 +224,23 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },
-            // important: use time relative to the model's last input timestamp so that the time
-            // gap is not too large and won't trigger cold start.
-            ModelUtil.getLastInputTimestampSeconds(state.getModel().get()) * 1000,
+            // Align with both model state and queued checkpoint samples to avoid duplicate
+            // second-level timestamps when scoring.
+            getSafeDataStartTimeMillis(state),
             entity3,
             null
         );
+    }
+
+    private long getSafeDataStartTimeMillis(ModelState<ThresholdedRandomCutForest> modelState) {
+        long lastInputTimestampMillis = modelState.getModel().map(ModelUtil::getLastInputTimestampSeconds).orElse(0L) * 1000;
+
+        Deque<org.opensearch.timeseries.ml.Sample> samples = modelState.getSamples();
+        long lastQueuedDataEndTimeMillis = samples == null || samples.isEmpty()
+            ? Long.MIN_VALUE
+            : samples.peekLast().getDataEndTime().toEpochMilli();
+
+        return Math.max(lastInputTimestampMillis, lastQueuedDataEndTimeMillis);
     }
 
     static class RegularSetUpConfig {
@@ -289,14 +301,17 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
         List<FeatureRequest> requests = new ArrayList<>();
 
         if (!config.fullModel) {
+            long dataStartTimeMillis = state.getSamples().isEmpty()
+                ? clock.millis()
+                : state.getSamples().peekLast().getDataStartTime().toEpochMilli();
             request = new FeatureRequest(
                 clock.millis() + TimeUnit.MINUTES.toMillis(10),
                 detectorId,
                 RequestPriority.MEDIUM,
                 new double[] { 0 },
-                // align model's last input timestamp with the request time so RealTimeInferencer processes
-                // the queued sample instead of triggering cold start due to a large time gap.
-                state.getSamples().peekLast().getDataStartTime().toEpochMilli(),
+                // align request time with queued samples when present; fallback avoids flaky NPE
+                // when random test setup creates an empty sample queue.
+                dataStartTimeMillis,
                 entity,
                 null
             );
@@ -306,7 +321,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
                 detectorId,
                 RequestPriority.MEDIUM,
                 new double[] { 0 },
-                ModelUtil.getLastInputTimestampSeconds(state.getModel().get()) * 1000,
+                getSafeDataStartTimeMillis(state),
                 entity,
                 null
             );
@@ -794,9 +809,9 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             detectorId2,
             RequestPriority.MEDIUM,
             new double[] { 0 },
-            // important: use time relative to the model's last input timestamp so that the time
-            // gap is not too large and won't trigger cold start.
-            ModelUtil.getLastInputTimestampSeconds(state.getModel().get()) * 1000,
+            // Align with both model state and queued checkpoint samples to avoid duplicate
+            // second-level timestamps when scoring.
+            getSafeDataStartTimeMillis(state),
             entity4,
             null
         );
@@ -887,7 +902,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             detectorId,
             RequestPriority.MEDIUM,
             new double[] { 0 },
-            ModelUtil.getLastInputTimestampSeconds(state.getModel().get()) * 1000,
+            getSafeDataStartTimeMillis(state),
             entity,
             null
         );
