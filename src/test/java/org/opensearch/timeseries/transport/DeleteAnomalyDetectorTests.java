@@ -476,6 +476,7 @@ public class DeleteAnomalyDetectorTests extends AbstractTimeSeriesTest {
         doAnswer(invocation -> {
             ActionListener<DeleteResponse> listener = (ActionListener<DeleteResponse>) invocation.getArguments()[1];
             int call = counter.incrementAndGet();
+            // Delete order is fixed in BaseDeleteConfigTransportAction: job doc -> state doc -> config doc.
             if (call == 1) {
                 if (firstResult instanceof Exception) {
                     listener.onFailure((Exception) firstResult);
