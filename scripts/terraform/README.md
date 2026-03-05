@@ -1,0 +1,107 @@
+# OpenSearch Anomaly Detection with Terraform
+
+## Purpose
+
+This project uses Terraform to manage an OpenSearch Anomaly Detection detector and its job lifecycle.
+
+It does two things:
+
+- Creates or updates a detector via `opensearch_anomaly_detection`.
+- Automatically stops and restarts the detector job on apply (and stops it on destroy) using `null_resource` + `local-exec` calls to the OpenSearch AD APIs.
+
+## What This Configuration Creates
+
+- 1 anomaly detector with:
+  - configurable index pattern (`indices`)
+  - configurable time field (`time_field`)
+  - one feature using `max(<feature_field>)`
+  - configurable detection interval and window delay
+  - configurable result index
+- Output:
+  - `detector_id`
+
+## Prerequisites
+
+- Terraform `>= 1.5.0`
+- OpenSearch cluster reachable from your machine
+- OpenSearch Anomaly Detection plugin/API available
+- `curl` installed (used by `local-exec` provisioners)
+
+## Configuration
+
+Defaults in [`main.tf`](main.tf) target local development:
+
+- `opensearch_url = "http://localhost:9200"`
+- `opensearch_username = ""`
+- `opensearch_password = ""`
+
+You can change `opensearch_url` to your remote OpenSearch endpoint, for example `https://your-cluster.example.com:9200`.
+
+If your cluster has security enabled, set username/password via `terraform.tfvars` or CLI flags.
+
+Common detector variables:
+
+- `detector_name`
+- `indices`
+- `time_field`
+- `feature_field`
+- `detection_interval_minutes`
+- `window_delay_minutes`
+- `result_index`
+
+## How To Use
+
+1. Initialize providers:
+
+```bash
+terraform init
+```
+
+2. (Optional) Create `terraform.tfvars`:
+
+```hcl
+opensearch_url      = "http://localhost:9200"
+opensearch_username = ""
+opensearch_password = ""
+
+detector_name                = "tf-detector"
+indices                      = ["server-metrics"]
+time_field                   = "@timestamp"
+feature_field                = "deny"
+detection_interval_minutes   = 1
+window_delay_minutes         = 1
+result_index                 = "opensearch-ad-plugin-result-tf"
+```
+
+3. Review the plan:
+
+```bash
+terraform plan
+```
+
+4. Apply:
+
+```bash
+terraform apply
+```
+
+5. Get the detector ID:
+
+```bash
+terraform output detector_id
+```
+
+## Destroy
+
+To remove resources:
+
+```bash
+terraform destroy
+```
+
+The configuration attempts to stop the detector job before deletion.
+
+## Notes
+
+- `null_resource.start_detector_job` is trigger-based and re-runs when detector config or connection settings change.
+- Credentials are optional for unsecured local clusters; provide them for secured clusters.
