@@ -152,14 +152,14 @@ if [ -n "$OPENSEARCH_USERNAME" ] || [ -n "$OPENSEARCH_PASSWORD" ]; then
     -H 'Content-Type: application/json' \
     --user "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" >/dev/null || true
 
-  curl -sS -XPOST "$OPENSEARCH_URL/_plugins/_anomaly_detection/detectors/$DETECTOR_ID/_start" \
+  curl -sSf -XPOST "$OPENSEARCH_URL/_plugins/_anomaly_detection/detectors/$DETECTOR_ID/_start" \
     -H 'Content-Type: application/json' \
     --user "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" >/dev/null
 else
   curl -sS -XPOST "$OPENSEARCH_URL/_plugins/_anomaly_detection/detectors/$DETECTOR_ID/_stop" \
     -H 'Content-Type: application/json' >/dev/null || true
 
-  curl -sS -XPOST "$OPENSEARCH_URL/_plugins/_anomaly_detection/detectors/$DETECTOR_ID/_start" \
+  curl -sSf -XPOST "$OPENSEARCH_URL/_plugins/_anomaly_detection/detectors/$DETECTOR_ID/_start" \
     -H 'Content-Type: application/json' >/dev/null
 fi
 EOT

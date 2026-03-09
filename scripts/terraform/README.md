@@ -37,7 +37,40 @@ Defaults in [`main.tf`](main.tf) target local development:
 
 You can change `opensearch_url` to your remote OpenSearch endpoint, for example `https://your-cluster.example.com:9200`.
 
-If your cluster has security enabled, set username/password via `terraform.tfvars` or CLI flags.
+If your cluster has security enabled, prefer environment variables for credentials in production. `terraform.tfvars` and CLI flags also work, but they are less suitable for secrets.
+
+Preferred example: environment variables
+
+```bash
+export TF_VAR_opensearch_url='https://your-cluster.example.com:9200'
+export TF_VAR_opensearch_username='admin'
+export TF_VAR_opensearch_password='myStrongPassword123!'
+
+terraform plan
+```
+
+Example `terraform.tfvars`:
+
+```hcl
+opensearch_url      = "https://your-cluster.example.com:9200"
+opensearch_username = "admin"
+opensearch_password = "myStrongPassword123!"
+```
+
+Example CLI flags:
+
+```bash
+terraform plan \
+  -var='opensearch_url=https://your-cluster.example.com:9200' \
+  -var='opensearch_username=admin' \
+  -var='opensearch_password=myStrongPassword123!'
+```
+
+Avoid `-var` for passwords in production when possible, since command-line arguments can leak into shell history or CI logs.
+
+If you use `terraform.tfvars`, make sure it is excluded from version control.
+
+Important: this configuration currently stores connection settings in `null_resource` triggers so the destroy-time provisioner can stop the detector job. That means credentials may still be written to Terraform state even when provided via `TF_VAR_...` environment variables.
 
 Common detector variables:
 
