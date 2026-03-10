@@ -16,3 +16,8 @@ out/
 bin/
 ._.DS_Store
 src/test/resources/job-scheduler/
+
+# Terraform local artifacts and secrets
+.terraform/
+*.tfstate*
+*.tfvars
