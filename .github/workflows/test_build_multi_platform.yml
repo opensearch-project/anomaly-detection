@@ -28,6 +28,7 @@ jobs:
   Build-ad-windows:
     needs: spotless
     strategy:
+      fail-fast: false
       matrix:
         java: [21, 25]
     name: Build and Test Anomaly Detection Plugin on Windows
@@ -46,9 +47,6 @@ jobs:
       - name: Build and Run Tests
         run: |
           ./gradlew build -x spotlessJava
-      - name: Publish to Maven Local
-        run: |
-          ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
@@ -83,12 +81,10 @@ jobs:
       - name: Checkout AD
         uses: actions/checkout@v6
 
-      - name: Assemble / build / mavenlocal / integTest
+      - name: Build and Run Tests
         run: |
           chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "./gradlew assemble &&
-                               ./gradlew build -x spotlessJava &&
-                               ./gradlew publishToMavenLocal &&
+          su `id -un 1000` -c "./gradlew build -x spotlessJava &&
                                ./gradlew integTest -PnumNodes=3"
 
   Build-ad-macos:
@@ -113,9 +109,6 @@ jobs:
       - name: Checkout AD
         uses: actions/checkout@v6
 
-      - name: Assemble anomaly-detection
-        run: |
-          ./gradlew assemble
       - name: Build and Run Tests
         run: |
           ./gradlew build -x spotlessJava
@@ -168,9 +161,6 @@ jobs:
           files: ./build/reports/jacoco/integTest/jacocoIntegTestReport.xml
           disable_search: true
           flags: plugin_integtest
-      - name: Publish to Maven Local
-        run: |
-          ./gradlew publishToMavenLocal
       - name: Multi Nodes Integration Testing
         run: |
           ./gradlew integTest -PnumNodes=3
