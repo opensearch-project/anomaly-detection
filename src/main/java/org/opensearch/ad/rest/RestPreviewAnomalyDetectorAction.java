@@ -72,10 +72,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
 
         AnomalyDetectorExecutionInput input = getConfigExecutionInput(request);
         Integer minPreviewSize = request.hasParam(PreviewAnomalyDetectorTransportAction.MIN_PREVIEW_SIZE_PARAM)
-            ? request.paramAsInt(
-                PreviewAnomalyDetectorTransportAction.MIN_PREVIEW_SIZE_PARAM,
-                AnomalyDetectorSettings.MIN_PREVIEW_SIZE
-            )
+            ? request.paramAsInt(PreviewAnomalyDetectorTransportAction.MIN_PREVIEW_SIZE_PARAM, AnomalyDetectorSettings.MIN_PREVIEW_SIZE)
             : null;
 
         return channel -> {
@@ -87,10 +84,7 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
             if (minPreviewSize != null && minPreviewSize <= 0) {
                 channel
                     .sendResponse(
-                        new BytesRestResponse(
-                            RestStatus.BAD_REQUEST,
-                            "min_preview_size must be a positive integer when provided"
-                        )
+                        new BytesRestResponse(RestStatus.BAD_REQUEST, "min_preview_size must be a positive integer when provided")
                     );
                 return;
             }

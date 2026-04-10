@@ -80,10 +80,17 @@ public class PreviewForecasterTransportAction extends HandledTransportAction<Pre
         ActionListener<PreviewForecasterResponse> listener
     ) {
         try {
-            forecasterRunner.executeForecaster(forecaster, request.getPeriodStart(), request.getPeriodEnd(), ActionListener.wrap(
-                forecastResult -> listener.onResponse(new PreviewForecasterResponse(forecastResult, forecaster)),
-                listener::onFailure
-            ));
+            forecasterRunner
+                .executeForecaster(
+                    forecaster,
+                    request.getPeriodStart(),
+                    request.getPeriodEnd(),
+                    ActionListener
+                        .wrap(
+                            forecastResult -> listener.onResponse(new PreviewForecasterResponse(forecastResult, forecaster)),
+                            listener::onFailure
+                        )
+                );
         } catch (Exception e) {
             listener.onFailure(e);
         }
@@ -96,9 +103,7 @@ public class PreviewForecasterTransportAction extends HandledTransportAction<Pre
         return ActionListener.wrap(response -> {
             if (!response.isExists()) {
                 listener
-                    .onFailure(
-                        new OpenSearchStatusException("Can't find forecaster with id:" + response.getId(), RestStatus.NOT_FOUND)
-                    );
+                    .onFailure(new OpenSearchStatusException("Can't find forecaster with id:" + response.getId(), RestStatus.NOT_FOUND));
                 return;
             }
 

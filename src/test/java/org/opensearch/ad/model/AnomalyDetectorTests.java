@@ -1524,7 +1524,10 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"last_update_time\":1700000000000"
             + "}";
 
-        ValidationException exception = expectThrows(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
         assertEquals("prometheus_source.data_connection_id must be set when source_type is PROMETHEUS.", exception.getMessage());
         assertEquals(ValidationIssueType.GENERAL_SETTINGS, exception.getType());
     }
@@ -1551,7 +1554,10 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"last_update_time\":1700000000000"
             + "}";
 
-        ValidationException exception = expectThrows(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
         assertEquals("time_field must be empty when source_type is PROMETHEUS.", exception.getMessage());
         assertEquals(ValidationIssueType.TIMEFIELD_FIELD, exception.getType());
     }
@@ -1584,7 +1590,10 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"last_update_time\":1700000000000"
             + "}";
 
-        ValidationException exception = expectThrows(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
         assertEquals("Exactly one enabled feature is required when source_type is PROMETHEUS.", exception.getMessage());
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, exception.getType());
     }
@@ -1631,7 +1640,10 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "\"last_update_time\":1700000000000"
             + "}";
 
-        ValidationException exception = expectThrows(ValidationException.class, () -> AnomalyDetector.parse(TestHelpers.parser(detectorString)));
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
         assertEquals("feature_attributes.aggregation_query must be set when source_type is OPENSEARCH.", exception.getMessage());
         assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, exception.getType());
     }

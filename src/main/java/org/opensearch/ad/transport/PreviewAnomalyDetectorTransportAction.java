@@ -212,12 +212,13 @@ public class PreviewAnomalyDetectorTransportAction extends
                 listener.onFailure(new OpenSearchStatusException(exception.getMessage(), RestStatus.BAD_REQUEST, exception));
                 return;
             }
-            listener.onFailure(
-                new OpenSearchStatusException(
-                    "Unexpected error running anomaly detector " + detector.getId() + ". " + exception.getMessage(),
-                    RestStatus.INTERNAL_SERVER_ERROR
-                )
-            );
+            listener
+                .onFailure(
+                    new OpenSearchStatusException(
+                        "Unexpected error running anomaly detector " + detector.getId() + ". " + exception.getMessage(),
+                        RestStatus.INTERNAL_SERVER_ERROR
+                    )
+                );
         });
     }
 
@@ -235,7 +236,14 @@ public class PreviewAnomalyDetectorTransportAction extends
             client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, minPreviewSize, context));
         } else {
             anomalyDetectorRunner
-                .executeDetector(detector, startTime, endTime, context, minPreviewSize, getPreviewDetectorActionListener(listener, detector));
+                .executeDetector(
+                    detector,
+                    startTime,
+                    endTime,
+                    context,
+                    minPreviewSize,
+                    getPreviewDetectorActionListener(listener, detector)
+                );
         }
     }
 
