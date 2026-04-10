@@ -17,8 +17,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.SortedMap;
 import java.util.stream.Collectors;
+import java.util.TreeMap;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
@@ -79,6 +82,7 @@ public class CompositeRetriever extends AbstractRetriever {
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private ClusterService clusterService;
     private AnalysisType context;
+    private final PrometheusDirectQueryExecutor prometheusDirectQueryExecutor;
 
     public CompositeRetriever(
         long dataStartEpoch,
@@ -110,6 +114,11 @@ public class CompositeRetriever extends AbstractRetriever {
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.clusterService = clusterService;
         this.context = context;
+        this.prometheusDirectQueryExecutor = new PrometheusDirectQueryExecutor(
+            client,
+            clientUtil,
+            settings.get(PrometheusDirectQueryExecutor.DATASOURCE_ENCRYPTION_MASTER_KEY)
+        );
     }
 
     // a constructor that provide default value of clock
@@ -152,6 +161,10 @@ public class CompositeRetriever extends AbstractRetriever {
      *  detector definition
      */
     public PageIterator iterator() throws IOException {
+        if (isPrometheusConfig(config)) {
+            return new PageIterator(null);
+        }
+
         RangeQueryBuilder rangeQuery = new RangeQueryBuilder(config.getTimeField())
             .gte(dataStartEpoch)
             .lt(dataEndEpoch)
@@ -204,6 +217,11 @@ public class CompositeRetriever extends AbstractRetriever {
         public void next(ActionListener<Page> listener) {
             iterations++;
 
+            if (isPrometheusConfig(config)) {
+                nextPrometheus(listener);
+                return;
+            }
+
             // inject user role while searching.
 
             SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0]), source);
@@ -229,6 +247,17 @@ public class CompositeRetriever extends AbstractRetriever {
                     context,
                     searchResponseListener
                 );
+        }
+
+        private void nextPrometheus(ActionListener<Page> listener) {
+            prometheusDirectQueryExecutor.executeRangeQueryBySeries(
+                config,
+                dataStartEpoch,
+                dataEndEpoch,
+                Math.max(1L, config.getIntervalInSeconds()),
+                context,
+                ActionListener.wrap(valuesBySeries -> listener.onResponse(analyzePrometheusSeries(valuesBySeries)), listener::onFailure)
+            );
         }
 
         private void processResponse(SearchResponse response, Runnable retry, ActionListener<Page> listener) {
@@ -306,6 +335,21 @@ public class CompositeRetriever extends AbstractRetriever {
             totalResults += results.size();
 
             afterKey = composite.afterKey();
+            return new Page(results);
+        }
+
+        private Page analyzePrometheusSeries(Map<Map<String, String>, NavigableMap<Long, Double>> valuesBySeries) {
+            Map<Entity, double[]> results = new HashMap<>();
+            valuesBySeries.forEach((seriesLabels, values) -> {
+                Optional<Entity> entity = buildEntity(config.getCategoryFields(), seriesLabels);
+                Optional<Double> value = findRangeValue(values, dataStartEpoch, dataEndEpoch);
+                if (entity.isPresent() && value.isPresent()) {
+                    results.put(entity.get(), new double[] { value.get() });
+                }
+            });
+
+            totalResults += results.size();
+            afterKey = null;
             return new Page(results);
         }
 
@@ -440,5 +484,37 @@ public class CompositeRetriever extends AbstractRetriever {
 
             return toStringBuilder.toString();
         }
+    }
+
+    private boolean isPrometheusConfig(Config config) {
+        return config != null && Config.SOURCE_TYPE_PROMETHEUS.equals(config.getSourceType()) && config.getPrometheusSource() != null;
+    }
+
+    private Optional<Entity> buildEntity(List<String> categoryFields, Map<String, String> seriesLabels) {
+        if (categoryFields == null || categoryFields.isEmpty() || seriesLabels == null || seriesLabels.isEmpty()) {
+            return Optional.empty();
+        }
+
+        SortedMap<String, String> entityAttributes = new TreeMap<>();
+        for (String categoryField : categoryFields) {
+            String categoryValue = seriesLabels.get(categoryField);
+            if (categoryValue == null) {
+                return Optional.empty();
+            }
+            entityAttributes.put(categoryField, categoryValue);
+        }
+        return Optional.of(Entity.createEntityFromOrderedMap(entityAttributes));
+    }
+
+    private Optional<Double> findRangeValue(NavigableMap<Long, Double> values, long startTimeMs, long endTimeMs) {
+        if (values == null || values.isEmpty() || startTimeMs >= endTimeMs) {
+            return Optional.empty();
+        }
+
+        Map.Entry<Long, Double> candidate = values.floorEntry(endTimeMs);
+        if (candidate == null || candidate.getKey() < startTimeMs) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(candidate.getValue());
     }
 }

@@ -312,7 +312,7 @@ public class FeatureManager {
         return ActionListener.wrap(samples -> {
             List<Entry<Long, Long>> searchTimeRange = samples.getKey();
             if (searchTimeRange.size() == 0) {
-                listener.onFailure(new IllegalArgumentException("No data to preview anomaly detection."));
+                listener.onFailure(new IllegalArgumentException("No data available for preview."));
                 return;
             }
             double[][] sampleFeatures = samples.getValue();
@@ -338,12 +338,27 @@ public class FeatureManager {
      */
     public void getPreviewFeatures(AnomalyDetector detector, long startMilli, long endMilli, ActionListener<Features> listener)
         throws IOException {
-        Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
+        getPreviewFeatures(detector, AnalysisType.AD, startMilli, endMilli, listener);
+    }
+
+    /**
+     * Returns preview features for any time-series config.
+     *
+     * @param config config info containing indices, features, interval, etc
+     * @param context analysis type for security context injection
+     * @param startMilli start of the range in epoch milliseconds
+     * @param endMilli end of the range in epoch milliseconds
+     * @param listener onResponse is called with time ranges and unprocessed features of preview data points
+     * @throws IOException if a user gives wrong query input when defining a config
+     */
+    public void getPreviewFeatures(Config config, AnalysisType context, long startMilli, long endMilli, ActionListener<Features> listener)
+        throws IOException {
+        Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(config, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
         int stride = sampleRangeResults.getValue();
-        int shingleSize = detector.getShingleSize();
+        int shingleSize = config.getShingleSize();
 
-        getSamplesForPreview(detector, sampleRanges, getFeatureSamplesListener(stride, shingleSize, listener));
+        getSamplesForPreview(config, context, sampleRanges, getFeatureSamplesListener(stride, shingleSize, listener));
     }
 
     /**
@@ -354,10 +369,10 @@ public class FeatureManager {
      *
      * @return key is a list of sampled time ranges, value is the stride between samples
      */
-    private Entry<List<Entry<Long, Long>>, Integer> getSampleRanges(AnomalyDetector detector, long startMilli, long endMilli) {
+    private Entry<List<Entry<Long, Long>>, Integer> getSampleRanges(Config config, long startMilli, long endMilli) {
         long start = truncateToMinute(startMilli);
         long end = truncateToMinute(endMilli);
-        long bucketSize = detector.getIntervalInMilliseconds();
+        long bucketSize = config.getIntervalInMilliseconds();
         int numBuckets = (int) Math.floor((end - start) / (double) bucketSize);
         int numSamples = (int) Math.max(Math.min(numBuckets * previewSampleRate, maxPreviewSamples), 1);
         int stride = (int) Math.max(1, Math.floor((double) numBuckets / numSamples));
@@ -419,12 +434,13 @@ public class FeatureManager {
      * @throws IOException if a user gives wrong query input when defining a detector
      */
     void getSamplesForPreview(
-        AnomalyDetector detector,
+        Config config,
+        AnalysisType context,
         List<Entry<Long, Long>> sampleRanges,
         ActionListener<Entry<List<Entry<Long, Long>>, double[][]>> listener
     ) throws IOException {
         searchFeatureDao
-            .getFeatureSamplesForPeriods(detector, sampleRanges, AnalysisType.AD, false, getSamplesRangesListener(sampleRanges, listener));
+            .getFeatureSamplesForPeriods(config, sampleRanges, context, false, getSamplesRangesListener(sampleRanges, listener));
     }
 
     /**
