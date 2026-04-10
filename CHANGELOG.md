@@ -15,6 +15,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Bug Fixes
 ### Infrastructure
 - Add integTest coverage reporting and README badge ([1679](https://github.com/opensearch-project/anomaly-detection/pull/1679))
+- Clean up CI: remove redundant Gradle tasks, fix fail-fast consistency ([#1693](https://github.com/opensearch-project/anomaly-detection/pull/1693))
 
 ### Documentation
 ### Maintenance

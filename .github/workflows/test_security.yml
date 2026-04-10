@@ -22,6 +22,7 @@ jobs:
       options: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-start-options }}
 
     strategy:
+      fail-fast: false
       matrix:
         # empty string = disabled, flag = enabled
         resource_sharing_flag: ["", "-Dresource_sharing.enabled=true"]
