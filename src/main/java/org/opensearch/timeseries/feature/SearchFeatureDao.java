@@ -31,9 +31,9 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.TreeMap;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -261,7 +261,8 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         if (isPrometheusConfig(config)) {
             long endTime = clock.millis();
-            long startTime = Math.max(0L, endTime - Math.max(config.getIntervalInMilliseconds(), 1L) * Math.max(config.getHistoryIntervals(), 1));
+            long startTime = Math
+                .max(0L, endTime - Math.max(config.getIntervalInMilliseconds(), 1L) * Math.max(config.getHistoryIntervals(), 1));
             internalListener.onResponse(Pair.of(startTime, endTime));
             return;
         }
@@ -1283,20 +1284,21 @@ public class SearchFeatureDao extends AbstractRetriever {
         long stepSeconds = Math.max(1L, config.getIntervalInSeconds());
         Map<String, String> entityFilter = entity.map(Entity::getAttributes).orElse(null);
 
-        prometheusDirectQueryExecutor.executeRangeQuery(config, startTimeMs, endTimeMs, stepSeconds, entityFilter, context, ActionListener.wrap(values -> {
-            List<Optional<double[]>> results = new ArrayList<>(ranges.size());
-            for (Entry<Long, Long> range : ranges) {
-                Optional<Double> value = findRangeValue(values, range.getKey(), range.getValue());
-                if (value.isPresent()) {
-                    results.add(Optional.of(new double[] { value.get() }));
-                } else if (keepMissingValues) {
-                    results.add(Optional.of(new double[] { Double.NaN }));
-                } else {
-                    results.add(Optional.empty());
+        prometheusDirectQueryExecutor
+            .executeRangeQuery(config, startTimeMs, endTimeMs, stepSeconds, entityFilter, context, ActionListener.wrap(values -> {
+                List<Optional<double[]>> results = new ArrayList<>(ranges.size());
+                for (Entry<Long, Long> range : ranges) {
+                    Optional<Double> value = findRangeValue(values, range.getKey(), range.getValue());
+                    if (value.isPresent()) {
+                        results.add(Optional.of(new double[] { value.get() }));
+                    } else if (keepMissingValues) {
+                        results.add(Optional.of(new double[] { Double.NaN }));
+                    } else {
+                        results.add(Optional.empty());
+                    }
                 }
-            }
-            listener.onResponse(results);
-        }, listener::onFailure));
+                listener.onResponse(results);
+            }, listener::onFailure));
     }
 
     private void getPrometheusFeatureDataPointsByBatch(
@@ -1339,27 +1341,28 @@ public class SearchFeatureDao extends AbstractRetriever {
         int minimumDocCount,
         ActionListener<List<Entity>> listener
     ) {
-        prometheusDirectQueryExecutor.executeRangeQueryBySeries(
-            detector,
-            startTime,
-            endTime,
-            Math.max(1L, detector.getIntervalInSeconds()),
-            AnalysisType.AD,
-            ActionListener.wrap(valuesBySeries -> {
-                List<Entity> entities = valuesBySeries
-                    .entrySet()
-                    .stream()
-                    .map(entry -> buildEntityCount(detector.getCategoryFields(), entry.getKey(), entry.getValue().size()))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(entry -> entry.getValue() >= minimumDocCount)
-                    .sorted((left, right) -> Integer.compare(right.getValue(), left.getValue()))
-                    .limit(maxEntitiesSize)
-                    .map(Entry::getKey)
-                    .collect(Collectors.toList());
-                listener.onResponse(entities);
-            }, listener::onFailure)
-        );
+        prometheusDirectQueryExecutor
+            .executeRangeQueryBySeries(
+                detector,
+                startTime,
+                endTime,
+                Math.max(1L, detector.getIntervalInSeconds()),
+                AnalysisType.AD,
+                ActionListener.wrap(valuesBySeries -> {
+                    List<Entity> entities = valuesBySeries
+                        .entrySet()
+                        .stream()
+                        .map(entry -> buildEntityCount(detector.getCategoryFields(), entry.getKey(), entry.getValue().size()))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .filter(entry -> entry.getValue() >= minimumDocCount)
+                        .sorted((left, right) -> Integer.compare(right.getValue(), left.getValue()))
+                        .limit(maxEntitiesSize)
+                        .map(Entry::getKey)
+                        .collect(Collectors.toList());
+                    listener.onResponse(entities);
+                }, listener::onFailure)
+            );
     }
 
     private Optional<Entry<Entity, Integer>> buildEntityCount(

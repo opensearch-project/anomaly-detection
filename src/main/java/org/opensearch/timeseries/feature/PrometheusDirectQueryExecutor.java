@@ -11,10 +11,6 @@
 
 package org.opensearch.timeseries.feature;
 
-import com.amazonaws.encryptionsdk.AwsCrypto;
-import com.amazonaws.encryptionsdk.CommitmentPolicy;
-import com.amazonaws.encryptionsdk.CryptoResult;
-import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,8 +18,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -35,8 +31,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.TreeSet;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.Mac;
@@ -53,6 +49,10 @@ import org.opensearch.timeseries.model.PrometheusSource;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 
+import com.amazonaws.encryptionsdk.AwsCrypto;
+import com.amazonaws.encryptionsdk.CommitmentPolicy;
+import com.amazonaws.encryptionsdk.CryptoResult;
+import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -82,9 +82,11 @@ public class PrometheusDirectQueryExecutor {
     private static final String AWS4_REQUEST = "aws4_request";
     private static final String EMPTY_PAYLOAD_SHA256 = sha256Hex("");
     private static final DateTimeFormatter AWS_AMZ_DATE_FORMATTER = DateTimeFormatter
-        .ofPattern("yyyyMMdd'T'HHmmss'Z'")
+        .ofPattern("yyyyMMdd'T'HHmmss'Z'", Locale.ROOT)
         .withZone(ZoneOffset.UTC);
-    private static final DateTimeFormatter AWS_DATE_STAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter AWS_DATE_STAMP_FORMATTER = DateTimeFormatter
+        .ofPattern("yyyyMMdd", Locale.ROOT)
+        .withZone(ZoneOffset.UTC);
 
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
     private static final int ERROR_BODY_LIMIT = 512;
@@ -126,7 +128,12 @@ public class PrometheusDirectQueryExecutor {
     }
 
     // Visible for tests.
-    PrometheusDirectQueryExecutor(Client client, SecurityClientUtil clientUtil, String dataSourceEncryptionMasterKey, HttpClient httpClient) {
+    PrometheusDirectQueryExecutor(
+        Client client,
+        SecurityClientUtil clientUtil,
+        String dataSourceEncryptionMasterKey,
+        HttpClient httpClient
+    ) {
         this.client = client;
         this.httpClient = httpClient;
         this.dataSourceConfigCache = new ConcurrentHashMap<>();
@@ -159,7 +166,10 @@ public class PrometheusDirectQueryExecutor {
         ActionListener<NavigableMap<Long, Double>> listener
     ) {
         PrometheusSource source = config.getPrometheusSource();
-        Map<String, String> effectiveSeriesFilter = mergeSeriesFilters(source == null ? null : source.getSeriesFilter(), seriesFilterOverride);
+        Map<String, String> effectiveSeriesFilter = mergeSeriesFilters(
+            source == null ? null : source.getSeriesFilter(),
+            seriesFilterOverride
+        );
         executeRangeQuery(
             source,
             startTimeMs,
@@ -212,39 +222,34 @@ public class PrometheusDirectQueryExecutor {
                 return;
             }
 
-            httpClient
-                .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .whenComplete((response, throwable) -> {
-                    if (throwable != null) {
-                        listener
-                            .onFailure(
-                                new IllegalStateException(
-                                    "Failed to query Prometheus datasource [" + source.getDataConnectionId() + "].",
-                                    throwable
-                                )
-                            );
-                        return;
-                    }
+            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).whenComplete((response, throwable) -> {
+                if (throwable != null) {
+                    listener
+                        .onFailure(
+                            new IllegalStateException(
+                                "Failed to query Prometheus datasource [" + source.getDataConnectionId() + "].",
+                                throwable
+                            )
+                        );
+                    return;
+                }
 
-                    if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                        listener
-                            .onFailure(
-                                new IllegalStateException(
-                                    "Prometheus query_range failed with HTTP "
-                                        + response.statusCode()
-                                        + ". Body: "
-                                        + truncate(response.body())
-                                )
-                            );
-                        return;
-                    }
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    listener
+                        .onFailure(
+                            new IllegalStateException(
+                                "Prometheus query_range failed with HTTP " + response.statusCode() + ". Body: " + truncate(response.body())
+                            )
+                        );
+                    return;
+                }
 
-                    try {
-                        listener.onResponse(responseParser.parse(response.body()));
-                    } catch (Exception e) {
-                        listener.onFailure(e);
-                    }
-                });
+                try {
+                    listener.onResponse(responseParser.parse(response.body()));
+                } catch (Exception e) {
+                    listener.onFailure(e);
+                }
+            });
         }, listener::onFailure));
     }
 
@@ -353,10 +358,11 @@ public class PrometheusDirectQueryExecutor {
 
         switch (prometheusDataSource.getAuthType()) {
             case BASICAUTH:
-                builder.header(
-                    "Authorization",
-                    buildBasicAuthorizationHeader(prometheusDataSource.getUsername(), prometheusDataSource.getPassword())
-                );
+                builder
+                    .header(
+                        "Authorization",
+                        buildBasicAuthorizationHeader(prometheusDataSource.getUsername(), prometheusDataSource.getPassword())
+                    );
                 break;
             case AWSSIGV4:
                 applyAwsSigV4Headers(builder, requestContext, prometheusDataSource, requestTime);
@@ -424,9 +430,7 @@ public class PrometheusDirectQueryExecutor {
                 .build();
         }
 
-        throw new IllegalArgumentException(
-            "Datasource [" + dataConnectionId + "] has unsupported Prometheus auth type: " + authType
-        );
+        throw new IllegalArgumentException("Datasource [" + dataConnectionId + "] has unsupported Prometheus auth type: " + authType);
     }
 
     private String normalizePrometheusUri(String rawUri, String dataConnectionId) {
@@ -445,9 +449,7 @@ public class PrometheusDirectQueryExecutor {
         try {
             URI uri = URI.create(candidate);
             if (uri.getHost() == null || uri.getHost().isEmpty()) {
-                throw new IllegalArgumentException(
-                    "Datasource [" + dataConnectionId + "] has invalid Prometheus URI: " + rawUri
-                );
+                throw new IllegalArgumentException("Datasource [" + dataConnectionId + "] has invalid Prometheus URI: " + rawUri);
             }
             return candidate;
         } catch (IllegalArgumentException e) {
@@ -477,7 +479,10 @@ public class PrometheusDirectQueryExecutor {
     }
 
     String maybeDecryptCredential(String credentialValue) {
-        if (credentialValue == null || credentialValue.trim().isEmpty() || dataSourceEncryptionMasterKey == null || dataSourceEncryptionMasterKey.isEmpty()) {
+        if (credentialValue == null
+            || credentialValue.trim().isEmpty()
+            || dataSourceEncryptionMasterKey == null
+            || dataSourceEncryptionMasterKey.isEmpty()) {
             return credentialValue;
         }
 
@@ -490,12 +495,13 @@ public class PrometheusDirectQueryExecutor {
 
     private String decryptCredential(String encryptedText) {
         AwsCrypto crypto = AwsCrypto.builder().withCommitmentPolicy(CommitmentPolicy.RequireEncryptRequireDecrypt).build();
-        JceMasterKey jceMasterKey = JceMasterKey.getInstance(
-            new SecretKeySpec(dataSourceEncryptionMasterKey.getBytes(StandardCharsets.UTF_8), "AES"),
-            "Custom",
-            "opensearch.config.master.key",
-            "AES/GCM/NoPadding"
-        );
+        JceMasterKey jceMasterKey = JceMasterKey
+            .getInstance(
+                new SecretKeySpec(dataSourceEncryptionMasterKey.getBytes(StandardCharsets.UTF_8), "AES"),
+                "Custom",
+                "opensearch.config.master.key",
+                "AES/GCM/NoPadding"
+            );
         CryptoResult<byte[], JceMasterKey> decryptedResult = crypto.decryptData(jceMasterKey, Base64.getDecoder().decode(encryptedText));
         return new String(decryptedResult.getResult(), StandardCharsets.UTF_8);
     }
@@ -528,7 +534,14 @@ public class PrometheusDirectQueryExecutor {
         String canonicalUri = requestContext.getRequestUri().getRawPath() == null || requestContext.getRequestUri().getRawPath().isEmpty()
             ? "/"
             : requestContext.getRequestUri().getRawPath();
-        String canonicalHeaders = "host:" + hostHeader + "\n" + "x-amz-content-sha256:" + EMPTY_PAYLOAD_SHA256 + "\n" + "x-amz-date:" + amzDate
+        String canonicalHeaders = "host:"
+            + hostHeader
+            + "\n"
+            + "x-amz-content-sha256:"
+            + EMPTY_PAYLOAD_SHA256
+            + "\n"
+            + "x-amz-date:"
+            + amzDate
             + "\n";
         String signedHeaders = "host;x-amz-content-sha256;x-amz-date";
         String canonicalRequest = "GET"
@@ -542,21 +555,12 @@ public class PrometheusDirectQueryExecutor {
             + signedHeaders
             + "\n"
             + EMPTY_PAYLOAD_SHA256;
-        String credentialScope = dateStamp
-            + "/"
-            + prometheusDataSource.getRegion()
-            + "/"
-            + AWS_SIGV4_SERVICE
-            + "/"
-            + AWS4_REQUEST;
-        String stringToSign = AWS_SIGV4_ALGORITHM
-            + "\n"
-            + amzDate
-            + "\n"
-            + credentialScope
-            + "\n"
-            + sha256Hex(canonicalRequest);
-        String signature = hmacSha256Hex(getAwsSigV4SigningKey(prometheusDataSource.getSecretKey(), dateStamp, prometheusDataSource.getRegion()), stringToSign);
+        String credentialScope = dateStamp + "/" + prometheusDataSource.getRegion() + "/" + AWS_SIGV4_SERVICE + "/" + AWS4_REQUEST;
+        String stringToSign = AWS_SIGV4_ALGORITHM + "\n" + amzDate + "\n" + credentialScope + "\n" + sha256Hex(canonicalRequest);
+        String signature = hmacSha256Hex(
+            getAwsSigV4SigningKey(prometheusDataSource.getSecretKey(), dateStamp, prometheusDataSource.getRegion()),
+            stringToSign
+        );
         String authorization = AWS_SIGV4_ALGORITHM
             + " Credential="
             + prometheusDataSource.getAccessKey()
@@ -587,15 +591,13 @@ public class PrometheusDirectQueryExecutor {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         for (byte currentByte : bytes) {
             int current = currentByte & 0xFF;
-            if (
-                (current >= 'A' && current <= 'Z')
-                    || (current >= 'a' && current <= 'z')
-                    || (current >= '0' && current <= '9')
-                    || current == '-'
-                    || current == '_'
-                    || current == '.'
-                    || current == '~'
-            ) {
+            if ((current >= 'A' && current <= 'Z')
+                || (current >= 'a' && current <= 'z')
+                || (current >= '0' && current <= '9')
+                || current == '-'
+                || current == '_'
+                || current == '.'
+                || current == '~') {
                 builder.append((char) current);
             } else {
                 builder.append('%');
@@ -672,10 +674,8 @@ public class PrometheusDirectQueryExecutor {
         return averaged;
     }
 
-    Map<Map<String, String>, NavigableMap<Long, Double>> parsePrometheusResponseBySeries(
-        String body,
-        Map<String, String> seriesFilter
-    ) throws IOException {
+    Map<Map<String, String>, NavigableMap<Long, Double>> parsePrometheusResponseBySeries(String body, Map<String, String> seriesFilter)
+        throws IOException {
         if (body == null || body.trim().isEmpty()) {
             return Collections.emptyMap();
         }
@@ -684,10 +684,7 @@ public class PrometheusDirectQueryExecutor {
         String status = root.path("status").asText("");
         if (!"success".equalsIgnoreCase(status)) {
             throw new IllegalStateException(
-                "Prometheus query_range failed. errorType="
-                    + root.path("errorType").asText("")
-                    + ", error="
-                    + root.path("error").asText("")
+                "Prometheus query_range failed. errorType=" + root.path("errorType").asText("") + ", error=" + root.path("error").asText("")
             );
         }
 
