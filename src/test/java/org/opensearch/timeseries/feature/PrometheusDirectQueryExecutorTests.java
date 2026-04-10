@@ -11,14 +11,10 @@
 
 package org.opensearch.timeseries.feature;
 
-import com.amazonaws.encryptionsdk.AwsCrypto;
-import com.amazonaws.encryptionsdk.CommitmentPolicy;
-import com.amazonaws.encryptionsdk.CryptoResult;
-import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 import static org.mockito.Mockito.mock;
 
-import java.net.http.HttpRequest;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -37,9 +33,13 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 
+import com.amazonaws.encryptionsdk.AwsCrypto;
+import com.amazonaws.encryptionsdk.CommitmentPolicy;
+import com.amazonaws.encryptionsdk.CryptoResult;
+import com.amazonaws.encryptionsdk.jce.JceMasterKey;
+
 public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
     private static final String TEST_MASTER_KEY = "12345678901234567890123456789012";
-
 
     public void testExecuteRangeQueryInvalidStepFailsFast() throws Exception {
         String detectorString = "{"
@@ -69,19 +69,20 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Exception> failure = new AtomicReference<>();
 
-        executor.executeRangeQuery(
-            org.opensearch.ad.model.AnomalyDetector.parse(TestHelpers.parser(detectorString)),
-            1700000000000L,
-            1700000060000L,
-            0L,
-            AnalysisType.AD,
-            ActionListener.wrap(result -> {
-                fail("Expected validation exception for non-positive stepSeconds");
-            }, e -> {
-                failure.set(e);
-                latch.countDown();
-            })
-        );
+        executor
+            .executeRangeQuery(
+                org.opensearch.ad.model.AnomalyDetector.parse(TestHelpers.parser(detectorString)),
+                1700000000000L,
+                1700000060000L,
+                0L,
+                AnalysisType.AD,
+                ActionListener.wrap(result -> {
+                    fail("Expected validation exception for non-positive stepSeconds");
+                }, e -> {
+                    failure.set(e);
+                    latch.countDown();
+                })
+            );
 
         assertTrue(latch.await(5, TimeUnit.SECONDS));
         assertNotNull(failure.get());
@@ -113,10 +114,7 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
             mock(HttpClient.class)
         );
 
-        NavigableMap<Long, Double> filtered = executor.parsePrometheusResponse(
-            responseBody,
-            Map.of("instance", "prometheus-b:9090")
-        );
+        NavigableMap<Long, Double> filtered = executor.parsePrometheusResponse(responseBody, Map.of("instance", "prometheus-b:9090"));
 
         assertEquals(2, filtered.size());
         assertEquals(20.0d, filtered.firstEntry().getValue(), 0.001d);
@@ -178,10 +176,7 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
             mock(HttpClient.class)
         );
 
-        Map<Map<String, String>, NavigableMap<Long, Double>> valuesBySeries = executor.parsePrometheusResponseBySeries(
-            responseBody,
-            null
-        );
+        Map<Map<String, String>, NavigableMap<Long, Double>> valuesBySeries = executor.parsePrometheusResponseBySeries(responseBody, null);
 
         assertEquals(2, valuesBySeries.size());
         assertTrue(valuesBySeries.keySet().stream().anyMatch(labels -> "prometheus-a:9090".equals(labels.get("instance"))));
@@ -200,10 +195,8 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         properties.put("prometheus.auth.username", "demo-user");
         properties.put("prometheus.auth.password", "demo-pass");
 
-        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor.resolvePrometheusDataSourceProperties(
-            properties,
-            "prome-auth"
-        );
+        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor
+            .resolvePrometheusDataSourceProperties(properties, "prome-auth");
 
         assertEquals(PrometheusDirectQueryExecutor.PrometheusAuthType.BASICAUTH, resolved.getAuthType());
         assertEquals("http://prometheus.example.org:9090", resolved.getPrometheusBaseUri());
@@ -224,10 +217,8 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         properties.put("prometheus.auth.username", encryptCredential("demo-user"));
         properties.put("prometheus.auth.password", encryptCredential("demo-pass"));
 
-        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor.resolvePrometheusDataSourceProperties(
-            properties,
-            "prome-auth"
-        );
+        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor
+            .resolvePrometheusDataSourceProperties(properties, "prome-auth");
 
         assertEquals(PrometheusDirectQueryExecutor.PrometheusAuthType.BASICAUTH, resolved.getAuthType());
         assertEquals("demo-user", resolved.getUsername());
@@ -248,19 +239,10 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
             .password("demo-pass")
             .build();
 
-        HttpRequest request = executor.buildRangeQueryRequest(
-            resolved,
-            "up",
-            1700000000000L,
-            1700000060000L,
-            60L,
-            Instant.parse("2026-04-09T12:34:56Z")
-        );
+        HttpRequest request = executor
+            .buildRangeQueryRequest(resolved, "up", 1700000000000L, 1700000060000L, 60L, Instant.parse("2026-04-09T12:34:56Z"));
 
-        assertEquals(
-            "Basic ZGVtby11c2VyOmRlbW8tcGFzcw==",
-            request.headers().firstValue("Authorization").orElse(null)
-        );
+        assertEquals("Basic ZGVtby11c2VyOmRlbW8tcGFzcw==", request.headers().firstValue("Authorization").orElse(null));
     }
 
     public void testBuildRangeQueryRequestAddsAwsSigV4Headers() {
@@ -278,14 +260,15 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
             .secretKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
             .build();
 
-        HttpRequest request = executor.buildRangeQueryRequest(
-            resolved,
-            "rate(http_requests_total[5m])",
-            1700000000000L,
-            1700000060000L,
-            60L,
-            Instant.parse("2026-04-09T12:34:56Z")
-        );
+        HttpRequest request = executor
+            .buildRangeQueryRequest(
+                resolved,
+                "rate(http_requests_total[5m])",
+                1700000000000L,
+                1700000060000L,
+                60L,
+                Instant.parse("2026-04-09T12:34:56Z")
+            );
 
         assertEquals("20260409T123456Z", request.headers().firstValue("x-amz-date").orElse(null));
         assertEquals(
@@ -323,12 +306,13 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
 
     private String encryptCredential(String plainText) {
         AwsCrypto crypto = AwsCrypto.builder().withCommitmentPolicy(CommitmentPolicy.RequireEncryptRequireDecrypt).build();
-        JceMasterKey jceMasterKey = JceMasterKey.getInstance(
-            new SecretKeySpec(TEST_MASTER_KEY.getBytes(StandardCharsets.UTF_8), "AES"),
-            "Custom",
-            "opensearch.config.master.key",
-            "AES/GCM/NoPadding"
-        );
+        JceMasterKey jceMasterKey = JceMasterKey
+            .getInstance(
+                new SecretKeySpec(TEST_MASTER_KEY.getBytes(StandardCharsets.UTF_8), "AES"),
+                "Custom",
+                "opensearch.config.master.key",
+                "AES/GCM/NoPadding"
+            );
         CryptoResult<byte[], JceMasterKey> encryptResult = crypto.encryptData(jceMasterKey, plainText.getBytes(StandardCharsets.UTF_8));
         return java.util.Base64.getEncoder().encodeToString(encryptResult.getResult());
     }

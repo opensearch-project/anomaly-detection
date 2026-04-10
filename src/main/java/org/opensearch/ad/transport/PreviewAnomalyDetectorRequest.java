@@ -51,7 +51,8 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest implements DocR
         Instant startTime,
         Instant endTime,
         Integer minPreviewSize
-    ) throws IOException {
+    )
+        throws IOException {
         super();
         this.detector = detector;
         this.detectorId = detectorId;

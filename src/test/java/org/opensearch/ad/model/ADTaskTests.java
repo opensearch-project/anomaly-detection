@@ -124,7 +124,11 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
         String adTaskString = TestHelpers.xContentBuilderToString(adTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADTask parsedADTask = ADTask.parse(TestHelpers.parser(adTaskString), taskId);
 
-        assertEquals("Prometheus detector source type should survive task parsing", Config.SOURCE_TYPE_PROMETHEUS, parsedADTask.getDetector().getSourceType());
+        assertEquals(
+            "Prometheus detector source type should survive task parsing",
+            Config.SOURCE_TYPE_PROMETHEUS,
+            parsedADTask.getDetector().getSourceType()
+        );
         assertNotNull("Prometheus source should survive task parsing", parsedADTask.getDetector().getPrometheusSource());
         assertEquals("up", parsedADTask.getDetector().getPrometheusSource().getQuery());
         assertEquals("local", parsedADTask.getDetector().getPrometheusSource().getDataConnectionId());

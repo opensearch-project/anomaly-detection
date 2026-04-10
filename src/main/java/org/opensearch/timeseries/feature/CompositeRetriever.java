@@ -20,8 +20,8 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.SortedMap;
-import java.util.stream.Collectors;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
@@ -250,14 +250,15 @@ public class CompositeRetriever extends AbstractRetriever {
         }
 
         private void nextPrometheus(ActionListener<Page> listener) {
-            prometheusDirectQueryExecutor.executeRangeQueryBySeries(
-                config,
-                dataStartEpoch,
-                dataEndEpoch,
-                Math.max(1L, config.getIntervalInSeconds()),
-                context,
-                ActionListener.wrap(valuesBySeries -> listener.onResponse(analyzePrometheusSeries(valuesBySeries)), listener::onFailure)
-            );
+            prometheusDirectQueryExecutor
+                .executeRangeQueryBySeries(
+                    config,
+                    dataStartEpoch,
+                    dataEndEpoch,
+                    Math.max(1L, config.getIntervalInSeconds()),
+                    context,
+                    ActionListener.wrap(valuesBySeries -> listener.onResponse(analyzePrometheusSeries(valuesBySeries)), listener::onFailure)
+                );
         }
 
         private void processResponse(SearchResponse response, Runnable retry, ActionListener<Page> listener) {

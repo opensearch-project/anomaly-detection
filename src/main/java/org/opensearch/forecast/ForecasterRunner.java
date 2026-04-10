@@ -105,13 +105,10 @@ public final class ForecasterRunner {
             if (timeRange == null || unprocessedFeatures[i] == null || unprocessedFeatures[i].length == 0) {
                 continue;
             }
-            samples.add(
-                new Sample(
-                    unprocessedFeatures[i],
-                    Instant.ofEpochMilli(timeRange.getKey()),
-                    Instant.ofEpochMilli(timeRange.getValue())
-                )
-            );
+            samples
+                .add(
+                    new Sample(unprocessedFeatures[i], Instant.ofEpochMilli(timeRange.getKey()), Instant.ofEpochMilli(timeRange.getValue()))
+                );
         }
 
         return samples;
