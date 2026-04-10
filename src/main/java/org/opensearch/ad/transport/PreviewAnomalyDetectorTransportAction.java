@@ -62,6 +62,8 @@ import org.opensearch.transport.client.Client;
 
 public class PreviewAnomalyDetectorTransportAction extends
     HandledTransportAction<PreviewAnomalyDetectorRequest, PreviewAnomalyDetectorResponse> {
+    public static final String MIN_PREVIEW_SIZE_PARAM = "min_preview_size";
+
     private final Logger logger = LogManager.getLogger(PreviewAnomalyDetectorTransportAction.class);
     private final AnomalyDetectorRunner anomalyDetectorRunner;
     private final ClusterService clusterService;
@@ -151,6 +153,7 @@ public class PreviewAnomalyDetectorTransportAction extends
                 String detectorId = request.getId();
                 Instant startTime = request.getStartTime();
                 Instant endTime = request.getEndTime();
+                Integer minPreviewSize = request.getMinPreviewSize();
                 ActionListener<PreviewAnomalyDetectorResponse> releaseListener = ActionListener.runAfter(listener, () -> lock.release());
                 if (detector != null) {
                     String error = validateDetector(detector);
@@ -165,10 +168,11 @@ public class PreviewAnomalyDetectorTransportAction extends
                             startTime,
                             endTime,
                             context,
+                            minPreviewSize,
                             getPreviewDetectorActionListener(releaseListener, detector)
                         );
                 } else {
-                    previewAnomalyDetector(releaseListener, detectorId, detector, startTime, endTime, context);
+                    previewAnomalyDetector(releaseListener, detectorId, detector, startTime, endTime, minPreviewSize, context);
                 }
             } catch (Exception e) {
                 logger.error("Fail to preview", e);
@@ -200,13 +204,20 @@ public class PreviewAnomalyDetectorTransportAction extends
             }
         }, exception -> {
             logger.error("Unexpected error running anomaly detector " + detector.getId(), exception);
-            listener
-                .onFailure(
-                    new OpenSearchStatusException(
-                        "Unexpected error running anomaly detector " + detector.getId() + ". " + exception.getMessage(),
-                        RestStatus.INTERNAL_SERVER_ERROR
-                    )
-                );
+            if (exception instanceof OpenSearchStatusException) {
+                listener.onFailure(exception);
+                return;
+            }
+            if (exception instanceof IllegalArgumentException) {
+                listener.onFailure(new OpenSearchStatusException(exception.getMessage(), RestStatus.BAD_REQUEST, exception));
+                return;
+            }
+            listener.onFailure(
+                new OpenSearchStatusException(
+                    "Unexpected error running anomaly detector " + detector.getId() + ". " + exception.getMessage(),
+                    RestStatus.INTERNAL_SERVER_ERROR
+                )
+            );
         });
     }
 
@@ -216,14 +227,15 @@ public class PreviewAnomalyDetectorTransportAction extends
         AnomalyDetector detector,
         Instant startTime,
         Instant endTime,
+        Integer minPreviewSize,
         ThreadContext.StoredContext context
     ) throws IOException {
         if (!StringUtils.isBlank(detectorId)) {
             GetRequest getRequest = new GetRequest(ADCommonName.CONFIG_INDEX).id(detectorId);
-            client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, context));
+            client.get(getRequest, onGetAnomalyDetectorResponse(listener, startTime, endTime, minPreviewSize, context));
         } else {
             anomalyDetectorRunner
-                .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
+                .executeDetector(detector, startTime, endTime, context, minPreviewSize, getPreviewDetectorActionListener(listener, detector));
         }
     }
 
@@ -231,6 +243,7 @@ public class PreviewAnomalyDetectorTransportAction extends
         ActionListener<PreviewAnomalyDetectorResponse> listener,
         Instant startTime,
         Instant endTime,
+        Integer minPreviewSize,
         ThreadContext.StoredContext context
     ) {
         return ActionListener.wrap(new CheckedConsumer<GetResponse, Exception>() {
@@ -251,7 +264,14 @@ public class PreviewAnomalyDetectorTransportAction extends
                     AnomalyDetector detector = AnomalyDetector.parse(parser, response.getId(), response.getVersion());
 
                     anomalyDetectorRunner
-                        .executeDetector(detector, startTime, endTime, context, getPreviewDetectorActionListener(listener, detector));
+                        .executeDetector(
+                            detector,
+                            startTime,
+                            endTime,
+                            context,
+                            minPreviewSize,
+                            getPreviewDetectorActionListener(listener, detector)
+                        );
                 } catch (IOException e) {
                     listener.onFailure(e);
                 }
