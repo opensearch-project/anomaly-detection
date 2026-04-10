@@ -49,6 +49,7 @@ import org.opensearch.timeseries.dataprocessor.ImputationOption;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.PrometheusSource;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -1461,6 +1462,190 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
 
         // Should pass validation; no exception should be thrown
         assertNotNull(detector);
+    }
+
+    public void testParsePrometheusAnomalyDetector() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"prom-detector\","
+            + "\"description\":\"prometheus detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"rate(go_gc_heap_allocs_bytes_total{instance=\\\"localhost:9090\\\"}[5m])\","
+            + "\"data_connection_id\":\"prome\","
+            + "\"series_filter\":{\"instance\":\"localhost:9090\",\"job\":\"prometheus\"}"
+            + "},"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value\","
+            + "\"feature_enabled\":true"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(Config.SOURCE_TYPE_PROMETHEUS, detector.getSourceType());
+        assertTrue(detector.getIndices().isEmpty());
+        assertEquals("", detector.getTimeField());
+
+        PrometheusSource prometheusSource = detector.getPrometheusSource();
+        assertNotNull(prometheusSource);
+        assertEquals("PROMQL", prometheusSource.getQueryLanguage());
+        assertEquals("prome", prometheusSource.getDataConnectionId());
+        assertEquals("rate(go_gc_heap_allocs_bytes_total{instance=\"localhost:9090\"}[5m])", prometheusSource.getQuery());
+        assertEquals("localhost:9090", prometheusSource.getSeriesFilter().get("instance"));
+        assertEquals("prometheus", prometheusSource.getSeriesFilter().get("job"));
+
+        String serialized = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        assertTrue(serialized.contains("\"source_type\":\"PROMETHEUS\""));
+        assertTrue(serialized.contains("\"prometheus_source\""));
+        assertTrue(serialized.contains("\"series_filter\""));
+        assertFalse(serialized.contains("\"time_field\""));
+        assertFalse(serialized.contains("\"indices\""));
+    }
+
+    public void testParsePrometheusAnomalyDetectorMissingConnectionId() {
+        String detectorString = "{"
+            + "\"name\":\"prom-detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"rate(go_gc_heap_allocs_bytes_total{instance=\\\"localhost:9090\\\"}[5m])\""
+            + "},"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value\","
+            + "\"feature_enabled\":true"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals("prometheus_source.data_connection_id must be set when source_type is PROMETHEUS.", exception.getMessage());
+        assertEquals(ValidationIssueType.GENERAL_SETTINGS, exception.getType());
+    }
+
+    public void testParsePrometheusAnomalyDetectorRejectsTimeFieldAndIndices() {
+        String detectorString = "{"
+            + "\"name\":\"prom-detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"time_field\":\"timestamp\","
+            + "\"indices\":[\"source-index\"],"
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"rate(go_gc_heap_allocs_bytes_total{instance=\\\"localhost:9090\\\"}[5m])\","
+            + "\"data_connection_id\":\"prome\""
+            + "},"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"f1\":{\"avg\":{\"field\":\"value\"}}}"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals("time_field must be empty when source_type is PROMETHEUS.", exception.getMessage());
+        assertEquals(ValidationIssueType.TIMEFIELD_FIELD, exception.getType());
+    }
+
+    public void testParsePrometheusAnomalyDetectorRequiresSingleEnabledFeature() {
+        String detectorString = "{"
+            + "\"name\":\"prom-detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"rate(go_gc_heap_allocs_bytes_total{instance=\\\"localhost:9090\\\"}[5m])\","
+            + "\"data_connection_id\":\"prome\""
+            + "},"
+            + "\"feature_attributes\":["
+            + "{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value_1\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"f1\":{\"avg\":{\"field\":\"value\"}}}"
+            + "},"
+            + "{"
+            + "\"feature_id\":\"f2\","
+            + "\"feature_name\":\"prom_value_2\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"f2\":{\"sum\":{\"field\":\"value\"}}}"
+            + "}"
+            + "],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals("Exactly one enabled feature is required when source_type is PROMETHEUS.", exception.getMessage());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, exception.getType());
+    }
+
+    public void testParsePrometheusAnomalyDetectorAcceptsCategoryFields() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"prom-detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"rate(go_gc_heap_allocs_bytes_total{instance=\\\"localhost:9090\\\"}[5m])\","
+            + "\"data_connection_id\":\"prome\""
+            + "},"
+            + "\"category_field\":[\"host\"],"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"f1\":{\"avg\":{\"field\":\"value\"}}}"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(Config.SOURCE_TYPE_PROMETHEUS, detector.getSourceType());
+        assertEquals(ImmutableList.of("host"), detector.getCategoryFields());
+        assertTrue(detector.isHighCardinality());
+    }
+
+    public void testParseOpenSearchAnomalyDetectorRequiresAggregationQuery() {
+        String detectorString = "{"
+            + "\"name\":\"os-detector\","
+            + "\"time_field\":\"timestamp\","
+            + "\"indices\":[\"source-index\"],"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"os_value\","
+            + "\"feature_enabled\":true"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals("feature_attributes.aggregation_query must be set when source_type is OPENSEARCH.", exception.getMessage());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, exception.getType());
     }
 
     /**

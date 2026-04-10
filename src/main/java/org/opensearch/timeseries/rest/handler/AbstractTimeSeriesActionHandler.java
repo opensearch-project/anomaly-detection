@@ -325,6 +325,11 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     protected void validateTimeField(boolean indexingDryRun, ActionListener<T> listener) {
+        if (isPrometheusSourceConfig()) {
+            prepareConfigIndexing(indexingDryRun, listener);
+            return;
+        }
+
         String givenTimeField = config.getTimeField();
         HashMap<String, List<String>> clusterIndicesMap = CrossClusterConfigUtils
             .separateClusterIndexes(config.getIndices(), clusterService);
@@ -918,6 +923,15 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
     }
 
     protected void searchConfigInputIndices(String configId, boolean indexingDryRun, ActionListener<T> listener) {
+        if (isPrometheusSourceConfig()) {
+            try {
+                validateConfigFeatures(configId, indexingDryRun, listener);
+            } catch (IOException e) {
+                listener.onFailure(e);
+            }
+            return;
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .query(QueryBuilders.matchAllQuery())
             .size(0)
@@ -1152,6 +1166,10 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
+        if (isPrometheusSourceConfig()) {
+            checkConfigNameExists(id, indexingDryRun, listener);
+            return;
+        }
         // checking runtime error from feature query
         ActionListener<MergeableList<Optional<double[]>>> validateFeatureQueriesListener = ActionListener.wrap(response -> {
             checkConfigNameExists(id, indexingDryRun, listener);
@@ -1204,6 +1222,10 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             });
             clientUtil.asyncRequestWithInjectedSecurity(searchRequest, client::search, user, client, context, searchResponseListener);
         }
+    }
+
+    protected boolean isPrometheusSourceConfig() {
+        return config != null && Config.SOURCE_TYPE_PROMETHEUS.equals(config.getSourceType());
     }
 
     /**

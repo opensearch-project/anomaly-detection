@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -32,6 +33,7 @@ import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.feature.FeatureManager;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.ml.ModelColdStart;
+import org.opensearch.timeseries.ml.ModelManager;
 import org.opensearch.timeseries.ml.ModelState;
 import org.opensearch.timeseries.ml.Sample;
 import org.opensearch.timeseries.model.Config;
@@ -208,5 +210,25 @@ public class ForecastColdStart extends ModelColdStart<RCFCaster, ForecastIndex, 
         modelState.setModel(caster);
 
         return res;
+    }
+
+    /**
+     * Runs forecast preview on the provided samples and forecaster without persisting state.
+     *
+     * @param pointSamples sampled points in chronological order
+     * @param forecaster preview forecaster config
+     * @return forecast preview results
+     */
+    public List<ForecastResult> preview(List<Sample> pointSamples, Forecaster forecaster) {
+        String modelId = (forecaster.getId() == null ? "preview" : forecaster.getId()) + "_preview_model";
+        ModelState<RCFCaster> previewState = new ModelState<>(
+            null,
+            modelId,
+            forecaster.getId(),
+            ModelManager.ModelType.RCFCASTER.getName(),
+            clock
+        );
+        List<ForecastResult> previewResults = trainModelFromDataSegments(pointSamples, previewState, forecaster, null);
+        return previewResults == null ? Collections.emptyList() : previewResults;
     }
 }
