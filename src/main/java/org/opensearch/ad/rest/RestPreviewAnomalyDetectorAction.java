@@ -15,8 +15,10 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import static org.opensearch.timeseries.util.RestHandlerUtils.PREVIEW;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -24,8 +26,10 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.model.AnomalyDetectorExecutionInput;
 import org.opensearch.ad.settings.ADEnabledSetting;
+import org.opensearch.ad.settings.AnomalyDetectorSettings;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorAction;
 import org.opensearch.ad.transport.PreviewAnomalyDetectorRequest;
+import org.opensearch.ad.transport.PreviewAnomalyDetectorTransportAction;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentParser;
@@ -53,6 +57,13 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
     }
 
     @Override
+    protected Set<String> responseParams() {
+        Set<String> responseParams = new HashSet<>(super.responseParams());
+        responseParams.add(PreviewAnomalyDetectorTransportAction.MIN_PREVIEW_SIZE_PARAM);
+        return responseParams;
+    }
+
+    @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, org.opensearch.transport.client.node.NodeClient client)
         throws IOException {
         if (!ADEnabledSetting.isADEnabled()) {
@@ -60,19 +71,35 @@ public class RestPreviewAnomalyDetectorAction extends BaseRestHandler {
         }
 
         AnomalyDetectorExecutionInput input = getConfigExecutionInput(request);
+        Integer minPreviewSize = request.hasParam(PreviewAnomalyDetectorTransportAction.MIN_PREVIEW_SIZE_PARAM)
+            ? request.paramAsInt(
+                PreviewAnomalyDetectorTransportAction.MIN_PREVIEW_SIZE_PARAM,
+                AnomalyDetectorSettings.MIN_PREVIEW_SIZE
+            )
+            : null;
 
         return channel -> {
-            String rawPath = request.rawPath();
             String error = validateAdExecutionInput(input);
             if (StringUtils.isNotBlank(error)) {
                 channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, error));
+                return;
+            }
+            if (minPreviewSize != null && minPreviewSize <= 0) {
+                channel
+                    .sendResponse(
+                        new BytesRestResponse(
+                            RestStatus.BAD_REQUEST,
+                            "min_preview_size must be a positive integer when provided"
+                        )
+                    );
                 return;
             }
             PreviewAnomalyDetectorRequest previewRequest = new PreviewAnomalyDetectorRequest(
                 input.getDetector(),
                 input.getDetectorId(),
                 input.getPeriodStart(),
-                input.getPeriodEnd()
+                input.getPeriodEnd(),
+                minPreviewSize
             );
             client.execute(PreviewAnomalyDetectorAction.INSTANCE, previewRequest, new RestToXContentListener<>(channel));
         };

@@ -51,6 +51,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.PrometheusSource;
 import org.opensearch.timeseries.model.ShingleGetter;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
@@ -189,6 +190,74 @@ public class AnomalyDetector extends Config {
         TimeConfiguration frequency,
         Boolean autoCreated
     ) {
+        this(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            categoryFields,
+            user,
+            resultIndex,
+            imputationOption,
+            recencyEmphasis,
+            seasonIntervals,
+            historyIntervals,
+            rules,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL,
+            flattenResultIndexMapping,
+            lastBreakingUIChangeTime,
+            frequency,
+            autoCreated,
+            null,
+            null
+        );
+    }
+
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryFields,
+        User user,
+        String resultIndex,
+        ImputationOption imputationOption,
+        Integer recencyEmphasis,
+        Integer seasonIntervals,
+        Integer historyIntervals,
+        List<Rule> rules,
+        Integer customResultIndexMinSize,
+        Integer customResultIndexMinAge,
+        Integer customResultIndexTTL,
+        Boolean flattenResultIndexMapping,
+        Instant lastBreakingUIChangeTime,
+        TimeConfiguration frequency,
+        Boolean autoCreated,
+        String sourceType,
+        PrometheusSource prometheusSource
+    ) {
         super(
             detectorId,
             version,
@@ -218,7 +287,9 @@ public class AnomalyDetector extends Config {
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
             frequency,
-            autoCreated
+            autoCreated,
+            sourceType,
+            prometheusSource
         );
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
@@ -236,7 +307,6 @@ public class AnomalyDetector extends Config {
             errorMessage = CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields);
             issueType = ValidationIssueType.CATEGORY;
         }
-
         validateRules(features, rules);
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
@@ -305,6 +375,17 @@ public class AnomalyDetector extends Config {
             this.frequency = null;
         }
         this.autoCreated = input.readOptionalBoolean();
+        if (input.available() > 0) {
+            this.sourceType = input.readOptionalString();
+        } else {
+            this.sourceType = SOURCE_TYPE_OPENSEARCH;
+        }
+        if (input.available() > 0 && input.readBoolean()) {
+            this.prometheusSource = new PrometheusSource(input);
+            this.sourceType = SOURCE_TYPE_PROMETHEUS;
+        } else {
+            this.prometheusSource = null;
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -379,6 +460,13 @@ public class AnomalyDetector extends Config {
             output.writeBoolean(false);
         }
         output.writeOptionalBoolean(autoCreated);
+        output.writeOptionalString(sourceType);
+        if (prometheusSource != null) {
+            output.writeBoolean(true);
+            prometheusSource.writeTo(output);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     @Override
@@ -479,6 +567,8 @@ public class AnomalyDetector extends Config {
         // by default, frequency is the same as interval when not set
         TimeConfiguration frequency = null;
         Boolean autoCreated = null;
+        String sourceType = null;
+        PrometheusSource prometheusSource = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -636,6 +726,12 @@ public class AnomalyDetector extends Config {
                 case AUTO_CREATED_FIELD:
                     autoCreated = onlyParseBooleanValue(parser);
                     break;
+                case SOURCE_TYPE_FIELD:
+                    sourceType = parser.textOrNull();
+                    break;
+                case PROMETHEUS_SOURCE_FIELD:
+                    prometheusSource = PrometheusSource.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -671,7 +767,9 @@ public class AnomalyDetector extends Config {
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
             frequency,
-            autoCreated
+            autoCreated,
+            sourceType,
+            prometheusSource
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;

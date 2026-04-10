@@ -180,6 +180,7 @@ import org.opensearch.env.NodeEnvironment;
 import org.opensearch.forecast.ExecuteForecastResultResponseRecorder;
 import org.opensearch.forecast.ForecastJobProcessor;
 import org.opensearch.forecast.ForecastTaskProfileRunner;
+import org.opensearch.forecast.ForecasterRunner;
 import org.opensearch.forecast.caching.ForecastCacheProvider;
 import org.opensearch.forecast.caching.ForecastPriorityCache;
 import org.opensearch.forecast.constant.ForecastCommonName;
@@ -203,6 +204,7 @@ import org.opensearch.forecast.rest.RestForecasterJobAction;
 import org.opensearch.forecast.rest.RestForecasterSuggestAction;
 import org.opensearch.forecast.rest.RestGetForecasterAction;
 import org.opensearch.forecast.rest.RestIndexForecasterAction;
+import org.opensearch.forecast.rest.RestPreviewForecasterAction;
 import org.opensearch.forecast.rest.RestRunOnceForecasterAction;
 import org.opensearch.forecast.rest.RestSearchForecastTasksAction;
 import org.opensearch.forecast.rest.RestSearchForecasterAction;
@@ -246,6 +248,8 @@ import org.opensearch.forecast.transport.GetForecasterAction;
 import org.opensearch.forecast.transport.GetForecasterTransportAction;
 import org.opensearch.forecast.transport.IndexForecasterAction;
 import org.opensearch.forecast.transport.IndexForecasterTransportAction;
+import org.opensearch.forecast.transport.PreviewForecasterAction;
+import org.opensearch.forecast.transport.PreviewForecasterTransportAction;
 import org.opensearch.forecast.transport.SearchForecastTasksAction;
 import org.opensearch.forecast.transport.SearchForecastTasksTransportAction;
 import org.opensearch.forecast.transport.SearchForecasterAction;
@@ -460,6 +464,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         RestSearchTopForecastResultAction searchTopForecastResultAction = new RestSearchTopForecastResultAction();
         RestSearchForecastTasksAction searchForecastTasksAction = new RestSearchForecastTasksAction();
         RestStatsForecasterAction statsForecasterAction = new RestStatsForecasterAction(forecastStats, this.nodeFilter);
+        RestPreviewForecasterAction previewForecasterAction = new RestPreviewForecasterAction();
         RestRunOnceForecasterAction runOnceForecasterAction = new RestRunOnceForecasterAction();
         RestValidateForecasterAction validateForecasterAction = new RestValidateForecasterAction(settings, clusterService);
         RestForecasterSuggestAction suggestForecasterParamAction = new RestForecasterSuggestAction(settings, clusterService);
@@ -504,6 +509,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 searchTopForecastResultAction,
                 searchForecastTasksAction,
                 statsForecasterAction,
+                previewForecasterAction,
                 runOnceForecasterAction,
                 validateForecasterAction,
                 suggestForecasterParamAction
@@ -1168,6 +1174,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
             forecastMemoryTracker,
             featureManager
         );
+        ForecasterRunner forecasterRunner = new ForecasterRunner(forecastColdStarter, featureManager);
 
         ForecastIndexMemoryPressureAwareResultHandler forecastIndexMemoryPressureAwareResultHandler =
             new ForecastIndexMemoryPressureAwareResultHandler(client, forecastIndices, clusterService);
@@ -1432,6 +1439,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 forecastCheckpointWriteQueue,
                 forecastColdEntityQueue,
                 forecastColdStarter,
+                forecasterRunner,
                 forecastTaskManager,
                 forecastSearchHandler,
                 forecastIndexJobActionHandler,
@@ -1746,6 +1754,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 new ActionHandler<>(SearchForecastTasksAction.INSTANCE, SearchForecastTasksTransportAction.class),
                 new ActionHandler<>(StatsForecasterAction.INSTANCE, StatsForecasterTransportAction.class),
                 new ActionHandler<>(ForecastStatsNodesAction.INSTANCE, ForecastStatsNodesTransportAction.class),
+                new ActionHandler<>(PreviewForecasterAction.INSTANCE, PreviewForecasterTransportAction.class),
                 new ActionHandler<>(ForecastRunOnceAction.INSTANCE, ForecastRunOnceTransportAction.class),
                 new ActionHandler<>(ForecastRunOnceProfileAction.INSTANCE, ForecastRunOnceProfileTransportAction.class),
                 new ActionHandler<>(ValidateForecasterAction.INSTANCE, ValidateForecasterTransportAction.class),

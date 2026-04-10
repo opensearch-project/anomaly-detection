@@ -25,6 +25,7 @@ import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.TaskState;
 
 public class ADTaskTests extends OpenSearchSingleNodeTestCase {
@@ -90,6 +91,43 @@ public class ADTaskTests extends OpenSearchSingleNodeTestCase {
         String adTaskString = TestHelpers.xContentBuilderToString(adTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
         ADTask parsedADTask = ADTask.parse(TestHelpers.parser(adTaskString));
         assertEquals("Parsing AD task doesn't work", adTask, parsedADTask);
+    }
+
+    public void testParseADTaskWithPrometheusDetector() throws IOException {
+        String detectorId = randomAlphaOfLength(8);
+        String taskId = randomAlphaOfLength(8);
+        String detectorJson = "{"
+            + "\"name\":\"prom-task-detector\","
+            + "\"description\":\"prometheus task parser test\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"up\","
+            + "\"data_connection_id\":\"local\""
+            + "},"
+            + "\"feature_attributes\":[{\"feature_name\":\"prometheus_value\",\"feature_enabled\":true}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}"
+            + "}";
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorJson), detectorId, 1L);
+        ADTask adTask = ADTask
+            .builder()
+            .taskId(taskId)
+            .configId(detectorId)
+            .taskType(ADTaskType.REALTIME_SINGLE_ENTITY.name())
+            .state(TaskState.RUNNING.name())
+            .executionStartTime(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+            .isLatest(true)
+            .detector(detector)
+            .build();
+
+        String adTaskString = TestHelpers.xContentBuilderToString(adTask.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        ADTask parsedADTask = ADTask.parse(TestHelpers.parser(adTaskString), taskId);
+
+        assertEquals("Prometheus detector source type should survive task parsing", Config.SOURCE_TYPE_PROMETHEUS, parsedADTask.getDetector().getSourceType());
+        assertNotNull("Prometheus source should survive task parsing", parsedADTask.getDetector().getPrometheusSource());
+        assertEquals("up", parsedADTask.getDetector().getPrometheusSource().getQuery());
+        assertEquals("local", parsedADTask.getDetector().getPrometheusSource().getDataConnectionId());
     }
 
 }

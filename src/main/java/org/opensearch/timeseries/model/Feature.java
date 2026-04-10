@@ -25,6 +25,7 @@ import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.util.ParseUtils;
 
@@ -39,6 +40,8 @@ public class Feature implements Writeable, ToXContentObject {
     public static final String FEATURE_NAME_FIELD = "feature_name";
     private static final String FEATURE_ENABLED_FIELD = "feature_enabled";
     private static final String AGGREGATION_QUERY = "aggregation_query";
+    public static final String PROMETHEUS_PLACEHOLDER_AGG_NAME = "__prometheus_feature_value__";
+    private static final String PROMETHEUS_PLACEHOLDER_FIELD = "__prometheus_value__";
 
     private final String id;
     private final String name;
@@ -47,7 +50,7 @@ public class Feature implements Writeable, ToXContentObject {
 
     /**
      * Constructor function.
-     *  @param id      feature id
+     * @param id      feature id
      * @param name    feature name
      * @param enabled feature enabled or not
      * @param aggregation feature aggregation query
@@ -130,6 +133,9 @@ public class Feature implements Writeable, ToXContentObject {
                     break;
             }
         }
+        if (aggregation == null) {
+            aggregation = AggregationBuilders.avg(PROMETHEUS_PLACEHOLDER_AGG_NAME).field(PROMETHEUS_PLACEHOLDER_FIELD);
+        }
         return new Feature(id, name, enabled, aggregation);
     }
 
@@ -169,6 +175,10 @@ public class Feature implements Writeable, ToXContentObject {
 
     public AggregationBuilder getAggregation() {
         return aggregation;
+    }
+
+    public boolean usesPrometheusPlaceholderAggregation() {
+        return aggregation != null && PROMETHEUS_PLACEHOLDER_AGG_NAME.equals(aggregation.getName());
     }
 
     @Override
