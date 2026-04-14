@@ -44,6 +44,7 @@ import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.*;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.transport.NetworkExceptionHelper;
@@ -137,6 +138,7 @@ public abstract class ResultProcessor<TransportResultRequestType extends ResultR
 
     protected boolean runOnce;
 
+    @Inject
     public ResultProcessor(
         Setting<TimeValue> requestTimeoutSetting,
         String entityResultAction,

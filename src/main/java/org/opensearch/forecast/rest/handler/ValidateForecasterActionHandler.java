@@ -18,6 +18,7 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.*;
 import org.opensearch.transport.client.Client;
 
 /**
@@ -53,6 +54,7 @@ public class ValidateForecasterActionHandler extends AbstractForecasterActionHan
 
     public ValidateForecasterActionHandler(
         ClusterService clusterService,
+        TransportService transportService,
         Client client,
         SecurityClientUtil clientUtil,
         ForecastIndexManagement forecastIndices,
@@ -74,7 +76,7 @@ public class ValidateForecasterActionHandler extends AbstractForecasterActionHan
             clusterService,
             client,
             clientUtil,
-            null,
+            transportService,
             forecastIndices,
             Config.NO_ID,
             null,

@@ -24,6 +24,7 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
 import org.opensearch.timeseries.util.SecurityClientUtil;
+import org.opensearch.transport.*;
 import org.opensearch.transport.client.Client;
 
 /**
@@ -57,6 +58,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
         ClusterService clusterService,
         Client client,
         SecurityClientUtil clientUtil,
+        TransportService transportService,
         ADIndexManagement anomalyDetectionIndices,
         Config anomalyDetector,
         TimeValue requestTimeout,
@@ -76,7 +78,7 @@ public class ValidateAnomalyDetectorActionHandler extends AbstractAnomalyDetecto
             clusterService,
             client,
             clientUtil,
-            null,
+            transportService,
             anomalyDetectionIndices,
             Config.NO_ID,
             null,

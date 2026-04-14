@@ -71,6 +71,7 @@ public class ValidateForecasterTransportAction extends
     protected Processor<ValidateConfigResponse> createProcessor(Config forecaster, ValidateConfigRequest request, User user) {
         return new ValidateForecasterActionHandler(
             clusterService,
+            transportService,
             client,
             clientUtil,
             indexManagement,
