@@ -9,8 +9,8 @@ import java.io.IOException;
 
 import org.opensearch.test.OpenSearchTestCase;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 public class ForecastIndexMappingTests extends OpenSearchTestCase {
 

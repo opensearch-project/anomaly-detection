@@ -37,7 +37,7 @@ buildscript {
     ext {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        opensearch_version = System.getProperty("opensearch.version", "3.6.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "3.7.0-SNAPSHOT")
         buildVersionQualifier = System.getProperty("build.version_qualifier", "")
         // 3.0.0-SNAPSHOT -> 3.0.0.0-SNAPSHOT
         version_tokens = opensearch_version.tokenize('-')
@@ -162,6 +162,8 @@ dependencies {
 
 
     // we inherit jackson-core from opensearch core
+    implementation("tools.jackson.core:jackson-databind:${versions.jackson3_databind}")
+    // randomforest still uses Jackson 2.x
     implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
     implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson_annotations}")
 
@@ -270,6 +272,7 @@ configurations.all {
         force "junit:junit:4.13.2"
 
         force "com.google.guava:guava:33.5.0-jre" // CVE for 31.1
+        force("tools.jackson.core:jackson-core:${versions.jackson3}")
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
         force "org.ow2.asm:asm:9.9.1"
     }

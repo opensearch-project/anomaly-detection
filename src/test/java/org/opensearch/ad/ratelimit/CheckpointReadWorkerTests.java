@@ -82,9 +82,9 @@ import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.TimeSeriesStat;
 import org.opensearch.timeseries.stats.suppliers.CounterSupplier;
 import org.opensearch.timeseries.util.ModelUtil;
+import org.opensearch.tools.jackson.core.JsonParseException;
 
 import com.amazon.randomcutforest.parkservices.ThresholdedRandomCutForest;
-import com.fasterxml.jackson.core.JsonParseException;
 
 import test.org.opensearch.ad.util.MLUtil;
 import test.org.opensearch.ad.util.RandomModelStateConfig;
@@ -599,7 +599,7 @@ public class CheckpointReadWorkerTests extends AbstractRateLimitingTest {
             ActionListener<MultiGetResponse> listener = invocation.getArgument(1);
             if (retried.get()) {
                 // not retryable
-                listener.onFailure(new JsonParseException(null, "blah"));
+                listener.onFailure(new JsonParseException("blah"));
             } else {
                 // retryable
                 retried.set(true);
