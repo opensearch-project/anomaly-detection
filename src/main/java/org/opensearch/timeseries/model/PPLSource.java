@@ -149,9 +149,7 @@ public class PPLSource implements Writeable, ToXContentObject {
                 throw new IllegalArgumentException("PPL detector queries must contain exactly one source stage.");
             }
             if (isStatsStage(stage)) {
-                throw new IllegalArgumentException(
-                    "Only one final stats stage is supported in ppl_source.query for detector creation."
-                );
+                throw new IllegalArgumentException("Only one final stats stage is supported in ppl_source.query for detector creation.");
             }
             preStatsStages.add(stage);
         }
@@ -283,7 +281,9 @@ public class PPLSource implements Writeable, ToXContentObject {
         String aggregationType = metricCore.substring(0, openParenIndex).trim().toLowerCase(Locale.ROOT);
         if (!isSupportedAggregationType(aggregationType)) {
             throw new IllegalArgumentException(
-                "Unsupported aggregation [" + aggregationType + "] in ppl_source.query. Supported aggregations are count, sum, avg, min, and max."
+                "Unsupported aggregation ["
+                    + aggregationType
+                    + "] in ppl_source.query. Supported aggregations are count, sum, avg, min, and max."
             );
         }
 
@@ -294,9 +294,7 @@ public class PPLSource implements Writeable, ToXContentObject {
         }
 
         String normalizedArgument = countAll ? null : argumentExpression;
-        String resolvedFeatureName = Strings.isBlank(alias)
-            ? defaultFeatureName(aggregationType, normalizedArgument, countAll)
-            : alias;
+        String resolvedFeatureName = Strings.isBlank(alias) ? defaultFeatureName(aggregationType, normalizedArgument, countAll) : alias;
 
         return new MetricSpec(aggregationType, normalizedArgument, resolvedFeatureName, countAll);
     }
@@ -662,14 +660,15 @@ public class PPLSource implements Writeable, ToXContentObject {
             }
             return buildStatsQuery(
                 String.join(", ", metricsExpressions),
-                String.format(
-                    Locale.ROOT,
-                    "%s >= \"%s\" and %s < \"%s\"",
-                    maybeQuote(timeField),
-                    formatQueryTimestamp(startTimeMs),
-                    maybeQuote(timeField),
-                    formatQueryTimestamp(endTimeMs)
-                )
+                String
+                    .format(
+                        Locale.ROOT,
+                        "%s >= \"%s\" and %s < \"%s\"",
+                        maybeQuote(timeField),
+                        formatQueryTimestamp(startTimeMs),
+                        maybeQuote(timeField),
+                        formatQueryTimestamp(endTimeMs)
+                    )
             );
         }
 
@@ -682,10 +681,7 @@ public class PPLSource implements Writeable, ToXContentObject {
         }
 
         public String buildDateRangeQuery() {
-            return buildStatsQuery(
-                "min(" + maybeQuote(timeField) + ") as min_time, max(" + maybeQuote(timeField) + ") as max_time",
-                null
-            );
+            return buildStatsQuery("min(" + maybeQuote(timeField) + ") as min_time, max(" + maybeQuote(timeField) + ") as max_time", null);
         }
 
         private String buildStatsQuery(String statsExpression, String appendedWhereClause) {

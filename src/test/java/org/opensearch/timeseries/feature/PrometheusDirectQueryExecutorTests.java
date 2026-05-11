@@ -13,10 +13,10 @@ package org.opensearch.timeseries.feature;
 
 import static org.mockito.Mockito.mock;
 
+import java.lang.reflect.Method;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
-import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;

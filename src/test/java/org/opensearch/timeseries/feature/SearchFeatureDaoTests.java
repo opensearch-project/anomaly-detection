@@ -88,8 +88,8 @@ import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
-import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.PPLSource;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
@@ -295,7 +295,9 @@ public class SearchFeatureDaoTests {
             ActionListener<Optional<double[]>> listener = invocation.getArgument(4);
             listener.onResponse(Optional.of(new double[] { 42.0, 7.0 }));
             return null;
-        }).when(pplDirectQueryExecutor).executeMetricQuery(eq(detector), eq(start), eq(end), eq(AnalysisType.AD), any(ActionListener.class));
+        })
+            .when(pplDirectQueryExecutor)
+            .executeMetricQuery(eq(detector), eq(start), eq(end), eq(AnalysisType.AD), any(ActionListener.class));
 
         ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
         pplSearchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
@@ -346,10 +348,16 @@ public class SearchFeatureDaoTests {
                 listener.onResponse(Optional.empty());
             }
             return null;
-        }).when(pplDirectQueryExecutor).executeMetricQuery(eq(detector), any(Long.class), any(Long.class), eq(AnalysisType.AD), any(ActionListener.class));
+        })
+            .when(pplDirectQueryExecutor)
+            .executeMetricQuery(eq(detector), any(Long.class), any(Long.class), eq(AnalysisType.AD), any(ActionListener.class));
 
         ActionListener<List<Optional<double[]>>> listener = mock(ActionListener.class);
-        List<Map.Entry<Long, Long>> ranges = Arrays.asList(new java.util.AbstractMap.SimpleImmutableEntry<>(100L, 200L), new java.util.AbstractMap.SimpleImmutableEntry<>(200L, 300L));
+        List<Map.Entry<Long, Long>> ranges = Arrays
+            .asList(
+                new java.util.AbstractMap.SimpleImmutableEntry<>(100L, 200L),
+                new java.util.AbstractMap.SimpleImmutableEntry<>(200L, 300L)
+            );
         pplSearchFeatureDao.getFeatureSamplesForPeriods(detector, ranges, AnalysisType.AD, true, listener);
 
         ArgumentCaptor<List<Optional<double[]>>> captor = ArgumentCaptor.forClass(List.class);

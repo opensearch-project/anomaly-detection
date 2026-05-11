@@ -95,30 +95,37 @@ public class PPLDirectQueryExecutor {
         );
     }
 
-    public void executeLatestDataTimeQuery(
-        User user,
-        Config config,
-        AnalysisType context,
-        ActionListener<Optional<Long>> listener
-    ) {
-        executeQuery(user, config, PPLSource.CompiledPPLQuery::buildLatestTimeQuery, context, PPLDirectQueryExecutor::parseSingleTimestamp, listener);
+    public void executeLatestDataTimeQuery(User user, Config config, AnalysisType context, ActionListener<Optional<Long>> listener) {
+        executeQuery(
+            user,
+            config,
+            PPLSource.CompiledPPLQuery::buildLatestTimeQuery,
+            context,
+            PPLDirectQueryExecutor::parseSingleTimestamp,
+            listener
+        );
     }
 
-    public void executeMinDataTimeQuery(
-        Config config,
-        AnalysisType context,
-        ActionListener<Optional<Long>> listener
-    ) {
-        executeQuery(null, config, PPLSource.CompiledPPLQuery::buildMinTimeQuery, context, PPLDirectQueryExecutor::parseSingleTimestamp, listener);
+    public void executeMinDataTimeQuery(Config config, AnalysisType context, ActionListener<Optional<Long>> listener) {
+        executeQuery(
+            null,
+            config,
+            PPLSource.CompiledPPLQuery::buildMinTimeQuery,
+            context,
+            PPLDirectQueryExecutor::parseSingleTimestamp,
+            listener
+        );
     }
 
-    public void executeDateRangeQuery(
-        User user,
-        Config config,
-        AnalysisType context,
-        ActionListener<Pair<Long, Long>> listener
-    ) {
-        executeQuery(user, config, PPLSource.CompiledPPLQuery::buildDateRangeQuery, context, PPLDirectQueryExecutor::parseDateRange, listener);
+    public void executeDateRangeQuery(User user, Config config, AnalysisType context, ActionListener<Pair<Long, Long>> listener) {
+        executeQuery(
+            user,
+            config,
+            PPLSource.CompiledPPLQuery::buildDateRangeQuery,
+            context,
+            PPLDirectQueryExecutor::parseDateRange,
+            listener
+        );
     }
 
     private <T> void executeQuery(
@@ -152,23 +159,25 @@ public class PPLDirectQueryExecutor {
         }, listener::onFailure);
 
         if (user != null) {
-            clientUtil.asyncRequestWithInjectedSecurity(
-                request,
-                (pplRequest, actionListener) -> client.execute(PPL_QUERY_ACTION, pplRequest, actionListener),
-                user,
-                client,
-                context,
-                queryResponseListener
-            );
+            clientUtil
+                .asyncRequestWithInjectedSecurity(
+                    request,
+                    (pplRequest, actionListener) -> client.execute(PPL_QUERY_ACTION, pplRequest, actionListener),
+                    user,
+                    client,
+                    context,
+                    queryResponseListener
+                );
         } else {
-            clientUtil.asyncRequestWithInjectedSecurity(
-                request,
-                (pplRequest, actionListener) -> client.execute(PPL_QUERY_ACTION, pplRequest, actionListener),
-                config.getId(),
-                client,
-                context,
-                queryResponseListener
-            );
+            clientUtil
+                .asyncRequestWithInjectedSecurity(
+                    request,
+                    (pplRequest, actionListener) -> client.execute(PPL_QUERY_ACTION, pplRequest, actionListener),
+                    config.getId(),
+                    client,
+                    context,
+                    queryResponseListener
+                );
         }
     }
 
@@ -303,7 +312,10 @@ public class PPLDirectQueryExecutor {
                 return (PPLTransportResponse) actionResponse;
             }
 
-            try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); OutputStreamStreamOutput output = new OutputStreamStreamOutput(baos)) {
+            try (
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                OutputStreamStreamOutput output = new OutputStreamStreamOutput(baos)
+            ) {
                 actionResponse.writeTo(output);
                 try (InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
                     return new PPLTransportResponse(input);
