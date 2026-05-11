@@ -98,6 +98,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     private long previewTimeoutInMilliseconds;
     private Clock clock;
     private final PrometheusDirectQueryExecutor prometheusDirectQueryExecutor;
+    private final PPLDirectQueryExecutor pplDirectQueryExecutor;
 
     // used for testing as we can mock clock
     public SearchFeatureDao(
@@ -121,7 +122,9 @@ public class SearchFeatureDao extends AbstractRetriever {
             clock,
             maxEntitiesForPreview,
             pageSize,
-            previewTimeoutInMilliseconds
+            previewTimeoutInMilliseconds,
+            null,
+            null
         );
     }
 
@@ -138,6 +141,36 @@ public class SearchFeatureDao extends AbstractRetriever {
         int pageSize,
         long previewTimeoutInMilliseconds
     ) {
+        this(
+            client,
+            xContent,
+            clientUtil,
+            clusterService,
+            dataSourceEncryptionMasterKey,
+            minimumDocCount,
+            clock,
+            maxEntitiesForPreview,
+            pageSize,
+            previewTimeoutInMilliseconds,
+            null,
+            null
+        );
+    }
+
+    SearchFeatureDao(
+        Client client,
+        NamedXContentRegistry xContent,
+        SecurityClientUtil clientUtil,
+        ClusterService clusterService,
+        String dataSourceEncryptionMasterKey,
+        int minimumDocCount,
+        Clock clock,
+        int maxEntitiesForPreview,
+        int pageSize,
+        long previewTimeoutInMilliseconds,
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor,
+        PPLDirectQueryExecutor pplDirectQueryExecutor
+    ) {
         this.client = client;
         this.xContent = xContent;
         this.clientUtil = clientUtil;
@@ -152,7 +185,12 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
         this.clock = clock;
-        this.prometheusDirectQueryExecutor = new PrometheusDirectQueryExecutor(client, clientUtil, dataSourceEncryptionMasterKey);
+        this.prometheusDirectQueryExecutor = prometheusDirectQueryExecutor != null
+            ? prometheusDirectQueryExecutor
+            : new PrometheusDirectQueryExecutor(client, clientUtil, dataSourceEncryptionMasterKey);
+        this.pplDirectQueryExecutor = pplDirectQueryExecutor != null
+            ? pplDirectQueryExecutor
+            : new PPLDirectQueryExecutor(client, clientUtil);
     }
 
     /**
@@ -214,6 +252,14 @@ public class SearchFeatureDao extends AbstractRetriever {
             listener.onResponse(Optional.of(clock.millis()));
             return;
         }
+        if (isPPLConfig(config)) {
+            if (entity.isPresent()) {
+                listener.onFailure(new IllegalArgumentException("PPL source_type does not support entity-scoped latest time queries."));
+                return;
+            }
+            pplDirectQueryExecutor.executeLatestDataTimeQuery(user, config, context, listener);
+            return;
+        }
 
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
         if (entity.isPresent()) {
@@ -264,6 +310,14 @@ public class SearchFeatureDao extends AbstractRetriever {
             long startTime = Math
                 .max(0L, endTime - Math.max(config.getIntervalInMilliseconds(), 1L) * Math.max(config.getHistoryIntervals(), 1));
             internalListener.onResponse(Pair.of(startTime, endTime));
+            return;
+        }
+        if (isPPLConfig(config)) {
+            if (topEntity != null && !topEntity.isEmpty()) {
+                internalListener.onFailure(new IllegalArgumentException("PPL source_type does not support categorical entity filters."));
+                return;
+            }
+            pplDirectQueryExecutor.executeDateRangeQuery(user, config, config instanceof AnomalyDetector ? AnalysisType.AD : AnalysisType.FORECAST, internalListener);
             return;
         }
 
@@ -605,6 +659,14 @@ public class SearchFeatureDao extends AbstractRetriever {
             listener.onResponse(Optional.of(Math.max(0L, endTime - lookback)));
             return;
         }
+        if (isPPLConfig(config)) {
+            if (entity.isPresent()) {
+                listener.onFailure(new IllegalArgumentException("PPL source_type does not support entity-scoped min time queries."));
+                return;
+            }
+            pplDirectQueryExecutor.executeMinDataTimeQuery(config, context, listener);
+            return;
+        }
 
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
 
@@ -673,6 +735,10 @@ public class SearchFeatureDao extends AbstractRetriever {
             }
             return;
         }
+        if (isPPLConfig(detector)) {
+            pplDirectQueryExecutor.executeMetricQuery(detector, startTime, endTime, AnalysisType.AD, listener);
+            return;
+        }
 
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
@@ -699,6 +765,10 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) throws IOException {
         if (isPrometheusConfig(detector)) {
             getPrometheusFeatureDataPointsByBatch(detector, entity, startTime, endTime, listener);
+            return;
+        }
+        if (isPPLConfig(detector)) {
+            listener.onFailure(new IllegalArgumentException("PPL source_type only supports single-stream detectors."));
             return;
         }
 
@@ -768,6 +838,10 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) throws IOException {
         if (isPrometheusConfig(config)) {
             getPrometheusFeatureSamplesForPeriods(config, ranges, Optional.empty(), context, keepMissingValues, listener);
+            return;
+        }
+        if (isPPLConfig(config)) {
+            getPPLFeatureSamplesForPeriods(config, ranges, Optional.empty(), context, keepMissingValues, listener);
             return;
         }
 
@@ -863,6 +937,10 @@ public class SearchFeatureDao extends AbstractRetriever {
         if (isPrometheusConfig(config)) {
             // Keep behavior aligned with existing cold-start path where missing values are dropped.
             getPrometheusFeatureSamplesForPeriods(config, ranges, entity, context, false, listener);
+            return;
+        }
+        if (isPPLConfig(config)) {
+            getPPLFeatureSamplesForPeriods(config, ranges, entity, context, false, listener);
             return;
         }
 
@@ -1264,6 +1342,65 @@ public class SearchFeatureDao extends AbstractRetriever {
 
     private boolean isPrometheusConfig(Config config) {
         return config != null && Config.SOURCE_TYPE_PROMETHEUS.equals(config.getSourceType()) && config.getPrometheusSource() != null;
+    }
+
+    private boolean isPPLConfig(Config config) {
+        return config != null && Config.SOURCE_TYPE_PPL.equals(config.getSourceType()) && config.getPPLSource() != null;
+    }
+
+    private void getPPLFeatureSamplesForPeriods(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        AnalysisType context,
+        boolean keepMissingValues,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (entity.isPresent()) {
+            listener.onFailure(new IllegalArgumentException("PPL source_type only supports single-stream detectors."));
+            return;
+        }
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
+
+        List<Optional<double[]>> results = new ArrayList<>(ranges.size());
+        fetchPPLFeatureSample(config, ranges, 0, context, keepMissingValues, results, listener);
+    }
+
+    private void fetchPPLFeatureSample(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        int index,
+        AnalysisType context,
+        boolean keepMissingValues,
+        List<Optional<double[]>> results,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (index >= ranges.size()) {
+            listener.onResponse(results);
+            return;
+        }
+
+        Entry<Long, Long> range = ranges.get(index);
+        pplDirectQueryExecutor.executeMetricQuery(config, range.getKey(), range.getValue(), context, ActionListener.wrap(value -> {
+            if (value.isPresent()) {
+                results.add(value);
+            } else if (keepMissingValues) {
+                results.add(Optional.of(createMissingFeatureVector(config)));
+            } else {
+                results.add(Optional.empty());
+            }
+            fetchPPLFeatureSample(config, ranges, index + 1, context, keepMissingValues, results, listener);
+        }, listener::onFailure));
+    }
+
+    private double[] createMissingFeatureVector(Config config) {
+        int featureCount = config.getEnabledFeatureIds().size();
+        double[] missingValues = new double[featureCount];
+        Arrays.fill(missingValues, Double.NaN);
+        return missingValues;
     }
 
     private void getPrometheusFeatureSamplesForPeriods(

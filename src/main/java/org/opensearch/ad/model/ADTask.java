@@ -350,7 +350,8 @@ public class ADTask extends TimeSeriesTask {
                 detector.getFrequency(),
                 detector.getAutoCreated(),
                 detector.getSourceType(),
-                detector.getPrometheusSource()
+                detector.getPrometheusSource(),
+                detector.getPPLSource()
             );
         return new Builder()
             .taskId(parsedTaskId)

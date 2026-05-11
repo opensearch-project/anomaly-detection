@@ -30,6 +30,19 @@
                 }
             }
         },
+        "ppl_source": {
+            "type": "object",
+            "dynamic": "strict",
+            "properties": {
+                "query_language": {
+                    "type": "keyword"
+                },
+                "query": {
+                    "type": "text",
+                    "index": false
+                }
+            }
+        },
         "name": {
             "type": "text",
             "fields": {

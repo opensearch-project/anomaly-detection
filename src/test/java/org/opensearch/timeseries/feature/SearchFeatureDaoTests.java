@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -88,7 +89,9 @@ import org.opensearch.timeseries.NodeStateManager;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.Entity;
+import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.PPLSource;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
@@ -255,6 +258,110 @@ public class SearchFeatureDaoTests {
         verify(listener).onResponse(captor.capture());
         Optional<Long> result = captor.getValue();
         assertEquals(epochTime, result.get().longValue());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForPeriod_usesPPLRuntimeExecutor() {
+        PPLDirectQueryExecutor pplDirectQueryExecutor = mock(PPLDirectQueryExecutor.class);
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao pplSearchFeatureDao = new SearchFeatureDao(
+            client,
+            xContent,
+            clientUtil,
+            null,
+            null,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            clock,
+            1,
+            1,
+            60_000L,
+            prometheusDirectQueryExecutor,
+            pplDirectQueryExecutor
+        );
+        when(detector.getSourceType()).thenReturn(Config.SOURCE_TYPE_PPL);
+        when(detector.getPPLSource())
+            .thenReturn(
+                new PPLSource(
+                    "PPL",
+                    "source = sample-http-responses | where response_category = 'client_error' | stats sum(http_4xx) as sum_http_4xx, max(http_5xx) as max_http_5xx by span(timestamp, 10m) as bucket"
+                )
+            );
+        when(detector.getEnabledFeatureIds()).thenReturn(Arrays.asList("f1", "f2"));
+
+        long start = 100L;
+        long end = 200L;
+        doAnswer(invocation -> {
+            ActionListener<Optional<double[]>> listener = invocation.getArgument(4);
+            listener.onResponse(Optional.of(new double[] { 42.0, 7.0 }));
+            return null;
+        }).when(pplDirectQueryExecutor).executeMetricQuery(eq(detector), eq(start), eq(end), eq(AnalysisType.AD), any(ActionListener.class));
+
+        ActionListener<Optional<double[]>> listener = mock(ActionListener.class);
+        pplSearchFeatureDao.getFeaturesForPeriod(detector, start, end, listener);
+
+        ArgumentCaptor<Optional<double[]>> captor = ArgumentCaptor.forClass(Optional.class);
+        verify(listener).onResponse(captor.capture());
+        assertTrue(captor.getValue().isPresent());
+        assertEquals(42.0, captor.getValue().get()[0], 0.001);
+        assertEquals(7.0, captor.getValue().get()[1], 0.001);
+        verify(client, never()).search(any(SearchRequest.class), any(ActionListener.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeatureSamplesForPeriods_usesPPLRuntimeExecutor() throws Exception {
+        PPLDirectQueryExecutor pplDirectQueryExecutor = mock(PPLDirectQueryExecutor.class);
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao pplSearchFeatureDao = new SearchFeatureDao(
+            client,
+            xContent,
+            clientUtil,
+            null,
+            null,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            clock,
+            1,
+            1,
+            60_000L,
+            prometheusDirectQueryExecutor,
+            pplDirectQueryExecutor
+        );
+        when(detector.getSourceType()).thenReturn(Config.SOURCE_TYPE_PPL);
+        when(detector.getPPLSource())
+            .thenReturn(
+                new PPLSource(
+                    "PPL",
+                    "source = sample-http-responses | where response_category = 'client_error' | stats sum(http_4xx) as sum_http_4xx, max(http_5xx) as max_http_5xx by span(timestamp, 10m) as bucket"
+                )
+            );
+        when(detector.getEnabledFeatureIds()).thenReturn(Arrays.asList("f1", "f2"));
+
+        doAnswer(invocation -> {
+            long startTime = invocation.getArgument(1);
+            ActionListener<Optional<double[]>> listener = invocation.getArgument(4);
+            if (startTime == 100L) {
+                listener.onResponse(Optional.of(new double[] { 3.0, 5.0 }));
+            } else {
+                listener.onResponse(Optional.empty());
+            }
+            return null;
+        }).when(pplDirectQueryExecutor).executeMetricQuery(eq(detector), any(Long.class), any(Long.class), eq(AnalysisType.AD), any(ActionListener.class));
+
+        ActionListener<List<Optional<double[]>>> listener = mock(ActionListener.class);
+        List<Map.Entry<Long, Long>> ranges = Arrays.asList(new java.util.AbstractMap.SimpleImmutableEntry<>(100L, 200L), new java.util.AbstractMap.SimpleImmutableEntry<>(200L, 300L));
+        pplSearchFeatureDao.getFeatureSamplesForPeriods(detector, ranges, AnalysisType.AD, true, listener);
+
+        ArgumentCaptor<List<Optional<double[]>>> captor = ArgumentCaptor.forClass(List.class);
+        verify(listener).onResponse(captor.capture());
+        assertEquals(2, captor.getValue().size());
+        assertTrue(captor.getValue().get(0).isPresent());
+        assertEquals(3.0, captor.getValue().get(0).get()[0], 0.001);
+        assertEquals(5.0, captor.getValue().get(0).get()[1], 0.001);
+        assertTrue(captor.getValue().get(1).isPresent());
+        assertTrue(Double.isNaN(captor.getValue().get(1).get()[0]));
+        assertTrue(Double.isNaN(captor.getValue().get(1).get()[1]));
+        verify(client, never()).search(any(SearchRequest.class), any(ActionListener.class));
     }
 
     @Test
