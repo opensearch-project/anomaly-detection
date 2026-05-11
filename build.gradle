@@ -90,10 +90,6 @@ plugins {
     id "de.undercouch.download" version "5.7.0"
 }
 
-def opensearchBaseVersionTokens = opensearch_version.tokenize('-')[0].tokenize('.').collect { it as int }
-def opensearchProvidesBcFipsAtRuntime =
-    opensearchBaseVersionTokens[0] > 3 || (opensearchBaseVersionTokens[0] == 3 && opensearchBaseVersionTokens[1] >= 6)
-
 tasks.withType(JavaCompile) {
     options.encoding = "UTF-8"
 }
@@ -177,14 +173,6 @@ dependencies {
     implementation 'io.protostuff:protostuff-api:1.8.0'
     implementation 'io.protostuff:protostuff-collectionschema:1.8.0'
     implementation 'org.apache.commons:commons-lang3:3.20.0'
-    implementation('com.amazonaws:aws-encryption-sdk-java:2.4.1') {
-        exclude group: 'org.bouncycastle', module: 'bcprov-ext-jdk18on'
-    }
-    if (opensearchProvidesBcFipsAtRuntime) {
-        compileOnly "org.bouncycastle:bc-fips:${versions.bouncycastle_jce}"
-    } else {
-        implementation "org.bouncycastle:bc-fips:${versions.bouncycastle_jce}"
-    }
 
 
     implementation "org.jacoco:org.jacoco.agent:0.8.14"
@@ -217,7 +205,6 @@ dependencies {
     testImplementation 'org.reflections:reflections:0.10.2'
 
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
-    testImplementation "org.bouncycastle:bc-fips:${versions.bouncycastle_jce}"
 }
 
 ext {

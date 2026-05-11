@@ -18,6 +18,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -49,10 +50,6 @@ import org.opensearch.timeseries.model.PrometheusSource;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 
-import com.amazonaws.encryptionsdk.AwsCrypto;
-import com.amazonaws.encryptionsdk.CommitmentPolicy;
-import com.amazonaws.encryptionsdk.CryptoResult;
-import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -493,17 +490,44 @@ public class PrometheusDirectQueryExecutor {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private String decryptCredential(String encryptedText) {
-        AwsCrypto crypto = AwsCrypto.builder().withCommitmentPolicy(CommitmentPolicy.RequireEncryptRequireDecrypt).build();
-        JceMasterKey jceMasterKey = JceMasterKey
-            .getInstance(
-                new SecretKeySpec(dataSourceEncryptionMasterKey.getBytes(StandardCharsets.UTF_8), "AES"),
-                "Custom",
-                "opensearch.config.master.key",
-                "AES/GCM/NoPadding"
-            );
-        CryptoResult<byte[], JceMasterKey> decryptedResult = crypto.decryptData(jceMasterKey, Base64.getDecoder().decode(encryptedText));
-        return new String(decryptedResult.getResult(), StandardCharsets.UTF_8);
+        try {
+            Class<?> commitmentPolicyClass = Class.forName("com.amazonaws.encryptionsdk.CommitmentPolicy");
+            Object commitmentPolicy = Enum
+                .valueOf((Class<? extends Enum>) commitmentPolicyClass.asSubclass(Enum.class), "RequireEncryptRequireDecrypt");
+
+            Class<?> awsCryptoClass = Class.forName("com.amazonaws.encryptionsdk.AwsCrypto");
+            Object builder = awsCryptoClass.getMethod("builder").invoke(null);
+            builder.getClass().getMethod("withCommitmentPolicy", commitmentPolicyClass).invoke(builder, commitmentPolicy);
+            Object crypto = builder.getClass().getMethod("build").invoke(builder);
+
+            Class<?> jceMasterKeyClass = Class.forName("com.amazonaws.encryptionsdk.jce.JceMasterKey");
+            Object jceMasterKey = jceMasterKeyClass
+                .getMethod("getInstance", java.security.Key.class, String.class, String.class, String.class)
+                .invoke(
+                    null,
+                    new SecretKeySpec(dataSourceEncryptionMasterKey.getBytes(StandardCharsets.UTF_8), "AES"),
+                    "Custom",
+                    "opensearch.config.master.key",
+                    "AES/GCM/NoPadding"
+                );
+            Method decryptDataMethod = null;
+            for (Method method : crypto.getClass().getMethods()) {
+                if ("decryptData".equals(method.getName()) && method.getParameterCount() == 2) {
+                    decryptDataMethod = method;
+                    break;
+                }
+            }
+            if (decryptDataMethod == null) {
+                throw new NoSuchMethodException("decryptData");
+            }
+            Object decryptedResult = decryptDataMethod.invoke(crypto, jceMasterKey, Base64.getDecoder().decode(encryptedText));
+            byte[] decryptedBytes = (byte[]) decryptedResult.getClass().getMethod("getResult").invoke(decryptedResult);
+            return new String(decryptedBytes, StandardCharsets.UTF_8);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("failed to decrypt Prometheus datasource credential", e);
+        }
     }
 
     private String normalizeAuthType(String rawAuthType) {
