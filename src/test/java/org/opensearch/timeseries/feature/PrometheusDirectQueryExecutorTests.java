@@ -16,6 +16,7 @@ import static org.mockito.Mockito.mock;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,11 +33,6 @@ import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
-
-import com.amazonaws.encryptionsdk.AwsCrypto;
-import com.amazonaws.encryptionsdk.CommitmentPolicy;
-import com.amazonaws.encryptionsdk.CryptoResult;
-import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 
 public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
     private static final String TEST_MASTER_KEY = "12345678901234567890123456789012";
@@ -304,16 +300,45 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         assertTrue(error.getMessage().contains("prometheus.auth.region"));
     }
 
+    @SuppressWarnings("unchecked")
     private String encryptCredential(String plainText) {
-        AwsCrypto crypto = AwsCrypto.builder().withCommitmentPolicy(CommitmentPolicy.RequireEncryptRequireDecrypt).build();
-        JceMasterKey jceMasterKey = JceMasterKey
-            .getInstance(
-                new SecretKeySpec(TEST_MASTER_KEY.getBytes(StandardCharsets.UTF_8), "AES"),
-                "Custom",
-                "opensearch.config.master.key",
-                "AES/GCM/NoPadding"
-            );
-        CryptoResult<byte[], JceMasterKey> encryptResult = crypto.encryptData(jceMasterKey, plainText.getBytes(StandardCharsets.UTF_8));
-        return java.util.Base64.getEncoder().encodeToString(encryptResult.getResult());
+        try {
+            Class<?> commitmentPolicyClass = Class.forName("com.amazonaws.encryptionsdk.CommitmentPolicy");
+            Object commitmentPolicy = Enum
+                .valueOf((Class<? extends Enum>) commitmentPolicyClass.asSubclass(Enum.class), "RequireEncryptRequireDecrypt");
+
+            Class<?> awsCryptoClass = Class.forName("com.amazonaws.encryptionsdk.AwsCrypto");
+            Object builder = awsCryptoClass.getMethod("builder").invoke(null);
+            builder.getClass().getMethod("withCommitmentPolicy", commitmentPolicyClass).invoke(builder, commitmentPolicy);
+            Object crypto = builder.getClass().getMethod("build").invoke(builder);
+
+            Class<?> jceMasterKeyClass = Class.forName("com.amazonaws.encryptionsdk.jce.JceMasterKey");
+            Object jceMasterKey = jceMasterKeyClass
+                .getMethod("getInstance", java.security.Key.class, String.class, String.class, String.class)
+                .invoke(
+                    null,
+                    new SecretKeySpec(TEST_MASTER_KEY.getBytes(StandardCharsets.UTF_8), "AES"),
+                    "Custom",
+                    "opensearch.config.master.key",
+                    "AES/GCM/NoPadding"
+                );
+
+            Method encryptDataMethod = null;
+            for (Method method : crypto.getClass().getMethods()) {
+                if ("encryptData".equals(method.getName()) && method.getParameterCount() == 2) {
+                    encryptDataMethod = method;
+                    break;
+                }
+            }
+            if (encryptDataMethod == null) {
+                throw new NoSuchMethodException("encryptData");
+            }
+
+            Object encryptResult = encryptDataMethod.invoke(crypto, jceMasterKey, plainText.getBytes(StandardCharsets.UTF_8));
+            byte[] encryptedBytes = (byte[]) encryptResult.getClass().getMethod("getResult").invoke(encryptResult);
+            return java.util.Base64.getEncoder().encodeToString(encryptedBytes);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("failed to encrypt Prometheus datasource credential", e);
+        }
     }
 }
