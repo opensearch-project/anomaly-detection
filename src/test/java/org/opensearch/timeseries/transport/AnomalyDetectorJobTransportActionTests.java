@@ -185,7 +185,7 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
         }
     }
 
-    public void testStartHistoricalAnalysisForMultiCategoryHCWithUser() throws IOException, InterruptedException {
+    public void testStartHistoricalAnalysisForMultiCategoryHCWithUser() throws Exception {
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "1", DEFAULT_IP, 2000, false);
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "2", DEFAULT_IP, 2000, false);
         ingestTestData(testIndex, startTime, detectionIntervalInMinutes, type + "3", "127.0.0.2", 2000, false);
@@ -207,14 +207,13 @@ public class AnomalyDetectorJobTransportActionTests extends HistoricalAnalysisIn
             JobResponse response = nodeClient.execute(MockAnomalyDetectorJobAction.INSTANCE, request).actionGet(100_000);
             String taskId = response.getId();
 
-            waitUntil(() -> {
-                try {
-                    ADTask task = getADTask(taskId);
-                    return HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(task.getState());
-                } catch (IOException e) {
-                    return false;
-                }
-            }, 90, TimeUnit.SECONDS);
+            assertBusy(() -> {
+                ADTask task = getADTask(taskId);
+                assertTrue(
+                    "Historical task [" + taskId + "] should finish or fail, but current state is [" + task.getState() + "]",
+                    HISTORICAL_ANALYSIS_FINISHED_FAILED_STATS.contains(task.getState())
+                );
+            }, 3, TimeUnit.MINUTES);
             ADTask adTask = getADTask(taskId);
             assertEquals(ADTaskType.HISTORICAL_HC_DETECTOR.toString(), adTask.getTaskType());
             // Task may fail if memory circuit breaker triggered
