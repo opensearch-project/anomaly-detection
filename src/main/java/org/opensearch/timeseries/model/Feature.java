@@ -42,6 +42,8 @@ public class Feature implements Writeable, ToXContentObject {
     private static final String AGGREGATION_QUERY = "aggregation_query";
     public static final String PROMETHEUS_PLACEHOLDER_AGG_NAME = "__prometheus_feature_value__";
     private static final String PROMETHEUS_PLACEHOLDER_FIELD = "__prometheus_value__";
+    public static final String DIRECT_QUERY_PLACEHOLDER_AGG_NAME = "__direct_query_feature_value__";
+    private static final String DIRECT_QUERY_PLACEHOLDER_FIELD = "__direct_query_value__";
 
     private final String id;
     private final String name;
@@ -139,6 +141,12 @@ public class Feature implements Writeable, ToXContentObject {
         return new Feature(id, name, enabled, aggregation);
     }
 
+    public static Feature createDirectQueryPlaceholder(String id, String name, Boolean enabled) {
+        String suffix = id == null ? UUIDs.base64UUID() : id;
+        String aggregationName = DIRECT_QUERY_PLACEHOLDER_AGG_NAME + "_" + suffix.replaceAll("[^A-Za-z0-9_]+", "_");
+        return new Feature(id, name, enabled, AggregationBuilders.avg(aggregationName).field(DIRECT_QUERY_PLACEHOLDER_FIELD));
+    }
+
     @Generated
     @Override
     public boolean equals(Object o) {
@@ -179,6 +187,14 @@ public class Feature implements Writeable, ToXContentObject {
 
     public boolean usesPrometheusPlaceholderAggregation() {
         return aggregation != null && PROMETHEUS_PLACEHOLDER_AGG_NAME.equals(aggregation.getName());
+    }
+
+    public boolean usesDirectQueryPlaceholderAggregation() {
+        return aggregation != null && aggregation.getName() != null && aggregation.getName().startsWith(DIRECT_QUERY_PLACEHOLDER_AGG_NAME);
+    }
+
+    public boolean usesPlaceholderAggregation() {
+        return usesPrometheusPlaceholderAggregation() || usesDirectQueryPlaceholderAggregation();
     }
 
     @Override

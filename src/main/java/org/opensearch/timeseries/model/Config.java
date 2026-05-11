@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -90,9 +91,12 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String FREQUENCY_FIELD = "frequency";
     public static final String SOURCE_TYPE_FIELD = "source_type";
     public static final String PROMETHEUS_SOURCE_FIELD = "prometheus_source";
+    public static final String PPL_SOURCE_FIELD = "ppl_source";
     public static final String SOURCE_TYPE_OPENSEARCH = "OPENSEARCH";
     public static final String SOURCE_TYPE_PROMETHEUS = "PROMETHEUS";
+    public static final String SOURCE_TYPE_PPL = "PPL";
     public static final String PROMETHEUS_QUERY_LANGUAGE = "PROMQL";
+    public static final String PPL_QUERY_LANGUAGE = "PPL";
 
     protected String id;
     protected Long version;
@@ -138,6 +142,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     protected Boolean autoCreated;
     protected String sourceType;
     protected PrometheusSource prometheusSource;
+    protected PPLSource pplSource;
 
     public static String INVALID_RESULT_INDEX_NAME_SIZE = "Result index name size must contains less than "
         + MAX_RESULT_INDEX_NAME_SIZE
@@ -205,6 +210,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             frequency,
             autoCreated,
             null,
+            null,
             null
         );
     }
@@ -242,18 +248,92 @@ public abstract class Config implements Writeable, ToXContentObject {
         String sourceType,
         PrometheusSource prometheusSource
     ) {
+        this(
+            id,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            categoryFields,
+            user,
+            resultIndex,
+            interval,
+            imputationOption,
+            recencyEmphasis,
+            seasonIntervals,
+            shingleGetter,
+            historyIntervals,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL,
+            flattenResultIndexMapping,
+            lastBreakingUIChangeTime,
+            frequency,
+            autoCreated,
+            sourceType,
+            prometheusSource,
+            null
+        );
+    }
+
+    protected Config(
+        String id,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryFields,
+        User user,
+        String resultIndex,
+        TimeConfiguration interval,
+        ImputationOption imputationOption,
+        Integer recencyEmphasis,
+        Integer seasonIntervals,
+        ShingleGetter shingleGetter,
+        Integer historyIntervals,
+        Integer customResultIndexMinSize,
+        Integer customResultIndexMinAge,
+        Integer customResultIndexTTL,
+        Boolean flattenResultIndexMapping,
+        Instant lastBreakingUIChangeTime,
+        TimeConfiguration frequency,
+        Boolean autoCreated,
+        String sourceType,
+        PrometheusSource prometheusSource,
+        PPLSource pplSource
+    ) {
         if (Strings.isBlank(name)) {
             errorMessage = CommonMessages.EMPTY_NAME;
             issueType = ValidationIssueType.NAME;
             return;
         }
 
-        String normalizedSourceType = normalizeSourceType(sourceType, prometheusSource);
+        String normalizedSourceType = normalizeSourceType(sourceType, prometheusSource, pplSource);
         if (normalizedSourceType == null) {
             issueType = ValidationIssueType.GENERAL_SETTINGS;
-            errorMessage = "Unsupported source_type [" + sourceType + "]. Supported values are OPENSEARCH and PROMETHEUS.";
+            errorMessage = "Unsupported source_type [" + sourceType + "]. Supported values are OPENSEARCH, PROMETHEUS, and PPL.";
             return;
         }
+
+        String resolvedTimeField = timeField;
+        List<String> resolvedIndices = indices;
+        List<Feature> resolvedFeatures = features;
 
         if (isPrometheusSource(normalizedSourceType)) {
             if (prometheusSource == null) {
@@ -292,18 +372,88 @@ public abstract class Config implements Writeable, ToXContentObject {
                 errorMessage = "Exactly one enabled feature is required when source_type is PROMETHEUS.";
                 return;
             }
+            if (pplSource != null) {
+                issueType = ValidationIssueType.GENERAL_SETTINGS;
+                errorMessage = "ppl_source must be empty when source_type is PROMETHEUS.";
+                return;
+            }
+        } else if (isPPLSource(normalizedSourceType)) {
+            if (pplSource == null) {
+                issueType = ValidationIssueType.GENERAL_SETTINGS;
+                errorMessage = "Must set ppl_source when source_type is PPL.";
+                return;
+            }
+            if (!PPL_QUERY_LANGUAGE.equalsIgnoreCase(pplSource.getQueryLanguage())) {
+                issueType = ValidationIssueType.GENERAL_SETTINGS;
+                errorMessage = "ppl_source.query_language must be PPL when source_type is PPL.";
+                return;
+            }
+            if (prometheusSource != null) {
+                issueType = ValidationIssueType.GENERAL_SETTINGS;
+                errorMessage = "prometheus_source must be empty when source_type is PPL.";
+                return;
+            }
+            if (categoryFields != null && !categoryFields.isEmpty()) {
+                issueType = ValidationIssueType.CATEGORY;
+                errorMessage = "category_field must be empty when source_type is PPL.";
+                return;
+            }
+
+            PPLSource.CompiledPPLQuery compiledPPLQuery;
+            try {
+                compiledPPLQuery = pplSource.compile();
+            } catch (IllegalArgumentException e) {
+                issueType = ValidationIssueType.GENERAL_SETTINGS;
+                errorMessage = e.getMessage();
+                return;
+            }
+
+            resolvedTimeField = compiledPPLQuery.getTimeField();
+            resolvedIndices = Collections.singletonList(compiledPPLQuery.getIndex());
+            resolvedFeatures = features == null || features.isEmpty() ? compiledPPLQuery.toPlaceholderFeatures() : features;
+
+            if (resolvedFeatures.size() != compiledPPLQuery.getMetricCount()) {
+                issueType = ValidationIssueType.FEATURE_ATTRIBUTES;
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "feature_attributes must contain exactly %d entries when source_type is PPL.",
+                        compiledPPLQuery.getMetricCount()
+                    );
+                return;
+            }
+
+            for (int i = 0; i < resolvedFeatures.size(); i++) {
+                if (!compiledPPLQuery.getFeatureNames().get(i).equals(resolvedFeatures.get(i).getName())) {
+                    issueType = ValidationIssueType.FEATURE_ATTRIBUTES;
+                    errorMessage = "feature_attributes must match the metric aliases defined in ppl_source.query.";
+                    return;
+                }
+            }
+
+            long enabledFeatureCount = resolvedFeatures.stream().filter(Feature::getEnabled).count();
+            if (enabledFeatureCount != compiledPPLQuery.getMetricCount()) {
+                issueType = ValidationIssueType.FEATURE_ATTRIBUTES;
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "Exactly %d enabled feature(s) are required when source_type is PPL.",
+                        compiledPPLQuery.getMetricCount()
+                    );
+                return;
+            }
         } else {
-            if (Strings.isBlank(timeField)) {
+            if (Strings.isBlank(resolvedTimeField)) {
                 errorMessage = CommonMessages.NULL_TIME_FIELD;
                 issueType = ValidationIssueType.TIMEFIELD_FIELD;
                 return;
             }
-            if (indices == null || indices.isEmpty()) {
+            if (resolvedIndices == null || resolvedIndices.isEmpty()) {
                 errorMessage = CommonMessages.EMPTY_INDICES;
                 issueType = ValidationIssueType.INDICES;
                 return;
             }
-            if (features != null && features.stream().anyMatch(Feature::usesPrometheusPlaceholderAggregation)) {
+            if (resolvedFeatures != null && resolvedFeatures.stream().anyMatch(Feature::usesPlaceholderAggregation)) {
                 issueType = ValidationIssueType.FEATURE_ATTRIBUTES;
                 errorMessage = "feature_attributes.aggregation_query must be set when source_type is OPENSEARCH.";
                 return;
@@ -311,6 +461,11 @@ public abstract class Config implements Writeable, ToXContentObject {
             if (prometheusSource != null) {
                 issueType = ValidationIssueType.GENERAL_SETTINGS;
                 errorMessage = "prometheus_source must be empty when source_type is OPENSEARCH.";
+                return;
+            }
+            if (pplSource != null) {
+                issueType = ValidationIssueType.GENERAL_SETTINGS;
+                errorMessage = "ppl_source must be empty when source_type is OPENSEARCH.";
                 return;
             }
         }
@@ -366,7 +521,7 @@ public abstract class Config implements Writeable, ToXContentObject {
             return;
         }
 
-        List<String> redundantNames = findRedundantNames(features);
+        List<String> redundantNames = findRedundantNames(resolvedFeatures);
         if (redundantNames.size() > 0) {
             issueType = ValidationIssueType.FEATURE_ATTRIBUTES;
             errorMessage = redundantNames + " appears more than once. Feature name has to be unique";
@@ -375,9 +530,9 @@ public abstract class Config implements Writeable, ToXContentObject {
 
         if (imputationOption != null && imputationOption.getMethod() == ImputationMethod.FIXED_VALUES) {
             // Calculate the number of enabled features
-            List<Feature> enabledFeatures = features == null
+            List<Feature> enabledFeatures = resolvedFeatures == null
                 ? null
-                : features.stream().filter(Feature::getEnabled).collect(Collectors.toList());
+                : resolvedFeatures.stream().filter(Feature::getEnabled).collect(Collectors.toList());
 
             Map<String, Double> defaultFill = imputationOption.getDefaultFill();
 
@@ -465,10 +620,10 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.version = version;
         this.name = name;
         this.description = description;
-        this.timeField = Strings.isBlank(timeField) ? "" : timeField;
-        this.indices = indices == null ? ImmutableList.of() : ImmutableList.copyOf(indices);
+        this.timeField = Strings.isBlank(resolvedTimeField) ? "" : resolvedTimeField;
+        this.indices = resolvedIndices == null ? ImmutableList.of() : ImmutableList.copyOf(resolvedIndices);
         // we validate empty or no enabled features when starting config (Read IndexJobActionHandler.validateConfig)
-        this.featureAttributes = features == null ? ImmutableList.of() : ImmutableList.copyOf(features);
+        this.featureAttributes = resolvedFeatures == null ? ImmutableList.of() : ImmutableList.copyOf(resolvedFeatures);
         this.filterQuery = filterQuery;
         this.interval = interval;
         this.windowDelay = windowDelay;
@@ -495,14 +650,21 @@ public abstract class Config implements Writeable, ToXContentObject {
         this.autoCreated = autoCreated != null ? autoCreated : false;
         this.sourceType = normalizedSourceType;
         this.prometheusSource = prometheusSource;
+        this.pplSource = pplSource;
     }
 
-    private String normalizeSourceType(String sourceType, PrometheusSource prometheusSource) {
+    private String normalizeSourceType(String sourceType, PrometheusSource prometheusSource, PPLSource pplSource) {
         if (Strings.isBlank(sourceType)) {
-            return prometheusSource == null ? SOURCE_TYPE_OPENSEARCH : SOURCE_TYPE_PROMETHEUS;
+            if (prometheusSource != null) {
+                return SOURCE_TYPE_PROMETHEUS;
+            }
+            if (pplSource != null) {
+                return SOURCE_TYPE_PPL;
+            }
+            return SOURCE_TYPE_OPENSEARCH;
         }
         String normalized = sourceType.trim().toUpperCase(Locale.ROOT);
-        if (SOURCE_TYPE_OPENSEARCH.equals(normalized) || SOURCE_TYPE_PROMETHEUS.equals(normalized)) {
+        if (SOURCE_TYPE_OPENSEARCH.equals(normalized) || SOURCE_TYPE_PROMETHEUS.equals(normalized) || SOURCE_TYPE_PPL.equals(normalized)) {
             return normalized;
         }
         return null;
@@ -510,6 +672,10 @@ public abstract class Config implements Writeable, ToXContentObject {
 
     private boolean isPrometheusSource(String sourceType) {
         return SOURCE_TYPE_PROMETHEUS.equals(sourceType);
+    }
+
+    private boolean isPPLSource(String sourceType) {
+        return SOURCE_TYPE_PPL.equals(sourceType);
     }
 
     /**
@@ -615,7 +781,7 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         this.autoCreated = input.readOptionalBoolean();
         if (input.available() > 0) {
-            this.sourceType = normalizeSourceType(input.readOptionalString(), null);
+            this.sourceType = normalizeSourceType(input.readOptionalString(), null, null);
         } else {
             this.sourceType = SOURCE_TYPE_OPENSEARCH;
         }
@@ -624,9 +790,15 @@ public abstract class Config implements Writeable, ToXContentObject {
         }
         if (input.available() > 0 && input.readBoolean()) {
             this.prometheusSource = new PrometheusSource(input);
-            this.sourceType = normalizeSourceType(this.sourceType, this.prometheusSource);
+            this.sourceType = normalizeSourceType(this.sourceType, this.prometheusSource, null);
         } else {
             this.prometheusSource = null;
+        }
+        if (input.available() > 0 && input.readBoolean()) {
+            this.pplSource = new PPLSource(input);
+            this.sourceType = normalizeSourceType(this.sourceType, this.prometheusSource, this.pplSource);
+        } else {
+            this.pplSource = null;
         }
     }
 
@@ -696,6 +868,12 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             output.writeBoolean(false);
         }
+        if (pplSource != null) {
+            output.writeBoolean(true);
+            pplSource.writeTo(output);
+        } else {
+            output.writeBoolean(false);
+        }
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
@@ -757,7 +935,8 @@ public abstract class Config implements Writeable, ToXContentObject {
             && Objects.equal(frequency, config.frequency)
             && Objects.equal(autoCreated, config.autoCreated)
             && Objects.equal(sourceType, config.sourceType)
-            && Objects.equal(prometheusSource, config.prometheusSource);
+            && Objects.equal(prometheusSource, config.prometheusSource)
+            && Objects.equal(pplSource, config.pplSource);
     }
 
     @Generated
@@ -789,7 +968,8 @@ public abstract class Config implements Writeable, ToXContentObject {
                 frequency,
                 autoCreated,
                 sourceType,
-                prometheusSource
+                prometheusSource,
+                pplSource
             );
     }
 
@@ -814,6 +994,12 @@ public abstract class Config implements Writeable, ToXContentObject {
         } else {
             builder.field(TIMEFIELD_FIELD, timeField);
             builder.field(INDICES_FIELD, indices.toArray());
+            if (SOURCE_TYPE_PPL.equals(sourceType)) {
+                builder.field(SOURCE_TYPE_FIELD, sourceType);
+                if (pplSource != null) {
+                    builder.field(PPL_SOURCE_FIELD, pplSource);
+                }
+            }
         }
 
         if (uiMetadata != null && !uiMetadata.isEmpty()) {
@@ -887,6 +1073,10 @@ public abstract class Config implements Writeable, ToXContentObject {
 
     public PrometheusSource getPrometheusSource() {
         return prometheusSource;
+    }
+
+    public PPLSource getPPLSource() {
+        return pplSource;
     }
 
     public List<Feature> getFeatureAttributes() {

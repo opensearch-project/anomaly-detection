@@ -254,7 +254,8 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             config.getFrequency(),
             detector.getAutoCreated(),
             config.getSourceType(),
-            config.getPrometheusSource()
+            config.getPrometheusSource(),
+            config.getPPLSource()
         );
     }
 

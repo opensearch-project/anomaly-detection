@@ -1166,7 +1166,7 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
             listener.onFailure(new OpenSearchStatusException(error, RestStatus.BAD_REQUEST));
             return;
         }
-        if (isPrometheusSourceConfig()) {
+        if (isPrometheusSourceConfig() || isPPLSourceConfig()) {
             checkConfigNameExists(id, indexingDryRun, listener);
             return;
         }
@@ -1226,6 +1226,10 @@ public abstract class AbstractTimeSeriesActionHandler<T extends ActionResponse, 
 
     protected boolean isPrometheusSourceConfig() {
         return config != null && Config.SOURCE_TYPE_PROMETHEUS.equals(config.getSourceType());
+    }
+
+    protected boolean isPPLSourceConfig() {
+        return config != null && Config.SOURCE_TYPE_PPL.equals(config.getSourceType());
     }
 
     /**
