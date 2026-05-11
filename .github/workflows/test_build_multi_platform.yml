@@ -144,7 +144,7 @@ jobs:
           summarize "./build/reports/jacoco/integTest/jacocoIntegTestReport.xml" "integ"
       # coverage.gradle is only applied in single local node test
       - name: Upload Combined Coverage Report
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
@@ -153,7 +153,7 @@ jobs:
           disable_search: true
           flags: plugin
       - name: Upload integTest Coverage Report
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
