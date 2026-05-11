@@ -90,7 +90,6 @@ import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.client.AdminClient;
 import org.opensearch.transport.client.Client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
@@ -138,7 +137,6 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     private NamedXContentRegistry xContentRegistry;
     protected BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser;
     protected String customResultIndexPrefix;
-    private final ObjectMapper objectMapper = new ObjectMapper();
     protected String configIndexName;
 
     protected class IndexState {
@@ -218,7 +216,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             while (!xcp.isClosed()) {
                 Token token = xcp.currentToken();
                 if (token != null && token != XContentParser.Token.END_OBJECT && token != XContentParser.Token.START_OBJECT) {
-                    if (xcp.currentName() != IndexManagement.META) {
+                    if (xcp.currentName().equals(IndexManagement.META) == false) {
                         xcp.nextToken();
                         xcp.skipChildren();
                     } else {
