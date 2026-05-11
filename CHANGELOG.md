@@ -8,6 +8,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Features
 - Correlating Anomalies via Temporal Overlap Similarity ([#1641](https://github.com/opensearch-project/anomaly-detection/pull/1641))
 - Introduce Insights API ([1610](https://github.com/opensearch-project/anomaly-detection/pull/1610))
+- Add Prometheus-backed detector execution, preview support, and datasource auth handling ([1669] (https://github.com/opensearch-project/anomaly-detection/pull/1699))
 
 ### Enhancements
 - feat(terraform): add AD detector provisioning and lifecycle automation ([1680](https://github.com/opensearch-project/anomaly-detection/pull/1680))

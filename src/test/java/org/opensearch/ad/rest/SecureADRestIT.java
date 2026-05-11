@@ -188,6 +188,60 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         assertTrue(roles.contains("all_access"));
     }
 
+    private String createInlinePPLPreviewIndex() throws IOException {
+        String indexName = "secure-ppl-preview-" + System.nanoTime();
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/" + indexName,
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"mappings\":{\"properties\":{\"timestamp\":{\"type\":\"date\"},\"status_code\":{\"type\":\"integer\"},\"metric_a\":{\"type\":\"double\"},\"metric_b\":{\"type\":\"double\"},\"service\":{\"type\":\"keyword\"}}}}"
+                    ),
+                null
+            );
+
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        for (int i = 0; i < 20; i++) {
+            Instant timestamp = now.minus(i, ChronoUnit.MINUTES);
+            int statusCode = i % 4 == 0 ? 500 : 200;
+            int metricA = (i % 5) + 1;
+            int metricB = (i % 7) + 10;
+            TestHelpers
+                .ingestDataToIndex(
+                    client(),
+                    indexName,
+                    TestHelpers
+                        .toHttpEntity(
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    "{\"timestamp\":%d,\"status_code\":%d,\"metric_a\":%d,\"metric_b\":%d,\"service\":\"checkout\"}",
+                                    timestamp.toEpochMilli(),
+                                    statusCode,
+                                    metricA,
+                                    metricB
+                                )
+                        )
+                );
+        }
+
+        return indexName;
+    }
+
+    private String buildInlinePPLPreviewBody(String indexName, Instant periodStart, Instant periodEnd) {
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"period_start\":%d,\"period_end\":%d,\"detector\":{\"name\":\"secure-preview-ppl\",\"source_type\":\"PPL\",\"ppl_source\":{\"query_language\":\"PPL\",\"query\":\"source = %s | where service = 'checkout' | eval total_metric = metric_a + metric_b | stats count(*) as doc_count, avg(total_metric) as avg_total_metric by span(timestamp, 1m) as bucket\"},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}}",
+                periodStart.toEpochMilli(),
+                periodEnd.toEpochMilli(),
+                indexName
+            );
+    }
+
     public void testCreateAnomalyDetector() throws IOException {
 
         if (isResourceSharingFeatureEnabled()) {
@@ -949,6 +1003,39 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             assertEquals(200, response.getStatusLine().getStatusCode());
         }
 
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testPreviewInlinePPLAnomalyDetector() throws IOException {
+        String indexName = createInlinePPLPreviewIndex();
+        Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant periodStart = periodEnd.minus(10, ChronoUnit.MINUTES);
+        String requestBody = buildInlinePPLPreviewBody(indexName, periodStart, periodEnd);
+
+        Response response = previewAnomalyDetector(aliceClient, requestBody);
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
+        Assert.assertNotNull(anomalyResults);
+        Assert.assertFalse(anomalyResults.isEmpty());
+
+        List<Map<String, Object>> featureData = (List<Map<String, Object>>) anomalyResults.get(0).get("feature_data");
+        Assert.assertEquals(2, featureData.size());
+        Assert.assertEquals("doc_count", featureData.get(0).get("feature_name"));
+        Assert.assertEquals("avg_total_metric", featureData.get(1).get("feature_name"));
+
+        Response catResponse = previewAnomalyDetector(catClient, requestBody);
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(catResponse));
+
+        Response goatResponse = previewAnomalyDetector(goatClient, requestBody);
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(goatResponse));
+
+        String noPermsMessage = "no permissions for [cluster:admin/opendistro/ad/detector/preview]";
+        Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(bobClient, requestBody); });
+        Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
+
+        exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(lionClient, requestBody); });
+        Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
     }
 
     public void testValidateAnomalyDetector() throws IOException {
