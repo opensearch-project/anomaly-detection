@@ -1290,14 +1290,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals("Minutes", period.get("unit"));
 
         Response startResponse = TestHelpers
-            .makeRequest(
-                client(),
-                "POST",
-                TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start",
-                ImmutableMap.of(),
-                "",
-                null
-            );
+            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
         assertEquals("Start PPL detector failed", RestStatus.OK, TestHelpers.restStatus(startResponse));
 
         Awaitility

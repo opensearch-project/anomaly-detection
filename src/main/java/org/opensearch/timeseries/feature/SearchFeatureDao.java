@@ -317,7 +317,13 @@ public class SearchFeatureDao extends AbstractRetriever {
                 internalListener.onFailure(new IllegalArgumentException("PPL source_type does not support categorical entity filters."));
                 return;
             }
-            pplDirectQueryExecutor.executeDateRangeQuery(user, config, config instanceof AnomalyDetector ? AnalysisType.AD : AnalysisType.FORECAST, internalListener);
+            pplDirectQueryExecutor
+                .executeDateRangeQuery(
+                    user,
+                    config,
+                    config instanceof AnomalyDetector ? AnalysisType.AD : AnalysisType.FORECAST,
+                    internalListener
+                );
             return;
         }
 

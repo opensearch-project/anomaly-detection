@@ -1725,13 +1725,7 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
             + "}";
 
         AnomalyDetector detector = AnomalyDetector
-            .parse(
-                TestHelpers.parser(detectorString),
-                "detector-id",
-                1L,
-                TimeValue.timeValueMinutes(1),
-                TimeValue.timeValueMinutes(1)
-            );
+            .parse(TestHelpers.parser(detectorString), "detector-id", 1L, TimeValue.timeValueMinutes(1), TimeValue.timeValueMinutes(1));
 
         assertEquals(Config.SOURCE_TYPE_PPL, detector.getSourceType());
         assertEquals(ImmutableList.of("sample-http-responses"), detector.getIndices());

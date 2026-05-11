@@ -889,11 +889,7 @@ public class AnomalyDetector extends Config {
         return detector;
     }
 
-    private static TimeConfiguration resolveDetectionInterval(
-        TimeConfiguration detectionInterval,
-        String sourceType,
-        PPLSource pplSource
-    ) {
+    private static TimeConfiguration resolveDetectionInterval(TimeConfiguration detectionInterval, String sourceType, PPLSource pplSource) {
         if (detectionInterval != null || !isPPLSourceConfig(sourceType, pplSource)) {
             return detectionInterval;
         }
