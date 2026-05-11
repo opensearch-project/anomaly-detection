@@ -14,4 +14,6 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Infrastructure
 ### Documentation
 ### Maintenance
+### Security
+- Bump requests from >=2.32.4 to >=2.33.0 to address CVE-2026-25645 ([#1713](https://github.com/opensearch-project/anomaly-detection/pull/1713))
 ### Refactoring
