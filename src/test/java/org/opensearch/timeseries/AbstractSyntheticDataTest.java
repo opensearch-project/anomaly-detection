@@ -50,8 +50,6 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -61,8 +59,18 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.introspect.DefaultAccessorNamingStrategy;
+import tools.jackson.databind.json.JsonMapper;
+
 public class AbstractSyntheticDataTest extends ODFERestTestCase {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = JsonMapper
+        .builder()
+        .accessorNaming(new DefaultAccessorNamingStrategy.Provider().withFirstCharAcceptance(true, true))
+        .configure(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, false)
+        .build();
 
     public enum MISSING_MODE {
         MISSING_TIMESTAMP, // missing all entities in a timestamps

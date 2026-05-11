@@ -52,7 +52,10 @@ import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.client.Client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.introspect.DefaultAccessorNamingStrategy;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * This class provides utility methods for various anomaly detection indices.
@@ -141,7 +144,11 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
      * @throws IOException if the mapping file cannot be read.
      */
     public static String getFlattenedResultMappings() throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectMapper objectMapper = JsonMapper
+            .builder()
+            .accessorNaming(new DefaultAccessorNamingStrategy.Provider().withFirstCharAcceptance(true, true))
+            .configure(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, false)
+            .build();
 
         Map<String, Object> mapping = objectMapper
             .readValue(ADIndexManagement.class.getClassLoader().getResourceAsStream(ANOMALY_RESULTS_INDEX_MAPPING_FILE), Map.class);
