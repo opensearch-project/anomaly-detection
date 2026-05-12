@@ -266,12 +266,22 @@ public class PPLDirectQueryExecutor {
     private static final class PPLTransportRequest extends ActionRequest {
         private final String query;
         private final String format;
+        private final String explainMode;
+        private final String jsonContent;
         private final String path;
+        private final boolean sanitize;
+        private final boolean profile;
+        private final String queryId;
 
         private PPLTransportRequest(String query, String format, String path) {
             this.query = query;
             this.format = format;
+            this.explainMode = null;
+            this.jsonContent = null;
             this.path = path;
+            this.sanitize = true;
+            this.profile = false;
+            this.queryId = null;
         }
 
         @Override
@@ -284,10 +294,13 @@ public class PPLDirectQueryExecutor {
             super.writeTo(out);
             out.writeOptionalString(query);
             out.writeOptionalString(format);
-            out.writeOptionalString(null);
+            out.writeOptionalString(explainMode);
+            out.writeOptionalString(jsonContent);
             out.writeOptionalString(path);
-            out.writeBoolean(true);
+            out.writeBoolean(sanitize);
             out.writeEnum(PPLJsonStyle.COMPACT);
+            out.writeBoolean(profile);
+            out.writeOptionalString(queryId);
         }
     }
 

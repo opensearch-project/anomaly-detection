@@ -14,6 +14,7 @@ package org.opensearch.ad;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.ad.ml.ADModelManager;
 import org.opensearch.ad.ml.ThresholdingResult;
 import org.opensearch.ad.model.AnomalyDetector;
@@ -87,7 +89,10 @@ public final class AnomalyDetectorRunner {
             featureManager.getPreviewEntities(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(entities -> {
 
                 if (entities == null || entities.isEmpty()) {
-                    listener.onFailure(new IllegalArgumentException("No data available for preview."));
+                    // TODO return exception like IllegalArgumentException to explain data is not enough for preview
+                    // This also requires front-end change to handle error message correspondingly
+                    // We return empty list for now to avoid breaking front-end
+                    listener.onResponse(Collections.emptyList());
                     return;
                 }
                 ActionListener<EntityAnomalyResult> entityAnomalyResultListener = ActionListener.wrap(entityAnomalyResult -> {
@@ -136,7 +141,14 @@ public final class AnomalyDetectorRunner {
 
     private void onFailure(Exception e, ActionListener<List<AnomalyResult>> listener, String detectorId) {
         logger.info("Fail to preview anomaly detector " + detectorId, e);
-        listener.onFailure(e);
+        // TODO return exception like IllegalArgumentException to explain data is not enough for preview
+        // This also requires front-end change to handle error message correspondingly
+        // We return empty list for now to avoid breaking front-end
+        if (e instanceof OpenSearchSecurityException) {
+            listener.onFailure(e);
+            return;
+        }
+        listener.onResponse(Collections.emptyList());
     }
 
     private List<AnomalyResult> parsePreviewResult(

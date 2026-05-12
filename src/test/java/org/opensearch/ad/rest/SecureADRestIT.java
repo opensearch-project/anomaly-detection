@@ -77,6 +77,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     private static final String READ_ONLY_AG = "ad_read_only";
     private static final String READ_WRITE_AG = "ad_read_write";
     private static final String FULL_ACCESS_AG = "ad_full_access";
+    private static final String PPL_ACCESS_ROLE = "ppl_access";
 
     String oceanUser = "ocean";
     RestClient oceanClient;
@@ -91,6 +92,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         createIndexRole(indexAllAccessRole, "*");
         String indexSearchAccessRole = "index_all_search";
         createSearchRole(indexSearchAccessRole, "*");
+        createPPLAccessRole(PPL_ACCESS_ROLE);
         String alicePassword = generatePassword(aliceUser);
         createUser(aliceUser, alicePassword, new ArrayList<>(Arrays.asList("odfe")));
         aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, alicePassword)
@@ -149,6 +151,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
+        createRoleMapping(PPL_ACCESS_ROLE, new ArrayList<>(Arrays.asList(aliceUser, catUser, goatUser)));
     }
 
     @After
@@ -229,6 +232,27 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         }
 
         return indexName;
+    }
+
+    private void createPPLAccessRole(String role) throws IOException {
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/roles/" + role,
+                null,
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "\"cluster_permissions\": [\n"
+                            + "\"cluster:admin/opensearch/ppl\"\n"
+                            + "],\n"
+                            + "\"index_permissions\": [],\n"
+                            + "\"tenant_permissions\": []\n"
+                            + "}"
+                    ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
     }
 
     private String buildInlinePPLPreviewBody(String indexName, Instant periodStart, Instant periodEnd) {
@@ -1012,7 +1036,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Instant periodStart = periodEnd.minus(10, ChronoUnit.MINUTES);
         String requestBody = buildInlinePPLPreviewBody(indexName, periodStart, periodEnd);
 
-        Response response = previewAnomalyDetector(aliceClient, requestBody);
+        Response response = previewAnomalyDetector(aliceClient, requestBody, 1);
         Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
         Map<String, Object> responseMap = entityAsMap(response);
         List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
@@ -1024,17 +1048,17 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Assert.assertEquals("doc_count", featureData.get(0).get("feature_name"));
         Assert.assertEquals("avg_total_metric", featureData.get(1).get("feature_name"));
 
-        Response catResponse = previewAnomalyDetector(catClient, requestBody);
+        Response catResponse = previewAnomalyDetector(catClient, requestBody, 1);
         Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(catResponse));
 
-        Response goatResponse = previewAnomalyDetector(goatClient, requestBody);
+        Response goatResponse = previewAnomalyDetector(goatClient, requestBody, 1);
         Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(goatResponse));
 
         String noPermsMessage = "no permissions for [cluster:admin/opendistro/ad/detector/preview]";
-        Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(bobClient, requestBody); });
+        Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(bobClient, requestBody, 1); });
         Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
 
-        exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(lionClient, requestBody); });
+        exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(lionClient, requestBody, 1); });
         Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
     }
 

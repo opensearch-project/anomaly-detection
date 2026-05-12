@@ -298,6 +298,10 @@ public class FeatureManager {
         // TODO refactor this common lines so that these code can be run for 1 time for all entities
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(detector, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
+        if (sampleRanges.isEmpty()) {
+            listener.onFailure(new IllegalArgumentException("No data available for preview."));
+            return;
+        }
         int stride = sampleRangeResults.getValue();
         int shingleSize = detector.getShingleSize();
 
@@ -355,6 +359,10 @@ public class FeatureManager {
         throws IOException {
         Entry<List<Entry<Long, Long>>, Integer> sampleRangeResults = getSampleRanges(config, startMilli, endMilli);
         List<Entry<Long, Long>> sampleRanges = sampleRangeResults.getKey();
+        if (sampleRanges.isEmpty()) {
+            listener.onFailure(new IllegalArgumentException("No data available for preview."));
+            return;
+        }
         int stride = sampleRangeResults.getValue();
         int shingleSize = config.getShingleSize();
 

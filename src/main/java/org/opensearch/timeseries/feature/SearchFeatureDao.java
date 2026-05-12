@@ -842,6 +842,10 @@ public class SearchFeatureDao extends AbstractRetriever {
         boolean keepMissingValues,
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
         if (isPrometheusConfig(config)) {
             getPrometheusFeatureSamplesForPeriods(config, ranges, Optional.empty(), context, keepMissingValues, listener);
             return;
@@ -940,6 +944,10 @@ public class SearchFeatureDao extends AbstractRetriever {
         AnalysisType context,
         ActionListener<List<Optional<double[]>>> listener
     ) {
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
         if (isPrometheusConfig(config)) {
             // Keep behavior aligned with existing cold-start path where missing values are dropped.
             getPrometheusFeatureSamplesForPeriods(config, ranges, entity, context, false, listener);
