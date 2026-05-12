@@ -202,6 +202,7 @@ dependencies {
 
     opensearchPlugin "org.opensearch.plugin:opensearch-job-scheduler:${opensearch_build}@zip"
     opensearchPlugin "org.opensearch.plugin:opensearch-security:${opensearch_build}@zip"
+    opensearchPlugin "org.opensearch.plugin:opensearch-sql-plugin:${opensearch_build}@zip"
     testImplementation 'org.reflections:reflections:0.10.2'
 
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
@@ -473,6 +474,7 @@ ext.resolvePluginFile = { pluginId ->
 }
 def jobSchedulerFile = resolvePluginFile("opensearch-job-scheduler")
 def securityPluginFile = resolvePluginFile("opensearch-security")
+def sqlPluginFile = resolvePluginFile("opensearch-sql-plugin")
 
 // === Setup security test ===
 // This flag indicates the existence of security plugin
@@ -483,6 +485,7 @@ testClusters.integTest {
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
     configureClusterPlugins(delegate, jobSchedulerFile, securityPluginFile, securityEnabled)
+    plugin(provider(sqlPluginFile))
     nodes.each { it.jvmArgs("-Xms1g", "-Xmx1g") }
 }
 
