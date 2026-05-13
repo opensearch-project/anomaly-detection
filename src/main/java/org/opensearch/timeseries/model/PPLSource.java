@@ -151,6 +151,13 @@ public class PPLSource implements Writeable, ToXContentObject {
             if (isStatsStage(stage)) {
                 throw new IllegalArgumentException("Only one final stats stage is supported in ppl_source.query for detector creation.");
             }
+            if (!isSupportedPreStatsStage(stage)) {
+                throw new IllegalArgumentException(
+                    "Unsupported PPL pipeline stage ["
+                        + stage
+                        + "] before the final stats stage. Supported pre-stats stages are where and eval."
+                );
+            }
             preStatsStages.add(stage);
         }
 
@@ -544,6 +551,14 @@ public class PPLSource implements Writeable, ToXContentObject {
 
     private static boolean isWhereStage(String stage) {
         return startsWithKeyword(stage, "where");
+    }
+
+    private static boolean isEvalStage(String stage) {
+        return startsWithKeyword(stage, "eval");
+    }
+
+    private static boolean isSupportedPreStatsStage(String stage) {
+        return isWhereStage(stage) || isEvalStage(stage);
     }
 
     private static boolean isStatsStage(String stage) {

@@ -104,4 +104,13 @@ public class PPLSourceTests extends OpenSearchTestCase {
         );
         assertTrue(exception.getMessage().contains("after the final stats stage"));
     }
+
+    public void testCompileRejectsUnsupportedPreStatsStage() {
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> PPLSource.compile("source = logs | head 5 | stats count() as error_count by span(timestamp, 10m)")
+        );
+        assertTrue(exception.getMessage().contains("before the final stats stage"));
+        assertTrue(exception.getMessage().contains("where and eval"));
+    }
 }

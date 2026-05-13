@@ -1312,20 +1312,20 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         String indexName = createPPLRuntimeIndex("ppl-invalid-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
         String query = "source = " + indexName + " | stats count() as doc_count by span(timestamp, 1m) | head 5";
 
-        TestHelpers
-            .assertFailWith(
-                ResponseException.class,
-                "Only trailing sort stages are supported",
-                () -> TestHelpers
-                    .makeRequest(
-                        client(),
-                        "POST",
-                        TestHelpers.AD_BASE_DETECTORS_URI,
-                        ImmutableMap.of(),
-                        TestHelpers.toHttpEntity(buildPPLDetectorBody("invalid-ppl-detector", indexName, false, query)),
-                        null
-                    )
-            );
+        ResponseException exception = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(buildPPLDetectorBody("invalid-ppl-detector", indexName, false, query)),
+                    null
+                )
+        );
+        assertEquals(RestStatus.BAD_REQUEST.getStatus(), exception.getResponse().getStatusLine().getStatusCode());
+        assertThat(exception.getMessage(), containsString("Only trailing sort stages are supported"));
     }
 
     public void testSearchAnomalyResult() throws Exception {

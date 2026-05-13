@@ -575,45 +575,40 @@ public abstract class Config implements Writeable, ToXContentObject {
             Duration frequencyDuration = ((IntervalTimeConfiguration) frequency).toDuration();
             Duration intervalDuration = ((IntervalTimeConfiguration) interval).toDuration();
 
-            if (intervalDuration.isZero()) {
-                // we will check for invalid interval in subclass constructor
-                // since the error message is different among different subclasses
-                // (e.g. AD using detection interval and Forecaster using forecast interval)
-                return;
-            }
+            if (!intervalDuration.isZero()) {
+                if (frequencyDuration.isZero()) {
+                    issueType = ValidationIssueType.FREQUENCY;
+                    errorMessage = "Frequency must be greater than 0.";
+                    return;
+                }
+                // Check if frequency is NOT a multiple of interval
+                if (!TimeUtil.isMultiple(frequencyDuration, intervalDuration)) {
+                    issueType = ValidationIssueType.FREQUENCY;
+                    errorMessage = String
+                        .format(
+                            Locale.ROOT,
+                            "Frequency (%s) must be a multiple of interval (%s), including the interval itself.",
+                            frequency.toString(),
+                            interval.toString()
+                        );
+                    return;
+                }
 
-            if (frequencyDuration.isZero()) {
-                issueType = ValidationIssueType.FREQUENCY;
-                errorMessage = "Frequency must be greater than 0.";
-                return;
-            }
-            // Check if frequency is NOT a multiple of interval
-            if (!TimeUtil.isMultiple(frequencyDuration, intervalDuration)) {
-                issueType = ValidationIssueType.FREQUENCY;
-                errorMessage = String
-                    .format(
-                        Locale.ROOT,
-                        "Frequency (%s) must be a multiple of interval (%s), including the interval itself.",
-                        frequency.toString(),
-                        interval.toString()
-                    );
-                return;
-            }
-
-            // Check if the multiple exceeds the maximum allowed value
-            long multiple = TimeUtil.getMultiple(frequencyDuration, intervalDuration);
-            if (multiple > TimeSeriesSettings.MAX_FREQUENCY_MULTIPLE) {
-                issueType = ValidationIssueType.FREQUENCY;
-                errorMessage = String
-                    .format(
-                        Locale.ROOT,
-                        "Frequency multiple (%d) exceeds the maximum allowed value (%d). Frequency: %s, Interval: %s.",
-                        multiple,
-                        TimeSeriesSettings.MAX_FREQUENCY_MULTIPLE,
-                        frequency.toString(),
-                        interval.toString()
-                    );
-                return;
+                // Check if the multiple exceeds the maximum allowed value
+                long multiple = TimeUtil.getMultiple(frequencyDuration, intervalDuration);
+                if (multiple > TimeSeriesSettings.MAX_FREQUENCY_MULTIPLE) {
+                    issueType = ValidationIssueType.FREQUENCY;
+                    errorMessage = String
+                        .format(
+                            Locale.ROOT,
+                            "Frequency multiple (%d) exceeds the maximum allowed value (%d). Frequency: %s, Interval: %s.",
+                            multiple,
+                            TimeSeriesSettings.MAX_FREQUENCY_MULTIPLE,
+                            frequency.toString(),
+                            interval.toString()
+                        );
+                    return;
+                }
             }
         }
         this.id = id;
@@ -780,26 +775,11 @@ public abstract class Config implements Writeable, ToXContentObject {
             this.frequency = null;
         }
         this.autoCreated = input.readOptionalBoolean();
-        if (input.available() > 0) {
-            this.sourceType = normalizeSourceType(input.readOptionalString(), null, null);
-        } else {
-            this.sourceType = SOURCE_TYPE_OPENSEARCH;
-        }
-        if (this.sourceType == null) {
-            this.sourceType = SOURCE_TYPE_OPENSEARCH;
-        }
-        if (input.available() > 0 && input.readBoolean()) {
-            this.prometheusSource = new PrometheusSource(input);
-            this.sourceType = normalizeSourceType(this.sourceType, this.prometheusSource, null);
-        } else {
-            this.prometheusSource = null;
-        }
-        if (input.available() > 0 && input.readBoolean()) {
-            this.pplSource = new PPLSource(input);
-            this.sourceType = normalizeSourceType(this.sourceType, this.prometheusSource, this.pplSource);
-        } else {
-            this.pplSource = null;
-        }
+        // Source-specific transport fields live in subtype layouts. Forecaster
+        // appends horizon after Config, so Config must not consume trailing bytes.
+        this.sourceType = SOURCE_TYPE_OPENSEARCH;
+        this.prometheusSource = null;
+        this.pplSource = null;
     }
 
     /*
@@ -861,19 +841,6 @@ public abstract class Config implements Writeable, ToXContentObject {
             output.writeBoolean(false);
         }
         output.writeOptionalBoolean(autoCreated);
-        output.writeOptionalString(sourceType);
-        if (prometheusSource != null) {
-            output.writeBoolean(true);
-            prometheusSource.writeTo(output);
-        } else {
-            output.writeBoolean(false);
-        }
-        if (pplSource != null) {
-            output.writeBoolean(true);
-            pplSource.writeTo(output);
-        } else {
-            output.writeBoolean(false);
-        }
     }
 
     public boolean invalidShingleSizeRange(Integer shingleSizeToTest) {
