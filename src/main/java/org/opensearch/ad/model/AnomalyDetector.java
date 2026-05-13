@@ -45,6 +45,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.common.exception.VersionException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonValue;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
@@ -463,24 +464,26 @@ public class AnomalyDetector extends Config {
             this.frequency = null;
         }
         this.autoCreated = input.readOptionalBoolean();
-        if (input.available() > 0) {
+        if (supportsExternalSourceTransport(input.getVersion())) {
             this.sourceType = normalizeSerializedSourceType(input.readOptionalString());
+            if (this.sourceType == null) {
+                this.sourceType = SOURCE_TYPE_OPENSEARCH;
+            }
+            if (input.readBoolean()) {
+                this.prometheusSource = new PrometheusSource(input);
+                this.sourceType = SOURCE_TYPE_PROMETHEUS;
+            } else {
+                this.prometheusSource = null;
+            }
+            if (input.readBoolean()) {
+                this.pplSource = new PPLSource(input);
+                this.sourceType = SOURCE_TYPE_PPL;
+            } else {
+                this.pplSource = null;
+            }
         } else {
             this.sourceType = SOURCE_TYPE_OPENSEARCH;
-        }
-        if (this.sourceType == null) {
-            this.sourceType = SOURCE_TYPE_OPENSEARCH;
-        }
-        if (input.available() > 0 && input.readBoolean()) {
-            this.prometheusSource = new PrometheusSource(input);
-            this.sourceType = SOURCE_TYPE_PROMETHEUS;
-        } else {
             this.prometheusSource = null;
-        }
-        if (input.available() > 0 && input.readBoolean()) {
-            this.pplSource = new PPLSource(input);
-            this.sourceType = SOURCE_TYPE_PPL;
-        } else {
             this.pplSource = null;
         }
     }
@@ -496,6 +499,19 @@ public class AnomalyDetector extends Config {
      */
     @Override
     public void writeTo(StreamOutput output) throws IOException {
+        if (!supportsExternalSourceTransport(output.getVersion()) && isExternalSourceConfig()) {
+            throw new VersionException(
+                id,
+                String
+                    .format(
+                        Locale.ROOT,
+                        "Cannot serialize [%s] source detector to node before [%s].",
+                        sourceType,
+                        EXTERNAL_SOURCE_TRANSPORT_VERSION
+                    )
+            );
+        }
+
         output.writeOptionalString(id);
         output.writeOptionalLong(version);
         output.writeString(name);
@@ -557,18 +573,20 @@ public class AnomalyDetector extends Config {
             output.writeBoolean(false);
         }
         output.writeOptionalBoolean(autoCreated);
-        output.writeOptionalString(sourceType);
-        if (prometheusSource != null) {
-            output.writeBoolean(true);
-            prometheusSource.writeTo(output);
-        } else {
-            output.writeBoolean(false);
-        }
-        if (pplSource != null) {
-            output.writeBoolean(true);
-            pplSource.writeTo(output);
-        } else {
-            output.writeBoolean(false);
+        if (supportsExternalSourceTransport(output.getVersion())) {
+            output.writeOptionalString(sourceType);
+            if (prometheusSource != null) {
+                output.writeBoolean(true);
+                prometheusSource.writeTo(output);
+            } else {
+                output.writeBoolean(false);
+            }
+            if (pplSource != null) {
+                output.writeBoolean(true);
+                pplSource.writeTo(output);
+            } else {
+                output.writeBoolean(false);
+            }
         }
     }
 
@@ -931,6 +949,14 @@ public class AnomalyDetector extends Config {
         }
         String normalized = sourceType.trim();
         return normalized.isEmpty() ? null : normalized.toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isExternalSourceConfig() {
+        String normalizedSourceType = normalizeSerializedSourceType(sourceType);
+        return SOURCE_TYPE_PROMETHEUS.equals(normalizedSourceType)
+            || SOURCE_TYPE_PPL.equals(normalizedSourceType)
+            || prometheusSource != null
+            || pplSource != null;
     }
 
     public String getDetectorType() {

@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
+import org.opensearch.Version;
 import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -43,6 +44,7 @@ import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.common.exception.VersionException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.dataprocessor.ImputationMethod;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
@@ -1141,6 +1143,66 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         AnomalyDetector deserializedDetector = new AnomalyDetector(input);
         Assert.assertEquals(deserializedDetector, detector);
         Assert.assertEquals(deserializedDetector.getSeasonIntervals(), detector.getSeasonIntervals());
+    }
+
+    public void testOpenSearchDetectorSerializationBeforeExternalSourceTransportVersion() throws IOException {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(null, Instant.now());
+        BytesStreamOutput bytesStreamOutput = new BytesStreamOutput();
+        bytesStreamOutput.setVersion(Version.V_3_6_0);
+        detector.writeTo(bytesStreamOutput);
+
+        StreamInput streamInput = bytesStreamOutput.bytes().streamInput();
+        StreamInput input = new NamedWriteableAwareStreamInput(streamInput, new NamedWriteableRegistry(createDetectorNamedWriteables()));
+        input.setVersion(Version.V_3_6_0);
+
+        AnomalyDetector deserializedDetector = new AnomalyDetector(input);
+        assertEquals(detector, deserializedDetector);
+        assertEquals(Config.SOURCE_TYPE_OPENSEARCH, deserializedDetector.getSourceType());
+    }
+
+    public void testPrometheusSourceSerializationRejectsBeforeExternalSourceTransportVersion() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"prom-detector\","
+            + "\"description\":\"prometheus detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\"rate(go_gc_heap_allocs_bytes_total{instance=\\\"localhost:9090\\\"}[5m])\","
+            + "\"data_connection_id\":\"prome\""
+            + "},"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"f1\":{\"avg\":{\"field\":\"value\"}}}"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        BytesStreamOutput output = new BytesStreamOutput();
+        output.setVersion(Version.V_3_6_0);
+
+        VersionException exception = expectThrows(VersionException.class, () -> detector.writeTo(output));
+        assertTrue(exception.getMessage().contains("Cannot serialize [PROMETHEUS] source detector"));
+    }
+
+    private List<NamedWriteableRegistry.Entry> createDetectorNamedWriteables() {
+        List<NamedWriteableRegistry.Entry> namedWriteables = new ArrayList<>();
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, BoolQueryBuilder.NAME, BoolQueryBuilder::new));
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, TermQueryBuilder.NAME, TermQueryBuilder::new));
+        namedWriteables.add(new NamedWriteableRegistry.Entry(QueryBuilder.class, RangeQueryBuilder.NAME, RangeQueryBuilder::new));
+        namedWriteables
+            .add(
+                new NamedWriteableRegistry.Entry(
+                    AggregationBuilder.class,
+                    ValueCountAggregationBuilder.NAME,
+                    ValueCountAggregationBuilder::new
+                )
+            );
+        return namedWriteables;
     }
 
     public void testNullFixedValue() throws IOException {

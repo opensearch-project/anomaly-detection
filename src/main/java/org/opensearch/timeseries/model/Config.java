@@ -23,6 +23,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
+import org.opensearch.Version;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -97,6 +98,7 @@ public abstract class Config implements Writeable, ToXContentObject {
     public static final String SOURCE_TYPE_PPL = "PPL";
     public static final String PROMETHEUS_QUERY_LANGUAGE = "PROMQL";
     public static final String PPL_QUERY_LANGUAGE = "PPL";
+    public static final Version EXTERNAL_SOURCE_TRANSPORT_VERSION = Version.V_3_7_0;
 
     protected String id;
     protected Long version;
@@ -663,6 +665,10 @@ public abstract class Config implements Writeable, ToXContentObject {
             return normalized;
         }
         return null;
+    }
+
+    public static boolean supportsExternalSourceTransport(Version version) {
+        return version != null && version.onOrAfter(EXTERNAL_SOURCE_TRANSPORT_VERSION);
     }
 
     private boolean isPrometheusSource(String sourceType) {
