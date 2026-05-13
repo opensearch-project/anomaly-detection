@@ -28,7 +28,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -94,6 +97,8 @@ public class SearchFeatureDao extends AbstractRetriever {
     private final int minimumDocCountForPreview;
     private long previewTimeoutInMilliseconds;
     private Clock clock;
+    private final PrometheusDirectQueryExecutor prometheusDirectQueryExecutor;
+    private final PPLDirectQueryExecutor pplDirectQueryExecutor;
 
     // used for testing as we can mock clock
     public SearchFeatureDao(
@@ -106,6 +111,65 @@ public class SearchFeatureDao extends AbstractRetriever {
         int maxEntitiesForPreview,
         int pageSize,
         long previewTimeoutInMilliseconds
+    ) {
+        this(
+            client,
+            xContent,
+            clientUtil,
+            clusterService,
+            null,
+            minimumDocCount,
+            clock,
+            maxEntitiesForPreview,
+            pageSize,
+            previewTimeoutInMilliseconds,
+            null,
+            null
+        );
+    }
+
+    // used for testing as we can mock clock
+    public SearchFeatureDao(
+        Client client,
+        NamedXContentRegistry xContent,
+        SecurityClientUtil clientUtil,
+        ClusterService clusterService,
+        String dataSourceEncryptionMasterKey,
+        int minimumDocCount,
+        Clock clock,
+        int maxEntitiesForPreview,
+        int pageSize,
+        long previewTimeoutInMilliseconds
+    ) {
+        this(
+            client,
+            xContent,
+            clientUtil,
+            clusterService,
+            dataSourceEncryptionMasterKey,
+            minimumDocCount,
+            clock,
+            maxEntitiesForPreview,
+            pageSize,
+            previewTimeoutInMilliseconds,
+            null,
+            null
+        );
+    }
+
+    SearchFeatureDao(
+        Client client,
+        NamedXContentRegistry xContent,
+        SecurityClientUtil clientUtil,
+        ClusterService clusterService,
+        String dataSourceEncryptionMasterKey,
+        int minimumDocCount,
+        Clock clock,
+        int maxEntitiesForPreview,
+        int pageSize,
+        long previewTimeoutInMilliseconds,
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor,
+        PPLDirectQueryExecutor pplDirectQueryExecutor
     ) {
         this.client = client;
         this.xContent = xContent;
@@ -121,6 +185,12 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
         this.clock = clock;
+        this.prometheusDirectQueryExecutor = prometheusDirectQueryExecutor != null
+            ? prometheusDirectQueryExecutor
+            : new PrometheusDirectQueryExecutor(client, clientUtil, dataSourceEncryptionMasterKey);
+        this.pplDirectQueryExecutor = pplDirectQueryExecutor != null
+            ? pplDirectQueryExecutor
+            : new PPLDirectQueryExecutor(client, clientUtil);
     }
 
     /**
@@ -146,6 +216,7 @@ public class SearchFeatureDao extends AbstractRetriever {
             xContent,
             clientUtil,
             clusterService,
+            settings.get(PrometheusDirectQueryExecutor.DATASOURCE_ENCRYPTION_MASTER_KEY),
             minimumDocCount,
             Clock.systemUTC(),
             MAX_ENTITIES_FOR_PREVIEW.get(settings),
@@ -177,6 +248,19 @@ public class SearchFeatureDao extends AbstractRetriever {
         AnalysisType context,
         ActionListener<Optional<Long>> listener
     ) {
+        if (isPrometheusConfig(config)) {
+            listener.onResponse(Optional.of(clock.millis()));
+            return;
+        }
+        if (isPPLConfig(config)) {
+            if (entity.isPresent()) {
+                listener.onFailure(new IllegalArgumentException("PPL source_type does not support entity-scoped latest time queries."));
+                return;
+            }
+            pplDirectQueryExecutor.executeLatestDataTimeQuery(user, config, context, listener);
+            return;
+        }
+
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
         if (entity.isPresent()) {
             for (TermQueryBuilder term : entity.get().getTermQueryForCustomerIndex()) {
@@ -221,6 +305,28 @@ public class SearchFeatureDao extends AbstractRetriever {
         Map<String, Object> topEntity,
         ActionListener<Pair<Long, Long>> internalListener
     ) {
+        if (isPrometheusConfig(config)) {
+            long endTime = clock.millis();
+            long startTime = Math
+                .max(0L, endTime - Math.max(config.getIntervalInMilliseconds(), 1L) * Math.max(config.getHistoryIntervals(), 1));
+            internalListener.onResponse(Pair.of(startTime, endTime));
+            return;
+        }
+        if (isPPLConfig(config)) {
+            if (topEntity != null && !topEntity.isEmpty()) {
+                internalListener.onFailure(new IllegalArgumentException("PPL source_type does not support categorical entity filters."));
+                return;
+            }
+            pplDirectQueryExecutor
+                .executeDateRangeQuery(
+                    user,
+                    config,
+                    config instanceof AnomalyDetector ? AnalysisType.AD : AnalysisType.FORECAST,
+                    internalListener
+                );
+            return;
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .aggregation(AggregationBuilders.min(CommonName.AGG_NAME_MIN_TIME).field(config.getTimeField()))
             .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(config.getTimeField()))
@@ -289,6 +395,10 @@ public class SearchFeatureDao extends AbstractRetriever {
     ) {
         if (!detector.isHighCardinality()) {
             listener.onResponse(null);
+            return;
+        }
+        if (isPrometheusConfig(detector)) {
+            getPrometheusHighestCountEntities(detector, startTime, endTime, maxEntitiesSize, minimumDocCount, listener);
             return;
         }
 
@@ -549,6 +659,21 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener listener to return back the requested timestamps
      */
     public void getMinDataTime(Config config, Optional<Entity> entity, AnalysisType context, ActionListener<Optional<Long>> listener) {
+        if (isPrometheusConfig(config)) {
+            long endTime = clock.millis();
+            long lookback = Math.max(config.getIntervalInMilliseconds(), 1L) * Math.max(config.getHistoryIntervals(), 1);
+            listener.onResponse(Optional.of(Math.max(0L, endTime - lookback)));
+            return;
+        }
+        if (isPPLConfig(config)) {
+            if (entity.isPresent()) {
+                listener.onFailure(new IllegalArgumentException("PPL source_type does not support entity-scoped min time queries."));
+                return;
+            }
+            pplDirectQueryExecutor.executeMinDataTimeQuery(config, context, listener);
+            return;
+        }
+
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
 
         if (entity.isPresent()) {
@@ -596,6 +721,31 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener onResponse is called with features for the given time period.
      */
     public void getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ActionListener<Optional<double[]>> listener) {
+        if (isPrometheusConfig(detector)) {
+            try {
+                getFeatureSamplesForPeriods(
+                    detector,
+                    Collections.singletonList(new SimpleImmutableEntry<>(startTime, endTime)),
+                    AnalysisType.AD,
+                    true,
+                    ActionListener.wrap(samples -> {
+                        if (samples.size() == 1) {
+                            listener.onResponse(samples.get(0));
+                        } else {
+                            listener.onResponse(Optional.empty());
+                        }
+                    }, listener::onFailure)
+                );
+            } catch (IOException e) {
+                listener.onFailure(e);
+            }
+            return;
+        }
+        if (isPPLConfig(detector)) {
+            pplDirectQueryExecutor.executeMetricQuery(detector, startTime, endTime, AnalysisType.AD, listener);
+            return;
+        }
+
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds(), true)), listener::onFailure);
@@ -619,6 +769,15 @@ public class SearchFeatureDao extends AbstractRetriever {
         long endTime,
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) throws IOException {
+        if (isPrometheusConfig(detector)) {
+            getPrometheusFeatureDataPointsByBatch(detector, entity, startTime, endTime, listener);
+            return;
+        }
+        if (isPPLConfig(detector)) {
+            listener.onFailure(new IllegalArgumentException("PPL source_type only supports single-stream detectors."));
+            return;
+        }
+
         SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent);
         logger.debug("Batch query for detector {}: {} ", detector.getId(), searchSourceBuilder);
 
@@ -683,6 +842,19 @@ public class SearchFeatureDao extends AbstractRetriever {
         boolean keepMissingValues,
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
+        if (isPrometheusConfig(config)) {
+            getPrometheusFeatureSamplesForPeriods(config, ranges, Optional.empty(), context, keepMissingValues, listener);
+            return;
+        }
+        if (isPPLConfig(config)) {
+            getPPLFeatureSamplesForPeriods(config, ranges, Optional.empty(), context, keepMissingValues, listener);
+            return;
+        }
+
         SearchRequest request = createRangeSearchRequest(config, ranges);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
@@ -772,6 +944,20 @@ public class SearchFeatureDao extends AbstractRetriever {
         AnalysisType context,
         ActionListener<List<Optional<double[]>>> listener
     ) {
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
+        if (isPrometheusConfig(config)) {
+            // Keep behavior aligned with existing cold-start path where missing values are dropped.
+            getPrometheusFeatureSamplesForPeriods(config, ranges, entity, context, false, listener);
+            return;
+        }
+        if (isPPLConfig(config)) {
+            getPPLFeatureSamplesForPeriods(config, ranges, entity, context, false, listener);
+            return;
+        }
+
         SearchRequest request = createColdStartFeatureSearchRequest(config, ranges, entity);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             listener.onResponse(parseColdStartSampleResp(response, includesEmptyBucket, config));
@@ -1166,5 +1352,204 @@ public class SearchFeatureDao extends AbstractRetriever {
         Collections.reverse(sampleRanges);
 
         return sampleRanges;
+    }
+
+    private boolean isPrometheusConfig(Config config) {
+        return config != null && Config.SOURCE_TYPE_PROMETHEUS.equals(config.getSourceType()) && config.getPrometheusSource() != null;
+    }
+
+    private boolean isPPLConfig(Config config) {
+        return config != null && Config.SOURCE_TYPE_PPL.equals(config.getSourceType()) && config.getPPLSource() != null;
+    }
+
+    private void getPPLFeatureSamplesForPeriods(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        AnalysisType context,
+        boolean keepMissingValues,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (entity.isPresent()) {
+            listener.onFailure(new IllegalArgumentException("PPL source_type only supports single-stream detectors."));
+            return;
+        }
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
+
+        List<Optional<double[]>> results = new ArrayList<>(ranges.size());
+        fetchPPLFeatureSample(config, ranges, 0, context, keepMissingValues, results, listener);
+    }
+
+    private void fetchPPLFeatureSample(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        int index,
+        AnalysisType context,
+        boolean keepMissingValues,
+        List<Optional<double[]>> results,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (index >= ranges.size()) {
+            listener.onResponse(results);
+            return;
+        }
+
+        Entry<Long, Long> range = ranges.get(index);
+        pplDirectQueryExecutor.executeMetricQuery(config, range.getKey(), range.getValue(), context, ActionListener.wrap(value -> {
+            if (value.isPresent()) {
+                results.add(value);
+            } else if (keepMissingValues) {
+                results.add(Optional.of(createMissingFeatureVector(config)));
+            } else {
+                results.add(Optional.empty());
+            }
+            fetchPPLFeatureSample(config, ranges, index + 1, context, keepMissingValues, results, listener);
+        }, listener::onFailure));
+    }
+
+    private double[] createMissingFeatureVector(Config config) {
+        int featureCount = config.getEnabledFeatureIds().size();
+        double[] missingValues = new double[featureCount];
+        Arrays.fill(missingValues, Double.NaN);
+        return missingValues;
+    }
+
+    private void getPrometheusFeatureSamplesForPeriods(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        AnalysisType context,
+        boolean keepMissingValues,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
+
+        long startTimeMs = ranges.get(0).getKey();
+        long endTimeMs = ranges.get(ranges.size() - 1).getValue();
+        long stepSeconds = Math.max(1L, config.getIntervalInSeconds());
+        Map<String, String> entityFilter = entity.map(Entity::getAttributes).orElse(null);
+
+        prometheusDirectQueryExecutor
+            .executeRangeQuery(config, startTimeMs, endTimeMs, stepSeconds, entityFilter, context, ActionListener.wrap(values -> {
+                List<Optional<double[]>> results = new ArrayList<>(ranges.size());
+                for (Entry<Long, Long> range : ranges) {
+                    Optional<Double> value = findRangeValue(values, range.getKey(), range.getValue());
+                    if (value.isPresent()) {
+                        results.add(Optional.of(new double[] { value.get() }));
+                    } else if (keepMissingValues) {
+                        results.add(Optional.of(new double[] { Double.NaN }));
+                    } else {
+                        results.add(Optional.empty());
+                    }
+                }
+                listener.onResponse(results);
+            }, listener::onFailure));
+    }
+
+    private void getPrometheusFeatureDataPointsByBatch(
+        AnomalyDetector detector,
+        Entity entity,
+        long startTime,
+        long endTime,
+        ActionListener<Map<Long, Optional<double[]>>> listener
+    ) {
+        List<Entry<Long, Long>> ranges = getContiguousRanges(startTime, endTime, Math.max(detector.getIntervalInMilliseconds(), 1L));
+        getPrometheusFeatureSamplesForPeriods(
+            detector,
+            ranges,
+            Optional.ofNullable(entity),
+            AnalysisType.AD,
+            true,
+            ActionListener.wrap(samples -> {
+                Map<Long, Optional<double[]>> dataPoints = new HashMap<>();
+                for (int i = 0; i < ranges.size() && i < samples.size(); i++) {
+                    dataPoints.put(ranges.get(i).getKey(), samples.get(i));
+                }
+                listener.onResponse(dataPoints);
+            }, listener::onFailure)
+        );
+    }
+
+    private List<Entry<Long, Long>> getContiguousRanges(long startTime, long endTime, long intervalMillis) {
+        List<Entry<Long, Long>> ranges = new ArrayList<>();
+        for (long rangeStart = startTime; rangeStart < endTime; rangeStart += intervalMillis) {
+            ranges.add(new SimpleImmutableEntry<>(rangeStart, Math.min(rangeStart + intervalMillis, endTime)));
+        }
+        return ranges;
+    }
+
+    private void getPrometheusHighestCountEntities(
+        AnomalyDetector detector,
+        long startTime,
+        long endTime,
+        int maxEntitiesSize,
+        int minimumDocCount,
+        ActionListener<List<Entity>> listener
+    ) {
+        prometheusDirectQueryExecutor
+            .executeRangeQueryBySeries(
+                detector,
+                startTime,
+                endTime,
+                Math.max(1L, detector.getIntervalInSeconds()),
+                AnalysisType.AD,
+                ActionListener.wrap(valuesBySeries -> {
+                    List<Entity> entities = valuesBySeries
+                        .entrySet()
+                        .stream()
+                        .map(entry -> buildEntityCount(detector.getCategoryFields(), entry.getKey(), entry.getValue().size()))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .filter(entry -> entry.getValue() >= minimumDocCount)
+                        .sorted((left, right) -> Integer.compare(right.getValue(), left.getValue()))
+                        .limit(maxEntitiesSize)
+                        .map(Entry::getKey)
+                        .collect(Collectors.toList());
+                    listener.onResponse(entities);
+                }, listener::onFailure)
+            );
+    }
+
+    private Optional<Entry<Entity, Integer>> buildEntityCount(
+        List<String> categoryFields,
+        Map<String, String> seriesLabels,
+        int valueCount
+    ) {
+        return buildEntity(categoryFields, seriesLabels).map(entity -> new SimpleImmutableEntry<>(entity, valueCount));
+    }
+
+    private Optional<Entity> buildEntity(List<String> categoryFields, Map<String, String> seriesLabels) {
+        if (categoryFields == null || categoryFields.isEmpty() || seriesLabels == null || seriesLabels.isEmpty()) {
+            return Optional.empty();
+        }
+
+        SortedMap<String, String> entityAttributes = new TreeMap<>();
+        for (String categoryField : categoryFields) {
+            String categoryValue = seriesLabels.get(categoryField);
+            if (categoryValue == null) {
+                return Optional.empty();
+            }
+            entityAttributes.put(categoryField, categoryValue);
+        }
+        return Optional.of(Entity.createEntityFromOrderedMap(entityAttributes));
+    }
+
+    private Optional<Double> findRangeValue(NavigableMap<Long, Double> values, long startTimeMs, long endTimeMs) {
+        if (values == null || values.isEmpty() || startTimeMs >= endTimeMs) {
+            return Optional.empty();
+        }
+
+        // Prometheus range-vector samples at bucket end describe the trailing window for that bucket.
+        Entry<Long, Double> candidate = values.floorEntry(endTimeMs);
+        if (candidate == null || candidate.getKey() < startTimeMs) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(candidate.getValue());
     }
 }

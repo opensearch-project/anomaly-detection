@@ -859,6 +859,25 @@ public class ModelManagerTests {
     }
 
     @Test
+    public void getPreviewResults_supportsRequestScopedMinPreviewSizeOverride() throws IOException {
+        int numPoints = 200;
+        double[][] points = Stream.generate(() -> new double[] { 0 }).limit(numPoints).toArray(double[][]::new);
+        List<Entry<Long, Long>> timeRanges = IntStream
+            .rangeClosed(1, points.length)
+            .mapToObj(i -> new SimpleEntry<Long, Long>((long) i, (long) i + 1))
+            .collect(Collectors.toList());
+        Features features = new Features(timeRanges, points);
+
+        AnomalyDetector detector = mock(AnomalyDetector.class);
+        when(detector.getShingleSize()).thenReturn(shingleSize);
+        when(detector.getRecencyEmphasis()).thenReturn(10000);
+
+        List<ThresholdingResult> results = modelManager.getPreviewResults(features, detector, 200);
+
+        assertEquals(numPoints, results.size());
+    }
+
+    @Test
     public void getNullState() {
         assertEquals(
             new ThresholdingResult(0, 0, 0),

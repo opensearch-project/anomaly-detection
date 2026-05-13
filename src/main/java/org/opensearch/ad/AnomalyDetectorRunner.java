@@ -72,6 +72,17 @@ public final class AnomalyDetectorRunner {
         ThreadContext.StoredContext context,
         ActionListener<List<AnomalyResult>> listener
     ) throws IOException {
+        executeDetector(detector, startTime, endTime, context, null, listener);
+    }
+
+    public void executeDetector(
+        AnomalyDetector detector,
+        Instant startTime,
+        Instant endTime,
+        ThreadContext.StoredContext context,
+        Integer minPreviewSize,
+        ActionListener<List<AnomalyResult>> listener
+    ) throws IOException {
         context.restore();
         List<String> categoryField = detector.getCategoryFields();
         if (categoryField != null && !categoryField.isEmpty()) {
@@ -102,7 +113,9 @@ public final class AnomalyDetectorRunner {
                             startTime.toEpochMilli(),
                             endTime.toEpochMilli(),
                             ActionListener.wrap(features -> {
-                                List<ThresholdingResult> entityResults = modelManager.getPreviewResults(features, detector);
+                                List<ThresholdingResult> entityResults = minPreviewSize == null
+                                    ? modelManager.getPreviewResults(features, detector)
+                                    : modelManager.getPreviewResults(features, detector, minPreviewSize);
                                 List<AnomalyResult> sampledEntityResults = sample(
                                     parsePreviewResult(detector, features, entityResults, entity),
                                     maxPreviewResults
@@ -115,7 +128,9 @@ public final class AnomalyDetectorRunner {
         } else {
             featureManager.getPreviewFeatures(detector, startTime.toEpochMilli(), endTime.toEpochMilli(), ActionListener.wrap(features -> {
                 try {
-                    List<ThresholdingResult> results = modelManager.getPreviewResults(features, detector);
+                    List<ThresholdingResult> results = minPreviewSize == null
+                        ? modelManager.getPreviewResults(features, detector)
+                        : modelManager.getPreviewResults(features, detector, minPreviewSize);
                     listener.onResponse(sample(parsePreviewResult(detector, features, results, null), maxPreviewResults));
                 } catch (Exception e) {
                     onFailure(e, listener, detector.getId());

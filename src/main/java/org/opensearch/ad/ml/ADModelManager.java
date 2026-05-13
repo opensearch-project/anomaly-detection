@@ -465,9 +465,22 @@ public class ADModelManager extends
      * @throws IllegalArgumentException when preview data points are not valid
      */
     public List<ThresholdingResult> getPreviewResults(Features features, AnomalyDetector detector) {
+        return getPreviewResults(features, detector, null);
+    }
+
+    /**
+     * Returns computed anomaly results for preview data points.
+     *
+     * @param features features of preview data points
+     * @param detector Anomaly detector
+     * @param minPreviewSizeOverride optional request-scoped minimum preview size override
+     * @throws IllegalArgumentException when preview data points are not valid
+     */
+    public List<ThresholdingResult> getPreviewResults(Features features, AnomalyDetector detector, Integer minPreviewSizeOverride) {
         double[][] dataPoints = features.getUnprocessedFeatures();
-        if (dataPoints.length < minPreviewSize) {
-            throw new IllegalArgumentException("Insufficient data for preview results. Minimum required: " + minPreviewSize);
+        int effectiveMinPreviewSize = minPreviewSizeOverride == null ? minPreviewSize : minPreviewSizeOverride;
+        if (dataPoints.length < effectiveMinPreviewSize) {
+            throw new IllegalArgumentException("Insufficient data for preview results. Minimum required: " + effectiveMinPreviewSize);
         }
         List<Entry<Long, Long>> timeRanges = features.getTimeRanges();
         if (timeRanges.size() != dataPoints.length) {

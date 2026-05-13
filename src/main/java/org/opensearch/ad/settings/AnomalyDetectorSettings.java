@@ -614,7 +614,7 @@ public final class AnomalyDetectorSettings {
     // ======================================
     // preview setting
     // ======================================
-    public static final int MIN_PREVIEW_SIZE = 400; // ok to lower
+    public static final int MIN_PREVIEW_SIZE = 400;
 
     public static final double PREVIEW_SAMPLE_RATE = 0.25; // ok to adjust, higher for more data, lower for lower latency
 
