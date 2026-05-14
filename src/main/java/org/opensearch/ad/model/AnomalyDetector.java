@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -44,6 +45,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.timeseries.annotation.Generated;
 import org.opensearch.timeseries.common.exception.ValidationException;
+import org.opensearch.timeseries.common.exception.VersionException;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.constant.CommonValue;
 import org.opensearch.timeseries.dataprocessor.ImputationOption;
@@ -51,6 +53,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
+import org.opensearch.timeseries.model.PPLSource;
 import org.opensearch.timeseries.model.ShingleGetter;
 import org.opensearch.timeseries.model.TimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
@@ -189,6 +192,74 @@ public class AnomalyDetector extends Config {
         TimeConfiguration frequency,
         Boolean autoCreated
     ) {
+        this(
+            detectorId,
+            version,
+            name,
+            description,
+            timeField,
+            indices,
+            features,
+            filterQuery,
+            detectionInterval,
+            windowDelay,
+            shingleSize,
+            uiMetadata,
+            schemaVersion,
+            lastUpdateTime,
+            categoryFields,
+            user,
+            resultIndex,
+            imputationOption,
+            recencyEmphasis,
+            seasonIntervals,
+            historyIntervals,
+            rules,
+            customResultIndexMinSize,
+            customResultIndexMinAge,
+            customResultIndexTTL,
+            flattenResultIndexMapping,
+            lastBreakingUIChangeTime,
+            frequency,
+            autoCreated,
+            null,
+            null
+        );
+    }
+
+    public AnomalyDetector(
+        String detectorId,
+        Long version,
+        String name,
+        String description,
+        String timeField,
+        List<String> indices,
+        List<Feature> features,
+        QueryBuilder filterQuery,
+        TimeConfiguration detectionInterval,
+        TimeConfiguration windowDelay,
+        Integer shingleSize,
+        Map<String, Object> uiMetadata,
+        Integer schemaVersion,
+        Instant lastUpdateTime,
+        List<String> categoryFields,
+        User user,
+        String resultIndex,
+        ImputationOption imputationOption,
+        Integer recencyEmphasis,
+        Integer seasonIntervals,
+        Integer historyIntervals,
+        List<Rule> rules,
+        Integer customResultIndexMinSize,
+        Integer customResultIndexMinAge,
+        Integer customResultIndexTTL,
+        Boolean flattenResultIndexMapping,
+        Instant lastBreakingUIChangeTime,
+        TimeConfiguration frequency,
+        Boolean autoCreated,
+        String sourceType,
+        PPLSource pplSource
+    ) {
         super(
             detectorId,
             version,
@@ -206,7 +277,7 @@ public class AnomalyDetector extends Config {
             categoryFields,
             user,
             resultIndex,
-            detectionInterval,
+            resolveDetectionInterval(detectionInterval, sourceType, pplSource),
             imputationOption,
             recencyEmphasis,
             seasonIntervals,
@@ -218,15 +289,31 @@ public class AnomalyDetector extends Config {
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
             frequency,
-            autoCreated
+            autoCreated,
+            sourceType,
+            pplSource
         );
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
 
-        if (detectionInterval == null) {
+        if (isPPLSourceConfig(this.sourceType, this.pplSource) && detectionInterval != null) {
+            IntervalTimeConfiguration pplInterval = getCompiledPPLInterval(this.pplSource);
+            if (pplInterval != null && !sameDuration(detectionInterval, pplInterval)) {
+                errorMessage = String
+                    .format(
+                        Locale.ROOT,
+                        "detection_interval must match ppl_source span interval (%s) when source_type is PPL.",
+                        pplInterval
+                    );
+                issueType = ValidationIssueType.DETECTION_INTERVAL;
+            }
+        }
+
+        TimeConfiguration resolvedDetectionInterval = this.interval;
+        if (resolvedDetectionInterval == null) {
             errorMessage = ADCommonMessages.NULL_DETECTION_INTERVAL;
             issueType = ValidationIssueType.DETECTION_INTERVAL;
-        } else if (((IntervalTimeConfiguration) detectionInterval).getInterval() <= 0) {
+        } else if (((IntervalTimeConfiguration) resolvedDetectionInterval).getInterval() <= 0) {
             errorMessage = ADCommonMessages.INVALID_DETECTION_INTERVAL;
             issueType = ValidationIssueType.DETECTION_INTERVAL;
         }
@@ -236,8 +323,7 @@ public class AnomalyDetector extends Config {
             errorMessage = CommonMessages.getTooManyCategoricalFieldErr(maxCategoryFields);
             issueType = ValidationIssueType.CATEGORY;
         }
-
-        validateRules(features, rules);
+        validateRules(featureAttributes, rules);
 
         checkAndThrowValidationErrors(ValidationAspect.DETECTOR);
 
@@ -305,6 +391,21 @@ public class AnomalyDetector extends Config {
             this.frequency = null;
         }
         this.autoCreated = input.readOptionalBoolean();
+        if (supportsExternalSourceTransport(input.getVersion())) {
+            this.sourceType = normalizeSerializedSourceType(input.readOptionalString());
+            if (this.sourceType == null) {
+                this.sourceType = SOURCE_TYPE_OPENSEARCH;
+            }
+            if (input.readBoolean()) {
+                this.pplSource = new PPLSource(input);
+                this.sourceType = SOURCE_TYPE_PPL;
+            } else {
+                this.pplSource = null;
+            }
+        } else {
+            this.sourceType = SOURCE_TYPE_OPENSEARCH;
+            this.pplSource = null;
+        }
     }
 
     public XContentBuilder toXContent(XContentBuilder builder) throws IOException {
@@ -318,6 +419,19 @@ public class AnomalyDetector extends Config {
      */
     @Override
     public void writeTo(StreamOutput output) throws IOException {
+        if (!supportsExternalSourceTransport(output.getVersion()) && isExternalSourceConfig()) {
+            throw new VersionException(
+                id,
+                String
+                    .format(
+                        Locale.ROOT,
+                        "Cannot serialize [%s] source detector to node before [%s].",
+                        sourceType,
+                        EXTERNAL_SOURCE_TRANSPORT_VERSION
+                    )
+            );
+        }
+
         output.writeOptionalString(id);
         output.writeOptionalLong(version);
         output.writeString(name);
@@ -379,6 +493,15 @@ public class AnomalyDetector extends Config {
             output.writeBoolean(false);
         }
         output.writeOptionalBoolean(autoCreated);
+        if (supportsExternalSourceTransport(output.getVersion())) {
+            output.writeOptionalString(sourceType);
+            if (pplSource != null) {
+                output.writeBoolean(true);
+                pplSource.writeTo(output);
+            } else {
+                output.writeBoolean(false);
+            }
+        }
     }
 
     @Override
@@ -453,6 +576,7 @@ public class AnomalyDetector extends Config {
         TimeConfiguration detectionInterval = defaultDetectionInterval == null
             ? null
             : new IntervalTimeConfiguration(defaultDetectionInterval.getMinutes(), ChronoUnit.MINUTES);
+        boolean detectionIntervalProvided = false;
         TimeConfiguration windowDelay = defaultDetectionWindowDelay == null
             ? null
             : new IntervalTimeConfiguration(defaultDetectionWindowDelay.getSeconds(), ChronoUnit.SECONDS);
@@ -479,6 +603,8 @@ public class AnomalyDetector extends Config {
         // by default, frequency is the same as interval when not set
         TimeConfiguration frequency = null;
         Boolean autoCreated = null;
+        String sourceType = null;
+        PPLSource pplSource = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -526,6 +652,7 @@ public class AnomalyDetector extends Config {
                 case DETECTION_INTERVAL_FIELD:
                     try {
                         detectionInterval = TimeConfiguration.parse(parser);
+                        detectionIntervalProvided = true;
                     } catch (Exception e) {
                         if (e instanceof IllegalArgumentException && e.getMessage().contains(CommonMessages.NEGATIVE_TIME_CONFIGURATION)) {
                             throw new ValidationException(
@@ -636,10 +763,20 @@ public class AnomalyDetector extends Config {
                 case AUTO_CREATED_FIELD:
                     autoCreated = onlyParseBooleanValue(parser);
                     break;
+                case SOURCE_TYPE_FIELD:
+                    sourceType = parser.textOrNull();
+                    break;
+                case PPL_SOURCE_FIELD:
+                    pplSource = PPLSource.parse(parser);
+                    break;
                 default:
                     parser.skipChildren();
                     break;
             }
+        }
+
+        if (isPPLSourceConfig(sourceType, pplSource) && !detectionIntervalProvided) {
+            detectionInterval = null;
         }
 
         AnomalyDetector detector = new AnomalyDetector(
@@ -671,10 +808,61 @@ public class AnomalyDetector extends Config {
             flattenResultIndexMapping,
             lastBreakingUIChangeTime,
             frequency,
-            autoCreated
+            autoCreated,
+            sourceType,
+            pplSource
         );
         detector.setDetectionDateRange(detectionDateRange);
         return detector;
+    }
+
+    private static TimeConfiguration resolveDetectionInterval(TimeConfiguration detectionInterval, String sourceType, PPLSource pplSource) {
+        if (detectionInterval != null || !isPPLSourceConfig(sourceType, pplSource)) {
+            return detectionInterval;
+        }
+
+        IntervalTimeConfiguration compiledInterval = getCompiledPPLInterval(pplSource);
+        return compiledInterval == null ? detectionInterval : compiledInterval;
+    }
+
+    private static IntervalTimeConfiguration getCompiledPPLInterval(PPLSource pplSource) {
+        if (pplSource == null) {
+            return null;
+        }
+
+        try {
+            return pplSource.compile().getInterval();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static boolean sameDuration(TimeConfiguration left, IntervalTimeConfiguration right) {
+        if (!(left instanceof IntervalTimeConfiguration) || right == null) {
+            return false;
+        }
+        return ((IntervalTimeConfiguration) left).toDuration().equals(right.toDuration());
+    }
+
+    private static boolean isPPLSourceConfig(String sourceType, PPLSource pplSource) {
+        String normalizedSourceType = normalizeSerializedSourceType(sourceType);
+        if (pplSource != null && normalizedSourceType == null) {
+            return true;
+        }
+        return SOURCE_TYPE_PPL.equals(normalizedSourceType);
+    }
+
+    private static String normalizeSerializedSourceType(String sourceType) {
+        if (sourceType == null) {
+            return null;
+        }
+        String normalized = sourceType.trim();
+        return normalized.isEmpty() ? null : normalized.toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isExternalSourceConfig() {
+        String normalizedSourceType = normalizeSerializedSourceType(sourceType);
+        return SOURCE_TYPE_PPL.equals(normalizedSourceType) || pplSource != null;
     }
 
     public String getDetectorType() {

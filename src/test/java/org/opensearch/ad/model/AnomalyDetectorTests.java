@@ -1463,6 +1463,222 @@ public class AnomalyDetectorTests extends AbstractTimeSeriesTest {
         assertNotNull(detector);
     }
 
+    public void testParsePPLAnomalyDetector() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"description\":\"ppl detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | stats sum(http_4xx) as sum_http_4xx by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(Config.SOURCE_TYPE_PPL, detector.getSourceType());
+        assertEquals(ImmutableList.of("sample-http-responses"), detector.getIndices());
+        assertEquals("timestamp", detector.getTimeField());
+        assertNotNull(detector.getPPLSource());
+        assertEquals("PPL", detector.getPPLSource().getQueryLanguage());
+        assertEquals(1, detector.getFeatureAttributes().size());
+        assertEquals("sum_http_4xx", detector.getFeatureAttributes().get(0).getName());
+        assertTrue(detector.getFeatureAttributes().get(0).usesDirectQueryPlaceholderAggregation());
+        assertEquals(10L, ((IntervalTimeConfiguration) detector.getInterval()).getInterval());
+        assertEquals(ChronoUnit.MINUTES, ((IntervalTimeConfiguration) detector.getInterval()).getUnit());
+
+        String serialized = TestHelpers.xContentBuilderToString(detector.toXContent(TestHelpers.builder(), ToXContent.EMPTY_PARAMS));
+        assertTrue(serialized.contains("\"source_type\":\"PPL\""));
+        assertTrue(serialized.contains("\"ppl_source\""));
+        assertTrue(serialized.contains("\"time_field\":\"timestamp\""));
+        assertTrue(serialized.contains("\"indices\":[\"sample-http-responses\"]"));
+    }
+
+    public void testParsePPLAnomalyDetectorSupportsWhereAndMultipleMetrics() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"description\":\"ppl detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | where status_code >= 400 | stats sum(http_4xx) as sum_http_4xx, max(http_5xx) as max_http_5xx by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(Config.SOURCE_TYPE_PPL, detector.getSourceType());
+        assertEquals(ImmutableList.of("sample-http-responses"), detector.getIndices());
+        assertEquals("timestamp", detector.getTimeField());
+        assertNotNull(detector.getPPLSource());
+        assertEquals(2, detector.getFeatureAttributes().size());
+        assertEquals("sum_http_4xx", detector.getFeatureAttributes().get(0).getName());
+        assertEquals("max_http_5xx", detector.getFeatureAttributes().get(1).getName());
+        assertTrue(detector.getFeatureAttributes().get(0).usesDirectQueryPlaceholderAggregation());
+        assertTrue(detector.getFeatureAttributes().get(1).usesDirectQueryPlaceholderAggregation());
+        assertNotEquals(
+            detector.getFeatureAttributes().get(0).getAggregation().getName(),
+            detector.getFeatureAttributes().get(1).getAggregation().getName()
+        );
+    }
+
+    public void testParsePPLAnomalyDetectorSupportsCountAndMatchingIntervals() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"description\":\"ppl detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | where status_code >= 400 | stats count() as error_count by span(timestamp, 60m) as bucket\""
+            + "},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(Config.SOURCE_TYPE_PPL, detector.getSourceType());
+        assertEquals(ImmutableList.of("sample-http-responses"), detector.getIndices());
+        assertEquals("timestamp", detector.getTimeField());
+        assertNotNull(detector.getPPLSource());
+        assertEquals(1, detector.getFeatureAttributes().size());
+        assertEquals("error_count", detector.getFeatureAttributes().get(0).getName());
+        assertTrue(detector.getFeatureAttributes().get(0).usesDirectQueryPlaceholderAggregation());
+        assertEquals(60L, ((IntervalTimeConfiguration) detector.getInterval()).getInterval());
+        assertEquals(ChronoUnit.MINUTES, ((IntervalTimeConfiguration) detector.getInterval()).getUnit());
+    }
+
+    public void testParsePPLAnomalyDetectorDerivesIntervalWhenDefaultsAreProvided() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"description\":\"ppl detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | where status_code >= 400 | eval total_metric = http_4xx + http_5xx | stats count(*) as error_count, avg(total_metric) as avg_total_metric by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector
+            .parse(TestHelpers.parser(detectorString), "detector-id", 1L, TimeValue.timeValueMinutes(1), TimeValue.timeValueMinutes(1));
+
+        assertEquals(Config.SOURCE_TYPE_PPL, detector.getSourceType());
+        assertEquals(ImmutableList.of("sample-http-responses"), detector.getIndices());
+        assertEquals("timestamp", detector.getTimeField());
+        assertNotNull(detector.getPPLSource());
+        assertEquals(2, detector.getFeatureAttributes().size());
+        assertEquals("error_count", detector.getFeatureAttributes().get(0).getName());
+        assertEquals("avg_total_metric", detector.getFeatureAttributes().get(1).getName());
+        assertEquals(10L, ((IntervalTimeConfiguration) detector.getInterval()).getInterval());
+        assertEquals(ChronoUnit.MINUTES, ((IntervalTimeConfiguration) detector.getInterval()).getUnit());
+    }
+
+    public void testParseStoredPPLAnomalyDetectorPreservesFeatureAttributes() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"description\":\"ppl detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | where status_code >= 400 | stats sum(http_4xx) as sum_http_4xx, max(http_5xx) as max_http_5xx by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"feature_attributes\":["
+            + "{"
+            + "\"feature_id\":\"feature-1\","
+            + "\"feature_name\":\"sum_http_4xx\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"__direct_query_feature_value__\":{\"avg\":{\"field\":\"__direct_query_value__\"}}}"
+            + "},"
+            + "{"
+            + "\"feature_id\":\"feature-2\","
+            + "\"feature_name\":\"max_http_5xx\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"__direct_query_feature_value__\":{\"avg\":{\"field\":\"__direct_query_value__\"}}}"
+            + "}"
+            + "],"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        assertEquals(2, detector.getFeatureAttributes().size());
+        assertEquals("feature-1", detector.getFeatureAttributes().get(0).getId());
+        assertEquals("feature-2", detector.getFeatureAttributes().get(1).getId());
+        assertEquals("sum_http_4xx", detector.getFeatureAttributes().get(0).getName());
+        assertEquals("max_http_5xx", detector.getFeatureAttributes().get(1).getName());
+    }
+
+    public void testParsePPLAnomalyDetectorRejectsCategoryFields() {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | stats sum(http_4xx) as sum_http_4xx by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"category_field\":[\"host\"],"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals("category_field must be empty when source_type is PPL.", exception.getMessage());
+        assertEquals(ValidationIssueType.CATEGORY, exception.getType());
+    }
+
+    public void testParsePPLAnomalyDetectorRejectsDetectionIntervalMismatch() {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | stats sum(http_4xx) as sum_http_4xx by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"detection_interval\":{\"period\":{\"interval\":5,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals(
+            "detection_interval must match ppl_source span interval (10 minutes) when source_type is PPL.",
+            exception.getMessage()
+        );
+        assertEquals(ValidationIssueType.DETECTION_INTERVAL, exception.getType());
+    }
+
+    public void testParseOpenSearchAnomalyDetectorRequiresAggregationQuery() {
+        String detectorString = "{"
+            + "\"name\":\"os-detector\","
+            + "\"time_field\":\"timestamp\","
+            + "\"indices\":[\"source-index\"],"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"os_value\","
+            + "\"feature_enabled\":true"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        ValidationException exception = expectThrows(
+            ValidationException.class,
+            () -> AnomalyDetector.parse(TestHelpers.parser(detectorString))
+        );
+        assertEquals("feature_attributes.aggregation_query must be set when source_type is OPENSEARCH.", exception.getMessage());
+        assertEquals(ValidationIssueType.FEATURE_ATTRIBUTES, exception.getType());
+    }
+
     /**
      * Helper method to create a valid rule for testing.
      *

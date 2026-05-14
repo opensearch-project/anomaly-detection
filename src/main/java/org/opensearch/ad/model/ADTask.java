@@ -348,7 +348,9 @@ public class ADTask extends TimeSeriesTask {
                 detector.getFlattenResultIndexMapping(),
                 detector.getLastBreakingUIChangeTime(),
                 detector.getFrequency(),
-                detector.getAutoCreated()
+                detector.getAutoCreated(),
+                detector.getSourceType(),
+                detector.getPPLSource()
             );
         return new Builder()
             .taskId(parsedTaskId)
