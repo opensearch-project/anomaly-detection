@@ -16,6 +16,9 @@ import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandle
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -25,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.ContentType;
@@ -48,6 +52,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.test.fixture.AbstractHttpFixture;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -144,6 +149,158 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             : TestHelpers.randomAnomalyDetector(TIME_FIELD, indexName, features);
 
         return detector;
+    }
+
+    private String createPPLRuntimeIndex(String indexName) throws IOException {
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/" + indexName,
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"mappings\":{\"properties\":{\"timestamp\":{\"type\":\"date\"},\"status_code\":{\"type\":\"integer\"},\"metric_a\":{\"type\":\"double\"},\"metric_b\":{\"type\":\"double\"},\"service\":{\"type\":\"keyword\"}}}}"
+                    ),
+                null
+            );
+
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        for (int i = 0; i < 40; i++) {
+            Instant timestamp = now.minus(i, ChronoUnit.MINUTES);
+            int statusCode = i % 12 == 0 ? 500 : (i % 5 == 0 ? 404 : 200);
+            int metricA = (i % 9) + 1;
+            int metricB = (i % 7) + 10;
+            TestHelpers
+                .ingestDataToIndex(
+                    client(),
+                    indexName,
+                    TestHelpers
+                        .toHttpEntity(
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    "{\"timestamp\":%d,\"status_code\":%d,\"metric_a\":%d,\"metric_b\":%d,\"service\":\"checkout\"}",
+                                    timestamp.toEpochMilli(),
+                                    statusCode,
+                                    metricA,
+                                    metricB
+                                )
+                        )
+                );
+        }
+
+        return indexName;
+    }
+
+    private String buildPPLPreviewBody(String indexName, Instant periodStart, Instant periodEnd) {
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"period_start\":%d,\"period_end\":%d,\"detector\":{\"name\":\"preview-ppl\",\"source_type\":\"PPL\",\"ppl_source\":{\"query_language\":\"PPL\",\"query\":\"source = %s | where service = 'checkout' | eval total_metric = metric_a + metric_b | stats count(*) as doc_count, avg(total_metric) as avg_total_metric by span(timestamp, 1m) as bucket\"},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}}",
+                periodStart.toEpochMilli(),
+                periodEnd.toEpochMilli(),
+                indexName
+            );
+    }
+
+    private String buildPPLDetectorBody(String detectorName, String indexName, boolean includeDetectionInterval, String query) {
+        String detectionInterval = includeDetectionInterval
+            ? ",\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}"
+            : "";
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"name\":\"%s\",\"description\":\"ppl runtime detector\",\"source_type\":\"PPL\",\"ppl_source\":{\"query_language\":\"PPL\",\"query\":\"%s\"}%s,\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                detectorName,
+                query.replace("\"", "\\\""),
+                detectionInterval
+            );
+    }
+
+    private String buildPrometheusPreviewBody(String dataConnectionId, Instant periodStart, Instant periodEnd) {
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"period_start\":%d,\"period_end\":%d,\"detector\":{\"name\":\"preview-prometheus\",\"source_type\":\"PROMETHEUS\",\"prometheus_source\":{\"query_language\":\"PROMQL\",\"query\":\"up\",\"data_connection_id\":\"%s\",\"series_filter\":{\"job\":\"ad\"}},\"feature_attributes\":[{\"feature_name\":\"prometheus_value\",\"feature_enabled\":true}],\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}}",
+                periodStart.toEpochMilli(),
+                periodEnd.toEpochMilli(),
+                dataConnectionId
+            );
+    }
+
+    private void createPrometheusDatasource(String dataConnectionId, String prometheusUri) throws IOException {
+        String datasource = String
+            .format(
+                Locale.ROOT,
+                "{\"connector\":\"PROMETHEUS\",\"properties\":{\"prometheus.uri\":\"%s\",\"prometheus.auth.type\":\"basicauth\",\"prometheus.auth.username\":\"admin\",\"prometheus.auth.password\":\"admin\"}}",
+                prometheusUri
+            );
+        TestHelpers
+            .makeRequest(
+                adminClient(),
+                "PUT",
+                "/.ql-datasources/_doc/" + dataConnectionId,
+                ImmutableMap.of("refresh", "true"),
+                TestHelpers.toHttpEntity(datasource),
+                null
+            );
+    }
+
+    private MockPrometheusServer startMockPrometheusServer() throws IOException {
+        AtomicReference<String> authorizationHeader = new AtomicReference<>();
+        Path workingDirectory = Files.createTempDirectory("prometheus-fixture");
+        AbstractHttpFixture fixture = new AbstractHttpFixture(workingDirectory.toString()) {
+            @Override
+            protected Response handle(Request request) throws IOException {
+                if ("/api/v1/query_range".equals(request.getPath()) == false) {
+                    return new Response(404, Map.of("Content-Type", "text/plain"), "Not found".getBytes(StandardCharsets.UTF_8));
+                }
+                authorizationHeader.set(request.getHeader("Authorization"));
+                long start = Long.parseLong(request.getParam("start"));
+                long end = Long.parseLong(request.getParam("end"));
+                long step = Long.parseLong(request.getParam("step"));
+                String response = buildPrometheusRangeResponse(start, end, step);
+                return new Response(200, Map.of("Content-Type", "application/json"), response.getBytes(StandardCharsets.UTF_8));
+            }
+        };
+        Thread serverThread = new Thread(() -> {
+            try {
+                fixture.listen();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        serverThread.setDaemon(true);
+        serverThread.start();
+
+        Path portsFile = workingDirectory.resolve("ports");
+        Awaitility.await("mock Prometheus fixture to start").atMost(Duration.ofSeconds(10)).until(() -> Files.exists(portsFile));
+        String address = Files.readString(portsFile, StandardCharsets.UTF_8).trim();
+        return new MockPrometheusServer(serverThread, workingDirectory, "http://" + address, authorizationHeader);
+    }
+
+    private String buildPrometheusRangeResponse(long start, long end, long step) {
+        StringBuilder matchingValues = new StringBuilder();
+        StringBuilder ignoredValues = new StringBuilder();
+        for (long timestamp = start; timestamp <= end; timestamp += Math.max(step, 1L)) {
+            if (matchingValues.length() > 0) {
+                matchingValues.append(',');
+                ignoredValues.append(',');
+            }
+            matchingValues.append('[').append(timestamp).append(",\"").append((timestamp - start) / Math.max(step, 1L) + 1).append("\"]");
+            ignoredValues.append('[').append(timestamp).append(",\"999\"]");
+        }
+        return "{\"status\":\"success\",\"data\":{\"resultType\":\"matrix\",\"result\":["
+            + "{\"metric\":{\"job\":\"ignored\"},\"values\":["
+            + ignoredValues
+            + "]},"
+            + "{\"metric\":{\"job\":\"ad\"},\"values\":["
+            + matchingValues
+            + "]}"
+            + "]}}";
     }
 
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
@@ -1149,6 +1306,198 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         null
                     )
             );
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testPreviewPPLAnomalyDetectorWithoutExplicitDetectionInterval() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-preview-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
+        Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant periodStart = periodEnd.minus(10, ChronoUnit.MINUTES);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_preview?min_preview_size=1",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(buildPPLPreviewBody(indexName, periodStart, periodEnd)),
+                null,
+                false
+            );
+
+        assertEquals("Preview PPL detector failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
+        assertNotNull(anomalyResults);
+        assertFalse(anomalyResults.isEmpty());
+
+        List<Map<String, Object>> featureData = (List<Map<String, Object>>) anomalyResults.get(0).get("feature_data");
+        assertNotNull(featureData);
+        assertEquals(2, featureData.size());
+        assertEquals("doc_count", featureData.get(0).get("feature_name"));
+        assertEquals("avg_total_metric", featureData.get(1).get("feature_name"));
+
+        Map<String, Object> detector = (Map<String, Object>) responseMap.get("anomaly_detector");
+        Map<String, Object> detectionInterval = (Map<String, Object>) detector.get("detection_interval");
+        Map<String, Object> period = (Map<String, Object>) detectionInterval.get("period");
+        assertEquals("PPL", detector.get("source_type"));
+        assertEquals(1, period.get("interval"));
+        assertEquals("Minutes", period.get("unit"));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testPreviewPrometheusAnomalyDetectorWithMockDatasource() throws Exception {
+        try (MockPrometheusServer prometheusServer = startMockPrometheusServer()) {
+            String dataConnectionId = "prometheus-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
+            createPrometheusDatasource(dataConnectionId, prometheusServer.getUri());
+            Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+            Instant periodStart = periodEnd.minus(10, ChronoUnit.MINUTES);
+
+            Response response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/_preview?min_preview_size=1",
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(buildPrometheusPreviewBody(dataConnectionId, periodStart, periodEnd)),
+                    null,
+                    false
+                );
+
+            assertEquals("Preview Prometheus detector failed", RestStatus.OK, TestHelpers.restStatus(response));
+            assertTrue(prometheusServer.getAuthorizationHeader().startsWith("Basic "));
+            Map<String, Object> responseMap = entityAsMap(response);
+            List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
+            assertNotNull(anomalyResults);
+            assertFalse(anomalyResults.isEmpty());
+
+            List<Map<String, Object>> featureData = (List<Map<String, Object>>) anomalyResults.get(0).get("feature_data");
+            assertNotNull(featureData);
+            assertEquals(1, featureData.size());
+            assertEquals("prometheus_value", featureData.get(0).get("feature_name"));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testCreateStartAndProfilePPLAnomalyDetectorWithoutExplicitDetectionInterval() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-detector-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
+        String detectorName = "ppl-runtime-" + randomAlphaOfLength(6);
+        String query = "source = "
+            + indexName
+            + " | where service = 'checkout' | eval total_metric = metric_a + metric_b | stats count() as doc_count, avg(total_metric) as avg_total_metric by span(timestamp, 1m) as bucket";
+
+        Response createResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(buildPPLDetectorBody(detectorName, indexName, false, query)),
+                null
+            );
+
+        assertEquals("Create PPL detector failed", RestStatus.CREATED, TestHelpers.restStatus(createResponse));
+        Map<String, Object> createResponseMap = entityAsMap(createResponse);
+        String detectorId = (String) createResponseMap.get("_id");
+        Map<String, Object> detector = (Map<String, Object>) createResponseMap.get("anomaly_detector");
+        Map<String, Object> detectionInterval = (Map<String, Object>) detector.get("detection_interval");
+        Map<String, Object> period = (Map<String, Object>) detectionInterval.get("period");
+        List<Map<String, Object>> featureAttributes = (List<Map<String, Object>>) detector.get("feature_attributes");
+
+        assertNotNull(detectorId);
+        assertEquals("PPL", detector.get("source_type"));
+        assertEquals(2, featureAttributes.size());
+        assertEquals("doc_count", featureAttributes.get(0).get("feature_name"));
+        assertEquals("avg_total_metric", featureAttributes.get(1).get("feature_name"));
+        assertEquals(1, period.get("interval"));
+        assertEquals("Minutes", period.get("unit"));
+
+        String startDetectorPath = TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start";
+        if (isResourceSharingFeatureEnabled()) {
+            TestHelpers
+                .assertFailWith(
+                    ResponseException.class,
+                    "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]",
+                    () -> TestHelpers.makeRequest(client(), "POST", startDetectorPath, ImmutableMap.of(), "", null)
+                );
+            return;
+        }
+
+        Response startResponse = TestHelpers.makeRequest(client(), "POST", startDetectorPath, ImmutableMap.of(), "", null);
+        assertEquals("Start PPL detector failed", RestStatus.OK, TestHelpers.restStatus(startResponse));
+
+        Awaitility
+            .await("ppl detector profile to reach running")
+            .pollDelay(Duration.ZERO)
+            .pollInterval(Duration.ofSeconds(2))
+            .atMost(Duration.ofSeconds(30))
+            .untilAsserted(() -> {
+                Response profileResponse = getDetectorProfile(detectorId, true);
+                assertEquals(RestStatus.OK, TestHelpers.restStatus(profileResponse));
+                Map<String, Object> profileMap = entityAsMap(profileResponse);
+                assertEquals("RUNNING", profileMap.get("state"));
+                Map<String, Object> initProgress = (Map<String, Object>) profileMap.get("init_progress");
+                assertEquals("100%", initProgress.get("percentage"));
+            });
+    }
+
+    private static class MockPrometheusServer implements AutoCloseable {
+        private final Thread serverThread;
+        private final Path workingDirectory;
+        private final String uri;
+        private final AtomicReference<String> authorizationHeader;
+
+        private MockPrometheusServer(Thread serverThread, Path workingDirectory, String uri, AtomicReference<String> authorizationHeader) {
+            this.serverThread = serverThread;
+            this.workingDirectory = workingDirectory;
+            this.uri = uri;
+            this.authorizationHeader = authorizationHeader;
+        }
+
+        private String getUri() {
+            return uri;
+        }
+
+        private String getAuthorizationHeader() {
+            return authorizationHeader.get();
+        }
+
+        @Override
+        public void close() {
+            serverThread.interrupt();
+            try {
+                serverThread.join(Duration.ofSeconds(5).toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            try {
+                Files.deleteIfExists(workingDirectory.resolve("ports"));
+                Files.deleteIfExists(workingDirectory.resolve("pid"));
+                Files.deleteIfExists(workingDirectory);
+            } catch (IOException e) {
+                // Best-effort cleanup for the test fixture.
+            }
+        }
+    }
+
+    public void testCreatePPLAnomalyDetectorRejectsUnsupportedPostStatsStage() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-invalid-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
+        String query = "source = " + indexName + " | stats count() as doc_count by span(timestamp, 1m) | head 5";
+
+        ResponseException exception = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(buildPPLDetectorBody("invalid-ppl-detector", indexName, false, query)),
+                    null
+                )
+        );
+        assertEquals(RestStatus.BAD_REQUEST.getStatus(), exception.getResponse().getStatusLine().getStatusCode());
+        assertThat(exception.getMessage(), containsString("Only trailing sort stages are supported"));
     }
 
     public void testSearchAnomalyResult() throws Exception {
