@@ -94,6 +94,7 @@ public class SearchFeatureDao extends AbstractRetriever {
     private final int minimumDocCountForPreview;
     private long previewTimeoutInMilliseconds;
     private Clock clock;
+    private final PPLDirectQueryExecutor pplDirectQueryExecutor;
 
     // used for testing as we can mock clock
     public SearchFeatureDao(
@@ -106,6 +107,32 @@ public class SearchFeatureDao extends AbstractRetriever {
         int maxEntitiesForPreview,
         int pageSize,
         long previewTimeoutInMilliseconds
+    ) {
+        this(
+            client,
+            xContent,
+            clientUtil,
+            clusterService,
+            minimumDocCount,
+            clock,
+            maxEntitiesForPreview,
+            pageSize,
+            previewTimeoutInMilliseconds,
+            null
+        );
+    }
+
+    SearchFeatureDao(
+        Client client,
+        NamedXContentRegistry xContent,
+        SecurityClientUtil clientUtil,
+        ClusterService clusterService,
+        int minimumDocCount,
+        Clock clock,
+        int maxEntitiesForPreview,
+        int pageSize,
+        long previewTimeoutInMilliseconds,
+        PPLDirectQueryExecutor pplDirectQueryExecutor
     ) {
         this.client = client;
         this.xContent = xContent;
@@ -121,6 +148,9 @@ public class SearchFeatureDao extends AbstractRetriever {
         this.minimumDocCountForPreview = minimumDocCount;
         this.previewTimeoutInMilliseconds = previewTimeoutInMilliseconds;
         this.clock = clock;
+        this.pplDirectQueryExecutor = pplDirectQueryExecutor != null
+            ? pplDirectQueryExecutor
+            : new PPLDirectQueryExecutor(client, clientUtil);
     }
 
     /**
@@ -177,6 +207,15 @@ public class SearchFeatureDao extends AbstractRetriever {
         AnalysisType context,
         ActionListener<Optional<Long>> listener
     ) {
+        if (isPPLConfig(config)) {
+            if (entity.isPresent()) {
+                listener.onFailure(new IllegalArgumentException("PPL source_type does not support entity-scoped latest time queries."));
+                return;
+            }
+            pplDirectQueryExecutor.executeLatestDataTimeQuery(user, config, context, listener);
+            return;
+        }
+
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
         if (entity.isPresent()) {
             for (TermQueryBuilder term : entity.get().getTermQueryForCustomerIndex()) {
@@ -221,6 +260,21 @@ public class SearchFeatureDao extends AbstractRetriever {
         Map<String, Object> topEntity,
         ActionListener<Pair<Long, Long>> internalListener
     ) {
+        if (isPPLConfig(config)) {
+            if (topEntity != null && !topEntity.isEmpty()) {
+                internalListener.onFailure(new IllegalArgumentException("PPL source_type does not support categorical entity filters."));
+                return;
+            }
+            pplDirectQueryExecutor
+                .executeDateRangeQuery(
+                    user,
+                    config,
+                    config instanceof AnomalyDetector ? AnalysisType.AD : AnalysisType.FORECAST,
+                    internalListener
+                );
+            return;
+        }
+
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
             .aggregation(AggregationBuilders.min(CommonName.AGG_NAME_MIN_TIME).field(config.getTimeField()))
             .aggregation(AggregationBuilders.max(CommonName.AGG_NAME_MAX_TIME).field(config.getTimeField()))
@@ -549,6 +603,15 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener listener to return back the requested timestamps
      */
     public void getMinDataTime(Config config, Optional<Entity> entity, AnalysisType context, ActionListener<Optional<Long>> listener) {
+        if (isPPLConfig(config)) {
+            if (entity.isPresent()) {
+                listener.onFailure(new IllegalArgumentException("PPL source_type does not support entity-scoped min time queries."));
+                return;
+            }
+            pplDirectQueryExecutor.executeMinDataTimeQuery(config, context, listener);
+            return;
+        }
+
         BoolQueryBuilder internalFilterQuery = QueryBuilders.boolQuery();
 
         if (entity.isPresent()) {
@@ -596,6 +659,11 @@ public class SearchFeatureDao extends AbstractRetriever {
      * @param listener onResponse is called with features for the given time period.
      */
     public void getFeaturesForPeriod(AnomalyDetector detector, long startTime, long endTime, ActionListener<Optional<double[]>> listener) {
+        if (isPPLConfig(detector)) {
+            pplDirectQueryExecutor.executeMetricQuery(detector, startTime, endTime, AnalysisType.AD, listener);
+            return;
+        }
+
         SearchRequest searchRequest = createFeatureSearchRequest(detector, startTime, endTime, Optional.empty());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> listener.onResponse(parseResponse(response, detector.getEnabledFeatureIds(), true)), listener::onFailure);
@@ -619,6 +687,11 @@ public class SearchFeatureDao extends AbstractRetriever {
         long endTime,
         ActionListener<Map<Long, Optional<double[]>>> listener
     ) throws IOException {
+        if (isPPLConfig(detector)) {
+            listener.onFailure(new IllegalArgumentException("PPL source_type only supports single-stream detectors."));
+            return;
+        }
+
         SearchSourceBuilder searchSourceBuilder = batchFeatureQuery(detector, entity, startTime, endTime, xContent);
         logger.debug("Batch query for detector {}: {} ", detector.getId(), searchSourceBuilder);
 
@@ -683,6 +756,11 @@ public class SearchFeatureDao extends AbstractRetriever {
         boolean keepMissingValues,
         ActionListener<List<Optional<double[]>>> listener
     ) throws IOException {
+        if (isPPLConfig(config)) {
+            getPPLFeatureSamplesForPeriods(config, ranges, Optional.empty(), context, keepMissingValues, listener);
+            return;
+        }
+
         SearchRequest request = createRangeSearchRequest(config, ranges);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
@@ -772,6 +850,11 @@ public class SearchFeatureDao extends AbstractRetriever {
         AnalysisType context,
         ActionListener<List<Optional<double[]>>> listener
     ) {
+        if (isPPLConfig(config)) {
+            getPPLFeatureSamplesForPeriods(config, ranges, entity, context, false, listener);
+            return;
+        }
+
         SearchRequest request = createColdStartFeatureSearchRequest(config, ranges, entity);
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             listener.onResponse(parseColdStartSampleResp(response, includesEmptyBucket, config));
@@ -1166,5 +1249,64 @@ public class SearchFeatureDao extends AbstractRetriever {
         Collections.reverse(sampleRanges);
 
         return sampleRanges;
+    }
+
+    private boolean isPPLConfig(Config config) {
+        return config != null && Config.SOURCE_TYPE_PPL.equals(config.getSourceType()) && config.getPPLSource() != null;
+    }
+
+    private void getPPLFeatureSamplesForPeriods(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        Optional<Entity> entity,
+        AnalysisType context,
+        boolean keepMissingValues,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (entity.isPresent()) {
+            listener.onFailure(new IllegalArgumentException("PPL source_type only supports single-stream detectors."));
+            return;
+        }
+        if (ranges == null || ranges.isEmpty()) {
+            listener.onResponse(Collections.emptyList());
+            return;
+        }
+
+        List<Optional<double[]>> results = new ArrayList<>(ranges.size());
+        fetchPPLFeatureSample(config, ranges, 0, context, keepMissingValues, results, listener);
+    }
+
+    private void fetchPPLFeatureSample(
+        Config config,
+        List<Entry<Long, Long>> ranges,
+        int index,
+        AnalysisType context,
+        boolean keepMissingValues,
+        List<Optional<double[]>> results,
+        ActionListener<List<Optional<double[]>>> listener
+    ) {
+        if (index >= ranges.size()) {
+            listener.onResponse(results);
+            return;
+        }
+
+        Entry<Long, Long> range = ranges.get(index);
+        pplDirectQueryExecutor.executeMetricQuery(config, range.getKey(), range.getValue(), context, ActionListener.wrap(value -> {
+            if (value.isPresent()) {
+                results.add(value);
+            } else if (keepMissingValues) {
+                results.add(Optional.of(createMissingFeatureVector(config)));
+            } else {
+                results.add(Optional.empty());
+            }
+            fetchPPLFeatureSample(config, ranges, index + 1, context, keepMissingValues, results, listener);
+        }, listener::onFailure));
+    }
+
+    private double[] createMissingFeatureVector(Config config) {
+        int featureCount = config.getEnabledFeatureIds().size();
+        double[] missingValues = new double[featureCount];
+        Arrays.fill(missingValues, Double.NaN);
+        return missingValues;
     }
 }

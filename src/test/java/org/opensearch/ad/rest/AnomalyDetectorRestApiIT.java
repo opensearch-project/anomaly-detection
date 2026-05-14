@@ -146,6 +146,77 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         return detector;
     }
 
+    private String createPPLRuntimeIndex(String indexName) throws IOException {
+        return createPPLRuntimeIndex(indexName, 40);
+    }
+
+    private String createPPLRuntimeIndex(String indexName, int documentCount) throws IOException {
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/" + indexName,
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"mappings\":{\"properties\":{\"timestamp\":{\"type\":\"date\"},\"status_code\":{\"type\":\"integer\"},\"metric_a\":{\"type\":\"double\"},\"metric_b\":{\"type\":\"double\"},\"service\":{\"type\":\"keyword\"}}}}"
+                    ),
+                null
+            );
+
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        for (int i = 0; i < documentCount; i++) {
+            Instant timestamp = now.minus(i, ChronoUnit.MINUTES);
+            int statusCode = i % 12 == 0 ? 500 : (i % 5 == 0 ? 404 : 200);
+            int metricA = (i % 9) + 1;
+            int metricB = (i % 7) + 10;
+            TestHelpers
+                .ingestDataToIndex(
+                    client(),
+                    indexName,
+                    TestHelpers
+                        .toHttpEntity(
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    "{\"timestamp\":%d,\"status_code\":%d,\"metric_a\":%d,\"metric_b\":%d,\"service\":\"checkout\"}",
+                                    timestamp.toEpochMilli(),
+                                    statusCode,
+                                    metricA,
+                                    metricB
+                                )
+                        )
+                );
+        }
+
+        return indexName;
+    }
+
+    private String buildPPLPreviewBody(String indexName, Instant periodStart, Instant periodEnd) {
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"period_start\":%d,\"period_end\":%d,\"detector\":{\"name\":\"preview-ppl\",\"source_type\":\"PPL\",\"ppl_source\":{\"query_language\":\"PPL\",\"query\":\"source = %s | where service = 'checkout' | eval total_metric = metric_a + metric_b | stats count(*) as doc_count, avg(total_metric) as avg_total_metric by span(timestamp, 1m) as bucket\"},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}}",
+                periodStart.toEpochMilli(),
+                periodEnd.toEpochMilli(),
+                indexName
+            );
+    }
+
+    private String buildPPLDetectorBody(String detectorName, String indexName, boolean includeDetectionInterval, String query) {
+        String detectionInterval = includeDetectionInterval
+            ? ",\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}"
+            : "";
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"name\":\"%s\",\"description\":\"ppl runtime detector\",\"source_type\":\"PPL\",\"ppl_source\":{\"query_language\":\"PPL\",\"query\":\"%s\"}%s,\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}",
+                detectorName,
+                query.replace("\"", "\\\""),
+                detectionInterval
+            );
+    }
+
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
         AnomalyDetector detector = createIndexAndGetAnomalyDetector(INDEX_NAME);
         Feature feature = TestHelpers.randomFeature();
@@ -1149,6 +1220,126 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                         null
                     )
             );
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testPreviewPPLAnomalyDetectorWithoutExplicitDetectionInterval() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-preview-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT), 430);
+        Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant periodStart = periodEnd.minus(410, ChronoUnit.MINUTES);
+
+        Response response = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/_preview",
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(buildPPLPreviewBody(indexName, periodStart, periodEnd)),
+                null,
+                false
+            );
+
+        assertEquals("Preview PPL detector failed", RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
+        assertNotNull(anomalyResults);
+        assertFalse(anomalyResults.isEmpty());
+
+        List<Map<String, Object>> featureData = (List<Map<String, Object>>) anomalyResults.get(0).get("feature_data");
+        assertNotNull(featureData);
+        assertEquals(2, featureData.size());
+        assertEquals("doc_count", featureData.get(0).get("feature_name"));
+        assertEquals("avg_total_metric", featureData.get(1).get("feature_name"));
+
+        Map<String, Object> detector = (Map<String, Object>) responseMap.get("anomaly_detector");
+        Map<String, Object> detectionInterval = (Map<String, Object>) detector.get("detection_interval");
+        Map<String, Object> period = (Map<String, Object>) detectionInterval.get("period");
+        assertEquals("PPL", detector.get("source_type"));
+        assertEquals(1, period.get("interval"));
+        assertEquals("Minutes", period.get("unit"));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testCreateStartAndProfilePPLAnomalyDetectorWithoutExplicitDetectionInterval() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-detector-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
+        String detectorName = "ppl-runtime-" + randomAlphaOfLength(6);
+        String query = "source = "
+            + indexName
+            + " | where service = 'checkout' | eval total_metric = metric_a + metric_b | stats count() as doc_count, avg(total_metric) as avg_total_metric by span(timestamp, 1m) as bucket";
+
+        Response createResponse = TestHelpers
+            .makeRequest(
+                client(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(buildPPLDetectorBody(detectorName, indexName, false, query)),
+                null
+            );
+
+        assertEquals("Create PPL detector failed", RestStatus.CREATED, TestHelpers.restStatus(createResponse));
+        Map<String, Object> createResponseMap = entityAsMap(createResponse);
+        String detectorId = (String) createResponseMap.get("_id");
+        Map<String, Object> detector = (Map<String, Object>) createResponseMap.get("anomaly_detector");
+        Map<String, Object> detectionInterval = (Map<String, Object>) detector.get("detection_interval");
+        Map<String, Object> period = (Map<String, Object>) detectionInterval.get("period");
+        List<Map<String, Object>> featureAttributes = (List<Map<String, Object>>) detector.get("feature_attributes");
+
+        assertNotNull(detectorId);
+        assertEquals("PPL", detector.get("source_type"));
+        assertEquals(2, featureAttributes.size());
+        assertEquals("doc_count", featureAttributes.get(0).get("feature_name"));
+        assertEquals("avg_total_metric", featureAttributes.get(1).get("feature_name"));
+        assertEquals(1, period.get("interval"));
+        assertEquals("Minutes", period.get("unit"));
+
+        String startDetectorPath = TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start";
+        if (isResourceSharingFeatureEnabled()) {
+            TestHelpers
+                .assertFailWith(
+                    ResponseException.class,
+                    "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]",
+                    () -> TestHelpers.makeRequest(client(), "POST", startDetectorPath, ImmutableMap.of(), "", null)
+                );
+            return;
+        }
+
+        Response startResponse = TestHelpers.makeRequest(client(), "POST", startDetectorPath, ImmutableMap.of(), "", null);
+        assertEquals("Start PPL detector failed", RestStatus.OK, TestHelpers.restStatus(startResponse));
+
+        Awaitility
+            .await("ppl detector profile to reach running")
+            .pollDelay(Duration.ZERO)
+            .pollInterval(Duration.ofSeconds(2))
+            .atMost(Duration.ofSeconds(30))
+            .untilAsserted(() -> {
+                Response profileResponse = getDetectorProfile(detectorId, true);
+                assertEquals(RestStatus.OK, TestHelpers.restStatus(profileResponse));
+                Map<String, Object> profileMap = entityAsMap(profileResponse);
+                assertEquals("RUNNING", profileMap.get("state"));
+                Map<String, Object> initProgress = (Map<String, Object>) profileMap.get("init_progress");
+                assertEquals("100%", initProgress.get("percentage"));
+            });
+    }
+
+    public void testCreatePPLAnomalyDetectorRejectsUnsupportedPostStatsStage() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-invalid-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
+        String query = "source = " + indexName + " | stats count() as doc_count by span(timestamp, 1m) | head 5";
+
+        ResponseException exception = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(buildPPLDetectorBody("invalid-ppl-detector", indexName, false, query)),
+                    null
+                )
+        );
+        assertEquals(RestStatus.BAD_REQUEST.getStatus(), exception.getResponse().getStatusLine().getStatusCode());
+        assertThat(exception.getMessage(), containsString("Only trailing sort stages are supported"));
     }
 
     public void testSearchAnomalyResult() throws Exception {

@@ -252,7 +252,9 @@ public abstract class AbstractAnomalyDetectorActionHandler<T extends ActionRespo
             config.getFlattenResultIndexMapping(),
             breakingUIChange ? Instant.now() : config.getLastBreakingUIChangeTime(),
             config.getFrequency(),
-            detector.getAutoCreated()
+            detector.getAutoCreated(),
+            config.getSourceType(),
+            config.getPPLSource()
         );
     }
 

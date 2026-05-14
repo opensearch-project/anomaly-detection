@@ -24,6 +24,8 @@ import org.opensearch.test.InternalSettingsPlugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -74,6 +76,37 @@ public class AnomalyDetectorSerializationTests extends OpenSearchSingleNodeTestC
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
         AnomalyDetector parsedDetector = new AnomalyDetector(input);
         assertTrue(String.format(Locale.ROOT, "expected %s, but got %s", detector, parsedDetector), detector.equals(parsedDetector));
+    }
+
+    public void testPPLSourceSerializationRoundTrip() throws IOException {
+        String detectorString = "{"
+            + "\"name\":\"ppl-detector\","
+            + "\"description\":\"ppl detector\","
+            + "\"source_type\":\"PPL\","
+            + "\"ppl_source\":{"
+            + "\"query_language\":\"PPL\","
+            + "\"query\":\"source = sample-http-responses | stats sum(http_4xx) as sum_http_4xx by span(timestamp, 10m) as bucket\""
+            + "},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
+
+        AnomalyDetector detector = AnomalyDetector.parse(TestHelpers.parser(detectorString));
+        BytesStreamOutput output = new BytesStreamOutput();
+        detector.writeTo(output);
+        NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry());
+        AnomalyDetector parsedDetector = new AnomalyDetector(input);
+
+        assertEquals(detector, parsedDetector);
+        assertEquals(Config.SOURCE_TYPE_PPL, parsedDetector.getSourceType());
+        assertNotNull(parsedDetector.getPPLSource());
+        assertEquals("PPL", parsedDetector.getPPLSource().getQueryLanguage());
+        assertEquals(
+            "source = sample-http-responses | stats sum(http_4xx) as sum_http_4xx by span(timestamp, 10m) as bucket",
+            parsedDetector.getPPLSource().getQuery()
+        );
+        assertEquals("timestamp", parsedDetector.getTimeField());
+        assertEquals(10L, ((IntervalTimeConfiguration) parsedDetector.getInterval()).getInterval());
     }
 
 }
