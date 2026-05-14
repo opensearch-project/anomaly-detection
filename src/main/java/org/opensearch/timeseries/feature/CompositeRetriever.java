@@ -63,7 +63,7 @@ import org.opensearch.transport.client.Client;
  * entity model Id to a data node.
  *
  */
-public class CompositeRetriever extends AbstractRetriever {
+public class CompositeRetriever extends AbstractRetriever implements AutoCloseable {
     public static final String AGG_NAME_COMP = "comp_agg";
     private static final Logger LOG = LogManager.getLogger(CompositeRetriever.class);
 
@@ -100,6 +100,46 @@ public class CompositeRetriever extends AbstractRetriever {
         ClusterService clusterService,
         AnalysisType context
     ) {
+        this(
+            dataStartEpoch,
+            dataEndEpoch,
+            config,
+            xContent,
+            client,
+            clientUtil,
+            expirationEpochMs,
+            clock,
+            settings,
+            maxEntitiesPerInterval,
+            pageSize,
+            indexNameExpressionResolver,
+            clusterService,
+            context,
+            new PrometheusDirectQueryExecutor(
+                client,
+                clientUtil,
+                settings.get(PrometheusDirectQueryExecutor.DATASOURCE_ENCRYPTION_MASTER_KEY)
+            )
+        );
+    }
+
+    CompositeRetriever(
+        long dataStartEpoch,
+        long dataEndEpoch,
+        Config config,
+        NamedXContentRegistry xContent,
+        Client client,
+        SecurityClientUtil clientUtil,
+        long expirationEpochMs,
+        Clock clock,
+        Settings settings,
+        int maxEntitiesPerInterval,
+        int pageSize,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        ClusterService clusterService,
+        AnalysisType context,
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor
+    ) {
         this.dataStartEpoch = dataStartEpoch;
         this.dataEndEpoch = dataEndEpoch;
         this.config = config;
@@ -114,11 +154,7 @@ public class CompositeRetriever extends AbstractRetriever {
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.clusterService = clusterService;
         this.context = context;
-        this.prometheusDirectQueryExecutor = new PrometheusDirectQueryExecutor(
-            client,
-            clientUtil,
-            settings.get(PrometheusDirectQueryExecutor.DATASOURCE_ENCRYPTION_MASTER_KEY)
-        );
+        this.prometheusDirectQueryExecutor = prometheusDirectQueryExecutor;
     }
 
     // a constructor that provide default value of clock
@@ -257,7 +293,16 @@ public class CompositeRetriever extends AbstractRetriever {
                     dataEndEpoch,
                     Math.max(1L, config.getIntervalInSeconds()),
                     context,
-                    ActionListener.wrap(valuesBySeries -> listener.onResponse(analyzePrometheusSeries(valuesBySeries)), listener::onFailure)
+                    ActionListener.wrap(valuesBySeries -> {
+                        try {
+                            listener.onResponse(analyzePrometheusSeries(valuesBySeries));
+                        } finally {
+                            close();
+                        }
+                    }, e -> {
+                        close();
+                        listener.onFailure(e);
+                    })
                 );
         }
 
@@ -517,5 +562,10 @@ public class CompositeRetriever extends AbstractRetriever {
             return Optional.empty();
         }
         return Optional.ofNullable(candidate.getValue());
+    }
+
+    @Override
+    public void close() {
+        prometheusDirectQueryExecutor.close();
     }
 }

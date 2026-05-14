@@ -82,7 +82,7 @@ import org.opensearch.transport.client.Client;
 /**
  * DAO for features from search.
  */
-public class SearchFeatureDao extends AbstractRetriever {
+public class SearchFeatureDao extends AbstractRetriever implements AutoCloseable {
     private static final Logger logger = LogManager.getLogger(SearchFeatureDao.class);
 
     protected static final String AGG_NAME_TOP = "top_agg";
@@ -223,6 +223,11 @@ public class SearchFeatureDao extends AbstractRetriever {
             AD_PAGE_SIZE.get(settings),
             PREVIEW_TIMEOUT_IN_MILLIS
         );
+    }
+
+    @Override
+    public void close() {
+        prometheusDirectQueryExecutor.close();
     }
 
     /**

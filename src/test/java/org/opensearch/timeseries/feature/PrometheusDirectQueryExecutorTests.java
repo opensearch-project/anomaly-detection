@@ -11,26 +11,41 @@
 
 package org.opensearch.timeseries.feature;
 
+import static org.junit.Assume.assumeTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.common.action.ActionFuture;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.TestHelpers;
+import org.opensearch.timeseries.model.Config;
+import org.opensearch.timeseries.model.PrometheusSource;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 
@@ -179,6 +194,124 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         assertTrue(valuesBySeries.keySet().stream().anyMatch(labels -> "prometheus-b:9090".equals(labels.get("instance"))));
     }
 
+    public void testParsePrometheusResponseHandlesEmptyErrorSingleValueAndInvalidPoints() throws Exception {
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            mock(HttpClient.class)
+        );
+
+        assertTrue(executor.parsePrometheusResponseBySeries("", null).isEmpty());
+        assertTrue(executor.parsePrometheusResponseBySeries("{\"status\":\"success\",\"data\":{\"result\":[]}}", null).isEmpty());
+
+        IllegalStateException error = expectThrows(
+            IllegalStateException.class,
+            () -> executor
+                .parsePrometheusResponseBySeries("{\"status\":\"error\",\"errorType\":\"bad_data\",\"error\":\"bad query\"}", null)
+        );
+        assertTrue(error.getMessage().contains("bad_data"));
+
+        String responseBody = "{"
+            + "\"status\":\"success\","
+            + "\"data\":{\"result\":["
+            + "{\"metric\":[],\"value\":[1710000000.5,\"13\"]},"
+            + "{\"metric\":{\"instance\":\"bad\"},\"values\":[null,[null,\"1\"],[1710000000,\"NaN\"],[1710000060,\"+Inf\"],[1710000120,\"-Inf\"]]}"
+            + "]}"
+            + "}";
+
+        Map<Map<String, String>, NavigableMap<Long, Double>> valuesBySeries = executor.parsePrometheusResponseBySeries(responseBody, null);
+        assertEquals(1, valuesBySeries.size());
+        NavigableMap<Long, Double> values = valuesBySeries.values().iterator().next();
+        assertEquals(1710000000500L, values.firstKey().longValue());
+        assertEquals(13.0d, values.firstEntry().getValue(), 0.001d);
+    }
+
+    public void testExecuteRangeQueryResolvesDatasourceUsesHttpClientAndCachesDatasource() throws Exception {
+        Client client = mock(Client.class);
+        mockThreadContext(client);
+        ActionFuture<GetResponse> getFuture = mock(ActionFuture.class);
+        GetResponse getResponse = mock(GetResponse.class);
+        when(client.get(any(GetRequest.class))).thenReturn(getFuture);
+        when(getFuture.actionGet()).thenReturn(getResponse);
+        when(getResponse.isExists()).thenReturn(true);
+        when(getResponse.getSourceAsMap()).thenReturn(prometheusDatasource("http://prometheus.example.org:9090", "noauth"));
+
+        HttpClient httpClient = mock(HttpClient.class);
+        HttpResponse<String> httpResponse = mock(HttpResponse.class);
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body())
+            .thenReturn(
+                "{"
+                    + "\"status\":\"success\","
+                    + "\"data\":{\"result\":[{\"metric\":{\"instance\":\"a\"},\"values\":[[1710000000,\"10\"]]}]}"
+                    + "}"
+            );
+        when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+            .thenReturn(CompletableFuture.completedFuture(httpResponse));
+
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            client,
+            mock(SecurityClientUtil.class),
+            "master-key",
+            httpClient
+        );
+        org.opensearch.ad.model.AnomalyDetector detector = org.opensearch.ad.model.AnomalyDetector
+            .parse(TestHelpers.parser(prometheusDetectorString("prome")));
+
+        NavigableMap<Long, Double> firstResult = executeRangeQuery(executor, detector);
+        NavigableMap<Long, Double> secondResult = executeRangeQuery(executor, detector);
+
+        assertEquals(10.0d, firstResult.firstEntry().getValue(), 0.001d);
+        assertEquals(10.0d, secondResult.firstEntry().getValue(), 0.001d);
+        verify(client, times(1)).get(any(GetRequest.class));
+    }
+
+    public void testExecuteRangeQueryConvertsHttpFailureToListenerFailure() throws Exception {
+        Client client = mock(Client.class);
+        mockThreadContext(client);
+        ActionFuture<GetResponse> getFuture = mock(ActionFuture.class);
+        GetResponse getResponse = mock(GetResponse.class);
+        when(client.get(any(GetRequest.class))).thenReturn(getFuture);
+        when(getFuture.actionGet()).thenReturn(getResponse);
+        when(getResponse.isExists()).thenReturn(true);
+        when(getResponse.getSourceAsMap()).thenReturn(prometheusDatasource("http://prometheus.example.org:9090", "noauth"));
+
+        HttpClient httpClient = mock(HttpClient.class);
+        HttpResponse<String> httpResponse = mock(HttpResponse.class);
+        when(httpResponse.statusCode()).thenReturn(500);
+        when(httpResponse.body()).thenReturn("x".repeat(600));
+        when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+            .thenReturn(CompletableFuture.completedFuture(httpResponse));
+
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            client,
+            mock(SecurityClientUtil.class),
+            "master-key",
+            httpClient
+        );
+        org.opensearch.ad.model.AnomalyDetector detector = org.opensearch.ad.model.AnomalyDetector
+            .parse(TestHelpers.parser(prometheusDetectorString("prome")));
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Exception> failure = new AtomicReference<>();
+
+        executor
+            .executeRangeQuery(
+                detector,
+                1710000000000L,
+                1710000060000L,
+                60L,
+                AnalysisType.AD,
+                ActionListener.wrap(result -> fail("Expected HTTP failure"), e -> {
+                    failure.set(e);
+                    latch.countDown();
+                })
+            );
+
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertTrue(failure.get().getMessage().contains("HTTP 500"));
+        assertTrue(failure.get().getMessage().contains("..."));
+    }
+
     public void testResolvePrometheusDataSourcePropertiesSupportsBasicAuth() {
         PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
             mock(Client.class),
@@ -200,7 +333,71 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         assertEquals("demo-pass", resolved.getPassword());
     }
 
+    public void testResolvePrometheusDataSourcePropertiesSupportsNoAuthAndNormalizesUri() {
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            mock(HttpClient.class)
+        );
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("prometheus.uri", "prometheus.example.org:9090/");
+
+        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor
+            .resolvePrometheusDataSourceProperties(properties, "prome-noauth");
+
+        assertEquals(PrometheusDirectQueryExecutor.PrometheusAuthType.NOAUTH, resolved.getAuthType());
+        assertEquals("http://prometheus.example.org:9090", resolved.getPrometheusBaseUri());
+    }
+
+    public void testResolvePrometheusDataSourcePropertiesSupportsAwsSigV4Alias() {
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            mock(HttpClient.class)
+        );
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("prometheus.uri", "https://aps-workspaces.us-west-2.amazonaws.com");
+        properties.put("prometheus.auth.type", "awssigv4auth");
+        properties.put("prometheus.auth.region", "us-west-2");
+        properties.put("prometheus.auth.access_key", "AKIDEXAMPLE");
+        properties.put("prometheus.auth.secret_key", "secret");
+
+        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor
+            .resolvePrometheusDataSourceProperties(properties, "prome-sigv4");
+
+        assertEquals(PrometheusDirectQueryExecutor.PrometheusAuthType.AWSSIGV4, resolved.getAuthType());
+        assertEquals("us-west-2", resolved.getRegion());
+        assertEquals("AKIDEXAMPLE", resolved.getAccessKey());
+        assertEquals("secret", resolved.getSecretKey());
+    }
+
+    public void testResolvePrometheusDataSourcePropertiesRejectsBadUriAndUnsupportedAuth() {
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            mock(HttpClient.class)
+        );
+        Map<String, Object> badUriProperties = new LinkedHashMap<>();
+        badUriProperties.put("prometheus.uri", "http://");
+        IllegalArgumentException badUri = expectThrows(
+            IllegalArgumentException.class,
+            () -> executor.resolvePrometheusDataSourceProperties(badUriProperties, "bad-uri")
+        );
+        assertTrue(badUri.getMessage().contains("invalid Prometheus URI"));
+
+        Map<String, Object> unsupportedAuthProperties = new LinkedHashMap<>();
+        unsupportedAuthProperties.put("prometheus.uri", "http://prometheus.example.org:9090");
+        unsupportedAuthProperties.put("prometheus.auth.type", "bearer");
+        IllegalArgumentException unsupportedAuth = expectThrows(
+            IllegalArgumentException.class,
+            () -> executor.resolvePrometheusDataSourceProperties(unsupportedAuthProperties, "bad-auth")
+        );
+        assertTrue(unsupportedAuth.getMessage().contains("unsupported Prometheus auth type"));
+    }
+
     public void testResolvePrometheusDataSourcePropertiesDecryptsEncryptedBasicAuth() {
+        assumeTrue("AWS Encryption SDK is not available on the test classpath", isAwsEncryptionSdkAvailable());
+
         PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
             mock(Client.class),
             mock(SecurityClientUtil.class),
@@ -219,6 +416,29 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         assertEquals(PrometheusDirectQueryExecutor.PrometheusAuthType.BASICAUTH, resolved.getAuthType());
         assertEquals("demo-user", resolved.getUsername());
         assertEquals("demo-pass", resolved.getPassword());
+    }
+
+    public void testResolvePrometheusDataSourcePropertiesKeepsEncryptedCredentialWhenEncryptionSdkUnavailable() {
+        assumeTrue("AWS Encryption SDK is available on the test classpath", !isAwsEncryptionSdkAvailable());
+
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            TEST_MASTER_KEY,
+            mock(HttpClient.class)
+        );
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("prometheus.uri", "http://prometheus.example.org:9090");
+        properties.put("prometheus.auth.type", "basicauth");
+        properties.put("prometheus.auth.username", "encrypted-user");
+        properties.put("prometheus.auth.password", "encrypted-pass");
+
+        PrometheusDirectQueryExecutor.ResolvedPrometheusDataSource resolved = executor
+            .resolvePrometheusDataSourceProperties(properties, "prome-auth");
+
+        assertEquals(PrometheusDirectQueryExecutor.PrometheusAuthType.BASICAUTH, resolved.getAuthType());
+        assertEquals("encrypted-user", resolved.getUsername());
+        assertEquals("encrypted-pass", resolved.getPassword());
     }
 
     public void testBuildRangeQueryRequestAddsBasicAuthHeader() {
@@ -300,6 +520,37 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         assertTrue(error.getMessage().contains("prometheus.auth.region"));
     }
 
+    public void testExecuteRangeQueryValidationFailures() throws Exception {
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            mock(HttpClient.class)
+        );
+        Config missingQueryDetector = mock(Config.class);
+        when(missingQueryDetector.getPrometheusSource()).thenReturn(new PrometheusSource("PROMQL", "", "prome"));
+
+        Exception missingQuery = executeRangeQueryExpectingFailure(executor, missingQueryDetector, 1_000L, 2_000L, 60L);
+        assertTrue(missingQuery.getMessage().contains("prometheus_source.query must be set"));
+
+        org.opensearch.ad.model.AnomalyDetector validDetector = org.opensearch.ad.model.AnomalyDetector
+            .parse(TestHelpers.parser(prometheusDetectorString("prome")));
+        Exception invalidRange = executeRangeQueryExpectingFailure(executor, validDetector, 2_000L, 1_000L, 60L);
+        assertTrue(invalidRange.getMessage().contains("endTimeMs must be larger"));
+    }
+
+    public void testOwnedHttpClientIsCreatedLazilyAndClosed() throws Exception {
+        PrometheusDirectQueryExecutor executor = new PrometheusDirectQueryExecutor(
+            mock(Client.class),
+            mock(SecurityClientUtil.class),
+            Settings.EMPTY
+        );
+        Method getHttpClient = PrometheusDirectQueryExecutor.class.getDeclaredMethod("getHttpClient");
+        getHttpClient.setAccessible(true);
+
+        assertNotNull(getHttpClient.invoke(executor));
+        executor.close();
+    }
+
     @SuppressWarnings("unchecked")
     private String encryptCredential(String plainText) {
         try {
@@ -340,5 +591,106 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("failed to encrypt Prometheus datasource credential", e);
         }
+    }
+
+    private boolean isAwsEncryptionSdkAvailable() {
+        try {
+            Class.forName("com.amazonaws.encryptionsdk.CommitmentPolicy");
+            Class.forName("com.amazonaws.encryptionsdk.AwsCrypto");
+            Class.forName("com.amazonaws.encryptionsdk.jce.JceMasterKey");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private NavigableMap<Long, Double> executeRangeQuery(
+        PrometheusDirectQueryExecutor executor,
+        org.opensearch.ad.model.AnomalyDetector detector
+    ) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<NavigableMap<Long, Double>> result = new AtomicReference<>();
+        AtomicReference<Exception> failure = new AtomicReference<>();
+        executor.executeRangeQuery(detector, 1710000000000L, 1710000060000L, 60L, AnalysisType.AD, ActionListener.wrap(value -> {
+            result.set(value);
+            latch.countDown();
+        }, e -> {
+            failure.set(e);
+            latch.countDown();
+        }));
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        assertNull(failure.get());
+        return result.get();
+    }
+
+    private Exception executeRangeQueryExpectingFailure(
+        PrometheusDirectQueryExecutor executor,
+        Config detector,
+        long startTimeMs,
+        long endTimeMs,
+        long stepSeconds
+    ) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Exception> failure = new AtomicReference<>();
+        executor
+            .executeRangeQuery(
+                detector,
+                startTimeMs,
+                endTimeMs,
+                stepSeconds,
+                AnalysisType.AD,
+                ActionListener.wrap(value -> fail("Expected validation failure"), e -> {
+                    failure.set(e);
+                    latch.countDown();
+                })
+            );
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        return failure.get();
+    }
+
+    private void mockThreadContext(Client client) {
+        ThreadPool threadPool = mock(ThreadPool.class);
+        when(client.threadPool()).thenReturn(threadPool);
+        when(threadPool.getThreadContext()).thenReturn(new ThreadContext(Settings.EMPTY));
+    }
+
+    private Map<String, Object> prometheusDatasource(String uri, String authType) {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("prometheus.uri", uri);
+        properties.put("prometheus.auth.type", authType);
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("connector", "PROMETHEUS");
+        source.put("properties", properties);
+        return source;
+    }
+
+    private String prometheusDetectorString(String dataConnectionId) {
+        return prometheusDetectorStringWithQuery(dataConnectionId, "up");
+    }
+
+    private String prometheusDetectorStringWithQuery(String dataConnectionId, String query) {
+        return "{"
+            + "\"name\":\"prom-detector\","
+            + "\"source_type\":\"PROMETHEUS\","
+            + "\"prometheus_source\":{"
+            + "\"query_language\":\"PROMQL\","
+            + "\"query\":\""
+            + query
+            + "\","
+            + "\"data_connection_id\":\""
+            + dataConnectionId
+            + "\""
+            + "},"
+            + "\"feature_attributes\":[{"
+            + "\"feature_id\":\"f1\","
+            + "\"feature_name\":\"prom_value\","
+            + "\"feature_enabled\":true,"
+            + "\"aggregation_query\":{\"f1\":{\"avg\":{\"field\":\"value\"}}}"
+            + "}],"
+            + "\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},"
+            + "\"last_update_time\":1700000000000"
+            + "}";
     }
 }

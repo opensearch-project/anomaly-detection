@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -38,7 +39,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.lucene.search.TotalHits;
@@ -92,6 +95,7 @@ import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.PPLSource;
+import org.opensearch.timeseries.model.PrometheusSource;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
@@ -374,6 +378,216 @@ public class SearchFeatureDaoTests {
 
     @Test
     @SuppressWarnings("unchecked")
+    public void pplSourceMetadataQueriesUsePPLRuntimeExecutorAndRejectEntityScope() {
+        PPLDirectQueryExecutor pplDirectQueryExecutor = mock(PPLDirectQueryExecutor.class);
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao pplSearchFeatureDao = new SearchFeatureDao(
+            client,
+            xContent,
+            clientUtil,
+            null,
+            null,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            clock,
+            1,
+            1,
+            60_000L,
+            prometheusDirectQueryExecutor,
+            pplDirectQueryExecutor
+        );
+        when(detector.getSourceType()).thenReturn(Config.SOURCE_TYPE_PPL);
+        when(detector.getPPLSource())
+            .thenReturn(new PPLSource("PPL", "source = logs | stats count() as error_count by span(timestamp, 10m)"));
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(3);
+            listener.onResponse(Optional.of(123L));
+            return null;
+        }).when(pplDirectQueryExecutor).executeLatestDataTimeQuery(isNull(), eq(detector), eq(AnalysisType.AD), any(ActionListener.class));
+        ActionListener<Optional<Long>> latestListener = mock(ActionListener.class);
+        pplSearchFeatureDao.getLatestDataTime(detector, Optional.empty(), AnalysisType.AD, latestListener);
+        ArgumentCaptor<Optional<Long>> latestCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(latestListener).onResponse(latestCaptor.capture());
+        assertEquals(123L, latestCaptor.getValue().get().longValue());
+
+        doAnswer(invocation -> {
+            ActionListener<Optional<Long>> listener = invocation.getArgument(2);
+            listener.onResponse(Optional.of(99L));
+            return null;
+        }).when(pplDirectQueryExecutor).executeMinDataTimeQuery(eq(detector), eq(AnalysisType.AD), any(ActionListener.class));
+        ActionListener<Optional<Long>> minListener = mock(ActionListener.class);
+        pplSearchFeatureDao.getMinDataTime(detector, Optional.empty(), AnalysisType.AD, minListener);
+        ArgumentCaptor<Optional<Long>> minCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(minListener).onResponse(minCaptor.capture());
+        assertEquals(99L, minCaptor.getValue().get().longValue());
+
+        doAnswer(invocation -> {
+            ActionListener<org.apache.commons.lang3.tuple.Pair<Long, Long>> listener = invocation.getArgument(3);
+            listener.onResponse(org.apache.commons.lang3.tuple.Pair.of(10L, 20L));
+            return null;
+        }).when(pplDirectQueryExecutor).executeDateRangeQuery(isNull(), eq(detector), eq(AnalysisType.AD), any(ActionListener.class));
+        ActionListener<org.apache.commons.lang3.tuple.Pair<Long, Long>> rangeListener = mock(ActionListener.class);
+        pplSearchFeatureDao.getDateRangeOfSourceData(detector, null, Collections.emptyMap(), rangeListener);
+        ArgumentCaptor<org.apache.commons.lang3.tuple.Pair<Long, Long>> rangeCaptor = ArgumentCaptor
+            .forClass(org.apache.commons.lang3.tuple.Pair.class);
+        verify(rangeListener).onResponse(rangeCaptor.capture());
+        assertEquals(10L, rangeCaptor.getValue().getLeft().longValue());
+        assertEquals(20L, rangeCaptor.getValue().getRight().longValue());
+
+        Entity entity = Entity.createSingleAttributeEntity("service", "checkout");
+        ActionListener<Optional<Long>> entityLatestListener = mock(ActionListener.class);
+        pplSearchFeatureDao.getLatestDataTime(detector, Optional.of(entity), AnalysisType.AD, entityLatestListener);
+        verify(entityLatestListener).onFailure(any(IllegalArgumentException.class));
+
+        ActionListener<Optional<Long>> entityMinListener = mock(ActionListener.class);
+        pplSearchFeatureDao.getMinDataTime(detector, Optional.of(entity), AnalysisType.AD, entityMinListener);
+        verify(entityMinListener).onFailure(any(IllegalArgumentException.class));
+
+        ActionListener<org.apache.commons.lang3.tuple.Pair<Long, Long>> entityRangeListener = mock(ActionListener.class);
+        pplSearchFeatureDao.getDateRangeOfSourceData(detector, null, Map.of("service", "checkout"), entityRangeListener);
+        verify(entityRangeListener).onFailure(any(IllegalArgumentException.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void prometheusSourceMetadataQueriesUseClockAndDetectorInterval() {
+        SearchFeatureDao prometheusSearchFeatureDao = prometheusSearchFeatureDao(mock(PrometheusDirectQueryExecutor.class));
+        mockPrometheusDetector();
+        when(clock.millis()).thenReturn(1_000_000L);
+
+        ActionListener<Optional<Long>> latestListener = mock(ActionListener.class);
+        prometheusSearchFeatureDao.getLatestDataTime(detector, Optional.empty(), AnalysisType.AD, latestListener);
+        ArgumentCaptor<Optional<Long>> latestCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(latestListener).onResponse(latestCaptor.capture());
+        assertEquals(1_000_000L, latestCaptor.getValue().get().longValue());
+
+        ActionListener<Optional<Long>> minListener = mock(ActionListener.class);
+        prometheusSearchFeatureDao.getMinDataTime(detector, Optional.empty(), AnalysisType.AD, minListener);
+        ArgumentCaptor<Optional<Long>> minCaptor = ArgumentCaptor.forClass(Optional.class);
+        verify(minListener).onResponse(minCaptor.capture());
+        assertEquals(880_000L, minCaptor.getValue().get().longValue());
+
+        ActionListener<org.apache.commons.lang3.tuple.Pair<Long, Long>> rangeListener = mock(ActionListener.class);
+        prometheusSearchFeatureDao.getDateRangeOfSourceData(detector, null, Collections.emptyMap(), rangeListener);
+        ArgumentCaptor<org.apache.commons.lang3.tuple.Pair<Long, Long>> rangeCaptor = ArgumentCaptor
+            .forClass(org.apache.commons.lang3.tuple.Pair.class);
+        verify(rangeListener).onResponse(rangeCaptor.capture());
+        assertEquals(880_000L, rangeCaptor.getValue().getLeft().longValue());
+        assertEquals(1_000_000L, rangeCaptor.getValue().getRight().longValue());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeatureSamplesForPeriods_usesPrometheusRuntimeExecutor() throws Exception {
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao prometheusSearchFeatureDao = prometheusSearchFeatureDao(prometheusDirectQueryExecutor);
+        mockPrometheusDetector();
+        NavigableMap<Long, Double> values = new TreeMap<>();
+        values.put(120_000L, 5.0d);
+
+        doAnswer(invocation -> {
+            ActionListener<NavigableMap<Long, Double>> listener = invocation.getArgument(6);
+            listener.onResponse(values);
+            return null;
+        })
+            .when(prometheusDirectQueryExecutor)
+            .executeRangeQuery(eq(detector), eq(0L), eq(180_000L), eq(60L), isNull(), eq(AnalysisType.AD), any(ActionListener.class));
+
+        List<Map.Entry<Long, Long>> ranges = Arrays
+            .asList(
+                new java.util.AbstractMap.SimpleImmutableEntry<>(0L, 60_000L),
+                new java.util.AbstractMap.SimpleImmutableEntry<>(60_000L, 120_000L),
+                new java.util.AbstractMap.SimpleImmutableEntry<>(120_000L, 180_000L)
+            );
+        ActionListener<List<Optional<double[]>>> listener = mock(ActionListener.class);
+        prometheusSearchFeatureDao.getFeatureSamplesForPeriods(detector, ranges, AnalysisType.AD, true, listener);
+
+        ArgumentCaptor<List<Optional<double[]>>> captor = ArgumentCaptor.forClass(List.class);
+        verify(listener).onResponse(captor.capture());
+        assertEquals(3, captor.getValue().size());
+        assertTrue(Double.isNaN(captor.getValue().get(0).get()[0]));
+        assertEquals(5.0d, captor.getValue().get(1).get()[0], 0.001d);
+        assertEquals(5.0d, captor.getValue().get(2).get()[0], 0.001d);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getFeaturesForPeriodByBatch_usesPrometheusRuntimeExecutor() throws Exception {
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao prometheusSearchFeatureDao = prometheusSearchFeatureDao(prometheusDirectQueryExecutor);
+        mockPrometheusDetector();
+        NavigableMap<Long, Double> values = new TreeMap<>();
+        values.put(60_000L, 3.0d);
+        values.put(120_000L, 7.0d);
+
+        doAnswer(invocation -> {
+            @SuppressWarnings("rawtypes")
+            Map entityFilter = invocation.getArgument(4);
+            assertEquals("checkout", entityFilter.get("a"));
+            ActionListener<NavigableMap<Long, Double>> listener = invocation.getArgument(6);
+            listener.onResponse(values);
+            return null;
+        })
+            .when(prometheusDirectQueryExecutor)
+            .executeRangeQuery(eq(detector), eq(0L), eq(120_000L), eq(60L), any(), eq(AnalysisType.AD), any(ActionListener.class));
+
+        ActionListener<Map<Long, Optional<double[]>>> listener = mock(ActionListener.class);
+        prometheusSearchFeatureDao
+            .getFeaturesForPeriodByBatch(detector, Entity.createSingleAttributeEntity("a", "checkout"), 0L, 120_000L, listener);
+
+        ArgumentCaptor<Map<Long, Optional<double[]>>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(listener).onResponse(captor.capture());
+        assertEquals(2, captor.getValue().size());
+        assertEquals(3.0d, captor.getValue().get(0L).get()[0], 0.001d);
+        assertEquals(7.0d, captor.getValue().get(60_000L).get()[0], 0.001d);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getHighestCountEntities_usesPrometheusRuntimeExecutor() {
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao prometheusSearchFeatureDao = prometheusSearchFeatureDao(prometheusDirectQueryExecutor);
+        mockPrometheusDetector();
+        when(detector.isHighCardinality()).thenReturn(true);
+        Map<Map<String, String>, NavigableMap<Long, Double>> valuesBySeries = new HashMap<>();
+        NavigableMap<Long, Double> checkoutValues = new TreeMap<>();
+        checkoutValues.put(60_000L, 1.0d);
+        checkoutValues.put(120_000L, 2.0d);
+        NavigableMap<Long, Double> paymentsValues = new TreeMap<>();
+        paymentsValues.put(60_000L, 1.0d);
+        valuesBySeries.put(Map.of("a", "checkout"), checkoutValues);
+        valuesBySeries.put(Map.of("a", "payments"), paymentsValues);
+        valuesBySeries.put(Map.of("missing", "label"), checkoutValues);
+
+        doAnswer(invocation -> {
+            ActionListener<Map<Map<String, String>, NavigableMap<Long, Double>>> listener = invocation.getArgument(5);
+            listener.onResponse(valuesBySeries);
+            return null;
+        })
+            .when(prometheusDirectQueryExecutor)
+            .executeRangeQueryBySeries(eq(detector), eq(0L), eq(120_000L), eq(60L), eq(AnalysisType.AD), any(ActionListener.class));
+
+        ActionListener<List<Entity>> listener = mock(ActionListener.class);
+        prometheusSearchFeatureDao.getHighestCountEntities(detector, 0L, 120_000L, 1, 2, 10, listener);
+
+        ArgumentCaptor<List<Entity>> captor = ArgumentCaptor.forClass(List.class);
+        verify(listener).onResponse(captor.capture());
+        assertEquals(1, captor.getValue().size());
+        assertEquals("checkout", captor.getValue().get(0).getAttributes().get("a"));
+    }
+
+    @Test
+    public void close_closesPrometheusRuntimeExecutor() {
+        PrometheusDirectQueryExecutor prometheusDirectQueryExecutor = mock(PrometheusDirectQueryExecutor.class);
+        SearchFeatureDao prometheusSearchFeatureDao = prometheusSearchFeatureDao(prometheusDirectQueryExecutor);
+
+        prometheusSearchFeatureDao.close();
+
+        verify(prometheusDirectQueryExecutor).close();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     public void getFeaturesForPeriod_throwToListener_whenResponseParsingFails() throws Exception {
 
         long start = 100L;
@@ -465,5 +679,32 @@ public class SearchFeatureDaoTests {
         verify(listener).onResponse(captor.capture());
         Optional<Long> result = captor.getValue();
         assertEquals((long) earliest, result.get().longValue());
+    }
+
+    private SearchFeatureDao prometheusSearchFeatureDao(PrometheusDirectQueryExecutor prometheusDirectQueryExecutor) {
+        return new SearchFeatureDao(
+            client,
+            xContent,
+            clientUtil,
+            null,
+            null,
+            TimeSeriesSettings.NUM_SAMPLES_PER_TREE,
+            clock,
+            1,
+            1,
+            60_000L,
+            prometheusDirectQueryExecutor,
+            mock(PPLDirectQueryExecutor.class)
+        );
+    }
+
+    private void mockPrometheusDetector() {
+        when(detector.getSourceType()).thenReturn(Config.SOURCE_TYPE_PROMETHEUS);
+        when(detector.getPrometheusSource()).thenReturn(mock(PrometheusSource.class));
+        when(detector.getIntervalInSeconds()).thenReturn(60L);
+        when(detector.getIntervalInMilliseconds()).thenReturn(60_000L);
+        when(detector.getHistoryIntervals()).thenReturn(2);
+        when(detector.getEnabledFeatureIds()).thenReturn(Collections.singletonList("f1"));
+        when(detector.getCategoryFields()).thenReturn(Collections.singletonList("a"));
     }
 }

@@ -11,9 +11,29 @@
 
 package org.opensearch.timeseries.model;
 
+import java.io.IOException;
+
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 
 public class PPLSourceTests extends OpenSearchTestCase {
+
+    public void testParseIgnoresUnknownFields() throws IOException {
+        PPLSource source = PPLSource
+            .parse(
+                TestHelpers
+                    .parser(
+                        "{"
+                            + "\"query_language\":\"PPL\","
+                            + "\"query\":\"source = logs | stats count() as error_count by span(timestamp, 1m)\","
+                            + "\"unknown\":{\"nested\":true}"
+                            + "}"
+                    )
+            );
+
+        assertEquals("PPL", source.getQueryLanguage());
+        assertEquals("source = logs | stats count() as error_count by span(timestamp, 1m)", source.getQuery());
+    }
 
     public void testCompileSupportsCountAndPreservesPreStatsPipeline() {
         PPLSource.CompiledPPLQuery compiledQuery = PPLSource
@@ -71,6 +91,28 @@ public class PPLSourceTests extends OpenSearchTestCase {
         assertTrue(metricQuery.contains("`@timestamp` >= \"1970-01-01 00:05:00.000\" and `@timestamp` < \"1970-01-01 00:10:00.000\""));
     }
 
+    public void testCompileSupportsDefaultFeatureNamesAndSecondsInterval() {
+        PPLSource.CompiledPPLQuery compiledQuery = PPLSource
+            .compile(
+                "source = logs | stats count(), sum(`bytes.total`), avg(bytes / 1024), min(latency), max(latency) by span(timestamp, 30s)"
+            );
+
+        assertEquals(5, compiledQuery.getMetricCount());
+        assertEquals("count_all", compiledQuery.getFeatureNames().get(0));
+        assertEquals("sum_bytes_total", compiledQuery.getFeatureNames().get(1));
+        assertEquals("avg_bytes_1024", compiledQuery.getFeatureNames().get(2));
+        assertEquals("min_latency", compiledQuery.getFeatureNames().get(3));
+        assertEquals("max_latency", compiledQuery.getFeatureNames().get(4));
+        assertEquals(30L, compiledQuery.getInterval().getInterval());
+        assertEquals(java.time.temporal.ChronoUnit.SECONDS, compiledQuery.getInterval().getUnit());
+        assertEquals(5, compiledQuery.toPlaceholderFeatures().size());
+
+        String metricQuery = compiledQuery.buildMetricQueryForRange(0L, 1_000L);
+        assertTrue(metricQuery.contains("count() as count_all"));
+        assertTrue(metricQuery.contains("sum(`bytes.total`) as sum_bytes_total"));
+        assertTrue(metricQuery.contains("avg(bytes / 1024) as avg_bytes_1024"));
+    }
+
     public void testCompilePreservesDerivedTimeFieldForAuxiliaryQueries() {
         PPLSource.CompiledPPLQuery compiledQuery = PPLSource
             .compile("source = logs | eval bucket_time = @timestamp | stats count() as error_count by span(bucket_time, 10m)");
@@ -112,5 +154,48 @@ public class PPLSourceTests extends OpenSearchTestCase {
         );
         assertTrue(exception.getMessage().contains("before the final stats stage"));
         assertTrue(exception.getMessage().contains("where and eval"));
+    }
+
+    public void testCompileRejectsInvalidSourceMetricAndIntervalShapes() {
+        assertTrue(
+            expectThrows(IllegalArgumentException.class, () -> PPLSource.compile("source logs | stats count() as c by span(timestamp, 1m)"))
+                .getMessage()
+                .contains("source clause")
+        );
+        assertTrue(
+            expectThrows(
+                IllegalArgumentException.class,
+                () -> PPLSource.compile("source = logs-a,logs-b | stats count() as c by span(timestamp, 1m)")
+            ).getMessage().contains("exactly one index")
+        );
+        assertTrue(
+            expectThrows(
+                IllegalArgumentException.class,
+                () -> PPLSource.compile("source = logs | stats median(latency) as p50 by span(timestamp, 1m)")
+            ).getMessage().contains("Unsupported aggregation")
+        );
+        assertTrue(
+            expectThrows(
+                IllegalArgumentException.class,
+                () -> PPLSource.compile("source = logs | stats sum() as sum_value by span(timestamp, 1m)")
+            ).getMessage().contains("cannot be empty")
+        );
+        assertTrue(
+            expectThrows(
+                IllegalArgumentException.class,
+                () -> PPLSource.compile("source = logs | stats count() as c by span(timestamp, 0m)")
+            ).getMessage().contains("must be positive")
+        );
+        assertTrue(
+            expectThrows(
+                IllegalArgumentException.class,
+                () -> PPLSource.compile("source = logs | stats count() as c by span(timestamp, 1h)")
+            ).getMessage().contains("Unsupported PPL span interval unit")
+        );
+        assertTrue(
+            expectThrows(IllegalArgumentException.class, () -> PPLSource.compile("source = logs | stats count() as c by span(timestamp)"))
+                .getMessage()
+                .contains("Unsupported PPL stats clause")
+        );
     }
 }

@@ -390,6 +390,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
     private ExecuteForecastResultResponseRecorder forecastResultResponseRecorder;
     private ADIndexJobActionHandler adIndexJobActionHandler;
     private ForecastIndexJobActionHandler forecastIndexJobActionHandler;
+    private SearchFeatureDao searchFeatureDao;
 
     private PluginClient pluginClient;
 
@@ -592,7 +593,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
         );
         securityClientUtil = new SecurityClientUtil(stateManager, settings);
 
-        SearchFeatureDao searchFeatureDao = new SearchFeatureDao(
+        searchFeatureDao = new SearchFeatureDao(
             client,
             xContentRegistry,
             securityClientUtil,
@@ -1801,6 +1802,14 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
 
     @Override
     public void close() {
+        if (searchFeatureDao != null) {
+            try {
+                searchFeatureDao.close();
+                searchFeatureDao = null;
+            } catch (Exception e) {
+                LOG.error("Failed to shut down search feature DAO", e);
+            }
+        }
         if (serializeRCFBufferPool != null) {
             try {
                 AccessController.doPrivileged(() -> {

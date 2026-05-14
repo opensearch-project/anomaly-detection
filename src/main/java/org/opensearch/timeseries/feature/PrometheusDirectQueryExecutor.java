@@ -60,7 +60,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * plugin classloaders), this executor resolves datasource metadata from SQL datasource storage
  * and sends Prometheus query_range HTTP requests directly.
  */
-public class PrometheusDirectQueryExecutor {
+public class PrometheusDirectQueryExecutor implements AutoCloseable {
     static final String DATASOURCE_ENCRYPTION_MASTER_KEY = "plugins.query.datasources.encryption.masterkey";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -89,39 +89,22 @@ public class PrometheusDirectQueryExecutor {
     private static final int ERROR_BODY_LIMIT = 512;
 
     private final Client client;
-    private final HttpClient httpClient;
+    private volatile HttpClient httpClient;
+    private final boolean ownsHttpClient;
     private final ConcurrentHashMap<String, ResolvedPrometheusDataSource> dataSourceConfigCache;
     private final String dataSourceEncryptionMasterKey;
 
     public PrometheusDirectQueryExecutor(Client client, SecurityClientUtil clientUtil, Settings settings) {
-        this(
-            client,
-            clientUtil,
-            settings == null ? null : settings.get(DATASOURCE_ENCRYPTION_MASTER_KEY),
-            HttpClient
-                .newBuilder()
-                .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build()
-        );
+        this(client, clientUtil, settings == null ? null : settings.get(DATASOURCE_ENCRYPTION_MASTER_KEY), null, true);
     }
 
     // Visible for tests.
     PrometheusDirectQueryExecutor(Client client, SecurityClientUtil clientUtil, HttpClient httpClient) {
-        this(client, clientUtil, null, httpClient);
+        this(client, clientUtil, null, httpClient, false);
     }
 
     PrometheusDirectQueryExecutor(Client client, SecurityClientUtil clientUtil, String dataSourceEncryptionMasterKey) {
-        this(
-            client,
-            clientUtil,
-            dataSourceEncryptionMasterKey,
-            HttpClient
-                .newBuilder()
-                .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build()
-        );
+        this(client, clientUtil, dataSourceEncryptionMasterKey, null, true);
     }
 
     // Visible for tests.
@@ -131,8 +114,19 @@ public class PrometheusDirectQueryExecutor {
         String dataSourceEncryptionMasterKey,
         HttpClient httpClient
     ) {
+        this(client, clientUtil, dataSourceEncryptionMasterKey, httpClient, false);
+    }
+
+    private PrometheusDirectQueryExecutor(
+        Client client,
+        SecurityClientUtil clientUtil,
+        String dataSourceEncryptionMasterKey,
+        HttpClient httpClient,
+        boolean ownsHttpClient
+    ) {
         this.client = client;
         this.httpClient = httpClient;
+        this.ownsHttpClient = ownsHttpClient;
         this.dataSourceConfigCache = new ConcurrentHashMap<>();
         this.dataSourceEncryptionMasterKey = dataSourceEncryptionMasterKey;
     }
@@ -219,7 +213,7 @@ public class PrometheusDirectQueryExecutor {
                 return;
             }
 
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).whenComplete((response, throwable) -> {
+            getHttpClient().sendAsync(request, HttpResponse.BodyHandlers.ofString()).whenComplete((response, throwable) -> {
                 if (throwable != null) {
                     listener
                         .onFailure(
@@ -248,6 +242,34 @@ public class PrometheusDirectQueryExecutor {
                 }
             });
         }, listener::onFailure));
+    }
+
+    private HttpClient getHttpClient() {
+        HttpClient current = httpClient;
+        if (current != null) {
+            return current;
+        }
+
+        synchronized (this) {
+            if (httpClient == null) {
+                httpClient = HttpClient
+                    .newBuilder()
+                    .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .build();
+            }
+            return httpClient;
+        }
+    }
+
+    @Override
+    public void close() {
+        HttpClient current = httpClient;
+        httpClient = null;
+        dataSourceConfigCache.clear();
+        if (ownsHttpClient && current != null) {
+            current.close();
+        }
     }
 
     private Exception validateRangeQuery(PrometheusSource source, long startTimeMs, long endTimeMs, long stepSeconds) {
