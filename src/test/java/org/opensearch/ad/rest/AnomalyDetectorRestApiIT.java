@@ -16,9 +16,9 @@ import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandle
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -52,6 +52,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.test.fixture.AbstractHttpFixture;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.TimeSeriesAnalyticsPlugin;
 import org.opensearch.timeseries.constant.CommonMessages;
@@ -65,7 +66,6 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.sun.net.httpserver.HttpServer;
 
 public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
@@ -248,37 +248,38 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     private MockPrometheusServer startMockPrometheusServer() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicReference<String> authorizationHeader = new AtomicReference<>();
-        server.createContext("/api/v1/query_range", exchange -> {
-            authorizationHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            Map<String, String> params = parseQueryParams(exchange.getRequestURI().getRawQuery());
-            long start = Long.parseLong(params.get("start"));
-            long end = Long.parseLong(params.get("end"));
-            long step = Long.parseLong(params.get("step"));
-            String response = buildPrometheusRangeResponse(start, end, step);
-            byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, responseBytes.length);
-            exchange.getResponseBody().write(responseBytes);
-            exchange.close();
+        Path workingDirectory = Files.createTempDirectory("prometheus-fixture");
+        AbstractHttpFixture fixture = new AbstractHttpFixture(workingDirectory.toString()) {
+            @Override
+            protected Response handle(Request request) throws IOException {
+                if ("/api/v1/query_range".equals(request.getPath()) == false) {
+                    return new Response(404, Map.of("Content-Type", "text/plain"), "Not found".getBytes(StandardCharsets.UTF_8));
+                }
+                authorizationHeader.set(request.getHeader("Authorization"));
+                long start = Long.parseLong(request.getParam("start"));
+                long end = Long.parseLong(request.getParam("end"));
+                long step = Long.parseLong(request.getParam("step"));
+                String response = buildPrometheusRangeResponse(start, end, step);
+                return new Response(200, Map.of("Content-Type", "application/json"), response.getBytes(StandardCharsets.UTF_8));
+            }
+        };
+        Thread serverThread = new Thread(() -> {
+            try {
+                fixture.listen();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
-        server.start();
-        return new MockPrometheusServer(server, "http://127.0.0.1:" + server.getAddress().getPort(), authorizationHeader);
-    }
+        serverThread.setDaemon(true);
+        serverThread.start();
 
-    private Map<String, String> parseQueryParams(String rawQuery) {
-        Map<String, String> params = new HashMap<>();
-        if (rawQuery == null || rawQuery.isBlank()) {
-            return params;
-        }
-        for (String pair : rawQuery.split("&")) {
-            String[] parts = pair.split("=", 2);
-            String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
-            String value = parts.length > 1 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "";
-            params.put(key, value);
-        }
-        return params;
+        Path portsFile = workingDirectory.resolve("ports");
+        Awaitility.await("mock Prometheus fixture to start").atMost(Duration.ofSeconds(10)).until(() -> Files.exists(portsFile));
+        String address = Files.readString(portsFile, StandardCharsets.UTF_8).trim();
+        return new MockPrometheusServer(serverThread, workingDirectory, "http://" + address, authorizationHeader);
     }
 
     private String buildPrometheusRangeResponse(long start, long end, long step) {
@@ -1441,12 +1442,14 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     private static class MockPrometheusServer implements AutoCloseable {
-        private final HttpServer server;
+        private final Thread serverThread;
+        private final Path workingDirectory;
         private final String uri;
         private final AtomicReference<String> authorizationHeader;
 
-        private MockPrometheusServer(HttpServer server, String uri, AtomicReference<String> authorizationHeader) {
-            this.server = server;
+        private MockPrometheusServer(Thread serverThread, Path workingDirectory, String uri, AtomicReference<String> authorizationHeader) {
+            this.serverThread = serverThread;
+            this.workingDirectory = workingDirectory;
             this.uri = uri;
             this.authorizationHeader = authorizationHeader;
         }
@@ -1461,7 +1464,19 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
         @Override
         public void close() {
-            server.stop(0);
+            serverThread.interrupt();
+            try {
+                serverThread.join(Duration.ofSeconds(5).toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            try {
+                Files.deleteIfExists(workingDirectory.resolve("ports"));
+                Files.deleteIfExists(workingDirectory.resolve("pid"));
+                Files.deleteIfExists(workingDirectory);
+            } catch (IOException e) {
+                // Best-effort cleanup for the test fixture.
+            }
         }
     }
 
