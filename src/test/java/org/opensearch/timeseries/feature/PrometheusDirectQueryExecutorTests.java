@@ -13,6 +13,7 @@ package org.opensearch.timeseries.feature;
 
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,7 +37,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.opensearch.action.get.GetRequest;
 import org.opensearch.action.get.GetResponse;
-import org.opensearch.common.action.ActionFuture;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
@@ -229,12 +229,10 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
     public void testExecuteRangeQueryResolvesDatasourceUsesHttpClientAndCachesDatasource() throws Exception {
         Client client = mock(Client.class);
         mockThreadContext(client);
-        ActionFuture<GetResponse> getFuture = mock(ActionFuture.class);
         GetResponse getResponse = mock(GetResponse.class);
-        when(client.get(any(GetRequest.class))).thenReturn(getFuture);
-        when(getFuture.actionGet()).thenReturn(getResponse);
         when(getResponse.isExists()).thenReturn(true);
         when(getResponse.getSourceAsMap()).thenReturn(prometheusDatasource("http://prometheus.example.org:9090", "noauth"));
+        mockDatasourceLookup(client, getResponse);
 
         HttpClient httpClient = mock(HttpClient.class);
         HttpResponse<String> httpResponse = mock(HttpResponse.class);
@@ -263,18 +261,16 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
 
         assertEquals(10.0d, firstResult.firstEntry().getValue(), 0.001d);
         assertEquals(10.0d, secondResult.firstEntry().getValue(), 0.001d);
-        verify(client, times(1)).get(any(GetRequest.class));
+        verify(client, times(1)).get(any(GetRequest.class), any(ActionListener.class));
     }
 
     public void testExecuteRangeQueryConvertsHttpFailureToListenerFailure() throws Exception {
         Client client = mock(Client.class);
         mockThreadContext(client);
-        ActionFuture<GetResponse> getFuture = mock(ActionFuture.class);
         GetResponse getResponse = mock(GetResponse.class);
-        when(client.get(any(GetRequest.class))).thenReturn(getFuture);
-        when(getFuture.actionGet()).thenReturn(getResponse);
         when(getResponse.isExists()).thenReturn(true);
         when(getResponse.getSourceAsMap()).thenReturn(prometheusDatasource("http://prometheus.example.org:9090", "noauth"));
+        mockDatasourceLookup(client, getResponse);
 
         HttpClient httpClient = mock(HttpClient.class);
         HttpResponse<String> httpResponse = mock(HttpResponse.class);
@@ -652,6 +648,15 @@ public class PrometheusDirectQueryExecutorTests extends AbstractTimeSeriesTest {
         ThreadPool threadPool = mock(ThreadPool.class);
         when(client.threadPool()).thenReturn(threadPool);
         when(threadPool.getThreadContext()).thenReturn(new ThreadContext(Settings.EMPTY));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mockDatasourceLookup(Client client, GetResponse getResponse) {
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            listener.onResponse(getResponse);
+            return null;
+        }).when(client).get(any(GetRequest.class), any(ActionListener.class));
     }
 
     private Map<String, Object> prometheusDatasource(String uri, String authType) {

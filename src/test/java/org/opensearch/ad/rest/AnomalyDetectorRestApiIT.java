@@ -16,6 +16,9 @@ import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandle
 import static org.opensearch.ad.rest.handler.AbstractAnomalyDetectorActionHandler.NO_DOCS_IN_USER_INDEX_MSG;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -25,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.ContentType;
@@ -61,6 +65,7 @@ import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.sun.net.httpserver.HttpServer;
 
 public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
@@ -211,6 +216,90 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 query.replace("\"", "\\\""),
                 detectionInterval
             );
+    }
+
+    private String buildPrometheusPreviewBody(String dataConnectionId, Instant periodStart, Instant periodEnd) {
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"period_start\":%d,\"period_end\":%d,\"detector\":{\"name\":\"preview-prometheus\",\"source_type\":\"PROMETHEUS\",\"prometheus_source\":{\"query_language\":\"PROMQL\",\"query\":\"up\",\"data_connection_id\":\"%s\",\"series_filter\":{\"job\":\"ad\"}},\"feature_attributes\":[{\"feature_name\":\"prometheus_value\",\"feature_enabled\":true}],\"detection_interval\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}}",
+                periodStart.toEpochMilli(),
+                periodEnd.toEpochMilli(),
+                dataConnectionId
+            );
+    }
+
+    private void createPrometheusDatasource(String dataConnectionId, String prometheusUri) throws IOException {
+        String datasource = String
+            .format(
+                Locale.ROOT,
+                "{\"connector\":\"PROMETHEUS\",\"properties\":{\"prometheus.uri\":\"%s\",\"prometheus.auth.type\":\"basicauth\",\"prometheus.auth.username\":\"admin\",\"prometheus.auth.password\":\"admin\"}}",
+                prometheusUri
+            );
+        TestHelpers
+            .makeRequest(
+                adminClient(),
+                "PUT",
+                "/.ql-datasources/_doc/" + dataConnectionId,
+                ImmutableMap.of("refresh", "true"),
+                TestHelpers.toHttpEntity(datasource),
+                null
+            );
+    }
+
+    private MockPrometheusServer startMockPrometheusServer() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        AtomicReference<String> authorizationHeader = new AtomicReference<>();
+        server.createContext("/api/v1/query_range", exchange -> {
+            authorizationHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            Map<String, String> params = parseQueryParams(exchange.getRequestURI().getRawQuery());
+            long start = Long.parseLong(params.get("start"));
+            long end = Long.parseLong(params.get("end"));
+            long step = Long.parseLong(params.get("step"));
+            String response = buildPrometheusRangeResponse(start, end, step);
+            byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, responseBytes.length);
+            exchange.getResponseBody().write(responseBytes);
+            exchange.close();
+        });
+        server.start();
+        return new MockPrometheusServer(server, "http://127.0.0.1:" + server.getAddress().getPort(), authorizationHeader);
+    }
+
+    private Map<String, String> parseQueryParams(String rawQuery) {
+        Map<String, String> params = new HashMap<>();
+        if (rawQuery == null || rawQuery.isBlank()) {
+            return params;
+        }
+        for (String pair : rawQuery.split("&")) {
+            String[] parts = pair.split("=", 2);
+            String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
+            String value = parts.length > 1 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "";
+            params.put(key, value);
+        }
+        return params;
+    }
+
+    private String buildPrometheusRangeResponse(long start, long end, long step) {
+        StringBuilder matchingValues = new StringBuilder();
+        StringBuilder ignoredValues = new StringBuilder();
+        for (long timestamp = start; timestamp <= end; timestamp += Math.max(step, 1L)) {
+            if (matchingValues.length() > 0) {
+                matchingValues.append(',');
+                ignoredValues.append(',');
+            }
+            matchingValues.append('[').append(timestamp).append(",\"").append((timestamp - start) / Math.max(step, 1L) + 1).append("\"]");
+            ignoredValues.append('[').append(timestamp).append(",\"999\"]");
+        }
+        return "{\"status\":\"success\",\"data\":{\"resultType\":\"matrix\",\"result\":["
+            + "{\"metric\":{\"job\":\"ignored\"},\"values\":["
+            + ignoredValues
+            + "]},"
+            + "{\"metric\":{\"job\":\"ad\"},\"values\":["
+            + matchingValues
+            + "]}"
+            + "]}}";
     }
 
     public void testCreateAnomalyDetectorWithDuplicateName() throws Exception {
@@ -1256,6 +1345,39 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     }
 
     @SuppressWarnings("unchecked")
+    public void testPreviewPrometheusAnomalyDetectorWithMockDatasource() throws Exception {
+        try (MockPrometheusServer prometheusServer = startMockPrometheusServer()) {
+            String dataConnectionId = "prometheus-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT);
+            createPrometheusDatasource(dataConnectionId, prometheusServer.getUri());
+            Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+            Instant periodStart = periodEnd.minus(10, ChronoUnit.MINUTES);
+
+            Response response = TestHelpers
+                .makeRequest(
+                    client(),
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI + "/_preview?min_preview_size=1",
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(buildPrometheusPreviewBody(dataConnectionId, periodStart, periodEnd)),
+                    null,
+                    false
+                );
+
+            assertEquals("Preview Prometheus detector failed", RestStatus.OK, TestHelpers.restStatus(response));
+            assertTrue(prometheusServer.getAuthorizationHeader().startsWith("Basic "));
+            Map<String, Object> responseMap = entityAsMap(response);
+            List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
+            assertNotNull(anomalyResults);
+            assertFalse(anomalyResults.isEmpty());
+
+            List<Map<String, Object>> featureData = (List<Map<String, Object>>) anomalyResults.get(0).get("feature_data");
+            assertNotNull(featureData);
+            assertEquals(1, featureData.size());
+            assertEquals("prometheus_value", featureData.get(0).get("feature_name"));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
     public void testCreateStartAndProfilePPLAnomalyDetectorWithoutExplicitDetectionInterval() throws Exception {
         String indexName = createPPLRuntimeIndex("ppl-detector-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
         String detectorName = "ppl-runtime-" + randomAlphaOfLength(6);
@@ -1289,8 +1411,18 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
         assertEquals(1, period.get("interval"));
         assertEquals("Minutes", period.get("unit"));
 
-        Response startResponse = TestHelpers
-            .makeRequest(client(), "POST", TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start", ImmutableMap.of(), "", null);
+        String startDetectorPath = TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "/_start";
+        if (isResourceSharingFeatureEnabled()) {
+            TestHelpers
+                .assertFailWith(
+                    ResponseException.class,
+                    "no permissions for [cluster:admin/opendistro/ad/detector/jobmanagement]",
+                    () -> TestHelpers.makeRequest(client(), "POST", startDetectorPath, ImmutableMap.of(), "", null)
+                );
+            return;
+        }
+
+        Response startResponse = TestHelpers.makeRequest(client(), "POST", startDetectorPath, ImmutableMap.of(), "", null);
         assertEquals("Start PPL detector failed", RestStatus.OK, TestHelpers.restStatus(startResponse));
 
         Awaitility
@@ -1306,6 +1438,31 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
                 Map<String, Object> initProgress = (Map<String, Object>) profileMap.get("init_progress");
                 assertEquals("100%", initProgress.get("percentage"));
             });
+    }
+
+    private static class MockPrometheusServer implements AutoCloseable {
+        private final HttpServer server;
+        private final String uri;
+        private final AtomicReference<String> authorizationHeader;
+
+        private MockPrometheusServer(HttpServer server, String uri, AtomicReference<String> authorizationHeader) {
+            this.server = server;
+            this.uri = uri;
+            this.authorizationHeader = authorizationHeader;
+        }
+
+        private String getUri() {
+            return uri;
+        }
+
+        private String getAuthorizationHeader() {
+            return authorizationHeader.get();
+        }
+
+        @Override
+        public void close() {
+            server.stop(0);
+        }
     }
 
     public void testCreatePPLAnomalyDetectorRejectsUnsupportedPostStatsStage() throws Exception {

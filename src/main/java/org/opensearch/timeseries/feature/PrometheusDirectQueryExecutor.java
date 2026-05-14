@@ -302,14 +302,23 @@ public class PrometheusDirectQueryExecutor implements AutoCloseable {
         }
 
         GetRequest getRequest = new GetRequest(DATASOURCE_INDEX, dataConnectionId);
-        GetResponse response;
         try (ThreadContext.StoredContext ignored = client.threadPool().getThreadContext().stashContext()) {
-            response = client.get(getRequest).actionGet();
+            client
+                .get(
+                    getRequest,
+                    ActionListener
+                        .wrap(response -> handlePrometheusDataSourceResponse(dataConnectionId, response, listener), listener::onFailure)
+                );
         } catch (Exception e) {
             listener.onFailure(e);
-            return;
         }
+    }
 
+    private void handlePrometheusDataSourceResponse(
+        String dataConnectionId,
+        GetResponse response,
+        ActionListener<ResolvedPrometheusDataSource> listener
+    ) {
         try {
             if (response == null || !response.isExists()) {
                 listener.onFailure(new IllegalArgumentException("Prometheus datasource [" + dataConnectionId + "] does not exist."));
