@@ -547,8 +547,13 @@ public class IndexForecasterActionHandlerTests extends AbstractForecasterActionH
             inProgressLatch.countDown();
         }, e -> {
             String message = String.format(Locale.ROOT, CommonMessages.FAIL_TO_GET_MAPPING_MSG, forecaster.getIndices());
-            assertTrue("actual: " + e, e instanceof IllegalArgumentException);
-            assertTrue("actual: " + message, e.getMessage().contains(message));
+            // Transport-level failures during field-mapping validation now surface as
+            // ValidationException with the relevant issue type (CATEGORY here), matching the
+            // long-standing time-field path. The original FAIL_TO_GET_MAPPING_MSG text is
+            // preserved in the message so the validation API can surface it under
+            // category_field.message.
+            assertTrue("actual: " + e, e instanceof org.opensearch.timeseries.common.exception.ValidationException);
+            assertTrue("actual: " + e.getMessage(), e.getMessage().contains(message));
             inProgressLatch.countDown();
         }));
         assertTrue(inProgressLatch.await(10, TimeUnit.SECONDS));

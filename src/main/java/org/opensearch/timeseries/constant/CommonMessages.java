@@ -77,6 +77,13 @@ public class CommonMessages {
     public static final String INDEX_NOT_FOUND = "index does not exist";
     public static final String FAIL_TO_GET_MAPPING_MSG = "Fail to get the index mapping of %s";
     public static final String TIMESTAMP_VALIDATION_FAILED = "Validation failed for timefield of %s, ";
+    public static final String EMPTY_INDEX_NAME_ERR_MSG =
+        "Index name cannot be empty. Found a cluster prefix followed by an empty index in: %s";
+    public static final String NO_MATCHING_REMOTE_CLUSTER_ERR_MSG = "No registered remote cluster matched pattern '%s' for indices %s. "
+        + "Configure a remote cluster matching the pattern or remove the wildcard cluster prefix.";
+    public static final String NO_REMOTE_CLUSTERS_CONFIGURED_ERR_MSG =
+        "Wildcard cluster prefix used but no remote clusters are configured. "
+            + "Configure a remote cluster or remove the wildcard cluster prefix from: %s";
     public static final String NO_SHARDS_FOUND_IN_INDEX = "No accessible shards found for indices %s "
         + "This could indicate: not enough data in index, connectivity issues, or permission problems.";
     public static final String FAIL_TO_GET_CONFIG_MSG = "Fail to get config";

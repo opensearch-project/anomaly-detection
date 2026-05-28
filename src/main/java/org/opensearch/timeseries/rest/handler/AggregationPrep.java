@@ -35,6 +35,7 @@ import org.opensearch.timeseries.model.Entity;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 
 public class AggregationPrep {
     protected static final Logger logger = LogManager.getLogger(AggregationPrep.class);
@@ -278,7 +279,9 @@ public class AggregationPrep {
             .aggregation(aggregation)
             .size(minimumDocCount)
             .timeout(requestTimeout);
-        return new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        SearchRequest request = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        CrossClusterConfigUtils.applyLenientIfWildcard(request, config.getIndices());
+        return request;
     }
 
     public Histogram validateAndRetrieveHistogramAggregation(SearchResponse response) {
