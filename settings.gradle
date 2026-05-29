@@ -9,4 +9,12 @@
  * GitHub history for details.
  */
 
+pluginManagement {
+    repositories {
+        maven { url = uri("https://ci.opensearch.org/maven2/") }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
 rootProject.name = 'opensearch-anomaly-detection'
