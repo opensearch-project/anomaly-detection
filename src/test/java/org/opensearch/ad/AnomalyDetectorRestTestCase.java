@@ -213,6 +213,24 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
             );
     }
 
+    protected Response previewAnomalyDetector(RestClient client, String requestBody) throws IOException {
+        return previewAnomalyDetector(client, requestBody, null);
+    }
+
+    protected Response previewAnomalyDetector(RestClient client, String requestBody, Integer minPreviewSize) throws IOException {
+        return TestHelpers
+            .makeRequest(
+                client,
+                "POST",
+                minPreviewSize == null
+                    ? TestHelpers.AD_BASE_DETECTORS_URI + "/_preview"
+                    : TestHelpers.AD_BASE_DETECTORS_URI + "/_preview?min_preview_size=" + minPreviewSize,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(requestBody),
+                null
+            );
+    }
+
     public AnomalyDetector getConfig(String detectorId, RestClient client) throws IOException {
         return (AnomalyDetector) getConfig(detectorId, false, client)[0];
     }

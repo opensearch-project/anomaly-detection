@@ -6,6 +6,8 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased 3.x](https://github.com/opensearch-project/anomaly-detection/compare/3.7...HEAD)
 
 ### Features
+- Add Prometheus-backed detector execution, preview support, and datasource auth handling ([1669] (https://github.com/opensearch-project/anomaly-detection/pull/1699))
+
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure

@@ -77,6 +77,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
     private static final String READ_ONLY_AG = "ad_read_only";
     private static final String READ_WRITE_AG = "ad_read_write";
     private static final String FULL_ACCESS_AG = "ad_full_access";
+    private static final String PPL_ACCESS_ROLE = "ppl_access";
 
     String oceanUser = "ocean";
     RestClient oceanClient;
@@ -91,6 +92,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         createIndexRole(indexAllAccessRole, "*");
         String indexSearchAccessRole = "index_all_search";
         createSearchRole(indexSearchAccessRole, "*");
+        createPPLAccessRole(PPL_ACCESS_ROLE);
         String alicePassword = generatePassword(aliceUser);
         createUser(aliceUser, alicePassword, new ArrayList<>(Arrays.asList("odfe")));
         aliceClient = new SecureRestClientBuilder(getClusterHosts().toArray(new HttpHost[0]), isHttps(), aliceUser, alicePassword)
@@ -149,6 +151,7 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         createRoleMapping("anomaly_full_access", new ArrayList<>(Arrays.asList(aliceUser, catUser, dogUser, elkUser, fishUser, goatUser)));
         createRoleMapping(indexAllAccessRole, new ArrayList<>(Arrays.asList(aliceUser, bobUser, catUser, dogUser, fishUser, lionUser)));
         createRoleMapping(indexSearchAccessRole, new ArrayList<>(Arrays.asList(goatUser)));
+        createRoleMapping(PPL_ACCESS_ROLE, new ArrayList<>(Arrays.asList(aliceUser, catUser, goatUser)));
     }
 
     @After
@@ -186,6 +189,81 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
         Map<String, Object> responseMap = entityAsMap(resp);
         ArrayList<String> roles = (ArrayList<String>) responseMap.get("roles");
         assertTrue(roles.contains("all_access"));
+    }
+
+    private String createInlinePPLPreviewIndex() throws IOException {
+        String indexName = "secure-ppl-preview-" + System.nanoTime();
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/" + indexName,
+                ImmutableMap.of(),
+                TestHelpers
+                    .toHttpEntity(
+                        "{\"mappings\":{\"properties\":{\"timestamp\":{\"type\":\"date\"},\"status_code\":{\"type\":\"integer\"},\"metric_a\":{\"type\":\"double\"},\"metric_b\":{\"type\":\"double\"},\"service\":{\"type\":\"keyword\"}}}}"
+                    ),
+                null
+            );
+
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        for (int i = 0; i < 20; i++) {
+            Instant timestamp = now.minus(i, ChronoUnit.MINUTES);
+            int statusCode = i % 4 == 0 ? 500 : 200;
+            int metricA = (i % 5) + 1;
+            int metricB = (i % 7) + 10;
+            TestHelpers
+                .ingestDataToIndex(
+                    client(),
+                    indexName,
+                    TestHelpers
+                        .toHttpEntity(
+                            String
+                                .format(
+                                    Locale.ROOT,
+                                    "{\"timestamp\":%d,\"status_code\":%d,\"metric_a\":%d,\"metric_b\":%d,\"service\":\"checkout\"}",
+                                    timestamp.toEpochMilli(),
+                                    statusCode,
+                                    metricA,
+                                    metricB
+                                )
+                        )
+                );
+        }
+
+        return indexName;
+    }
+
+    private void createPPLAccessRole(String role) throws IOException {
+        TestHelpers
+            .makeRequest(
+                client(),
+                "PUT",
+                "/_opendistro/_security/api/roles/" + role,
+                null,
+                TestHelpers
+                    .toHttpEntity(
+                        "{\n"
+                            + "\"cluster_permissions\": [\n"
+                            + "\"cluster:admin/opensearch/ppl\"\n"
+                            + "],\n"
+                            + "\"index_permissions\": [],\n"
+                            + "\"tenant_permissions\": []\n"
+                            + "}"
+                    ),
+                ImmutableList.of(new BasicHeader(HttpHeaders.USER_AGENT, "Kibana"))
+            );
+    }
+
+    private String buildInlinePPLPreviewBody(String indexName, Instant periodStart, Instant periodEnd) {
+        return String
+            .format(
+                Locale.ROOT,
+                "{\"period_start\":%d,\"period_end\":%d,\"detector\":{\"name\":\"secure-preview-ppl\",\"source_type\":\"PPL\",\"ppl_source\":{\"query_language\":\"PPL\",\"query\":\"source = %s | where service = 'checkout' | eval total_metric = metric_a + metric_b | stats count(*) as doc_count, avg(total_metric) as avg_total_metric by span(timestamp, 1m) as bucket\"},\"window_delay\":{\"period\":{\"interval\":1,\"unit\":\"Minutes\"}}}}",
+                periodStart.toEpochMilli(),
+                periodEnd.toEpochMilli(),
+                indexName
+            );
     }
 
     public void testCreateAnomalyDetector() throws IOException {
@@ -949,6 +1027,39 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             assertEquals(200, response.getStatusLine().getStatusCode());
         }
 
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testPreviewInlinePPLAnomalyDetector() throws IOException {
+        String indexName = createInlinePPLPreviewIndex();
+        Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Instant periodStart = periodEnd.minus(10, ChronoUnit.MINUTES);
+        String requestBody = buildInlinePPLPreviewBody(indexName, periodStart, periodEnd);
+
+        Response response = previewAnomalyDetector(aliceClient, requestBody, 1);
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(response));
+        Map<String, Object> responseMap = entityAsMap(response);
+        List<Map<String, Object>> anomalyResults = (List<Map<String, Object>>) responseMap.get("anomaly_result");
+        Assert.assertNotNull(anomalyResults);
+        Assert.assertFalse(anomalyResults.isEmpty());
+
+        List<Map<String, Object>> featureData = (List<Map<String, Object>>) anomalyResults.get(0).get("feature_data");
+        Assert.assertEquals(2, featureData.size());
+        Assert.assertEquals("doc_count", featureData.get(0).get("feature_name"));
+        Assert.assertEquals("avg_total_metric", featureData.get(1).get("feature_name"));
+
+        Response catResponse = previewAnomalyDetector(catClient, requestBody, 1);
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(catResponse));
+
+        Response goatResponse = previewAnomalyDetector(goatClient, requestBody, 1);
+        Assert.assertEquals(RestStatus.OK, TestHelpers.restStatus(goatResponse));
+
+        String noPermsMessage = "no permissions for [cluster:admin/opendistro/ad/detector/preview]";
+        Exception exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(bobClient, requestBody, 1); });
+        Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
+
+        exception = expectThrows(IOException.class, () -> { previewAnomalyDetector(lionClient, requestBody, 1); });
+        Assert.assertTrue(exception.getMessage().contains(noPermsMessage));
     }
 
     public void testValidateAnomalyDetector() throws IOException {

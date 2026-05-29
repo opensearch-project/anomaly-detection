@@ -19,6 +19,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,7 +30,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,6 +48,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.ad.AnomalyDetectorRunner;
+import org.opensearch.ad.constant.ADCommonMessages;
 import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.ad.indices.ADIndexManagement;
 import org.opensearch.ad.ml.ADModelManager;
@@ -385,6 +390,53 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     }
 
     @Test
+    public void testPreviewExecuteRejectsWhenPreviewSlotsUnavailable() throws Exception {
+        Field lockField = PreviewAnomalyDetectorTransportAction.class.getDeclaredField("lock");
+        lockField.setAccessible(true);
+        lockField.set(action, new Semaphore(0));
+
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
+        PreviewAnomalyDetectorRequest request = new PreviewAnomalyDetectorRequest(detector, detector.getId(), Instant.now(), Instant.now());
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Exception> failure = new AtomicReference<>();
+
+        try (ThreadContext.StoredContext context = client().threadPool().getThreadContext().stashContext()) {
+            action
+                .previewExecute(
+                    request,
+                    context,
+                    ActionListener.wrap(response -> Assert.fail("Expected throttled preview request to fail"), e -> {
+                        failure.set(e);
+                        latch.countDown();
+                    })
+                );
+        }
+
+        assertTrue(latch.await(100, TimeUnit.SECONDS));
+        assertNotNull(failure.get());
+        assertTrue(failure.get().getMessage().contains(ADCommonMessages.REQUEST_THROTTLED_MSG));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testPreviewDetectorActionListenerMapsFailures() throws Exception {
+        AnomalyDetector detector = TestHelpers.randomAnomalyDetector(ImmutableMap.of("testKey", "testValue"), Instant.now());
+
+        Exception illegalArgumentFailure = previewListenerFailure(detector, new IllegalArgumentException("bad PPL source"));
+        assertTrue(illegalArgumentFailure instanceof OpenSearchStatusException);
+        assertEquals(RestStatus.BAD_REQUEST, ((OpenSearchStatusException) illegalArgumentFailure).status());
+        assertTrue(illegalArgumentFailure.getMessage().contains("bad PPL source"));
+
+        OpenSearchStatusException statusException = new OpenSearchStatusException("already mapped", RestStatus.NOT_FOUND);
+        assertSame(statusException, previewListenerFailure(detector, statusException));
+
+        Exception runtimeFailure = previewListenerFailure(detector, new RuntimeException("boom"));
+        assertTrue(runtimeFailure instanceof OpenSearchStatusException);
+        assertEquals(RestStatus.INTERNAL_SERVER_ERROR, ((OpenSearchStatusException) runtimeFailure).status());
+        assertTrue(runtimeFailure.getMessage().contains("Unexpected error running anomaly detector"));
+    }
+
+    @Test
     public void testCircuitBreakerOpen() throws IOException, InterruptedException {
         // preview has no detector id
         AnomalyDetector detector = TestHelpers.randomAnomalyDetectorUsingCategoryFields(null, Arrays.asList("a"));
@@ -408,5 +460,33 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
         };
         action.doExecute(task, request, previewResponse);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    @SuppressWarnings("unchecked")
+    private ActionListener<List<AnomalyResult>> getPreviewDetectorActionListener(
+        ActionListener<PreviewAnomalyDetectorResponse> listener,
+        AnomalyDetector detector
+    ) throws Exception {
+        Method method = PreviewAnomalyDetectorTransportAction.class
+            .getDeclaredMethod("getPreviewDetectorActionListener", ActionListener.class, AnomalyDetector.class);
+        method.setAccessible(true);
+        return (ActionListener<List<AnomalyResult>>) method.invoke(action, listener, detector);
+    }
+
+    private Exception previewListenerFailure(AnomalyDetector detector, Exception failure) throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Exception> mappedFailure = new AtomicReference<>();
+        ActionListener<List<AnomalyResult>> listener = getPreviewDetectorActionListener(
+            ActionListener.wrap(response -> Assert.fail("Expected preview listener to fail"), e -> {
+                mappedFailure.set(e);
+                latch.countDown();
+            }),
+            detector
+        );
+
+        listener.onFailure(failure);
+
+        assertTrue(latch.await(100, TimeUnit.SECONDS));
+        return mappedFailure.get();
     }
 }

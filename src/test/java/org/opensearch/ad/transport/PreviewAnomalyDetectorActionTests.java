@@ -42,7 +42,8 @@ public class PreviewAnomalyDetectorActionTests extends OpenSearchSingleNodeTestC
             detector,
             "1234",
             Instant.now().minusSeconds(60),
-            Instant.now()
+            Instant.now(),
+            200
         );
         request.writeTo(out);
         NamedWriteableAwareStreamInput input = new NamedWriteableAwareStreamInput(out.bytes().streamInput(), writableRegistry());
@@ -50,6 +51,7 @@ public class PreviewAnomalyDetectorActionTests extends OpenSearchSingleNodeTestC
         Assert.assertEquals(request.getId(), newRequest.getId());
         Assert.assertEquals(request.getStartTime(), newRequest.getStartTime());
         Assert.assertEquals(request.getEndTime(), newRequest.getEndTime());
+        Assert.assertEquals(request.getMinPreviewSize(), newRequest.getMinPreviewSize());
         Assert.assertNotNull(newRequest.getDetector());
         Assert.assertNull(newRequest.validate());
     }

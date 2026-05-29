@@ -29,6 +29,7 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest implements DocR
     private String detectorId;
     private Instant startTime;
     private Instant endTime;
+    private Integer minPreviewSize;
 
     public PreviewAnomalyDetectorRequest(StreamInput in) throws IOException {
         super(in);
@@ -36,15 +37,28 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest implements DocR
         detectorId = in.readOptionalString();
         startTime = in.readInstant();
         endTime = in.readInstant();
+        minPreviewSize = in.readOptionalInt();
     }
 
     public PreviewAnomalyDetectorRequest(AnomalyDetector detector, String detectorId, Instant startTime, Instant endTime)
+        throws IOException {
+        this(detector, detectorId, startTime, endTime, null);
+    }
+
+    public PreviewAnomalyDetectorRequest(
+        AnomalyDetector detector,
+        String detectorId,
+        Instant startTime,
+        Instant endTime,
+        Integer minPreviewSize
+    )
         throws IOException {
         super();
         this.detector = detector;
         this.detectorId = detectorId;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.minPreviewSize = minPreviewSize;
     }
 
     public AnomalyDetector getDetector() {
@@ -63,6 +77,10 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest implements DocR
         return endTime;
     }
 
+    public Integer getMinPreviewSize() {
+        return minPreviewSize;
+    }
+
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
@@ -70,6 +88,7 @@ public class PreviewAnomalyDetectorRequest extends ActionRequest implements DocR
         out.writeOptionalString(detectorId);
         out.writeInstant(startTime);
         out.writeInstant(endTime);
+        out.writeOptionalInt(minPreviewSize);
     }
 
     @Override

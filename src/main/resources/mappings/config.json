@@ -1,11 +1,47 @@
 {
     "dynamic": false,
     "_meta": {
-        "schema_version": 9
+        "schema_version": 10
     },
     "properties": {
         "schema_version": {
             "type": "integer"
+        },
+        "source_type": {
+            "type": "keyword"
+        },
+        "prometheus_source": {
+            "type": "object",
+            "dynamic": "strict",
+            "properties": {
+                "query_language": {
+                    "type": "keyword"
+                },
+                "query": {
+                    "type": "text",
+                    "index": false
+                },
+                "data_connection_id": {
+                    "type": "keyword"
+                },
+                "series_filter": {
+                    "type": "object",
+                    "enabled": false
+                }
+            }
+        },
+        "ppl_source": {
+            "type": "object",
+            "dynamic": "strict",
+            "properties": {
+                "query_language": {
+                    "type": "keyword"
+                },
+                "query": {
+                    "type": "text",
+                    "index": false
+                }
+            }
         },
         "name": {
             "type": "text",
