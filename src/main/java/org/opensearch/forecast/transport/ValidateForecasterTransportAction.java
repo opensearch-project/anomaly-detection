@@ -73,6 +73,7 @@ public class ValidateForecasterTransportAction extends
             clusterService,
             client,
             clientUtil,
+            transportService,
             indexManagement,
             forecaster,
             request.getRequestTimeout(),

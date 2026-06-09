@@ -43,6 +43,7 @@ import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.rest.handler.Processor;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
@@ -57,6 +58,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
     protected final ClusterService clusterService;
     protected final NamedXContentRegistry xContentRegistry;
     protected final IndexManagementType indexManagement;
+    protected final TransportService transportService;
     protected final SearchFeatureDao searchFeatureDao;
     protected final NamedWriteableRegistry namedWriteableRegistry;
     protected volatile Boolean filterByEnabled;
@@ -87,6 +89,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         this.clusterService = clusterService;
         this.xContentRegistry = xContentRegistry;
         this.indexManagement = indexManagement;
+        this.transportService = transportService;
         this.namedWriteableRegistry = namedWriteableRegistry;
         this.filterByEnabled = filterByBackendRoleSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterByEnabled = it);
@@ -140,6 +143,7 @@ public abstract class BaseValidateConfigTransportAction<IndexType extends Enum<I
         SearchRequest searchRequest = new SearchRequest()
             .indices(indices.toArray(new String[0]))
             .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, indices);
         client.search(searchRequest, ActionListener.wrap(r -> function.execute(), e -> {
             if (e instanceof IndexNotFoundException) {
                 // IndexNotFoundException is converted to a ADValidationException that gets

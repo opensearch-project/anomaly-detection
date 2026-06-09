@@ -1613,6 +1613,30 @@ public class TestHelpers {
         return mappings;
     }
 
+    /**
+     * Builds a {@code GetFieldMappingsResponse} mappings map for multiple indices and fields.
+     * Fields not listed for an index are omitted, matching OpenSearch's behavior for absent fields.
+     */
+    public static Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> createMultiFieldMappings(
+        Map<String, Map<String, String>> indexToFields
+    ) {
+        Map<String, Map<String, GetFieldMappingsResponse.FieldMappingMetadata>> mappings = new HashMap<>();
+        for (Map.Entry<String, Map<String, String>> indexEntry : indexToFields.entrySet()) {
+            Map<String, FieldMappingMetadata> perField = new HashMap<>();
+            for (Map.Entry<String, String> fieldEntry : indexEntry.getValue().entrySet()) {
+                String fieldName = fieldEntry.getKey();
+                String fieldType = fieldEntry.getValue();
+                perField
+                    .put(
+                        fieldName,
+                        new FieldMappingMetadata(fieldName, new BytesArray("{\"" + fieldName + "\":{\"type\":\"" + fieldType + "\"}}"))
+                    );
+            }
+            mappings.put(indexEntry.getKey(), perField);
+        }
+        return mappings;
+    }
+
     public static ADTask randomAdTask() throws IOException {
         return randomAdTask(
             randomAlphaOfLength(5),

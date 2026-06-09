@@ -100,6 +100,7 @@ import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.transport.StatsNodeResponse;
 import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.transport.handler.ResultBulkIndexingHandler;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -437,6 +438,7 @@ public class ADBatchTaskRunner {
         SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(sourceBuilder);
         searchRequest.indices(adTask.getDetector().getIndices().toArray(new String[0]));
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, adTask.getDetector().getIndices());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
             StringTerms stringTerms = r.getAggregations().get(topEntitiesAgg);
             List<StringTerms.Bucket> buckets = stringTerms.getBuckets();
@@ -956,6 +958,7 @@ public class ADBatchTaskRunner {
         SearchRequest request = new SearchRequest()
             .indices(adTask.getDetector().getIndices().toArray(new String[0]))
             .source(searchSourceBuilder);
+        CrossClusterConfigUtils.applyLenientIfWildcard(request, adTask.getDetector().getIndices());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(r -> {
             InternalMin minAgg = r.getAggregations().get(CommonName.AGG_NAME_MIN_TIME);
             InternalMax maxAgg = r.getAggregations().get(CommonName.AGG_NAME_MAX_TIME);

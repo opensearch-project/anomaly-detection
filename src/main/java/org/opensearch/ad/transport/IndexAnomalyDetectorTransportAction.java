@@ -49,6 +49,7 @@ import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.function.ExecutorFunction;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.TransportService;
@@ -238,6 +239,7 @@ public class IndexAnomalyDetectorTransportAction extends HandledTransportAction<
         SearchRequest searchRequest = new SearchRequest()
             .indices(indices.toArray(new String[0]))
             .source(new SearchSourceBuilder().size(1).query(QueryBuilders.matchAllQuery()));
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, indices);
         client.search(searchRequest, ActionListener.wrap(r -> { function.execute(); }, e -> {
             // Due to below issue with security plugin, we get security_exception when invalid index name is mentioned.
             // https://github.com/opendistro-for-elasticsearch/security/issues/718

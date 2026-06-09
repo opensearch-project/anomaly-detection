@@ -44,6 +44,7 @@ import org.opensearch.timeseries.feature.SearchFeatureDao;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 
@@ -154,6 +155,7 @@ public class LatestTimeRetriever {
             .trackTotalHits(false)
             .size(0);
         SearchRequest searchRequest = new SearchRequest().indices(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, config.getIndices());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener.wrap(response -> {
             Aggregations aggs = response.getAggregations();
             if (aggs == null) {

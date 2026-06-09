@@ -47,6 +47,7 @@ import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.transport.ValidateConfigResponse;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
@@ -239,6 +240,7 @@ public class ModelValidationActionHandler {
         AggregationBuilder aggregation = getHistogramAggregation(latestTime);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().aggregation(aggregation).size(0).timeout(requestTimeout);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, config.getIndices());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> processRawDataResults(response, latestTime), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -270,6 +272,7 @@ public class ModelValidationActionHandler {
         BoolQueryBuilder query = QueryBuilders.boolQuery().filter(config.getFilterQuery());
         SearchSourceBuilder searchSourceBuilder = aggregationPrep.getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, config.getIndices());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> processDataFilterResults(response, latestTime), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a
@@ -328,6 +331,7 @@ public class ModelValidationActionHandler {
         AggregationBuilder aggregation = getHistogramAggregation(latestTime);
         SearchSourceBuilder searchSourceBuilder = aggregationPrep.getSearchSourceBuilder(query, aggregation);
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(searchSourceBuilder);
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, config.getIndices());
         final ActionListener<SearchResponse> searchResponseListener = ActionListener
             .wrap(response -> processTopEntityResults(response, latestTime, topEntity), listener::onFailure);
         // using the original context in listener as user roles have no permissions for internal operations like fetching a

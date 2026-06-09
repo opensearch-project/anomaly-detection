@@ -48,6 +48,7 @@ import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.CrossClusterConfigUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
 import org.opensearch.transport.client.Client;
 
@@ -340,6 +341,7 @@ public class IntervalCalculation {
             .aggregation(AggregationBuilders.max("max_ts").field(TS_FIELD));
 
         SearchRequest boundsReq = new SearchRequest(config.getIndices().toArray(new String[0])).source(boundsSrc);
+        CrossClusterConfigUtils.applyLenientIfWildcard(boundsReq, config.getIndices());
         logger.debug("Min and max timestamp request: {}", boundsReq);
         final ActionListener<SearchResponse> boundsRequestListener = ActionListener.wrap(r -> {
             logger.debug("Min and max timestamp response: {}", r);
@@ -545,6 +547,7 @@ public class IntervalCalculation {
         src.aggregation(hist);
 
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(src);
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, config.getIndices());
         logger.debug("Minimum interval search request: {}", searchRequest);
         final ActionListener<SearchResponse> minIntervalSearchListener = ActionListener.wrap(r -> {
             logger.debug("Minimum interval search response: {}", r);
@@ -689,6 +692,7 @@ public class IntervalCalculation {
             .aggregation(PipelineAggregatorBuilders.minBucket("shortest", "auto>gap"));
 
         SearchRequest searchRequest = new SearchRequest(config.getIndices().toArray(new String[0])).source(src);
+        CrossClusterConfigUtils.applyLenientIfWildcard(searchRequest, config.getIndices());
 
         final ActionListener<SearchResponse> autoDateSearchListener = ActionListener.wrap(r -> {
             NumericMetricsAggregation.SingleValue v = r.getAggregations().get("shortest");
