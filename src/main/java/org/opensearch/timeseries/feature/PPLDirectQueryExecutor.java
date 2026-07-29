@@ -350,6 +350,7 @@ public class PPLDirectQueryExecutor {
         private final String path;
         private final boolean sanitize;
         private final boolean profile;
+        private final boolean analyze;
         private final String queryId;
 
         private PPLTransportRequest(String query, String format, String path) {
@@ -360,6 +361,7 @@ public class PPLDirectQueryExecutor {
             this.path = path;
             this.sanitize = true;
             this.profile = false;
+            this.analyze = false;
             this.queryId = null;
         }
 
@@ -373,6 +375,7 @@ public class PPLDirectQueryExecutor {
             this.sanitize = in.readBoolean();
             in.readEnum(PPLJsonStyle.class);
             this.profile = in.readBoolean();
+            this.analyze = in.readBoolean();
             this.queryId = in.readOptionalString();
         }
 
@@ -392,6 +395,7 @@ public class PPLDirectQueryExecutor {
             out.writeBoolean(sanitize);
             out.writeEnum(PPLJsonStyle.COMPACT);
             out.writeBoolean(profile);
+            out.writeBoolean(analyze);
             out.writeOptionalString(queryId);
         }
 
