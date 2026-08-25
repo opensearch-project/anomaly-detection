@@ -279,7 +279,7 @@ configurations.all {
         force "com.google.guava:guava:33.5.0-jre" // CVE for 31.1
         force("tools.jackson.core:jackson-core:${versions.jackson3}")
         force("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
-        force "org.ow2.asm:asm:9.9.1"
+        force "org.ow2.asm:asm:9.10.1"
     }
 }
 
