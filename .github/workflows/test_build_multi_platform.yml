@@ -29,6 +29,7 @@ jobs:
   Build-ad-windows:
     needs: spotless
     strategy:
+      fail-fast: false
       matrix:
         java: [ 11, 17, 21 ]
     name: Build and Test Anomaly Detection Plugin on Windows
@@ -46,7 +47,7 @@ jobs:
 
       - name: Build and Run Tests
         run: |
-          ./gradlew build -x spotlessJava
+          ./gradlew build
       - name: Publish to Maven Local
         run: |
           ./gradlew publishToMavenLocal
@@ -88,7 +89,7 @@ jobs:
         run: |
           chown -R 1000:1000 `pwd`
           su `id -un 1000` -c "./gradlew assemble &&
-                               ./gradlew build -x spotlessJava &&
+                               ./gradlew build &&
                                ./gradlew publishToMavenLocal &&
                                ./gradlew integTest -PnumNodes=3"
 
@@ -119,7 +120,7 @@ jobs:
           ./gradlew assemble
       - name: Build and Run Tests
         run: |
-          ./gradlew build -x spotlessJava
+          ./gradlew build
       # coverage.gradle is only applied in single local node test
       - name: Upload Coverage Report
         uses: codecov/codecov-action@04b047e8bb82a0c002c8312c1c880fbc6a999d45 # v5
