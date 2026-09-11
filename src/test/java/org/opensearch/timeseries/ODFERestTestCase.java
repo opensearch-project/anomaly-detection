@@ -33,7 +33,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 import javax.management.MBeanServerInvocationHandler;
@@ -59,6 +61,7 @@ import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
+import org.apache.hc.core5.io.CloseMode;
 import org.apache.hc.core5.reactor.ssl.TlsDetails;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.util.Timeout;
@@ -93,6 +96,7 @@ import com.google.gson.JsonArray;
 public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
     private static final Logger LOG = (Logger) LogManager.getLogger(ODFERestTestCase.class);
+    private static final Queue<PoolingAsyncClientConnectionManager> HTTPS_CONNECTION_MANAGERS = new ConcurrentLinkedQueue<>();
 
     protected boolean isHttps() {
         return Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
@@ -238,6 +242,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                     .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
                     .setTlsStrategy(tlsStrategy)
                     .build();
+                HTTPS_CONNECTION_MANAGERS.add(connectionManager);
                 return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider).setConnectionManager(connectionManager);
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -255,6 +260,16 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         });
         if (settings.hasValue(CLIENT_PATH_PREFIX)) {
             builder.setPathPrefix(settings.get(CLIENT_PATH_PREFIX));
+        }
+    }
+
+    @AfterClass
+    public static void closeHttpsConnections() {
+        // Close TLS connections before OpenSearchRestTestCase.closeClients shuts down the HTTP reactors.
+        // Otherwise TLS shutdown can leave selected keys behind and fail the selector's close assertion.
+        PoolingAsyncClientConnectionManager connectionManager;
+        while ((connectionManager = HTTPS_CONNECTION_MANAGERS.poll()) != null) {
+            connectionManager.close(CloseMode.IMMEDIATE);
         }
     }
 
