@@ -16,6 +16,7 @@ import java.util.Map;
 
 import org.junit.Before;
 import org.opensearch.ad.ADIntegTestCase;
+import org.opensearch.ad.constant.ADCommonName;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.stats.InternalStatNames;
 import org.opensearch.timeseries.stats.StatNames;
@@ -87,6 +88,26 @@ public class StatsAnomalyDetectorTransportActionTests extends ADIntegTestCase {
         assertEquals(0, statsMap.size());
         assertEquals(2L, clusterStats.get(StatNames.DETECTOR_COUNT.getName()));
         assertFalse(clusterStats.containsKey(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName()));
+    }
+
+    public void testStatsAnomalyDetectorWithUnmappedDetectorType() {
+        assertTrue(deleteDetectorIndex().isAcknowledged());
+        createIndex(ADCommonName.CONFIG_INDEX, "{}");
+
+        StatsRequest request = new StatsRequest(clusterService().localNode());
+        request.addStat(StatNames.DETECTOR_COUNT.getName());
+        request.addStat(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName());
+        request.addStat(StatNames.HC_DETECTOR_COUNT.getName());
+        for (long expectedCount = 0; expectedCount <= 1; expectedCount++) {
+            if (expectedCount == 1) {
+                indexDoc(ADCommonName.CONFIG_INDEX, ImmutableMap.of("name", "legacy-detector"));
+            }
+            StatsTimeSeriesResponse response = client().execute(StatsAnomalyDetectorAction.INSTANCE, request).actionGet(5_000);
+            Map<String, Object> clusterStats = response.getAdStatsResponse().getClusterStats();
+            assertEquals(expectedCount, clusterStats.get(StatNames.DETECTOR_COUNT.getName()));
+            assertEquals(0L, clusterStats.get(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName()));
+            assertEquals(0L, clusterStats.get(StatNames.HC_DETECTOR_COUNT.getName()));
+        }
     }
 
     public void testStatsAnomalyDetectorWithSingleEntityDetectorCount() {
