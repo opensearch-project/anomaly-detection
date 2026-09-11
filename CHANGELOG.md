@@ -9,6 +9,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Add runtime PPL-backed anomaly detector source support ([#1718](https://github.com/opensearch-project/anomaly-detection/pull/1718))
 ### Enhancements
 ### Bug Fixes
+- Align PPL transport requests with the SQL plugin's analyze and partial-result fields ([#1760](https://github.com/opensearch-project/anomaly-detection/pull/1760))
 ### Infrastructure
 ### Documentation
 ### Maintenance

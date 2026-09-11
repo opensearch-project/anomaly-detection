@@ -294,7 +294,10 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
             assertEquals(readPrivateField(request, "path"), readPrivateField(roundTrippedRequest, "path"));
             assertTrue((Boolean) readPrivateField(roundTrippedRequest, "sanitize"));
             assertFalse((Boolean) readPrivateField(roundTrippedRequest, "profile"));
+            assertFalse((Boolean) readPrivateField(roundTrippedRequest, "analyze"));
             assertNull(readPrivateField(roundTrippedRequest, "queryId"));
+            assertNull(readPrivateField(roundTrippedRequest, "partialResult"));
+            assertEquals(-1, input.read());
         }
     }
 

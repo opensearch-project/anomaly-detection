@@ -342,6 +342,7 @@ public class PPLDirectQueryExecutor {
         COMPACT
     }
 
+    // Keep the wire format aligned with SQL's TransportPPLQueryRequest.
     private static final class PPLTransportRequest extends ActionRequest {
         private final String query;
         private final String format;
@@ -350,7 +351,9 @@ public class PPLDirectQueryExecutor {
         private final String path;
         private final boolean sanitize;
         private final boolean profile;
+        private final boolean analyze;
         private final String queryId;
+        private final Boolean partialResult;
 
         private PPLTransportRequest(String query, String format, String path) {
             this.query = query;
@@ -360,7 +363,9 @@ public class PPLDirectQueryExecutor {
             this.path = path;
             this.sanitize = true;
             this.profile = false;
+            this.analyze = false;
             this.queryId = null;
+            this.partialResult = null;
         }
 
         private PPLTransportRequest(StreamInput in) throws IOException {
@@ -373,7 +378,9 @@ public class PPLDirectQueryExecutor {
             this.sanitize = in.readBoolean();
             in.readEnum(PPLJsonStyle.class);
             this.profile = in.readBoolean();
+            this.analyze = in.readBoolean();
             this.queryId = in.readOptionalString();
+            this.partialResult = in.readOptionalBoolean();
         }
 
         @Override
@@ -392,7 +399,9 @@ public class PPLDirectQueryExecutor {
             out.writeBoolean(sanitize);
             out.writeEnum(PPLJsonStyle.COMPACT);
             out.writeBoolean(profile);
+            out.writeBoolean(analyze);
             out.writeOptionalString(queryId);
+            out.writeOptionalBoolean(partialResult);
         }
 
     }
