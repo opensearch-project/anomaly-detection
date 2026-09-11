@@ -165,9 +165,10 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-core:4.4.0'
 
 
-    // we inherit jackson-core from opensearch core
+    // OpenSearch provides Jackson 3 core.
     implementation("tools.jackson.core:jackson-databind:${versions.jackson3_databind}")
-    // randomforest still uses Jackson 2.x
+    // PPL response parsing and Random Cut Forest serialization still use Jackson 2.x.
+    implementation("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
     implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
     implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson_annotations}")
 

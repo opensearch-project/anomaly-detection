@@ -12,5 +12,6 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Infrastructure
 ### Documentation
 ### Maintenance
+- Increment version to 3.9.0-SNAPSHOT and declare the Jackson 2 core dependency required by PPL response parsing and Random Cut Forest serialization ([#1760](https://github.com/opensearch-project/anomaly-detection/pull/1760))
 ### Security
 ### Refactoring
