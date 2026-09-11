@@ -37,6 +37,7 @@ import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.tasks.TaskId;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -274,7 +275,7 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
         assertSame(serializedResponse, directResponse);
     }
 
-    public void testPPLTransportRequestRoundTripsThroughStreamConstructor() throws Exception {
+    public void testPPLTransportRequestWritesSqlWireFormat() throws Exception {
         ActionRequest request = newPPLTransportRequest(
             "source = logs | stats count() as count by span(timestamp, 1m) as bucket",
             "jdbc",
@@ -286,17 +287,18 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
             request.writeTo(output);
         }
         try (InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
-            Object roundTrippedRequest = pplTransportRequestStreamConstructor().newInstance(input);
-            assertEquals(readPrivateField(request, "query"), readPrivateField(roundTrippedRequest, "query"));
-            assertEquals(readPrivateField(request, "format"), readPrivateField(roundTrippedRequest, "format"));
-            assertNull(readPrivateField(roundTrippedRequest, "explainMode"));
-            assertNull(readPrivateField(roundTrippedRequest, "jsonContent"));
-            assertEquals(readPrivateField(request, "path"), readPrivateField(roundTrippedRequest, "path"));
-            assertTrue((Boolean) readPrivateField(roundTrippedRequest, "sanitize"));
-            assertFalse((Boolean) readPrivateField(roundTrippedRequest, "profile"));
-            assertFalse((Boolean) readPrivateField(roundTrippedRequest, "analyze"));
-            assertNull(readPrivateField(roundTrippedRequest, "queryId"));
-            assertNull(readPrivateField(roundTrippedRequest, "partialResult"));
+            assertEquals(request.getParentTask(), TaskId.readFromStream(input));
+            assertEquals("source = logs | stats count() as count by span(timestamp, 1m) as bucket", input.readOptionalString());
+            assertEquals("jdbc", input.readOptionalString());
+            assertNull(input.readOptionalString()); // explainMode
+            assertNull(input.readOptionalString()); // jsonContent
+            assertEquals("/_plugins/_ppl", input.readOptionalString());
+            assertTrue(input.readBoolean()); // sanitize
+            assertEquals(1, input.readVInt()); // JsonStyle.COMPACT
+            assertFalse(input.readBoolean()); // profile
+            assertFalse(input.readBoolean()); // analyze
+            assertNull(input.readOptionalString()); // queryId
+            assertNull(input.readOptionalBoolean()); // partialResult
             assertEquals(-1, input.read());
         }
     }
@@ -321,12 +323,6 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
 
     private static Constructor<?> pplTransportRequestConstructor() throws Exception {
         Constructor<?> constructor = pplTransportRequestClass().getDeclaredConstructor(String.class, String.class, String.class);
-        constructor.setAccessible(true);
-        return constructor;
-    }
-
-    private static Constructor<?> pplTransportRequestStreamConstructor() throws Exception {
-        Constructor<?> constructor = pplTransportRequestClass().getDeclaredConstructor(StreamInput.class);
         constructor.setAccessible(true);
         return constructor;
     }

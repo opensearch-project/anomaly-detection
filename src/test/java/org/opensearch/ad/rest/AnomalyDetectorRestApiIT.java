@@ -1812,7 +1812,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testStartAdjobWithNullFeatures() throws Exception {
         AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(null, null, Instant.now());
         String indexName = detectorWithoutFeature.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        TestHelpers.createIndexWithTimeField(client(), indexName, detectorWithoutFeature.getTimeField());
         AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true, client());
         TestHelpers
             .assertFailWith(
@@ -1833,7 +1833,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
     public void testStartAdjobWithEmptyFeatures() throws Exception {
         AnomalyDetector detectorWithoutFeature = TestHelpers.randomAnomalyDetector(ImmutableList.of(), null, Instant.now());
         String indexName = detectorWithoutFeature.getIndices().get(0);
-        TestHelpers.createIndex(client(), indexName, TestHelpers.toHttpEntity("{\"name\": \"test\"}"));
+        TestHelpers.createIndexWithTimeField(client(), indexName, detectorWithoutFeature.getTimeField());
         AnomalyDetector detector = createAnomalyDetector(detectorWithoutFeature, true, client());
         TestHelpers
             .assertFailWith(

@@ -78,7 +78,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.commons.rest.SecureRestClientBuilder;
+import org.opensearch.commons.rest.TrustStore;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.MediaType;
@@ -155,7 +155,9 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                     throw new RuntimeException(e);
                 }
                 Path configPath = PathUtils.get(uri).getParent().toAbsolutePath();
-                return new SecureRestClientBuilder(settings, configPath, hosts).build();
+                configureAdminHttpsClient(builder, settings, configPath);
+                builder.setStrictDeprecationMode(strictDeprecationMode);
+                return builder.build();
             } else {
                 configureHttpsClient(builder, settings);
                 builder.setStrictDeprecationMode(strictDeprecationMode);
@@ -236,14 +238,9 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
                         }
                     })
                     .build();
-                final PoolingAsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder
-                    .create()
-                    .setMaxConnPerRoute(DEFAULT_MAX_CONN_PER_ROUTE)
-                    .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
-                    .setTlsStrategy(tlsStrategy)
-                    .build();
-                HTTPS_CONNECTION_MANAGERS.add(connectionManager);
-                return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider).setConnectionManager(connectionManager);
+                return httpClientBuilder
+                    .setDefaultCredentialsProvider(credentialsProvider)
+                    .setConnectionManager(createHttpsConnectionManager(tlsStrategy));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -261,6 +258,55 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         if (settings.hasValue(CLIENT_PATH_PREFIX)) {
             builder.setPathPrefix(settings.get(CLIENT_PATH_PREFIX));
         }
+    }
+
+    private static void configureAdminHttpsClient(RestClientBuilder builder, Settings settings, Path configPath) throws IOException {
+        try {
+            char[] storePassword = settings.get(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD).toCharArray();
+            char[] keyPassword = settings.get(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD).toCharArray();
+            TlsStrategy tlsStrategy = ClientTlsStrategyBuilder
+                .create()
+                .setSslContext(
+                    SSLContextBuilder
+                        .create()
+                        .loadTrustMaterial(
+                            new TrustStore(configPath.resolve(settings.get(OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH)).toString())
+                                .create(),
+                            null
+                        )
+                        .loadKeyMaterial(
+                            configPath.resolve(settings.get(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH)).toFile(),
+                            storePassword,
+                            keyPassword
+                        )
+                        .build()
+                )
+                .build();
+            builder
+                .setHttpClientConfigCallback(
+                    httpClientBuilder -> httpClientBuilder.setConnectionManager(createHttpsConnectionManager(tlsStrategy))
+                );
+            builder
+                .setRequestConfigCallback(
+                    config -> config
+                        .setConnectTimeout(Timeout.ofSeconds(5))
+                        .setResponseTimeout(Timeout.ofSeconds(10))
+                        .setConnectionRequestTimeout(Timeout.ofMinutes(3))
+                );
+        } catch (Exception e) {
+            throw new IOException("Failed to configure the HTTPS admin client", e);
+        }
+    }
+
+    private static PoolingAsyncClientConnectionManager createHttpsConnectionManager(TlsStrategy tlsStrategy) {
+        PoolingAsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder
+            .create()
+            .setMaxConnPerRoute(DEFAULT_MAX_CONN_PER_ROUTE)
+            .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
+            .setTlsStrategy(tlsStrategy)
+            .build();
+        HTTPS_CONNECTION_MANAGERS.add(connectionManager);
+        return connectionManager;
     }
 
     @AfterClass

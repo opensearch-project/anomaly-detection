@@ -342,7 +342,8 @@ public class PPLDirectQueryExecutor {
         COMPACT
     }
 
-    // Keep the wire format aligned with SQL's TransportPPLQueryRequest.
+    // Outbound-only adapter: SQL's TransportPPLQueryRequest reads these bytes on the receiving node.
+    // Keep the wire format aligned with that request.
     private static final class PPLTransportRequest extends ActionRequest {
         private final String query;
         private final String format;
@@ -366,21 +367,6 @@ public class PPLDirectQueryExecutor {
             this.analyze = false;
             this.queryId = null;
             this.partialResult = null;
-        }
-
-        private PPLTransportRequest(StreamInput in) throws IOException {
-            super(in);
-            this.query = in.readOptionalString();
-            this.format = in.readOptionalString();
-            this.explainMode = in.readOptionalString();
-            this.jsonContent = in.readOptionalString();
-            this.path = in.readOptionalString();
-            this.sanitize = in.readBoolean();
-            in.readEnum(PPLJsonStyle.class);
-            this.profile = in.readBoolean();
-            this.analyze = in.readBoolean();
-            this.queryId = in.readOptionalString();
-            this.partialResult = in.readOptionalBoolean();
         }
 
         @Override
