@@ -1338,6 +1338,73 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
             });
     }
 
+    @SuppressWarnings("unchecked")
+    public void testHistoricalPPLAnomalyDetectorCompletesWithFeatureResults() throws Exception {
+        String indexName = createPPLRuntimeIndex("ppl-historical-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT), 100);
+        String query = "source = "
+            + indexName
+            + " | where service = 'checkout' | stats count() as doc_count, avg(metric_a) as avg_metric by span(timestamp, 1m) as bucket";
+        Response createResponse = TestHelpers
+            .makeRequest(
+                adminClient(),
+                "POST",
+                TestHelpers.AD_BASE_DETECTORS_URI,
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(buildPPLDetectorBody("historical-ppl-detector", indexName, false, query)),
+                null
+            );
+        assertEquals(RestStatus.CREATED, TestHelpers.restStatus(createResponse));
+        String detectorId = (String) entityAsMap(createResponse).get("_id");
+        Instant endTime = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        Response startResponse = startAnomalyDetector(
+            detectorId,
+            new DateRange(endTime.minus(100, ChronoUnit.MINUTES), endTime),
+            adminClient()
+        );
+        String taskId = (String) entityAsMap(startResponse).get("_id");
+        assertNotNull(taskId);
+
+        Awaitility
+            .await("historical PPL analysis to finish")
+            .pollInterval(Duration.ofSeconds(2))
+            .atMost(Duration.ofMinutes(2))
+            .untilAsserted(() -> {
+                Response detectorResponse = TestHelpers
+                    .makeRequest(
+                        adminClient(),
+                        "GET",
+                        TestHelpers.AD_BASE_DETECTORS_URI + "/" + detectorId + "?task=true",
+                        ImmutableMap.of(),
+                        "",
+                        null
+                    );
+                Map<String, Object> task = (Map<String, Object>) entityAsMap(detectorResponse).get("historical_analysis_task");
+                assertNotNull(task);
+                assertEquals(task.toString(), "FINISHED", task.get("state"));
+
+                Response resultResponse = TestHelpers
+                    .makeRequest(
+                        adminClient(),
+                        "GET",
+                        TestHelpers.AD_BASE_RESULT_URI + "/_search",
+                        ImmutableMap.of(),
+                        TestHelpers.toHttpEntity("{\"query\":{\"term\":{\"task_id\":\"" + taskId + "\"}},\"size\":1}"),
+                        null
+                    );
+                Map<String, Object> hits = (Map<String, Object>) entityAsMap(resultResponse).get("hits");
+                List<Map<String, Object>> results = (List<Map<String, Object>>) hits.get("hits");
+                assertFalse(results.isEmpty());
+                Map<String, Object> result = (Map<String, Object>) results.get(0).get("_source");
+                List<Map<String, Object>> features = (List<Map<String, Object>>) result.get("feature_data");
+                assertEquals(2, features.size());
+                assertEquals("doc_count", features.get(0).get("feature_name"));
+                assertEquals("avg_metric", features.get(1).get("feature_name"));
+                assertEquals(1.0, ((Number) features.get(0).get("data")).doubleValue(), 0.0);
+                double average = ((Number) features.get(1).get("data")).doubleValue();
+                assertTrue(average >= 1.0 && average <= 9.0);
+            });
+    }
+
     public void testCreatePPLAnomalyDetectorRejectsUnsupportedPostStatsStage() throws Exception {
         String indexName = createPPLRuntimeIndex("ppl-invalid-" + randomAlphaOfLength(5).toLowerCase(Locale.ROOT));
         String query = "source = " + indexName + " | stats count() as doc_count by span(timestamp, 1m) | head 5";
