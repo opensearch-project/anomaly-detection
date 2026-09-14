@@ -11,8 +11,6 @@
 
 package org.opensearch.ad.transport;
 
-import java.util.List;
-
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.constant.ADCommonName;
@@ -23,7 +21,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.search.aggregations.AggregationBuilders;
-import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.timeseries.stats.StatNames;
@@ -75,12 +73,11 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
                 .source(new SearchSourceBuilder().aggregation(termsAgg).size(0).trackTotalHits(true));
 
             client.search(request, ActionListener.wrap(r -> {
-                StringTerms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
-                List<StringTerms.Bucket> buckets = aggregation.getBuckets();
+                Terms aggregation = r.getAggregations().get(DETECTOR_TYPE_AGG);
                 long totalDetectors = r.getHits().getTotalHits().value();
                 long totalSingleEntityDetectors = 0;
                 long totalMultiEntityDetectors = 0;
-                for (StringTerms.Bucket b : buckets) {
+                for (Terms.Bucket b : aggregation.getBuckets()) {
                     if (AnomalyDetectorType.SINGLE_ENTITY.name().equals(b.getKeyAsString())
                         || AnomalyDetectorType.REALTIME_SINGLE_ENTITY.name().equals(b.getKeyAsString())
                         || AnomalyDetectorType.HISTORICAL_SINGLE_ENTITY.name().equals(b.getKeyAsString())) {
