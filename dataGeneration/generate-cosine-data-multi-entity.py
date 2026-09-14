@@ -1,3 +1,6 @@
+# Copyright OpenSearch Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 '''
 
 Python script for ingesting sample data into OpenSearch index
