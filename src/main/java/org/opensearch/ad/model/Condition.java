@@ -41,7 +41,7 @@ public class Condition implements Writeable, ToXContentObject {
     public Condition(StreamInput input) throws IOException {
         this.featureName = input.readString();
         this.thresholdType = input.readEnum(ThresholdType.class);
-        this.operator = input.readEnum(Operator.class);
+        this.operator = input.readBoolean() ? input.readEnum(Operator.class) : null;
         this.value = input.readBoolean() ? input.readDouble() : null;
     }
 
@@ -108,7 +108,10 @@ public class Condition implements Writeable, ToXContentObject {
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(featureName);
         out.writeEnum(thresholdType);
-        out.writeEnum(operator);
+        out.writeBoolean(operator != null);
+        if (operator != null) {
+            out.writeEnum(operator);
+        }
         out.writeBoolean(value != null);
         if (value != null) {
             out.writeDouble(value);
