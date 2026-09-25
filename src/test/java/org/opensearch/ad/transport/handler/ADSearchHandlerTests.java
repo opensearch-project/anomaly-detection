@@ -49,6 +49,16 @@ public class ADSearchHandlerTests extends ADUnitTestCase {
     private ActionListener<SearchResponse> listener;
 
     @SuppressWarnings("unchecked")
+    /**
+     * Every test here configures filter_by_backend_roles, which is deprecated, and the handler reads it. Acknowledging
+     * the warning per test is not reliable: the deprecation logger dedups by key, so only whichever test runs first in
+     * the JVM emits it, and the order is randomized. Same reasoning as TimeSeriesPluginTests.
+     */
+    @Override
+    protected boolean enableWarningsCheck() {
+        return false;
+    }
+
     @Before
     @Override
     public void setUp() throws Exception {

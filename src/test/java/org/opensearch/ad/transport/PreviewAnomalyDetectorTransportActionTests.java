@@ -90,6 +90,16 @@ public class PreviewAnomalyDetectorTransportActionTests extends OpenSearchSingle
     private Task task;
     private CircuitBreakerService circuitBreaker;
 
+    /**
+     * testPreviewTransportActionNoContext configures filter_by_backend_roles, which is deprecated, and the action reads
+     * it. The deprecation logger dedups by key, so acknowledging it in that one test is order-dependent under the
+     * randomized runner. Same reasoning as TimeSeriesPluginTests.
+     */
+    @Override
+    protected boolean enableWarningsCheck() {
+        return false;
+    }
+
     @Override
     @Before
     public void setUp() throws Exception {
