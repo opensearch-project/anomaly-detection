@@ -87,18 +87,7 @@ public class AnomalyDetectorRestApiIT extends AnomalyDetectorRestTestCase {
 
     public void testCreateAnomalyDetectorWithEmptyIndices() throws Exception {
         AnomalyDetector detector = TestHelpers.randomAnomalyDetector(TestHelpers.randomUiMetadata(), null);
-        TestHelpers
-            .makeRequest(
-                client(),
-                "PUT",
-                "/" + detector.getIndices().get(0),
-                ImmutableMap.of(),
-                TestHelpers
-                    .toHttpEntity(
-                        "{\"settings\":{\"number_of_shards\":1}," + " \"mappings\":{\"properties\":" + "{\"field1\":{\"type\":\"text\"}}}}"
-                    ),
-                null
-            );
+        TestHelpers.createEmptyIndexWithTimeField(client(), detector.getIndices().get(0), detector.getTimeField());
 
         TestHelpers
             .assertFailWith(
