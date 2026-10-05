@@ -87,6 +87,8 @@ import org.opensearch.ad.model.ADTaskType;
 import org.opensearch.ad.model.AnomalyDetector;
 import org.opensearch.ad.rest.handler.ADIndexJobActionHandler;
 import org.opensearch.ad.settings.AnomalyDetectorSettings;
+import org.opensearch.ad.transport.ADBatchAnomalyResultAction;
+import org.opensearch.ad.transport.ADBatchAnomalyResultRequest;
 import org.opensearch.ad.transport.ADTaskProfileNodeResponse;
 import org.opensearch.ad.transport.ADTaskProfileResponse;
 import org.opensearch.ad.transport.ForwardADTaskRequest;
@@ -1406,6 +1408,55 @@ public class ADTaskManagerTests extends AbstractTimeSeriesTest {
         assertEquals(2, adTaskManager.scaleTaskSlots(adTask, transportService, listener));
         verify(adTaskCacheManager, times(1)).refreshLastScaleEntityTaskLaneTime(anyString());
         verify(adTaskManager, times(1)).forwardScaleTaskSlotRequestToLeadNode(any(), any(), any());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testContinueCurrentLaneAfterScaleDownWhenNoEntitiesAreActive() throws IOException {
+        ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
+        String detectorId = adTask.getConfigId();
+        doReturn(-5).when(adTaskManager).scaleTaskSlots(eq(adTask), eq(transportService), any());
+        when(adTaskCacheManager.getRunningEntityCount(detectorId)).thenReturn(0);
+        when(adTaskCacheManager.getTempEntityCount(detectorId)).thenReturn(0);
+        when(adTaskCacheManager.getDetectorTaskSlots(detectorId)).thenReturn(4);
+        when(adTaskCacheManager.getPendingEntityCount(detectorId)).thenReturn(4);
+
+        adTaskManager.runNextEntityForHCADHistorical(adTask, transportService, listener);
+
+        verify(client).execute(eq(ADBatchAnomalyResultAction.INSTANCE), any(ADBatchAnomalyResultRequest.class), any(ActionListener.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStopCurrentLaneAfterScaleDownWhenAssignedSlotsAreFull() throws IOException {
+        ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
+        String detectorId = adTask.getConfigId();
+        doReturn(-1).when(adTaskManager).scaleTaskSlots(eq(adTask), eq(transportService), any());
+        when(adTaskCacheManager.getRunningEntityCount(detectorId)).thenReturn(8);
+        when(adTaskCacheManager.getTempEntityCount(detectorId)).thenReturn(1);
+        when(adTaskCacheManager.getDetectorTaskSlots(detectorId)).thenReturn(9);
+        when(adTaskCacheManager.getPendingEntityCount(detectorId)).thenReturn(4);
+
+        adTaskManager.runNextEntityForHCADHistorical(adTask, transportService, listener);
+
+        verify(client, never())
+            .execute(eq(ADBatchAnomalyResultAction.INSTANCE), any(ADBatchAnomalyResultRequest.class), any(ActionListener.class));
+        verify(listener).onResponse(any(JobResponse.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testStopCurrentLaneAfterScaleDownWhenNoPendingEntitiesRemain() throws IOException {
+        ADTask adTask = randomAdTask(ADTaskType.HISTORICAL_HC_ENTITY);
+        String detectorId = adTask.getConfigId();
+        doReturn(-1).when(adTaskManager).scaleTaskSlots(eq(adTask), eq(transportService), any());
+        when(adTaskCacheManager.getRunningEntityCount(detectorId)).thenReturn(2);
+        when(adTaskCacheManager.getTempEntityCount(detectorId)).thenReturn(0);
+        when(adTaskCacheManager.getDetectorTaskSlots(detectorId)).thenReturn(3);
+        when(adTaskCacheManager.getPendingEntityCount(detectorId)).thenReturn(0);
+
+        adTaskManager.runNextEntityForHCADHistorical(adTask, transportService, listener);
+
+        verify(client, never())
+            .execute(eq(ADBatchAnomalyResultAction.INSTANCE), any(ADBatchAnomalyResultRequest.class), any(ActionListener.class));
+        verify(listener).onResponse(any(JobResponse.class));
     }
 
     @SuppressWarnings("unchecked")

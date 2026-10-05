@@ -327,6 +327,9 @@ public class AnomalyDetectorSettingsTests extends OpenSearchTestCase {
         settings = Settings.builder().put("plugins.anomaly_detection.batch_task_piece_interval_seconds", 76).build();
         assertEquals(AnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS.get(settings), Integer.valueOf(76));
         assertEquals(LegacyOpenDistroAnomalyDetectorSettings.BATCH_TASK_PIECE_INTERVAL_SECONDS.get(settings), Integer.valueOf(5));
+
+        // Reading filter_by_backend_roles above emits its deprecation warning
+        assertSettingDeprecationsAndWarnings(new Setting[] { AnomalyDetectorSettings.AD_FILTER_BY_BACKEND_ROLES });
     }
 
     public void testSettingsGetValueWithLegacyFallback() {

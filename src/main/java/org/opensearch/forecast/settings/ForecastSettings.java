@@ -148,8 +148,18 @@ public final class ForecastSettings {
     // ======================================
     // Security
     // ======================================
+    /**
+     * Superseded by the security plugin's resource sharing and access control, which authorizes each resource by the
+     * access level it is shared at rather than by backend-role overlap. Slated for removal in 4.0.
+     */
     public static final Setting<Boolean> FORECAST_FILTER_BY_BACKEND_ROLES = Setting
-        .boolSetting("plugins.forecast.filter_by_backend_roles", false, Setting.Property.NodeScope, Setting.Property.Dynamic);
+        .boolSetting(
+            "plugins.forecast.filter_by_backend_roles",
+            false,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic,
+            Setting.Property.Deprecated
+        );
 
     // ======================================
     // Task
