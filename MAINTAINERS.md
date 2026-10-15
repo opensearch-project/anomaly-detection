@@ -14,7 +14,6 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                  | Amazon      |
 | Yaliang Wu              | [ylwu-amzn](https://github.com/ylwu-amzn)                | Amazon      |
 | Amit Galitzky           | [amitgalitz](https://github.com/amitgalitz)              | Amazon      |
-| Sudipto Guha            | [sudiptoguha](https://github.com/sudiptoguha)            | Amazon      |
 | Jackie Han              | [jackiehanyang](https://github.com/jackiehanyang)        | Amazon      |
 | Sean Zheng              | [sean-zheng-amazon](https://github.com/sean-zheng-amazon)| Amazon      |
 | Dan Widdis              | [dbwiddis](https://github.com/dbwiddis)                  | Amazon      |
@@ -29,3 +28,4 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Hanguang Zhang | [zhanghg08](https://github.com/zhanghg08)             | Amazon      |
 | Yizhe Liu      | [yizheliu-amazon](https://github.com/yizheliu-amazon) | Amazon      |
 | Lai Jiang      | [wnbts](https://github.com/wnbts)                     | Amazon      |
+| Sudipto Guha   | [sudiptoguha](https://github.com/sudiptoguha)         | Amazon      |
