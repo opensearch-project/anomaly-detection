@@ -9,7 +9,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Add runtime PPL-backed anomaly detector source support ([#1718](https://github.com/opensearch-project/anomaly-detection/pull/1718))
 ### Enhancements
 ### Bug Fixes
-- Report a PluginClient synchronous failure through its listener instead of rethrowing it ([#1790](https://github.com/opensearch-project/anomaly-detection/pull/1790))
+- Notify PluginClient listeners in the caller's thread context without leaving it on the responding thread or dropping response headers, and accept only a single PluginSubject ([#1790](https://github.com/opensearch-project/anomaly-detection/pull/1790))
 - Return detector statistics when the detector-type field is unmapped instead of failing with an aggregation cast error ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Align PPL transport requests with the SQL plugin's analyze and partial-result fields ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Prevent historical high-cardinality analyses from remaining stuck in `RUNNING` after task-slot scale-down and support nullable absolute-threshold rule operators during remote dispatch ([#1782](https://github.com/opensearch-project/anomaly-detection/pull/1782))

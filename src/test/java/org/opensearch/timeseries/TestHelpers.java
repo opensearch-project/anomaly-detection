@@ -12,8 +12,6 @@
 package org.opensearch.timeseries;
 
 import static org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.cluster.node.DiscoveryNodeRole.BUILT_IN_ROLES;
@@ -32,7 +30,6 @@ import static org.opensearch.test.OpenSearchTestCase.randomLong;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap;
@@ -97,7 +94,6 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.CheckedConsumer;
-import org.opensearch.common.CheckedRunnable;
 import org.opensearch.common.Priority;
 import org.opensearch.common.Randomness;
 import org.opensearch.common.UUIDs;
@@ -122,7 +118,7 @@ import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.ForecastTask;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteRequest;
-import org.opensearch.identity.Subject;
+import org.opensearch.identity.noop.NoopIdentityPlugin;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -174,27 +170,15 @@ import com.google.common.collect.ImmutableSet;
 public class TestHelpers {
 
     /**
-     * A PluginClient backed by a subject that behaves like core's NoopPluginSubject, so a test can
-     * exercise the plugin client without a security plugin on the classpath to assign a real one.
+     * A PluginClient backed by core's NoopPluginSubject, so a test can use the plugin client without a
+     * security plugin to assign a subject.
+     *
+     * @param client the client the plugin client wraps
+     * @return a plugin client with its subject assigned
      */
     public static PluginClient createPluginClient(Client client) {
-        Principal principal = mock(Principal.class);
-        when(principal.getName()).thenReturn("test-plugin-subject");
-        Subject subject = mock(Subject.class);
-        when(subject.getPrincipal()).thenReturn(principal);
-        try {
-            doAnswer(invocation -> {
-                CheckedRunnable<?> runnable = invocation.getArgument(0);
-                try (ThreadContext.StoredContext ignored = client.threadPool().getThreadContext().stashContext()) {
-                    runnable.run();
-                }
-                return null;
-            }).when(subject).runAs(any());
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
         PluginClient pluginClient = new PluginClient(client);
-        pluginClient.setSubject(subject);
+        pluginClient.setSubject(new NoopIdentityPlugin(client.threadPool()).getPluginSubject(null));
         return pluginClient;
     }
 
