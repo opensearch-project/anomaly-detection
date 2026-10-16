@@ -17,13 +17,13 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonMessages;
 import org.opensearch.timeseries.stats.Stats;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -31,6 +31,7 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
     public final Logger logger = LogManager.getLogger(BaseStatsTransportAction.class);
 
     protected final Client client;
+    protected final PluginClient pluginClient;
     protected final Stats stats;
     protected final ClusterService clusterService;
 
@@ -38,6 +39,7 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        PluginClient pluginClient,
         Stats stats,
         ClusterService clusterService,
         String statsAction
@@ -45,6 +47,7 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
     ) {
         super(statsAction, transportService, actionFilters, StatsRequest::new);
         this.client = client;
+        this.pluginClient = pluginClient;
         this.stats = stats;
         this.clusterService = clusterService;
     }
@@ -52,8 +55,9 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
     @Override
     protected void doExecute(Task task, StatsRequest request, ActionListener<StatsTimeSeriesResponse> actionListener) {
         ActionListener<StatsTimeSeriesResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_GET_STATS);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            getStats(client, listener, request);
+        try {
+            // The config index these stats count documents in is a system index this plugin owns.
+            getStats(pluginClient, listener, request);
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);

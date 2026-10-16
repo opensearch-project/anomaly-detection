@@ -29,6 +29,7 @@ import org.opensearch.timeseries.transport.BaseStatsTransportAction;
 import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.transport.StatsResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -40,11 +41,12 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        PluginClient pluginClient,
         ADStats adStats,
         ClusterService clusterService
 
     ) {
-        super(transportService, actionFilters, client, adStats, clusterService, StatsAnomalyDetectorAction.NAME);
+        super(transportService, actionFilters, client, pluginClient, adStats, clusterService, StatsAnomalyDetectorAction.NAME);
     }
 
     /**

@@ -46,6 +46,7 @@ import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.threadpool.TestThreadPool;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AnalysisType;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.model.IntervalTimeConfiguration;
 import org.opensearch.timeseries.model.Job;
@@ -86,7 +87,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         }).when(indexManagement).initJobIndex(any(ActionListener.class));
 
         doAnswer(invocation -> {
-            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
             GetResponse response = new GetResponse(
                 new GetResult(
                     CommonName.JOB_INDEX,
@@ -102,17 +103,18 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             );
             listener.onResponse(response);
             return null;
-        }).when(client).get(any(GetRequest.class), any(ActionListener.class));
+        }).when(client).execute(any(), any(GetRequest.class), any(ActionListener.class));
 
         ArgumentCaptor<IndexRequest> indexRequestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
         doAnswer(invocation -> {
-            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            ActionListener<IndexResponse> listener = invocation.getArgument(2);
             listener.onResponse(mock(IndexResponse.class));
             return null;
-        }).when(client).index(indexRequestCaptor.capture(), any(ActionListener.class));
+        }).when(client).execute(any(), indexRequestCaptor.capture(), any(ActionListener.class));
 
         InsightsJobActionHandler handler = new InsightsJobActionHandler(
             client,
+            TestHelpers.createPluginClient(client),
             NamedXContentRegistry.EMPTY,
             indexManagement,
             Settings.EMPTY,
@@ -180,20 +182,21 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             .createGetResponse(existingJob, ADCommonName.INSIGHTS_JOB_NAME, CommonName.JOB_INDEX);
 
         doAnswer(invocation -> {
-            ActionListener<GetResponse> listener = invocation.getArgument(1);
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
             listener.onResponse(getResponse);
             return null;
-        }).when(client).get(any(GetRequest.class), any(ActionListener.class));
+        }).when(client).execute(any(), any(GetRequest.class), any(ActionListener.class));
 
         ArgumentCaptor<IndexRequest> indexRequestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
         doAnswer(invocation -> {
-            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            ActionListener<IndexResponse> listener = invocation.getArgument(2);
             listener.onResponse(mock(IndexResponse.class));
             return null;
-        }).when(client).index(indexRequestCaptor.capture(), any(ActionListener.class));
+        }).when(client).execute(any(), indexRequestCaptor.capture(), any(ActionListener.class));
 
         InsightsJobActionHandler handler = new InsightsJobActionHandler(
             client,
+            TestHelpers.createPluginClient(client),
             NamedXContentRegistry.EMPTY,
             indexManagement,
             Settings.EMPTY,
@@ -235,6 +238,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
 
         InsightsJobActionHandler handler = new InsightsJobActionHandler(
             client,
+            TestHelpers.createPluginClient(client),
             NamedXContentRegistry.EMPTY,
             indexManagement,
             Settings.EMPTY,
@@ -248,7 +252,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public void testStopInsightsJobUsesStashedContextForSystemIndexAccess() throws IOException {
+    public void testStopInsightsJobReachesSystemIndexAsPluginSubject() throws IOException {
         Client client = mock(Client.class);
         when(client.threadPool()).thenReturn(threadPool);
 
@@ -274,7 +278,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             .createGetResponse(existingJob, ADCommonName.INSIGHTS_JOB_NAME, CommonName.JOB_INDEX);
 
         // Simulate security plugin: if a normal user is in the thread context, accessing the
-        // system job index is forbidden; if there is no user (stashed context), it succeeds.
+        // system job index is forbidden; if the request runs as the plugin itself, it succeeds.
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
             String userInfo = threadPool.getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
@@ -285,6 +289,16 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             }
             return null;
         }).when(client).get(any(GetRequest.class), any(ActionListener.class));
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
+            String userInfo = threadPool.getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
+            if (userInfo != null) {
+                listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
+            } else {
+                listener.onResponse(getResponse);
+            }
+            return null;
+        }).when(client).execute(any(), any(GetRequest.class), any(ActionListener.class));
 
         // Put a normal user into thread context and verify direct access is forbidden
         threadPool.getThreadContext().putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
@@ -293,9 +307,10 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         client.get(new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME), directListener);
         verify(directListener, times(1)).onFailure(any(OpenSearchStatusException.class));
 
-        // Now use the handler, which stashes the context before touching the job index
+        // Now use the handler, which reaches the job index as the plugin's own subject
         InsightsJobActionHandler handler = new InsightsJobActionHandler(
             client,
+            TestHelpers.createPluginClient(client),
             NamedXContentRegistry.EMPTY,
             indexManagement,
             Settings.EMPTY,
@@ -306,19 +321,19 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
 
         // Also stub index() so the disabled job write succeeds
         doAnswer(invocation -> {
-            ActionListener<IndexResponse> listener = invocation.getArgument(1);
+            ActionListener<IndexResponse> listener = invocation.getArgument(2);
             listener.onResponse(mock(IndexResponse.class));
             return null;
-        }).when(client).index(any(IndexRequest.class), any(ActionListener.class));
+        }).when(client).execute(any(), any(IndexRequest.class), any(ActionListener.class));
 
         handler.stopInsightsJob(handlerListener);
 
-        // With stashed (system) context, the same system index access should succeed
+        // Running as the plugin subject, the same system index access should succeed
         verify(handlerListener, times(1)).onResponse(any(InsightsJobResponse.class));
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public void testGetInsightsJobStatusUsesStashedContextForSystemIndexAccess() throws IOException {
+    public void testGetInsightsJobStatusReachesSystemIndexAsPluginSubject() throws IOException {
         Client client = mock(Client.class);
         when(client.threadPool()).thenReturn(threadPool);
 
@@ -344,7 +359,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             .createGetResponse(existingJob, ADCommonName.INSIGHTS_JOB_NAME, CommonName.JOB_INDEX);
 
         // Simulate security plugin: if a normal user is in the thread context, accessing the
-        // system job index is forbidden; if there is no user (stashed context), it succeeds.
+        // system job index is forbidden; if the request runs as the plugin itself, it succeeds.
         doAnswer(invocation -> {
             ActionListener<GetResponse> listener = invocation.getArgument(1);
             String userInfo = threadPool.getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
@@ -355,6 +370,16 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
             }
             return null;
         }).when(client).get(any(GetRequest.class), any(ActionListener.class));
+        doAnswer(invocation -> {
+            ActionListener<GetResponse> listener = invocation.getArgument(2);
+            String userInfo = threadPool.getThreadContext().getTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT);
+            if (userInfo != null) {
+                listener.onFailure(new OpenSearchStatusException("forbidden", RestStatus.FORBIDDEN));
+            } else {
+                listener.onResponse(getResponse);
+            }
+            return null;
+        }).when(client).execute(any(), any(GetRequest.class), any(ActionListener.class));
 
         // Put a normal user into thread context and verify direct access is forbidden
         threadPool.getThreadContext().putTransient(ConfigConstants.OPENSEARCH_SECURITY_USER_INFO_THREAD_CONTEXT, "normal-user|role1,role2");
@@ -363,9 +388,10 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         client.get(new GetRequest(CommonName.JOB_INDEX).id(ADCommonName.INSIGHTS_JOB_NAME), directListener);
         verify(directListener, times(1)).onFailure(any(OpenSearchStatusException.class));
 
-        // Now use the handler, which stashes the context before touching the job index
+        // Now use the handler, which reaches the job index as the plugin's own subject
         InsightsJobActionHandler handler = new InsightsJobActionHandler(
             client,
+            TestHelpers.createPluginClient(client),
             NamedXContentRegistry.EMPTY,
             indexManagement,
             Settings.EMPTY,
@@ -375,7 +401,7 @@ public class InsightsJobActionHandlerTests extends OpenSearchTestCase {
         ActionListener<InsightsJobResponse> handlerListener = mock(ActionListener.class);
         handler.getInsightsJobStatus(handlerListener);
 
-        // With stashed (system) context, the same system index access should succeed
+        // Running as the plugin subject, the same system index access should succeed
         verify(handlerListener, times(1)).onResponse(any(InsightsJobResponse.class));
     }
 }

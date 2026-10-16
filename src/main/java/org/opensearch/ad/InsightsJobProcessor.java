@@ -467,7 +467,9 @@ public class InsightsJobProcessor extends
 
         SearchRequest request = new SearchRequest(ADCommonName.CONFIG_INDEX).source(source);
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
-        // detector configs are stored in system index; use stashed context
+        // Detector configs are stored in a system index. The context stays cleared for the whole
+        // continuation because the customer-owned result index access that follows installs the job
+        // user through InjectSecurity, which only injects into an empty user slot.
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
             localClient.search(request, ActionListener.wrap(response -> {
                 List<String> patterns = new ArrayList<>();
@@ -816,7 +818,9 @@ public class InsightsJobProcessor extends
         SearchRequest request = new SearchRequest(ADCommonName.CONFIG_INDEX).source(source);
 
         ThreadContext threadContext = localClient.threadPool().getThreadContext();
-        // detector configs are stored in system index; use stashed context
+        // Detector configs are stored in a system index. The context stays cleared for the whole
+        // continuation because the customer-owned result index access that follows installs the job
+        // user through InjectSecurity, which only injects into an empty user slot.
         try (ThreadContext.StoredContext ignored = threadContext.stashContext()) {
             localClient.search(request, ActionListener.wrap(response -> {
                 Map<String, DetectorMetadata> metadataMap = new HashMap<>();
