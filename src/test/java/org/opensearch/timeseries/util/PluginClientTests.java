@@ -250,7 +250,7 @@ public class PluginClientTests extends OpenSearchTestCase {
         }
 
         assertEquals("set-by-caller", callerSeen.get());
-        assertNull("the subject's context must not leak into the listener", subjectSeen.get());
+        assertNull("the listener must not see the subject's context", subjectSeen.get());
         assertCallerContextIntact();
     }
 
