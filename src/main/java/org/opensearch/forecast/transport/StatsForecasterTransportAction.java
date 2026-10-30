@@ -11,6 +11,8 @@
 
 package org.opensearch.forecast.transport;
 
+import java.util.Map;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
@@ -39,8 +41,8 @@ import org.opensearch.transport.client.Client;
 
 public class StatsForecasterTransportAction extends BaseStatsTransportAction {
     public final Logger logger = LogManager.getLogger(StatsForecasterTransportAction.class);
-    private final String WITH_CATEGORY_FIELD = "with_category_field";
-    private final String WITHOUT_CATEGORY_FIELD = "without_category_field";
+    static final String WITH_CATEGORY_FIELD = "with_category_field";
+    static final String WITHOUT_CATEGORY_FIELD = "without_category_field";
 
     @Inject
     public StatsForecasterTransportAction(
@@ -56,8 +58,9 @@ public class StatsForecasterTransportAction extends BaseStatsTransportAction {
     }
 
     /**
-     * Make async request to get the number of detectors in AnomalyDetector.ANOMALY_DETECTORS_INDEX if necessary
-     * and, onResponse, gather the cluster statistics
+     * Make async request to get the number of forecasters in the forecaster config index if necessary
+     * and, onResponse, gather the cluster statistics. With resource sharing enabled, the forecaster counts cover
+     * only the forecasters visible to the caller.
      *
      * @param client Client
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
@@ -94,16 +97,16 @@ public class StatsForecasterTransportAction extends BaseStatsTransportAction {
                 SingleBucketAggregation withoutField = (SingleBucketAggregation) searchResponse
                     .getAggregations()
                     .get(WITHOUT_CATEGORY_FIELD);
-                if (statsRequest.getStatsToBeRetrieved().contains(StatNames.FORECASTER_COUNT.getName())) {
-                    stats.getStat(StatNames.FORECASTER_COUNT.getName()).setValue(withField.getDocCount() + withoutField.getDocCount());
-                }
-                if (statsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_STREAM_FORECASTER_COUNT.getName())) {
-                    stats.getStat(StatNames.SINGLE_STREAM_FORECASTER_COUNT.getName()).setValue(withoutField.getDocCount());
-                }
-                if (statsRequest.getStatsToBeRetrieved().contains(StatNames.HC_FORECASTER_COUNT.getName())) {
-                    stats.getStat(StatNames.HC_FORECASTER_COUNT.getName()).setValue(withField.getDocCount());
-                }
-                adStatsResponse.setClusterStats(getClusterStatsMap(statsRequest));
+                Map<String, Object> clusterStats = getClusterStatsMap(statsRequest);
+                putRequestedCount(
+                    clusterStats,
+                    statsRequest,
+                    StatNames.FORECASTER_COUNT,
+                    withField.getDocCount() + withoutField.getDocCount()
+                );
+                putRequestedCount(clusterStats, statsRequest, StatNames.SINGLE_STREAM_FORECASTER_COUNT, withoutField.getDocCount());
+                putRequestedCount(clusterStats, statsRequest, StatNames.HC_FORECASTER_COUNT, withField.getDocCount());
+                adStatsResponse.setClusterStats(clusterStats);
                 listener.onResponse(adStatsResponse);
             }, e -> listener.onFailure(e)));
         } else {

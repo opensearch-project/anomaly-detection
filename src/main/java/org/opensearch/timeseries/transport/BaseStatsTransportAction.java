@@ -21,6 +21,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
 import org.opensearch.timeseries.util.PluginClient;
@@ -114,6 +115,21 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
             .filter(s -> statsToBeRetrieved.contains(s.getKey()))
             .forEach(s -> clusterStats.put(s.getKey(), s.getValue().getValue()));
         return clusterStats;
+    }
+
+    /**
+     * Puts a config count computed for one request into that request's cluster stats, if it asked for it.
+     * The count is not stored in the shared stats, because with resource sharing it depends on the caller.
+     *
+     * @param clusterStats the cluster stats of the response being built
+     * @param statsRequest the request the count was computed for
+     * @param stat which count this is
+     * @param count the number of configs the request's search found
+     */
+    protected static void putRequestedCount(Map<String, Object> clusterStats, StatsRequest statsRequest, StatNames stat, long count) {
+        if (statsRequest.getStatsToBeRetrieved().contains(stat.getName())) {
+            clusterStats.put(stat.getName(), count);
+        }
     }
 
     protected abstract void getClusterStats(

@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.transport;
 
+import java.util.Map;
+
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.constant.ADCommonName;
@@ -50,8 +52,9 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
     }
 
     /**
-     * Make async request to get the number of detectors in AnomalyDetector.ANOMALY_DETECTORS_INDEX if necessary
-     * and, onResponse, gather the cluster statistics
+     * Make async request to get the number of detectors in the detector config index if necessary
+     * and, onResponse, gather the cluster statistics. With resource sharing enabled, the detector counts cover
+     * only the detectors visible to the caller.
      *
      * @param client Client
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
@@ -91,16 +94,11 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
                         totalMultiEntityDetectors += b.getDocCount();
                     }
                 }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
-                    stats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(totalDetectors);
-                }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName())) {
-                    stats.getStat(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName()).setValue(totalSingleEntityDetectors);
-                }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HC_DETECTOR_COUNT.getName())) {
-                    stats.getStat(StatNames.HC_DETECTOR_COUNT.getName()).setValue(totalMultiEntityDetectors);
-                }
-                adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
+                Map<String, Object> clusterStats = getClusterStatsMap(adStatsRequest);
+                putRequestedCount(clusterStats, adStatsRequest, StatNames.DETECTOR_COUNT, totalDetectors);
+                putRequestedCount(clusterStats, adStatsRequest, StatNames.SINGLE_STREAM_DETECTOR_COUNT, totalSingleEntityDetectors);
+                putRequestedCount(clusterStats, adStatsRequest, StatNames.HC_DETECTOR_COUNT, totalMultiEntityDetectors);
+                adStatsResponse.setClusterStats(clusterStats);
                 listener.onResponse(adStatsResponse);
             }, e -> listener.onFailure(e)));
         } else {
