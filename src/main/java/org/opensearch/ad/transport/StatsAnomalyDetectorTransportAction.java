@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.transport;
 
+import java.util.Map;
+
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.ad.constant.ADCommonName;
@@ -29,6 +31,7 @@ import org.opensearch.timeseries.transport.BaseStatsTransportAction;
 import org.opensearch.timeseries.transport.StatsRequest;
 import org.opensearch.timeseries.transport.StatsResponse;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -40,16 +43,18 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        PluginClient pluginClient,
         ADStats adStats,
         ClusterService clusterService
 
     ) {
-        super(transportService, actionFilters, client, adStats, clusterService, StatsAnomalyDetectorAction.NAME);
+        super(transportService, actionFilters, client, pluginClient, adStats, clusterService, StatsAnomalyDetectorAction.NAME);
     }
 
     /**
-     * Make async request to get the number of detectors in AnomalyDetector.ANOMALY_DETECTORS_INDEX if necessary
-     * and, onResponse, gather the cluster statistics
+     * Make async request to get the number of detectors in the detector config index if necessary
+     * and, onResponse, gather the cluster statistics. With resource sharing enabled, the detector counts cover
+     * only the detectors visible to the caller.
      *
      * @param client Client
      * @param listener MultiResponsesDelegateActionListener to be used once both requests complete
@@ -89,16 +94,11 @@ public class StatsAnomalyDetectorTransportAction extends BaseStatsTransportActio
                         totalMultiEntityDetectors += b.getDocCount();
                     }
                 }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.DETECTOR_COUNT.getName())) {
-                    stats.getStat(StatNames.DETECTOR_COUNT.getName()).setValue(totalDetectors);
-                }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName())) {
-                    stats.getStat(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName()).setValue(totalSingleEntityDetectors);
-                }
-                if (adStatsRequest.getStatsToBeRetrieved().contains(StatNames.HC_DETECTOR_COUNT.getName())) {
-                    stats.getStat(StatNames.HC_DETECTOR_COUNT.getName()).setValue(totalMultiEntityDetectors);
-                }
-                adStatsResponse.setClusterStats(getClusterStatsMap(adStatsRequest));
+                Map<String, Object> clusterStats = getClusterStatsMap(adStatsRequest);
+                putRequestedCount(clusterStats, adStatsRequest, StatNames.DETECTOR_COUNT, totalDetectors);
+                putRequestedCount(clusterStats, adStatsRequest, StatNames.SINGLE_STREAM_DETECTOR_COUNT, totalSingleEntityDetectors);
+                putRequestedCount(clusterStats, adStatsRequest, StatNames.HC_DETECTOR_COUNT, totalMultiEntityDetectors);
+                adStatsResponse.setClusterStats(clusterStats);
                 listener.onResponse(adStatsResponse);
             }, e -> listener.onFailure(e)));
         } else {

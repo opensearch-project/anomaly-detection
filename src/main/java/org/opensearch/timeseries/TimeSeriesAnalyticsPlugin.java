@@ -857,6 +857,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 StatNames.ANOMALY_DETECTION_STATE_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, ADCommonName.DETECTION_STATE_INDEX))
             )
+            // Never set: the stats action puts each request's own counts into its response.
             .put(StatNames.DETECTOR_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
             .put(StatNames.SINGLE_STREAM_DETECTOR_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
             .put(StatNames.HC_DETECTOR_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
@@ -1255,6 +1256,7 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                 StatNames.FORECAST_STATE_STATUS.getName(),
                 new TimeSeriesStat<>(true, new IndexStatusSupplier(indexUtils, ForecastIndex.STATE.getIndexName()))
             )
+            // Never set: the stats action puts each request's own counts into its response.
             .put(StatNames.FORECASTER_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
             .put(StatNames.SINGLE_STREAM_FORECASTER_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
             .put(StatNames.HC_FORECASTER_COUNT.getName(), new TimeSeriesStat<>(true, new SettableSupplier()))
@@ -1388,8 +1390,8 @@ public class TimeSeriesAnalyticsPlugin extends Plugin
                     clusterService,
                     threadPool,
                     client,
+                    pluginClient,
                     getClock(),
-                    clientUtil,
                     nodeFilter,
                     AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
                     ForecastSettings.FORECAST_CHECKPOINT_TTL,

@@ -118,6 +118,7 @@ import org.opensearch.forecast.model.ForecastResult;
 import org.opensearch.forecast.model.ForecastTask;
 import org.opensearch.forecast.model.Forecaster;
 import org.opensearch.forecast.ratelimit.ForecastResultWriteRequest;
+import org.opensearch.identity.noop.NoopIdentityPlugin;
 import org.opensearch.index.get.GetResult;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -158,6 +159,7 @@ import org.opensearch.timeseries.model.ValidationAspect;
 import org.opensearch.timeseries.model.ValidationIssueType;
 import org.opensearch.timeseries.ratelimit.RequestPriority;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.AdminClient;
 import org.opensearch.transport.client.Client;
 
@@ -166,6 +168,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 public class TestHelpers {
+
+    /**
+     * A PluginClient backed by core's NoopPluginSubject, so a test can use the plugin client without a
+     * security plugin to assign a subject.
+     *
+     * @param client the client the plugin client wraps
+     * @return a plugin client with its subject assigned
+     */
+    public static PluginClient createPluginClient(Client client) {
+        PluginClient pluginClient = new PluginClient(client);
+        pluginClient.setSubject(new NoopIdentityPlugin(client.threadPool()).getPluginSubject(null));
+        return pluginClient;
+    }
 
     public static final String LEGACY_OPENDISTRO_AD_BASE_DETECTORS_URI = "/_opendistro/_anomaly_detection/detectors";
     public static final String AD_BASE_DETECTORS_URI = "/_plugins/_anomaly_detection/detectors";

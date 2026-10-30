@@ -26,6 +26,7 @@ import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.admin.indices.stats.CommonStats;
+import org.opensearch.action.admin.indices.stats.IndicesStatsRequest;
 import org.opensearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.opensearch.action.admin.indices.stats.ShardStats;
 import org.opensearch.cluster.service.ClusterService;
@@ -35,10 +36,9 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.reindex.DeleteByQueryAction;
 import org.opensearch.index.store.StoreStats;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.cluster.diskcleanup.IndexCleanup;
-import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.transport.client.Client;
-import org.opensearch.transport.client.IndicesAdminClient;
 
 public class IndexCleanupTests extends AbstractTimeSeriesTest {
 
@@ -47,9 +47,6 @@ public class IndexCleanupTests extends AbstractTimeSeriesTest {
 
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     ClusterService clusterService;
-
-    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
-    ClientUtil clientUtil;
 
     IndexCleanup indexCleanup;
 
@@ -65,9 +62,6 @@ public class IndexCleanupTests extends AbstractTimeSeriesTest {
     @Mock
     StoreStats storeStats;
 
-    @Mock
-    IndicesAdminClient indicesAdminClient;
-
     @SuppressWarnings("unchecked")
     @Override
     public void setUp() throws Exception {
@@ -76,18 +70,17 @@ public class IndexCleanupTests extends AbstractTimeSeriesTest {
         MockitoAnnotations.initMocks(this);
         when(clusterService.state().getRoutingTable().hasIndex(anyString())).thenReturn(true);
         super.setUpLog4jForJUnit(IndexCleanup.class);
-        indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
+        indexCleanup = new IndexCleanup(TestHelpers.createPluginClient(client), clusterService);
         when(indicesStatsResponse.getShards()).thenReturn(new ShardStats[] { shardStats });
         when(shardStats.getStats()).thenReturn(commonStats);
         when(commonStats.getStore()).thenReturn(storeStats);
-        when(client.admin().indices()).thenReturn(indicesAdminClient);
         when(client.threadPool().getThreadContext()).thenReturn(new ThreadContext(Settings.EMPTY));
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<IndicesStatsResponse> listener = (ActionListener<IndicesStatsResponse>) args[1];
+            ActionListener<IndicesStatsResponse> listener = (ActionListener<IndicesStatsResponse>) args[2];
             listener.onResponse(indicesStatsResponse);
             return null;
-        }).when(indicesAdminClient).stats(any(), any());
+        }).when(client).execute(any(), any(IndicesStatsRequest.class), any());
     }
 
     @Override
@@ -101,7 +94,7 @@ public class IndexCleanupTests extends AbstractTimeSeriesTest {
         when(storeStats.getSizeInBytes()).thenReturn(maxShardSize + 1);
         indexCleanup.deleteDocsBasedOnShardSize("indexname", maxShardSize, null, ActionListener.wrap(result -> {
             assertTrue(result);
-            verify(clientUtil).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
+            verify(client).execute(eq(DeleteByQueryAction.INSTANCE), any(), any());
         }, exception -> { throw new RuntimeException(exception); }));
     }
 

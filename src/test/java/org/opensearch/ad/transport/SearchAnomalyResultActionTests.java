@@ -123,7 +123,8 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
             searchHandler,
             clusterService,
             indexNameExpressionResolver,
-            client
+            client,
+            TestHelpers.createPluginClient(client)
         );
     }
 
@@ -151,7 +152,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         }).when(client).search(any(), any());
 
         action.doExecute(mock(Task.class), request, future);
-        verify(client).search(any(), any());
+        verify(client).execute(any(), any(SearchRequest.class), any());
     }
 
     @Test
@@ -222,14 +223,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
 
     @Test
     public void testMultiSearch_NoOnlyQueryCustomResultIndex() {
-        action
-            .multiSearch(
-                Arrays.asList("test"),
-                mock(SearchRequest.class),
-                mock(PlainActionFuture.class),
-                false,
-                threadContext.stashContext()
-            );
+        action.multiSearch(Arrays.asList("test"), mock(SearchRequest.class), mock(PlainActionFuture.class), false);
 
         verify(client).multiSearch(any(), any());
     }
@@ -263,10 +257,10 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
 
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
 
         multiSearchResponse = mock(MultiSearchResponse.class);
         MultiSearchResponse.Item multiSearchResponseItem = mock(MultiSearchResponse.Item.class);
@@ -280,7 +274,7 @@ public class SearchAnomalyResultActionTests extends HistoricalAnalysisIntegTestC
         }).when(client).multiSearch(any(), any());
 
         action.doExecute(mock(Task.class), request, future);
-        verify(client).search(any(), any());
+        verify(client).execute(any(), any(SearchRequest.class), any());
         verify(client).multiSearch(any(), any());
         verify(searchHandler).search(any(), eq(ADCommonName.AD_RESOURCE_TYPE), any());
     }
