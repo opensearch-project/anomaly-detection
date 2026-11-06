@@ -871,11 +871,18 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", "RUNNING", parsedState), "RUNNING", parsedState);
         }
 
-        // case 28: read access user is able to run stats API
+        // case 28: read access user is able to run stats API. With resource sharing the counts cover only the
+        // configs visible to the caller, and the full access user's forecaster is not shared with the read user.
         response = TestHelpers.makeRequest(readClient, "GET", STATS_FORECASTER, ImmutableMap.of(), (HttpEntity) null, null);
         responseMap = entityAsMap(response);
         int parsedHcCount = (Integer) responseMap.get("hc_forecaster_count");
-        assertEquals(String.format(Locale.ROOT, "Expected: %d, got %d", 1, parsedHcCount), 1, parsedHcCount);
+        int expectedHcCount = isResourceSharingFeatureEnabled() ? 0 : 1;
+        assertEquals(String.format(Locale.ROOT, "Expected: %d, got %d", expectedHcCount, parsedHcCount), expectedHcCount, parsedHcCount);
+        if (isResourceSharingFeatureEnabled()) {
+            response = TestHelpers.makeRequest(fullClient, "GET", STATS_FORECASTER, ImmutableMap.of(), (HttpEntity) null, null);
+            parsedHcCount = (Integer) entityAsMap(response).get("hc_forecaster_count");
+            assertEquals(String.format(Locale.ROOT, "Expected: %d, got %d", 1, parsedHcCount), 1, parsedHcCount);
+        }
 
         // case 29: for a config that a user has no access, profile API returns 403
         ResponseException responseException = expectThrows(
@@ -1181,7 +1188,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         );
         Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/plugin/forecast/forecaster/delete]"));
 
-        // case 21: read access user can count number of forecaster
+        // case 21: read access user can count number of forecaster. With resource sharing the count covers only the
+        // forecasters visible to the caller.
         response = TestHelpers
             .makeRequest(
                 readClient,
@@ -1193,9 +1201,10 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         responseMap = entityAsMap(response);
         int parsedCount = (Integer) responseMap.get("count");
-        assertEquals("got: " + parsedCount, 1, parsedCount);
+        assertEquals("got: " + parsedCount, isResourceSharingFeatureEnabled() ? 0 : 1, parsedCount);
 
-        // case 22: read access user can look up forecaster
+        // case 22: read access user can look up forecaster. With resource sharing the lookup matches only the
+        // forecasters visible to the caller.
         response = TestHelpers
             .makeRequest(
                 readClient,
@@ -1207,7 +1216,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         responseMap = entityAsMap(response);
         boolean parsedMatch = (Boolean) responseMap.get("match");
-        assertTrue(parsedMatch);
+        assertEquals(!isResourceSharingFeatureEnabled(), parsedMatch);
 
         // case 23: A user cannot create a forecaster without source data present
         String noDataForecasterDef = "{\n"

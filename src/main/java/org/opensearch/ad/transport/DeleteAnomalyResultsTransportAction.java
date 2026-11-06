@@ -26,7 +26,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -77,7 +76,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
 
     public void delete(DeleteByQueryRequest request, ActionListener<BulkByScrollResponse> listener) {
         User user = ParseUtils.getUserContext(client);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             validateRole(request, user, listener);
         } catch (Exception e) {
             logger.error(e);
@@ -89,7 +88,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         if (user == null || (!filterEnabled && !shouldUseResourceAuthz)) {
             // Case 1: user == null when 1. Security is disabled. 2. When user is super-admin
             // Case 2: If Security is enabled and filter is disabled and resource-sharing is also disabled, proceed with search.
-            client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+            pluginClient.execute(DeleteByQueryAction.INSTANCE, request, listener);
         } else {
             try {
                 // Security is enabled and resource sharing access control is enabled
@@ -101,7 +100,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
                 if (filterEnabled) {
                     ParseUtils.addUserBackendRolesFilter(user, request.getSearchRequest().source());
                 }
-                client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+                pluginClient.execute(DeleteByQueryAction.INSTANCE, request, listener);
             } catch (Exception e) {
                 listener.onFailure(e);
             }
@@ -114,11 +113,11 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         SearchSourceBuilder searchSourceBuilder = request.source();
         resourceSharingClient.getAccessibleResourceIds(AD_RESOURCE_TYPE, ActionListener.wrap(configIds -> {
             searchSourceBuilder.query(mergeWithAccessFilter(searchSourceBuilder.query(), configIds));
-            client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+            pluginClient.execute(DeleteByQueryAction.INSTANCE, request, listener);
         }, failure -> {
             // do nothing to the source or return empty set?
             searchSourceBuilder.query(QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery()));
-            client.execute(DeleteByQueryAction.INSTANCE, request, listener);
+            pluginClient.execute(DeleteByQueryAction.INSTANCE, request, listener);
         }));
     }
 

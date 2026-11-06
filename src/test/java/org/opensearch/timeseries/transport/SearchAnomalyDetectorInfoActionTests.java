@@ -26,6 +26,7 @@ import java.util.HashSet;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
@@ -65,7 +66,7 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
-            client(),
+            TestHelpers.createPluginClient(client()),
             clusterService()
         );
         task = mock(Task.class);
@@ -146,16 +147,16 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     public void testSearchInfoResponse_CountSuccessWithEmptyResponse() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             SearchResponse searchResponse = createEmptySearchResponse();
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
 
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
-            client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "count");
@@ -166,16 +167,16 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     public void testSearchInfoResponse_MatchSuccessWithEmptyResponse() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             SearchResponse searchResponse = createEmptySearchResponse();
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
 
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
-            client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "match");
@@ -186,14 +187,14 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     public void testSearchInfoResponse_CountRuntimeException() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             listener.onFailure(new RuntimeException("searchResponse failed!"));
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
-            client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "count");
@@ -204,14 +205,14 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     public void testSearchInfoResponse_MatchRuntimeException() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             listener.onFailure(new RuntimeException("searchResponse failed!"));
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
-            client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "match");

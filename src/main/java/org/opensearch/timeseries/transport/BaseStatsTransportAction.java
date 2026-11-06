@@ -17,13 +17,14 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.stats.Stats;
 import org.opensearch.timeseries.util.MultiResponsesDelegateActionListener;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -31,6 +32,7 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
     public final Logger logger = LogManager.getLogger(BaseStatsTransportAction.class);
 
     protected final Client client;
+    protected final PluginClient pluginClient;
     protected final Stats stats;
     protected final ClusterService clusterService;
 
@@ -38,6 +40,7 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
         TransportService transportService,
         ActionFilters actionFilters,
         Client client,
+        PluginClient pluginClient,
         Stats stats,
         ClusterService clusterService,
         String statsAction
@@ -45,6 +48,7 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
     ) {
         super(statsAction, transportService, actionFilters, StatsRequest::new);
         this.client = client;
+        this.pluginClient = pluginClient;
         this.stats = stats;
         this.clusterService = clusterService;
     }
@@ -52,8 +56,9 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
     @Override
     protected void doExecute(Task task, StatsRequest request, ActionListener<StatsTimeSeriesResponse> actionListener) {
         ActionListener<StatsTimeSeriesResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_GET_STATS);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            getStats(client, listener, request);
+        try {
+            // The config index these stats count documents in is a system index this plugin owns.
+            getStats(pluginClient, listener, request);
         } catch (Exception e) {
             logger.error(e);
             listener.onFailure(e);
@@ -110,6 +115,21 @@ public abstract class BaseStatsTransportAction extends HandledTransportAction<St
             .filter(s -> statsToBeRetrieved.contains(s.getKey()))
             .forEach(s -> clusterStats.put(s.getKey(), s.getValue().getValue()));
         return clusterStats;
+    }
+
+    /**
+     * Puts a config count computed for one request into that request's cluster stats, if it asked for it.
+     * The count is not stored in the shared stats, because with resource sharing it depends on the caller.
+     *
+     * @param clusterStats the cluster stats of the response being built
+     * @param statsRequest the request the count was computed for
+     * @param stat which count this is
+     * @param count the number of configs the request's search found
+     */
+    protected static void putRequestedCount(Map<String, Object> clusterStats, StatsRequest statsRequest, StatNames stat, long count) {
+        if (statsRequest.getStatsToBeRetrieved().contains(stat.getName())) {
+            clusterStats.put(stat.getName(), count);
+        }
     }
 
     protected abstract void getClusterStats(

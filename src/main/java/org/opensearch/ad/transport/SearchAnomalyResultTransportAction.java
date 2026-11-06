@@ -35,7 +35,6 @@ import org.opensearch.ad.transport.handler.ADSearchHandler;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -44,6 +43,7 @@ import org.opensearch.search.aggregations.bucket.terms.StringTerms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
 
@@ -57,6 +57,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
     private final ClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
     private final Client client;
+    private final PluginClient pluginClient;
 
     @Inject
     public SearchAnomalyResultTransportAction(
@@ -65,13 +66,15 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         ADSearchHandler searchHandler,
         ClusterService clusterService,
         IndexNameExpressionResolver indexNameExpressionResolver,
-        Client client
+        Client client,
+        PluginClient pluginClient
     ) {
         super(SearchAnomalyResultAction.NAME, transportService, actionFilters, SearchRequest::new);
         this.searchHandler = searchHandler;
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.client = client;
+        this.pluginClient = pluginClient;
     }
 
     @VisibleForTesting
@@ -169,8 +172,7 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         List<String> targetIndices,
         SearchRequest request,
         ActionListener<SearchResponse> listener,
-        boolean finalOnlyQueryCustomResultIndex,
-        ThreadContext.StoredContext context
+        boolean finalOnlyQueryCustomResultIndex
     ) {
         if (targetIndices.size() == 0) {
             // no need to make multi search
@@ -182,7 +184,6 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
             readableIndices.add(ALL_AD_RESULTS_INDEX_PATTERN);
         }
 
-        context.restore();
         // Send multiple search to check which index a user has permission to read. If search all indices directly,
         // search request will throw exception if user has no permission to search any index.
         client.multiSearch(multiSearchRequest, ActionListener.wrap(multiSearchResponse -> {
@@ -225,16 +226,19 @@ public class SearchAnomalyResultTransportAction extends HandledTransportAction<S
         Set<String> customResultIndices
     ) {
         SearchRequest searchResultIndex = createSingleSearchRequest();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             // Search result indices of all detectors. User may create index with same prefix of custom result index
             // which not used for AD, so we should avoid searching extra indices which not used by anomaly detectors.
             // Variable used in lambda expression should be final or effectively final, so copy to a final boolean and
             // use the final boolean in lambda below.
             boolean finalOnlyQueryCustomResultIndex = onlyQueryCustomResultIndex;
-            client.search(searchResultIndex, ActionListener.wrap(allResultIndicesResponse -> {
+            // The detector configs this aggregates over live in a system index this plugin owns, while the
+            // multi search below deliberately stays on the caller so that it probes the caller's own
+            // read permission on each custom result index.
+            pluginClient.search(searchResultIndex, ActionListener.wrap(allResultIndicesResponse -> {
                 List<String> targetIndices = new ArrayList<>();
                 processSingleSearchResponse(allResultIndicesResponse, request, listener, customResultIndices, targetIndices);
-                multiSearch(targetIndices, request, listener, finalOnlyQueryCustomResultIndex, context);
+                multiSearch(targetIndices, request, listener, finalOnlyQueryCustomResultIndex);
             }, e -> {
                 logger.error("Failed to search result indices for all detectors", e);
                 listener.onFailure(e);
