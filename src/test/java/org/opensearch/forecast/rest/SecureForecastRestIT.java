@@ -377,7 +377,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                             + "      \"indices:data/read/field_caps*\",\n"
                             + "      \"indices:data/read/search\",\n"
                             + "      \"indices:admin/mapping/put\",\n"
-                            + "      \"indices:admin/mapping/get\",\n"
+                            + "      \"indices:admin/mappings/get\",\n"
                             + "      \"indices_monitor\"\n"
                             + "    ]\n"
                             + "  }]\n"

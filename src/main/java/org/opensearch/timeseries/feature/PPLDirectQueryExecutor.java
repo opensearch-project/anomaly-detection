@@ -354,7 +354,10 @@ public class PPLDirectQueryExecutor {
         private final boolean profile;
         private final boolean analyze;
         private final String queryId;
-        private final Boolean partialResult;
+        // Async submit fields (wait_for_completion_timeout, keep_alive) in milliseconds. Left null so
+        // SQL runs the query synchronously.
+        private final Long waitForCompletionTimeoutMillis;
+        private final Long keepAliveMillis;
 
         private PPLTransportRequest(String query, String format, String path) {
             this.query = query;
@@ -366,7 +369,8 @@ public class PPLDirectQueryExecutor {
             this.profile = false;
             this.analyze = false;
             this.queryId = null;
-            this.partialResult = null;
+            this.waitForCompletionTimeoutMillis = null;
+            this.keepAliveMillis = null;
         }
 
         @Override
@@ -387,7 +391,8 @@ public class PPLDirectQueryExecutor {
             out.writeBoolean(profile);
             out.writeBoolean(analyze);
             out.writeOptionalString(queryId);
-            out.writeOptionalBoolean(partialResult);
+            out.writeOptionalLong(waitForCompletionTimeoutMillis);
+            out.writeOptionalLong(keepAliveMillis);
         }
 
     }
