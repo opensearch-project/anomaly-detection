@@ -27,6 +27,7 @@ import java.util.function.BiConsumer;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.settings.Settings;
@@ -37,7 +38,6 @@ import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.tasks.TaskId;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.timeseries.AnalysisType;
 import org.opensearch.timeseries.NodeStateManager;
@@ -275,32 +275,33 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
         assertSame(serializedResponse, directResponse);
     }
 
-    public void testPPLTransportRequestWritesSqlWireFormat() throws Exception {
-        ActionRequest request = newPPLTransportRequest(
-            "source = logs | stats count() as count by span(timestamp, 1m) as bucket",
-            "jdbc",
-            "/_plugins/_ppl"
-        );
+    public void testPPLTransportRequestRoundTripsThroughSqlReader() throws Exception {
+        String query = "source = logs | stats count() as count by span(timestamp, 1m) as bucket";
+        ActionRequest request = newPPLTransportRequest(query, "jdbc", "/_plugins/_ppl");
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (OutputStreamStreamOutput output = new OutputStreamStreamOutput(baos)) {
             request.writeTo(output);
         }
+        SqlPPLQueryRequest read;
         try (InputStreamStreamInput input = new InputStreamStreamInput(new ByteArrayInputStream(baos.toByteArray()))) {
-            assertEquals(request.getParentTask(), TaskId.readFromStream(input));
-            assertEquals("source = logs | stats count() as count by span(timestamp, 1m) as bucket", input.readOptionalString());
-            assertEquals("jdbc", input.readOptionalString());
-            assertNull(input.readOptionalString()); // explainMode
-            assertNull(input.readOptionalString()); // jsonContent
-            assertEquals("/_plugins/_ppl", input.readOptionalString());
-            assertTrue(input.readBoolean()); // sanitize
-            assertEquals(1, input.readVInt()); // JsonStyle.COMPACT
-            assertFalse(input.readBoolean()); // profile
-            assertFalse(input.readBoolean()); // analyze
-            assertNull(input.readOptionalString()); // queryId
-            assertNull(input.readOptionalBoolean()); // partialResult
-            assertEquals(-1, input.read());
+            read = new SqlPPLQueryRequest(input);
+            assertEquals("AD writes exactly the fields SQL reads", -1, input.read());
         }
+
+        assertEquals(request.getParentTask(), read.getParentTask());
+        assertEquals(query, read.pplQuery);
+        assertEquals("jdbc", read.format);
+        assertNull(read.explainMode);
+        assertNull(read.jsonContent);
+        assertEquals("/_plugins/_ppl", read.path);
+        assertTrue(read.sanitize);
+        assertEquals(PPLStyle.COMPACT, read.style);
+        assertFalse(read.profile);
+        assertFalse(read.analyze);
+        assertNull(read.queryId);
+        assertNull(read.waitForCompletionTimeoutMillis);
+        assertNull(read.keepAliveMillis);
     }
 
     public void testPPLTransportResponseFromActionResponseFailsOnInvalidSerializedResponse() throws Exception {
@@ -365,6 +366,48 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
         java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    private enum PPLStyle {
+        PRETTY,
+        COMPACT
+    }
+
+    /** Copy of the SQL plugin's {@code TransportPPLQueryRequest(StreamInput)} reader on its 3.10 line. */
+    private static final class SqlPPLQueryRequest extends ActionRequest {
+        private final String pplQuery;
+        private final String format;
+        private final String explainMode;
+        private final String jsonContent;
+        private final String path;
+        private final boolean sanitize;
+        private final PPLStyle style;
+        private final boolean profile;
+        private final boolean analyze;
+        private final String queryId;
+        private final Long waitForCompletionTimeoutMillis;
+        private final Long keepAliveMillis;
+
+        private SqlPPLQueryRequest(StreamInput in) throws IOException {
+            super(in);
+            pplQuery = in.readOptionalString();
+            format = in.readOptionalString();
+            explainMode = in.readOptionalString();
+            jsonContent = in.readOptionalString();
+            path = in.readOptionalString();
+            sanitize = in.readBoolean();
+            style = in.readEnum(PPLStyle.class);
+            profile = in.readBoolean();
+            analyze = in.readBoolean();
+            queryId = in.readOptionalString();
+            waitForCompletionTimeoutMillis = in.readOptionalLong();
+            keepAliveMillis = in.readOptionalLong();
+        }
+
+        @Override
+        public ActionRequestValidationException validate() {
+            return null;
+        }
     }
 
     private static class CapturingListener<T> implements ActionListener<T> {

@@ -342,8 +342,9 @@ public class PPLDirectQueryExecutor {
         COMPACT
     }
 
-    // Outbound-only adapter: SQL's TransportPPLQueryRequest reads these bytes on the receiving node.
-    // Keep the wire format aligned with that request.
+    // Outbound-only adapter: SQL's TransportPPLQueryRequest.fromActionRequest re-reads these bytes on the same node.
+    // Keep the field order and types aligned with that request. SQL does not version-gate the format, and both
+    // plugins ship at the same version, so the layout follows SQL's on the same release line.
     private static final class PPLTransportRequest extends ActionRequest {
         private final String query;
         private final String format;
@@ -354,7 +355,9 @@ public class PPLDirectQueryExecutor {
         private final boolean profile;
         private final boolean analyze;
         private final String queryId;
-        private final Boolean partialResult;
+        // Both null keeps SQL on its synchronous path, which returns the result in the response.
+        private final Long waitForCompletionTimeoutMillis;
+        private final Long keepAliveMillis;
 
         private PPLTransportRequest(String query, String format, String path) {
             this.query = query;
@@ -366,7 +369,8 @@ public class PPLDirectQueryExecutor {
             this.profile = false;
             this.analyze = false;
             this.queryId = null;
-            this.partialResult = null;
+            this.waitForCompletionTimeoutMillis = null;
+            this.keepAliveMillis = null;
         }
 
         @Override
@@ -387,7 +391,8 @@ public class PPLDirectQueryExecutor {
             out.writeBoolean(profile);
             out.writeBoolean(analyze);
             out.writeOptionalString(queryId);
-            out.writeOptionalBoolean(partialResult);
+            out.writeOptionalLong(waitForCompletionTimeoutMillis);
+            out.writeOptionalLong(keepAliveMillis);
         }
 
     }
