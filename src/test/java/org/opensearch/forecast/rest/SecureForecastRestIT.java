@@ -316,7 +316,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                     .toHttpEntity(
                         "{\n"
                             + "  \"cluster_permissions\": [\n"
-                            + "    \"cluster:admin/plugin/forecast/forecasters/info\",\n"
                             + "    \"cluster:admin/plugin/forecast/forecasters/search\",\n"
                             + "    \"cluster:admin/plugin/forecast/forecasters/get\",\n"
                             + "    \"cluster:admin/plugin/forecast/result/topForecasts\",\n"
@@ -457,7 +456,6 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
                 Locale.ROOT,
                 "{\n"
                     + "  \"cluster_permissions\": [\n"
-                    + "    \"cluster:admin/plugin/forecast/forecasters/info\",\n"
                     + "    \"cluster:admin/plugin/forecast/forecasters/search\",\n"
                     + "    \"cluster:admin/plugin/forecast/forecasters/get\",\n"
                     + "    \"cluster:admin/plugin/forecast/result/topForecasts\",\n"
