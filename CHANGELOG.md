@@ -12,12 +12,12 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Return detector statistics when the detector-type field is unmapped instead of failing with an aggregation cast error ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Align PPL transport requests with the SQL plugin's analyze and partial-result fields ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Prevent historical high-cardinality analyses from remaining stuck in `RUNNING` after task-slot scale-down and support nullable absolute-threshold rule operators during remote dispatch ([#1782](https://github.com/opensearch-project/anomaly-detection/pull/1782))
-- Write the PPL transport request in the SQL plugin's current format, which no longer reads `partial_result` and now reads the async `wait_for_completion_timeout` and `keep_alive` fields ([#TBD](https://github.com/opensearch-project/anomaly-detection/pull/TBD))
+- Write the PPL transport request in the SQL plugin's current format, which no longer reads `partial_result` and now reads the async `wait_for_completion_timeout` and `keep_alive` fields ([#1799](https://github.com/opensearch-project/anomaly-detection/pull/1799))
 ### Infrastructure
 - Cover historical PPL analysis and verify serialized feature results in integration tests ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Close regular and admin HTTPS test connections before shutting down REST clients to prevent selector assertions and thread leaks; provide valid timestamp mappings for featureless detector tests ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Stabilize empty-index detector integration tests by mapping the detector time field before checking for documents ([#1787](https://github.com/opensearch-project/anomaly-detection/pull/1787))
-- Use registered action names in the secure integration test roles, which the security plugin now validates on role writes ([#TBD](https://github.com/opensearch-project/anomaly-detection/pull/TBD))
+- Use registered action names in the secure integration test roles, which the security plugin now validates on role writes ([#1799](https://github.com/opensearch-project/anomaly-detection/pull/1799))
 ### Documentation
 ### Maintenance
 - Deprecate `filter_by_backend_roles` for anomaly detection and forecasting, targeting removal in 4.0 ([#1781](https://github.com/opensearch-project/anomaly-detection/pull/1781))
