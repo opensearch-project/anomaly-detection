@@ -459,7 +459,6 @@ public abstract class AnomalyDetectorRestTestCase extends ODFERestTestCase {
                             + "\"indices:admin/create\",\n"
                             + "\"indices:admin/aliases\",\n"
                             + "\"indices:admin/aliases/get\",\n"
-                            + "\"indices:admin/mapping/get\",\n"
                             + "\"indices:admin/mapping/put\",\n"
                             + "\"indices:admin/mappings/fields/get*\",\n"
                             + "\"indices:admin/mappings/get\",\n"
