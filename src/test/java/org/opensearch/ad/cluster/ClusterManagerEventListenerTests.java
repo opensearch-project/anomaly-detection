@@ -38,11 +38,11 @@ import org.opensearch.forecast.settings.ForecastSettings;
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.AbstractTimeSeriesTest;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.cluster.ClusterManagerEventListener;
 import org.opensearch.timeseries.cluster.HourlyCron;
 import org.opensearch.timeseries.cluster.diskcleanup.BaseModelCheckpointIndexRetention;
 import org.opensearch.timeseries.constant.CommonName;
-import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
 import org.opensearch.transport.client.Client;
 
@@ -54,7 +54,6 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
     private Cancellable hourlyCancellable;
     private Cancellable checkpointIndexRetentionCancellable;
     private ClusterManagerEventListener clusterManagerService;
-    private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
 
     @Override
@@ -77,7 +76,6 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
             .thenReturn(checkpointIndexRetentionCancellable);
         client = mock(Client.class);
         clock = mock(Clock.class);
-        clientUtil = mock(ClientUtil.class);
         HashMap<String, String> ignoredAttributes = new HashMap<String, String>();
         ignoredAttributes.put(CommonName.BOX_TYPE_KEY, CommonName.WARM_BOX_TYPE);
         nodeFilter = new DiscoveryNodeFilterer(clusterService);
@@ -86,8 +84,8 @@ public class ClusterManagerEventListenerTests extends AbstractTimeSeriesTest {
             clusterService,
             threadPool,
             client,
+            TestHelpers.createPluginClient(client),
             clock,
-            clientUtil,
             nodeFilter,
             AnomalyDetectorSettings.AD_CHECKPOINT_TTL,
             ForecastSettings.FORECAST_CHECKPOINT_TTL,

@@ -63,12 +63,17 @@ public class SearchHandler {
         User user = ParseUtils.getUserContext(client);
         boolean shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(resourceType);
         ActionListener<SearchResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_SEARCH);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             if (pluginClient != null && shouldUseResourceAuthz) {
                 // request will be auto-filtered in security plugin
                 pluginClient.search(request, actionListener);
             } else {
-                validateRole(request, user, listener);
+                // The target can be a caller-owned custom result index, which the plugin does not
+                // register as a system index and so cannot reach as its own subject. Access is
+                // narrowed by the backend role filter that validateRole adds to the query.
+                try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                    validateRole(request, user, listener);
+                }
             }
         } catch (Exception e) {
             logger.error(e);

@@ -13,7 +13,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.query.QueryBuilders;
@@ -21,25 +20,25 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.timeseries.constant.CommonMessages;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
-import org.opensearch.transport.client.Client;
 
 public abstract class BaseSearchConfigInfoTransportAction extends
     HandledTransportAction<SearchConfigInfoRequest, SearchConfigInfoResponse> {
     private static final Logger LOG = LogManager.getLogger(BaseSearchConfigInfoTransportAction.class);
-    private final Client client;
+    private final PluginClient pluginClient;
     protected String configIndexName;
 
     public BaseSearchConfigInfoTransportAction(
         TransportService transportService,
         ActionFilters actionFilters,
-        Client client,
+        PluginClient pluginClient,
         String searchConfigActionName,
         String configIndexName
     ) {
         super(searchConfigActionName, transportService, actionFilters, SearchConfigInfoRequest::new);
-        this.client = client;
+        this.pluginClient = pluginClient;
         this.configIndexName = configIndexName;
     }
 
@@ -48,13 +47,13 @@ public abstract class BaseSearchConfigInfoTransportAction extends
         String name = request.getName();
         String rawPath = request.getRawPath();
         ActionListener<SearchConfigInfoResponse> listener = wrapRestActionListener(actionListener, CommonMessages.FAIL_TO_GET_CONFIG_INFO);
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+        try {
             SearchRequest searchRequest = new SearchRequest().indices(configIndexName);
             if (rawPath.endsWith(RestHandlerUtils.COUNT)) {
                 // Count detectors
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
                 searchRequest.source(searchSourceBuilder);
-                client.search(searchRequest, new ActionListener<SearchResponse>() {
+                pluginClient.search(searchRequest, new ActionListener<SearchResponse>() {
 
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
@@ -82,7 +81,7 @@ public abstract class BaseSearchConfigInfoTransportAction extends
                 TermsQueryBuilder query = QueryBuilders.termsQuery("name.keyword", name);
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(query);
                 searchRequest.source(searchSourceBuilder);
-                client.search(searchRequest, new ActionListener<SearchResponse>() {
+                pluginClient.search(searchRequest, new ActionListener<SearchResponse>() {
 
                     @Override
                     public void onResponse(SearchResponse searchResponse) {
