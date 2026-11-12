@@ -24,4 +24,6 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Rename the resource sharing feature flag to the non-experimental key ([#1778](https://github.com/opensearch-project/anomaly-detection/pull/1778))
 - Increment version to 3.9.0-SNAPSHOT and declare the Jackson 2 core dependency required by PPL response parsing and Random Cut Forest serialization ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 ### Security
+- Bump guava from 33.5.0-jre to 33.7.2-jre to address CVE-2026-102554 ([#1808](https://github.com/opensearch-project/anomaly-detection/pull/1808))
+- Bump urllib3 floor in dataGeneration from 2.7.0 to 2.8.0 to address CVE-2026-97689 and CVE-2026-97687 ([#1808](https://github.com/opensearch-project/anomaly-detection/pull/1808))
 ### Refactoring
