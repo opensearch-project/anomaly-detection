@@ -298,7 +298,8 @@ public class PPLDirectQueryExecutorTests extends OpenSearchTestCase {
             assertFalse(input.readBoolean()); // profile
             assertFalse(input.readBoolean()); // analyze
             assertNull(input.readOptionalString()); // queryId
-            assertNull(input.readOptionalBoolean()); // partialResult
+            assertNull(input.readOptionalLong()); // waitForCompletionTimeout
+            assertNull(input.readOptionalLong()); // keepAlive
             assertEquals(-1, input.read());
         }
     }
