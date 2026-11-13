@@ -97,8 +97,7 @@ public abstract class CrossClusterRestTestCase extends AbstractForecastSynthetic
             assertNotNull("tests.cluster.follow.http_hosts is not set; run the test with the integTestCrossCluster task", hosts);
             List<HttpHost> httpHosts = new ArrayList<>();
             for (String host : hosts.split(",")) {
-                String[] hostAndPort = host.trim().split(":");
-                httpHosts.add(new HttpHost(getProtocol(), hostAndPort[0], Integer.parseInt(hostAndPort[1])));
+                httpHosts.add(parseHost(host.trim()));
             }
             followerClient = buildClient(restClientSettings(), httpHosts.toArray(new HttpHost[0]));
         }
@@ -110,6 +109,29 @@ public abstract class CrossClusterRestTestCase extends AbstractForecastSynthetic
      */
     protected static String remote(String expression) {
         return REMOTE_CLUSTER + ":" + expression;
+    }
+
+    /**
+     * Parses a {@code host:port} entry into an {@link HttpHost} at the test protocol. Splits on the last colon so an
+     * unbracketed or bracketed IPv6 address (for example {@code [::1]:9200} or {@code ::1:9200}) parses correctly, and
+     * drops a leading scheme if one is present.
+     */
+    private HttpHost parseHost(String hostPort) {
+        String value = hostPort;
+        int scheme = value.indexOf("://");
+        if (scheme >= 0) {
+            value = value.substring(scheme + 3);
+        }
+        int lastColon = value.lastIndexOf(':');
+        if (lastColon < 0) {
+            throw new IllegalArgumentException("expected host:port but got '" + hostPort + "'");
+        }
+        String host = value.substring(0, lastColon);
+        int port = Integer.parseInt(value.substring(lastColon + 1));
+        if (host.startsWith("[") && host.endsWith("]")) {
+            host = host.substring(1, host.length() - 1);
+        }
+        return new HttpHost(getProtocol(), host, port);
     }
 
     /**
