@@ -388,6 +388,11 @@ integTest {
     systemProperty "password", System.getProperty("password")
     systemProperty "resource_sharing.enabled", System.getProperty("resource_sharing.enabled")
 
+    // cross-cluster tests need a remote cluster; integTestCrossCluster runs them
+    filter {
+        excludeTestsMatching "*CrossClusterIT"
+    }
+
     // Only rest case can run with remote cluster
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
@@ -755,6 +760,11 @@ integTest {
 task integTestRemote(type: Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
+
+    // cross-cluster tests need a remote cluster; integTestCrossCluster runs them
+    filter {
+        excludeTestsMatching "*CrossClusterIT"
+    }
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
 
@@ -798,6 +808,53 @@ task integTestRemote(type: Test) {
         filter {
             excludeTestsMatching "org.opensearch.ad.e2e.BatchADSchedulingCheckpointIT"
         }
+    }
+}
+
+// Runs the cross-cluster integration tests (*CrossClusterIT) against two single node clusters: leaderCluster runs the
+// plugin and serves the REST client, and followCluster holds the source indices. The tests register followCluster on
+// leaderCluster as remote cluster "follower" (see CrossClusterRestTestCase).
+// Usage: ./gradlew integTestCrossCluster [-Dsecurity=true -Dhttps=true]
+task integTestCrossCluster(type: StandaloneRestIntegTestTask) {
+    description = "Run cross-cluster tests against a leader and a follower cluster"
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useCluster testClusters.leaderCluster
+    useCluster testClusters.followCluster
+    dependsOn "bundlePlugin"
+    // Both clusters are shared by every test class; run the classes one at a time.
+    maxParallelForks = 1
+
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    systemProperty "https", System.getProperty("https")
+    systemProperty "security", System.getProperty("security")
+    systemProperty "user", System.getProperty("user", "admin")
+    systemProperty "password", System.getProperty("password", "admin")
+
+    // Lazy: the socket URIs are known only once the clusters start, after configuration.
+    // The REST client of the tests talks to the leader; the follower is reached from it as a remote cluster.
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters.leaderCluster.allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.cluster', "${-> testClusters.leaderCluster.allTransportPortURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters.leaderCluster.getName()}")
+    nonInputProperties.systemProperty('tests.cluster.follow.http_hosts', "${-> testClusters.followCluster.allHttpSocketURI.join(",")}")
+    nonInputProperties
+        .systemProperty('tests.cluster.follow.transport_hosts', "${-> testClusters.followCluster.allTransportPortURI.join(",")}")
+
+    filter {
+        includeTestsMatching "*CrossClusterIT"
+        // bwc ITs use a custom runner that trips the Gradle test reporter even when filtered out
+        excludeTestsMatching "org.opensearch.ad.bwc.*IT"
+    }
+
+    doFirst {
+        getClusters().forEach { cluster ->
+            waitForClusterSetup(cluster, securityEnabled)
+        }
+    }
+
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 }
 
@@ -971,8 +1028,9 @@ task bwcTestSuite(type: RestIntegTestTask) {
 
 run {
     doFirst {
+        // waitForAllConditions alone polls over http, which fails with -Dsecurity=true -Dhttps=true
         getClusters().forEach { cluster ->
-            cluster.waitForAllConditions()
+            waitForClusterSetup(cluster, securityEnabled)
         }
 
         if (project.hasProperty('dualCluster')) {
