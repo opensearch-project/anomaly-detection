@@ -11,7 +11,8 @@ on:
 
 jobs:
   Get-CI-Image-Tag:
-    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    # pinned to opensearch-build main (get-ci-image-tag.yml) instead of @main for supply-chain safety
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@9d5b8833de44966ef503339dfe390fb62aae0277
     with:
       product: opensearch
 
