@@ -5,69 +5,86 @@
 
 package org.opensearch.forecast.rest;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.Map;
 
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.forecast.settings.ForecastEnabledSetting;
 import org.opensearch.timeseries.CrossClusterRestTestCase;
+import org.opensearch.timeseries.model.TaskState;
+
+import com.google.common.collect.ImmutableSet;
 
 /**
- * A forecaster whose source index is on a remote cluster can be created and started, whether the config names the
- * remote index directly, through a remote alias, or through a remote wildcard. Exercises the cross-cluster read path
- * against two clusters; run by the integTestCrossCluster task.
+ * Running a forecaster once over a source index on a remote cluster reads that index across the cluster link and writes
+ * forecast results, whether the config names the remote index directly, through a remote alias, or through a remote
+ * wildcard. Run by the integTestCrossCluster task.
+ *
+ * Uses run-once rather than a real-time start: run-once executes the forecaster over the source window and writes
+ * results, so reaching TEST_COMPLETE and finding a forecast value proves the remote read end to end. A real-time start
+ * only schedules the job and returns before the first run reads anything.
  */
 public class ForecastCrossClusterIT extends CrossClusterRestTestCase {
-    private Instant end;
+    private static final int TRAIN_SPLIT = 200;
+    private static final String FEATURE_FIELD = "visitCount";
+    private static final String RULE_CATEGORY_FIELD = "cityName";
 
-    public void testForecasterOverRemoteIndex() throws Exception {
+    public void testRunOnceOverRemoteIndex() throws Exception {
         prepare();
-        createFollowerIndex("ccit-metrics-a", 200, end);
-        createAndStart(remote("ccit-metrics-a"));
+        runOnceAndVerify(remote("rule"));
     }
 
-    public void testForecasterOverRemoteAlias() throws Exception {
+    public void testRunOnceOverRemoteAlias() throws Exception {
         prepare();
-        createFollowerIndex("ccit-metrics-a", 200, end);
-        createFollowerIndex("ccit-metrics-b", 200, end);
-        createFollowerAlias("ccit-metrics-alias", "ccit-metrics-a", "ccit-metrics-b");
-        createAndStart(remote("ccit-metrics-alias"));
+        createFollowerAlias("rule-alias", "rule");
+        runOnceAndVerify(remote("rule-alias"));
     }
 
-    public void testForecasterOverRemoteWildcard() throws Exception {
+    public void testRunOnceOverRemoteWildcard() throws Exception {
         prepare();
-        createFollowerIndex("ccit-metrics-a", 200, end);
-        createFollowerIndex("ccit-metrics-b", 200, end);
-        createAndStart(remote("ccit-metrics-*"));
+        runOnceAndVerify(remote("rul*"));
     }
 
     // Not in setUp()/@Before: these REST calls need the client, which the framework builds in its own @Before, after setUp().
+    private Instant trainTime;
+
     private void prepare() throws Exception {
         updateClusterSettings(ForecastEnabledSetting.FORECAST_ENABLED, true);
         connectRemoteCluster();
-        end = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+        trainTime = loadRuleDataToFollower(TRAIN_SPLIT);
     }
 
-    private void createAndStart(String index) throws Exception {
+    private void runOnceAndVerify(String index) throws Exception {
         String forecasterId = createForecaster(index);
-        try {
-            Response start = client().performRequest(new Request("POST", String.format(Locale.ROOT, START_FORECASTER, forecasterId)));
-            assertEquals(RestStatus.OK.getStatus(), start.getStatusLine().getStatusCode());
-        } finally {
-            try {
-                client().performRequest(new Request("POST", String.format(Locale.ROOT, STOP_FORECASTER, forecasterId)));
-            } catch (Exception e) {
-                logger.info("stop failed, ignoring", e);
-            }
-        }
+        Response runOnce = client().performRequest(new Request("POST", String.format(Locale.ROOT, RUN_ONCE_FORECASTER, forecasterId)));
+        assertNotNull(entityAsMap(runOnce).get("task_id"));
+
+        // run-once runs as a task; TEST_COMPLETE means it read the remote source and finished the test run
+        waitUntilTaskReachState(forecasterId, ImmutableSet.of(TaskState.TEST_COMPLETE.name()), client());
+
+        // a forecast value for this forecaster confirms the remote source was read and a forecast was produced
+        Request search = new Request("POST", SEARCH_RESULTS);
+        search
+            .setJsonEntity(
+                String
+                    .format(
+                        Locale.ROOT,
+                        "{\"size\":1,\"query\":{\"bool\":{\"filter\":["
+                            + "{\"term\":{\"forecaster_id\":\"%s\"}},{\"exists\":{\"field\":\"forecast_value\"}}]}}}",
+                        forecasterId
+                    )
+            );
+        Map<String, Object> hits = (Map<String, Object>) entityAsMap(client().performRequest(search)).get("hits");
+        int total = (int) ((Map<String, Object>) hits.get("total")).get("value");
+        assertTrue("expected a forecast value for " + index + " but found none", total > 0);
     }
 
     private String createForecaster(String index) throws Exception {
-        long windowDelayMinutes = 1;
+        // +1 so the window covers the training data, which ends at trainTime
+        long windowDelayMinutes = Duration.between(trainTime, Instant.now()).toMinutes() + 1;
         String body = String
             .format(
                 Locale.ROOT,
@@ -79,16 +96,14 @@ public class ForecastCrossClusterIT extends CrossClusterRestTestCase {
                 System.nanoTime(),
                 TIME_FIELD,
                 index,
-                VALUE_FIELD,
+                FEATURE_FIELD,
                 windowDelayMinutes,
-                CATEGORY_FIELD
+                RULE_CATEGORY_FIELD
             );
         Request request = new Request("POST", CREATE_FORECASTER);
         request.setJsonEntity(body);
         Response response = client().performRequest(request);
-        assertEquals(RestStatus.CREATED.getStatus(), response.getStatusLine().getStatusCode());
-        Map<String, Object> created = entityAsMap(response);
-        String forecasterId = (String) created.get("_id");
+        String forecasterId = (String) entityAsMap(response).get("_id");
         assertNotNull(forecasterId);
         return forecasterId;
     }

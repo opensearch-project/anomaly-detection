@@ -24,6 +24,8 @@ import org.opensearch.client.RestClient;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.forecast.AbstractForecastSyntheticDataTest;
 
+import com.google.gson.JsonObject;
+
 /**
  * Base class of the cross-cluster integration tests, run by the integTestCrossCluster task against two clusters.
  *
@@ -193,5 +195,19 @@ public abstract class CrossClusterRestTestCase extends AbstractForecastSynthetic
         Request request = new Request("POST", "/_aliases");
         request.setJsonEntity("{\"actions\":[" + actions + "]}");
         followerClient().performRequest(request);
+    }
+
+    /**
+     * Loads the {@code rule} dataset into an index named {@link #RULE_DATASET_NAME} on the follower, the realistic data
+     * a forecaster needs to train and produce a forecast, and returns the timestamp of the last training document. The
+     * index is deleted after the test. Mirrors {@code loadRuleData} but targets the follower.
+     */
+    protected Instant loadRuleDataToFollower(int trainTestSplit) throws Exception {
+        String dataFileName = String.format(Locale.ROOT, "org/opensearch/ad/e2e/data/%s.data", RULE_DATASET_NAME);
+        List<JsonObject> data = readJsonArrayWithLimit(dataFileName, trainTestSplit);
+        bulkIndexTrainData(RULE_DATASET_NAME, data, trainTestSplit, followerClient(), RULE_DATA_MAPPING);
+        followerIndices.add(RULE_DATASET_NAME);
+        String trainTimeStr = data.get(trainTestSplit - 1).get("timestamp").getAsString();
+        return canBeParsedAsLong(trainTimeStr) ? Instant.ofEpochMilli(Long.parseLong(trainTimeStr)) : Instant.parse(trainTimeStr);
     }
 }
