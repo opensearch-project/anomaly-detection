@@ -14,6 +14,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Prevent historical high-cardinality analyses from remaining stuck in `RUNNING` after task-slot scale-down and support nullable absolute-threshold rule operators during remote dispatch ([#1782](https://github.com/opensearch-project/anomaly-detection/pull/1782))
 - Align PPL transport requests with the SQL plugin's async query fields, which replaced the removed partial-result flag ([#1798](https://github.com/opensearch-project/anomaly-detection/pull/1798))
 ### Infrastructure
+- Add a cross-cluster integration test task (`integTestCrossCluster`), base class and workflow, and fix `:run -PdualCluster=true` with security enabled
 - Cover historical PPL analysis and verify serialized feature results in integration tests ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Close regular and admin HTTPS test connections before shutting down REST clients to prevent selector assertions and thread leaks; provide valid timestamp mappings for featureless detector tests ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
 - Stabilize empty-index detector integration tests by mapping the detector time field before checking for documents ([#1787](https://github.com/opensearch-project/anomaly-detection/pull/1787))
