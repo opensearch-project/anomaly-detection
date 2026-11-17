@@ -37,6 +37,7 @@ import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.rest.handler.IndexJobActionHandler;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.task.TaskManager;
+import org.opensearch.timeseries.util.ConfigIndexAccess;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.RestHandlerUtils;
 import org.opensearch.transport.TransportService;
@@ -109,15 +110,38 @@ public abstract class BaseJobTransportAction<IndexType extends Enum<IndexType> &
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             String resourceType = getResourceTypeFromClassName(configTypeClass.getSimpleName());
+            Runnable execute = () -> executeConfig(
+                listener,
+                configId,
+                dateRange,
+                historical,
+                rawPath,
+                requestTimeout,
+                user,
+                context,
+                clock
+            );
+            // Starting reads the config's indices with the identity stored on the config, so the caller must be able to read them.
+            boolean start = rawPath.endsWith(RestHandlerUtils.START_JOB);
             verifyResourceAccessAndProcessRequest(
                 resourceType,
-                () -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
+                start
+                    ? () -> ConfigIndexAccess
+                        .authorizeCaller(client, clusterService, xContentRegistry, configClass, configId, user, context, listener, execute)
+                    : execute,
                 () -> resolveUserAndExecute(
                     user,
                     configId,
                     filterByEnabled,
                     listener,
-                    (config) -> executeConfig(listener, configId, dateRange, historical, rawPath, requestTimeout, user, context, clock),
+                    // the config is null only when there is no user, and then there is nothing to authorize
+                    (config) -> {
+                        if (start && config != null) {
+                            ConfigIndexAccess.authorizeCaller(client, clusterService, config, user, context, listener, execute);
+                        } else {
+                            execute.run();
+                        }
+                    },
                     client,
                     clusterService,
                     xContentRegistry,
