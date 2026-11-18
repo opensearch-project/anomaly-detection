@@ -124,10 +124,9 @@ public class SecureForecastCallerIndexAccessCrossClusterIT extends CrossClusterR
 
     public void testCallerAllowedReadableRemoteIndex() throws Exception {
         prepare();
-        // The caller may read this one, so it may start it too.
-        String forecasterId = createForecaster(ownerClient, remote(READABLE));
-        start(callerClient, forecasterId, RestStatus.OK, null);
-        stop(forecasterId);
+        // The caller may read this one, so it may run it once and start it.
+        assertCallerStatus(callerClient, remote(READABLE), "_run_once", RestStatus.OK, null);
+        assertCallerStatus(callerClient, remote(READABLE), "_start", RestStatus.OK, null);
     }
 
     public void testCallerDeniedWhenOwnerLacksResolvePermission() throws Exception {
@@ -140,16 +139,42 @@ public class SecureForecastCallerIndexAccessCrossClusterIT extends CrossClusterR
     }
 
     private void denyCallerAllowOwner(RestClient ownerC, String index) throws Exception {
-        String forecasterId = createForecaster(ownerC, index);
-        // the caller is denied by the index access check, not by another check such as resource sharing
-        start(callerClient, forecasterId, RestStatus.FORBIDDEN, INDEX_ACCESS_DENIAL);
-        // the owner, who can read the index, can start it
-        start(ownerC, forecasterId, RestStatus.OK, null);
-        stop(forecasterId);
+        // Both run-once (the originally reported path) and start read the source under the config's identity, so the
+        // caller must be denied and the owner allowed on each. A separate forecaster per action avoids a run-once vs
+        // start conflict on the same config.
+        denyCallerAllowOwner(ownerC, index, "_run_once");
+        denyCallerAllowOwner(ownerC, index, "_start");
     }
 
-    private void start(RestClient client, String forecasterId, RestStatus expected, String expectedMessage) throws IOException {
-        Request request = new Request("POST", String.format(Locale.ROOT, "%s/%s/_start", FORECASTERS_URI, forecasterId));
+    private void denyCallerAllowOwner(RestClient ownerC, String index, String action) throws Exception {
+        String forecasterId = createForecaster(ownerC, index);
+        try {
+            // the caller is denied by the index access check, not by another check such as resource sharing
+            perform(callerClient, forecasterId, action, RestStatus.FORBIDDEN, INDEX_ACCESS_DENIAL);
+            // the owner, who can read the index, is allowed
+            perform(ownerC, forecasterId, action, RestStatus.OK, null);
+        } finally {
+            if (action.equals("_start")) {
+                stop(forecasterId);
+            }
+        }
+    }
+
+    private void assertCallerStatus(RestClient client, String index, String action, RestStatus expected, String expectedMessage)
+        throws Exception {
+        String forecasterId = createForecaster(ownerClient, index);
+        try {
+            perform(client, forecasterId, action, expected, expectedMessage);
+        } finally {
+            if (action.equals("_start")) {
+                stop(forecasterId);
+            }
+        }
+    }
+
+    private void perform(RestClient client, String forecasterId, String action, RestStatus expected, String expectedMessage)
+        throws IOException {
+        Request request = new Request("POST", String.format(Locale.ROOT, "%s/%s/%s", FORECASTERS_URI, forecasterId, action));
         try {
             Response response = client.performRequest(request);
             assertEquals(expected.getStatus(), response.getStatusLine().getStatusCode());
