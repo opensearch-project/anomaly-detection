@@ -54,6 +54,8 @@ public class SecureForecastCallerIndexAccessCrossClusterIT extends CrossClusterR
         if (prepared) {
             return;
         }
+        // integTestCrossCluster runs with and without security; this test needs the security plugin and https
+        assumeTrue("secure cross-cluster test requires https", isHttps());
         assumeFalse("covers the deployment without resource sharing", isResourceSharingFeatureEnabled());
         updateClusterSettings(ForecastEnabledSetting.FORECAST_ENABLED, true);
         connectRemoteCluster();
