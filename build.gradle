@@ -407,6 +407,8 @@ integTest {
         filter {
             excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
             excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRestIT"
+            excludeTestsMatching "org.opensearch.ad.rest.SecureADCallerIndexAccessIT"
+            excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRunOnceIndexAccessIT"
         }
     }
 
@@ -787,6 +789,8 @@ task integTestRemote(type: Test) {
         filter {
             excludeTestsMatching "org.opensearch.ad.rest.SecureADRestIT"
             excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRestIT"
+            excludeTestsMatching "org.opensearch.ad.rest.SecureADCallerIndexAccessIT"
+            excludeTestsMatching "org.opensearch.forecast.rest.SecureForecastRunOnceIndexAccessIT"
         }
     }
 

@@ -75,6 +75,7 @@ import org.opensearch.timeseries.model.TimeSeriesTask;
 import org.opensearch.timeseries.stats.StatNames;
 import org.opensearch.timeseries.task.TaskCacheManager;
 import org.opensearch.timeseries.transport.ResultProcessor;
+import org.opensearch.timeseries.util.ConfigIndexAccess;
 import org.opensearch.timeseries.util.ExceptionUtil;
 import org.opensearch.timeseries.util.ParseUtils;
 import org.opensearch.timeseries.util.SecurityClientUtil;
@@ -167,15 +168,29 @@ public class ForecastRunOnceTransportAction extends HandledTransportAction<Forec
         User user = ParseUtils.getUserContext(client);
 
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            // Running once reads the forecaster's indices with the identity stored on it, so the caller must be able to read them.
+            Runnable runOnce = () -> executeRunOnce(forecastID, request, listener);
             verifyResourceAccessAndProcessRequest(
                 ForecastCommonName.FORECAST_RESOURCE_TYPE,
-                () -> executeRunOnce(forecastID, request, listener),
+                () -> ConfigIndexAccess
+                    .authorizeCaller(
+                        client,
+                        clusterService,
+                        xContentRegistry,
+                        Forecaster.class,
+                        forecastID,
+                        user,
+                        context,
+                        listener,
+                        runOnce
+                    ),
                 () -> resolveUserAndExecute(
                     user,
                     forecastID,
                     filterByEnabled,
                     listener,
-                    (forecaster) -> executeRunOnce(forecastID, request, listener),
+                    // the forecaster is null only when there is no user, and then there is nothing to authorize
+                    (forecaster) -> ConfigIndexAccess.authorizeCaller(client, clusterService, forecaster, user, context, listener, runOnce),
                     client,
                     clusterService,
                     xContentRegistry,
