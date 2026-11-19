@@ -34,6 +34,7 @@ import org.opensearch.transport.client.Client;
  */
 public class SearchHandler {
     private final Logger logger = LogManager.getLogger(SearchHandler.class);
+    private final ClusterService clusterService;
     private final Client client;
     private final PluginClient pluginClient;
     private volatile Boolean filterEnabled;
@@ -47,6 +48,7 @@ public class SearchHandler {
     ) {
         this.client = client;
         this.pluginClient = pluginClient;
+        this.clusterService = clusterService;
         filterEnabled = filterByBackendRoleSetting.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(filterByBackendRoleSetting, it -> filterEnabled = it);
     }
@@ -91,7 +93,7 @@ public class SearchHandler {
         } else {
             // Security is enabled, filter is enabled and user isn't admin
             try {
-                ParseUtils.addUserBackendRolesFilter(user, request.source());
+                ParseUtils.addUserBackendRolesFilter(user, request.source(), clusterService);
                 logger.debug("Filtering result by " + user.getBackendRoles());
                 client.search(request, listener);
             } catch (Exception e) {

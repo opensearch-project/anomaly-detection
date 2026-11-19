@@ -10,6 +10,7 @@ Inspired from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Enhancements
 - Validate index access on run-once and start ([#1811](https://github.com/opensearch-project/anomaly-detection/pull/1811))
 ### Bug Fixes
+- Create custom, forecast and insights result indices with compatible mappings on clusters that store new indices in a pluggable data format, and match backend roles on those indices ([#1813](https://github.com/opensearch-project/anomaly-detection/pull/1813))
 - Return the detector and forecaster counts each stats request computed instead of reading them back from stats shared across requests ([#1790](https://github.com/opensearch-project/anomaly-detection/pull/1790))
 - Make PluginClient a subclass of the common-utils PluginClient, which notifies listeners in the caller's thread context without leaving it on the responding thread or dropping response headers, and accepts only a single PluginSubject ([#1790](https://github.com/opensearch-project/anomaly-detection/pull/1790))
 - Return detector statistics when the detector-type field is unmapped instead of failing with an aggregation cast error ([#1775](https://github.com/opensearch-project/anomaly-detection/pull/1775))
