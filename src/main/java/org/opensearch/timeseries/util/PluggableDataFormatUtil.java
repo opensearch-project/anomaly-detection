@@ -73,6 +73,8 @@ public final class PluggableDataFormatUtil {
 
     /**
      * @return index name prefixes that keep the default (Lucene) format on a pluggable-data-format cluster.
+     *     Core declares {@code cluster.pluggable.dataformat.restrict.allowlist} with {@code NodeScope} only (not
+     *     {@code Dynamic}), so the node settings are the authoritative source; it cannot change at the cluster level.
      */
     public static List<String> getAllowlist(ClusterService clusterService) {
         Settings nodeSettings = clusterService == null ? null : clusterService.getSettings();

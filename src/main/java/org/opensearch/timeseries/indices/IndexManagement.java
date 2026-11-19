@@ -1172,11 +1172,12 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         Map<String, Object> asMap = XContentHelper.convertToMap(new BytesArray(resultMapping), false, XContentType.JSON).v2();
         Object properties = asMap.get(CommonName.PROPERTIES);
         if (properties instanceof Map) {
-            RESULT_FIELD_CONFIGS = (Map<String, Object>) properties;
             Map<String, Object> pluggableAsMap = XContentHelper
                 .convertToMap(new BytesArray(PluggableDataFormatUtil.adaptMapping(resultMapping)), false, XContentType.JSON)
                 .v2();
             PLUGGABLE_RESULT_FIELD_CONFIGS = (Map<String, Object>) pluggableAsMap.get(CommonName.PROPERTIES);
+            // assign last: the RESULT_FIELD_CONFIGS != null guard above must only trip once both maps are set
+            RESULT_FIELD_CONFIGS = (Map<String, Object>) properties;
         } else {
             logger.error("Fail to read result mapping file.");
         }
@@ -1210,6 +1211,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                 if (RESULT_FIELD_CONFIGS == null) {
                     // failed to populate the field
                     thenDo.onResponse(false);
+                    return;
                 }
                 Map<String, Object> expected = PluggableDataFormatUtil.usesPluggableDataFormat(clusterService, concreteIndex)
                     ? PLUGGABLE_RESULT_FIELD_CONFIGS
