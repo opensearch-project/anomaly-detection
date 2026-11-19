@@ -50,6 +50,7 @@ import org.opensearch.timeseries.common.exception.EndRunException;
 import org.opensearch.timeseries.constant.CommonName;
 import org.opensearch.timeseries.indices.IndexManagement;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.PluggableDataFormatUtil;
 import org.opensearch.transport.client.Client;
 
 import tools.jackson.databind.DeserializationFeature;
@@ -202,7 +203,18 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
                     thenDo.onResponse(false);
                     return;
                 }
-                validateIndexMapping(concreteIndex, INSIGHTS_RESULT_FIELD_CONFIGS, "insights result index", thenDo);
+                Map<String, Object> expected = INSIGHTS_RESULT_FIELD_CONFIGS;
+                if (PluggableDataFormatUtil.usesPluggableDataFormat(clusterService, concreteIndex)) {
+                    Map<String, Object> asMap = XContentHelper
+                        .convertToMap(
+                            new BytesArray(PluggableDataFormatUtil.adaptMapping(getInsightsResultMappings())),
+                            false,
+                            XContentType.JSON
+                        )
+                        .v2();
+                    expected = (Map<String, Object>) asMap.get(CommonName.PROPERTIES);
+                }
+                validateIndexMapping(concreteIndex, expected, "insights result index", thenDo);
             } catch (Exception e) {
                 logger.error("Failed to validate insights result index mapping for index " + concreteIndex, e);
                 thenDo.onResponse(false);
@@ -299,7 +311,7 @@ public class ADIndexManagement extends IndexManagement<ADIndex> {
     public void initInsightsResultIndexDirectly(ActionListener<CreateIndexResponse> actionListener) {
         try {
             String insightsResultIndexPattern = getRolloverIndexPattern(ADCommonName.INSIGHTS_RESULT_INDEX_ALIAS);
-            String mapping = getInsightsResultMappings();
+            String mapping = mappingFor(insightsResultIndexPattern, getInsightsResultMappings());
 
             CreateIndexRequest request = new CreateIndexRequest(insightsResultIndexPattern)
                 .mapping(mapping, XContentType.JSON)

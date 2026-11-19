@@ -60,7 +60,6 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.aggregations.BaseAggregationBuilder;
@@ -448,6 +447,27 @@ public final class ParseUtils {
     }
 
     public static SearchSourceBuilder addUserBackendRolesFilter(User user, SearchSourceBuilder searchSourceBuilder) {
+        return addUserBackendRolesFilter(user, searchSourceBuilder, null);
+    }
+
+    /**
+     * Adds a backend-role filter to the search.
+     *
+     * On clusters that store new indices in a pluggable data format (see {@link PluggableDataFormatUtil}), result
+     * indices map {@code user.backend_roles} as a plain {@code keyword} without the {@code .keyword} sub-field. There the
+     * filter also matches the plain field, limited to indices outside the pluggable-data-format allowlist so that
+     * Lucene indices (where the field is analyzed {@code text}) are still matched only on {@code .keyword}.
+     *
+     * @param user user context
+     * @param searchSourceBuilder search source to add the filter to
+     * @param clusterService cluster service, or null to use the default (Lucene-only) filter
+     * @return the search source builder
+     */
+    public static SearchSourceBuilder addUserBackendRolesFilter(
+        User user,
+        SearchSourceBuilder searchSourceBuilder,
+        ClusterService clusterService
+    ) {
         if (user == null) {
             return searchSourceBuilder;
         }
@@ -456,7 +476,20 @@ public final class ParseUtils {
         String userBackendRoleFieldName = "user.backend_roles.keyword";
         List<String> backendRoles = user.getBackendRoles() != null ? user.getBackendRoles() : ImmutableList.of();
         // For normal case, user should have backend roles.
-        TermsQueryBuilder userRolesFilterQuery = QueryBuilders.termsQuery(userBackendRoleFieldName, backendRoles);
+        QueryBuilder userRolesFilterQuery = QueryBuilders.termsQuery(userBackendRoleFieldName, backendRoles);
+        if (clusterService != null && PluggableDataFormatUtil.isEnabled(clusterService)) {
+            BoolQueryBuilder pluggableIndexRolesQuery = QueryBuilders
+                .boolQuery()
+                .filter(QueryBuilders.termsQuery("user.backend_roles", backendRoles));
+            for (String prefix : PluggableDataFormatUtil.getAllowlist(clusterService)) {
+                pluggableIndexRolesQuery.mustNot(QueryBuilders.prefixQuery("_index", prefix));
+            }
+            userRolesFilterQuery = QueryBuilders
+                .boolQuery()
+                .should(userRolesFilterQuery)
+                .should(pluggableIndexRolesQuery)
+                .minimumShouldMatch(1);
+        }
         NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(userFieldName, userRolesFilterQuery, ScoreMode.None);
         boolQueryBuilder.must(nestedQueryBuilder);
         QueryBuilder query = searchSourceBuilder.query();

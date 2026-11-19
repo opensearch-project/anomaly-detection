@@ -16,6 +16,7 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 import static org.opensearch.timeseries.util.RestHandlerUtils.createXContentParserFromRegistry;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -87,6 +88,7 @@ import org.opensearch.timeseries.function.ExecutorFunction;
 import org.opensearch.timeseries.model.Config;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.PluggableDataFormatUtil;
 import org.opensearch.transport.client.AdminClient;
 import org.opensearch.transport.client.Client;
 
@@ -133,6 +135,8 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
     protected volatile TimeValue historyRetentionPeriod;
     // result index mapping to valida custom index
     private Map<String, Object> RESULT_FIELD_CONFIGS;
+    // result index mapping to validate custom index on a pluggable data format (see PluggableDataFormatUtil)
+    private Map<String, Object> PLUGGABLE_RESULT_FIELD_CONFIGS;
     private String resultMapping;
     private NamedXContentRegistry xContentRegistry;
     protected BiCheckedFunction<XContentParser, String, ? extends Config, IOException> configParser;
@@ -716,7 +720,9 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                         adminClient
                             .indices()
                             .putMapping(
-                                new PutMappingRequest().indices(index.getIndexName()).source(index.getMapping(), XContentType.JSON),
+                                new PutMappingRequest()
+                                    .indices(index.getIndexName())
+                                    .source(mappingFor(index.getIndexName(), index.getMapping()), XContentType.JSON),
                                 ActionListener.wrap(putMappingResponse -> {
                                     if (putMappingResponse.isAcknowledged()) {
                                         logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", index.getIndexName()));
@@ -854,7 +860,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                 adminClient
                     .indices()
                     .putMapping(
-                        new PutMappingRequest().indices(index).source(mappingSource, XContentType.JSON),
+                        new PutMappingRequest().indices(index).source(mappingFor(index, mappingSource), XContentType.JSON),
                         ActionListener.wrap(putMappingResponse -> {
                             if (putMappingResponse.isAcknowledged()) {
                                 logger.info(new ParameterizedMessage("Succeeded in updating [{}]'s mapping", index));
@@ -1028,7 +1034,7 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
             logger.info("Initializing flattened result index: {}", indexName);
 
             CreateIndexRequest request = new CreateIndexRequest(indexName)
-                .mapping(getFlattenedResultMappings(), XContentType.JSON)
+                .mapping(mappingFor(indexName, getFlattenedResultMappings()), XContentType.JSON)
                 .settings(settings);
 
             if (flattenedResultIndexAlias != null) {
@@ -1167,9 +1173,28 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         Object properties = asMap.get(CommonName.PROPERTIES);
         if (properties instanceof Map) {
             RESULT_FIELD_CONFIGS = (Map<String, Object>) properties;
+            Map<String, Object> pluggableAsMap = XContentHelper
+                .convertToMap(new BytesArray(PluggableDataFormatUtil.adaptMapping(resultMapping)), false, XContentType.JSON)
+                .v2();
+            PLUGGABLE_RESULT_FIELD_CONFIGS = (Map<String, Object>) pluggableAsMap.get(CommonName.PROPERTIES);
         } else {
             logger.error("Fail to read result mapping file.");
         }
+    }
+
+    /**
+     * @param indexName index name, alias, or rollover pattern
+     * @return the result mapping to use for an index with this name, adapted if it uses a pluggable data format
+     */
+    protected String resultMappingFor(String indexName) throws IOException {
+        return mappingFor(indexName, resultMapping);
+    }
+
+    /**
+     * @return {@code mapping}, adapted if an index with this name uses a pluggable data format
+     */
+    protected String mappingFor(String indexName, String mapping) throws IOException {
+        return PluggableDataFormatUtil.mappingFor(clusterService, indexName, mapping);
     }
 
     /**
@@ -1186,7 +1211,10 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
                     // failed to populate the field
                     thenDo.onResponse(false);
                 }
-                validateIndexMapping(concreteIndex, RESULT_FIELD_CONFIGS, "result index", thenDo);
+                Map<String, Object> expected = PluggableDataFormatUtil.usesPluggableDataFormat(clusterService, concreteIndex)
+                    ? PLUGGABLE_RESULT_FIELD_CONFIGS
+                    : RESULT_FIELD_CONFIGS;
+                validateIndexMapping(concreteIndex, expected, "result index", thenDo);
             } catch (Exception e) {
                 logger.error("Failed to validate result index mapping for index " + concreteIndex, e);
                 thenDo.onResponse(false);
@@ -1367,7 +1395,11 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         RolloverRequest rollOverRequest = new RolloverRequest(resultIndexAlias, null);
         CreateIndexRequest createRequest = rollOverRequest.getCreateIndexRequest();
 
-        createRequest.index(rolloverIndexPattern).mapping(resultMapping, XContentType.JSON);
+        try {
+            createRequest.index(rolloverIndexPattern).mapping(resultMappingFor(rolloverIndexPattern), XContentType.JSON);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         if (resultIndexAlias.startsWith(customResultIndexPrefix)) {
             choosePrimaryShards(createRequest, false);
         } else {
@@ -1414,7 +1446,13 @@ public abstract class IndexManagement<IndexType extends Enum<IndexType> & TimeSe
         IndexType resultIndex,
         ActionListener<CreateIndexResponse> actionListener
     ) {
-        CreateIndexRequest request = new CreateIndexRequest(resultIndexName).mapping(resultMapping, XContentType.JSON);
+        CreateIndexRequest request;
+        try {
+            request = new CreateIndexRequest(resultIndexName).mapping(resultMappingFor(resultIndexName), XContentType.JSON);
+        } catch (IOException e) {
+            actionListener.onFailure(e);
+            return;
+        }
         if (alias != null) {
             request.alias(new Alias(alias));
         }
