@@ -27,6 +27,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.transport.InsightsJobRequest;
 import org.opensearch.transport.TransportService;
 import org.opensearch.transport.client.Client;
@@ -54,6 +55,7 @@ public class InsightsJobTransportActionTests extends OpenSearchTestCase {
             transportService,
             new ActionFilters(Collections.emptySet()),
             client,
+            TestHelpers.createPluginClient(client),
             clusterService,
             settings,
             NamedXContentRegistry.EMPTY,

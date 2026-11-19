@@ -27,9 +27,9 @@ import org.opensearch.forecast.cluster.diskcleanup.ForecastCheckpointIndexRetent
 import org.opensearch.threadpool.Scheduler.Cancellable;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.timeseries.cluster.diskcleanup.IndexCleanup;
-import org.opensearch.timeseries.util.ClientUtil;
 import org.opensearch.timeseries.util.DateUtils;
 import org.opensearch.timeseries.util.DiscoveryNodeFilterer;
+import org.opensearch.timeseries.util.PluginClient;
 import org.opensearch.transport.client.Client;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -42,8 +42,8 @@ public class ClusterManagerEventListener implements LocalNodeClusterManagerListe
     private ClusterService clusterService;
     private ThreadPool threadPool;
     private Client client;
+    private PluginClient pluginClient;
     private Clock clock;
-    private ClientUtil clientUtil;
     private DiscoveryNodeFilterer nodeFilter;
     private Duration adCheckpointTtlDuration;
     private Duration forecastCheckpointTtlDuration;
@@ -52,8 +52,8 @@ public class ClusterManagerEventListener implements LocalNodeClusterManagerListe
         ClusterService clusterService,
         ThreadPool threadPool,
         Client client,
+        PluginClient pluginClient,
         Clock clock,
-        ClientUtil clientUtil,
         DiscoveryNodeFilterer nodeFilter,
         Setting<TimeValue> adCheckpointTtl,
         Setting<TimeValue> forecastCheckpointTtl,
@@ -62,9 +62,9 @@ public class ClusterManagerEventListener implements LocalNodeClusterManagerListe
         this.clusterService = clusterService;
         this.threadPool = threadPool;
         this.client = client;
+        this.pluginClient = pluginClient;
         this.clusterService.addLocalNodeClusterManagerListener(this);
         this.clock = clock;
-        this.clientUtil = clientUtil;
         this.nodeFilter = nodeFilter;
 
         this.adCheckpointTtlDuration = DateUtils.toDuration(adCheckpointTtl.get(settings));
@@ -73,7 +73,7 @@ public class ClusterManagerEventListener implements LocalNodeClusterManagerListe
         clusterService.getClusterSettings().addSettingsUpdateConsumer(adCheckpointTtl, it -> {
             this.adCheckpointTtlDuration = DateUtils.toDuration(it);
             cancel(adCheckpointIndexRetentionCron);
-            IndexCleanup indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
+            IndexCleanup indexCleanup = new IndexCleanup(pluginClient, clusterService);
             adCheckpointIndexRetentionCron = threadPool
                 .scheduleWithFixedDelay(
                     new ADCheckpointIndexRetention(adCheckpointTtlDuration, clock, indexCleanup),
@@ -103,7 +103,7 @@ public class ClusterManagerEventListener implements LocalNodeClusterManagerListe
         }
 
         if (adCheckpointIndexRetentionCron == null) {
-            IndexCleanup indexCleanup = new IndexCleanup(client, clientUtil, clusterService);
+            IndexCleanup indexCleanup = new IndexCleanup(pluginClient, clusterService);
             adCheckpointIndexRetentionCron = threadPool
                 .scheduleWithFixedDelay(
                     new ADCheckpointIndexRetention(adCheckpointTtlDuration, clock, indexCleanup),

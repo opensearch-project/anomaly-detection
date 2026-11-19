@@ -14,6 +14,7 @@ package org.opensearch.timeseries.transport;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.timeseries.TestHelpers.createEmptySearchResponse;
@@ -22,10 +23,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.PlainActionFuture;
@@ -40,6 +43,7 @@ import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.tasks.Task;
 import org.opensearch.test.OpenSearchIntegTestCase;
 import org.opensearch.threadpool.ThreadPool;
@@ -66,6 +70,7 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
             mock(TransportService.class),
             mock(ActionFilters.class),
             client(),
+            TestHelpers.createPluginClient(client()),
             clusterService()
         );
         task = mock(Task.class);
@@ -146,16 +151,17 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     public void testSearchInfoResponse_CountSuccessWithEmptyResponse() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             SearchResponse searchResponse = createEmptySearchResponse();
             listener.onResponse(searchResponse);
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
 
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "count");
@@ -176,6 +182,7 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
             mock(TransportService.class),
             mock(ActionFilters.class),
             client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "match");
@@ -186,14 +193,15 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
     public void testSearchInfoResponse_CountRuntimeException() throws IOException {
         doAnswer(invocation -> {
             Object[] args = invocation.getArguments();
-            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[1];
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) args[2];
             listener.onFailure(new RuntimeException("searchResponse failed!"));
             return null;
-        }).when(client).search(any(), any());
+        }).when(client).execute(any(), any(SearchRequest.class), any());
         action = new SearchAnomalyDetectorInfoTransportAction(
             mock(TransportService.class),
             mock(ActionFilters.class),
             client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "count");
@@ -212,10 +220,91 @@ public class SearchAnomalyDetectorInfoActionTests extends OpenSearchIntegTestCas
             mock(TransportService.class),
             mock(ActionFilters.class),
             client,
+            TestHelpers.createPluginClient(client),
             clusterService
         );
         SearchConfigInfoRequest request = new SearchConfigInfoRequest("testDetector", "match");
         action.doExecute(task, request, future);
         verify(future).onFailure(any(RuntimeException.class));
+    }
+
+    public void testMatchSearchesAllConfigsInStashedContext() throws IOException {
+        Client pluginBackingClient = mock(Client.class);
+        when(pluginBackingClient.threadPool()).thenReturn(threadPool);
+        threadContext.putTransient("caller", "alice");
+        doAnswer(invocation -> {
+            assertNull("the name match must run in a stashed context", threadContext.getTransient("caller"));
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocation.getArguments()[1];
+            listener.onResponse(TestHelpers.createSearchResponse((builder, params) -> builder.startObject().endObject()));
+            return null;
+        }).when(client).search(any(), any());
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            TestHelpers.createPluginClient(pluginBackingClient),
+            clusterService
+        );
+
+        PlainActionFuture<SearchConfigInfoResponse> result = new PlainActionFuture<>();
+        String[] callerOnResponse = new String[1];
+        action.doExecute(task, new SearchConfigInfoRequest("testDetector", "match"), ActionListener.wrap(r -> {
+            callerOnResponse[0] = threadContext.getTransient("caller");
+            result.onResponse(r);
+        }, result::onFailure));
+
+        assertTrue(result.actionGet(10, TimeUnit.SECONDS).isNameExists());
+        assertEquals("the caller's context must be restored for the listener", "alice", callerOnResponse[0]);
+        verify(pluginBackingClient, never()).execute(any(), any(), any());
+    }
+
+    public void testMatchReportsNoMatchWithoutConfigIndexInCallerContext() throws IOException {
+        threadContext.putTransient("caller", "alice");
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocation.getArguments()[1];
+            listener.onFailure(new IndexNotFoundException("config"));
+            return null;
+        }).when(client).search(any(), any());
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            TestHelpers.createPluginClient(client),
+            clusterService
+        );
+
+        PlainActionFuture<SearchConfigInfoResponse> result = new PlainActionFuture<>();
+        String[] callerOnResponse = new String[1];
+        action.doExecute(task, new SearchConfigInfoRequest("testDetector", "match"), ActionListener.wrap(r -> {
+            callerOnResponse[0] = threadContext.getTransient("caller");
+            result.onResponse(r);
+        }, result::onFailure));
+
+        assertFalse(result.actionGet(10, TimeUnit.SECONDS).isNameExists());
+        assertEquals("the caller's context must be restored for the listener", "alice", callerOnResponse[0]);
+    }
+
+    public void testCountSearchesThroughPluginClient() throws IOException {
+        Client pluginBackingClient = mock(Client.class);
+        when(pluginBackingClient.threadPool()).thenReturn(threadPool);
+        doAnswer(invocation -> {
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocation.getArguments()[2];
+            listener.onResponse(TestHelpers.createSearchResponse((builder, params) -> builder.startObject().endObject()));
+            return null;
+        }).when(pluginBackingClient).execute(any(), any(SearchRequest.class), any());
+        action = new SearchAnomalyDetectorInfoTransportAction(
+            mock(TransportService.class),
+            mock(ActionFilters.class),
+            client,
+            TestHelpers.createPluginClient(pluginBackingClient),
+            clusterService
+        );
+
+        PlainActionFuture<SearchConfigInfoResponse> result = new PlainActionFuture<>();
+        action.doExecute(task, new SearchConfigInfoRequest(null, "count"), result);
+
+        assertEquals(1, result.actionGet(10, TimeUnit.SECONDS).getCount());
+        verify(client, never()).search(any(), any());
+        verify(client, never()).execute(any(), any(), any());
     }
 }

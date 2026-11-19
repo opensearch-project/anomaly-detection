@@ -869,11 +869,18 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             assertEquals(String.format(Locale.ROOT, "Expected: %s, got %s", "RUNNING", parsedState), "RUNNING", parsedState);
         }
 
-        // case 28: read access user is able to run stats API
+        // case 28: read access user is able to run stats API. With resource sharing the counts cover only the
+        // configs visible to the caller, and the full access user's forecaster is not shared with the read user.
         response = TestHelpers.makeRequest(readClient, "GET", STATS_FORECASTER, ImmutableMap.of(), (HttpEntity) null, null);
         responseMap = entityAsMap(response);
         int parsedHcCount = (Integer) responseMap.get("hc_forecaster_count");
-        assertEquals(String.format(Locale.ROOT, "Expected: %d, got %d", 1, parsedHcCount), 1, parsedHcCount);
+        int expectedHcCount = isResourceSharingFeatureEnabled() ? 0 : 1;
+        assertEquals(String.format(Locale.ROOT, "Expected: %d, got %d", expectedHcCount, parsedHcCount), expectedHcCount, parsedHcCount);
+        if (isResourceSharingFeatureEnabled()) {
+            response = TestHelpers.makeRequest(fullClient, "GET", STATS_FORECASTER, ImmutableMap.of(), (HttpEntity) null, null);
+            parsedHcCount = (Integer) entityAsMap(response).get("hc_forecaster_count");
+            assertEquals(String.format(Locale.ROOT, "Expected: %d, got %d", 1, parsedHcCount), 1, parsedHcCount);
+        }
 
         // case 29: for a config that a user has no access, profile API returns 403
         ResponseException responseException = expectThrows(
@@ -1179,7 +1186,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         );
         Assert.assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/plugin/forecast/forecaster/delete]"));
 
-        // case 21: read access user can count number of forecaster
+        // case 21: read access user can count number of forecaster. With resource sharing the count covers only the
+        // forecasters visible to the caller.
         response = TestHelpers
             .makeRequest(
                 readClient,
@@ -1191,9 +1199,10 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         responseMap = entityAsMap(response);
         int parsedCount = (Integer) responseMap.get("count");
-        assertEquals("got: " + parsedCount, 1, parsedCount);
+        assertEquals("got: " + parsedCount, isResourceSharingFeatureEnabled() ? 0 : 1, parsedCount);
 
-        // case 22: read access user can look up forecaster
+        // case 22: read access user can look up forecaster. The lookup covers every forecaster, including one the
+        // caller cannot see, because create rejects a name that any forecaster uses.
         response = TestHelpers
             .makeRequest(
                 readClient,
@@ -1344,6 +1353,67 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         responseMap = entityAsMap(response);
         parsedForecasterId = (String) responseMap.get("_id");
         assertEquals("got: " + parsedForecasterId, forecasterId, parsedForecasterId);
+    }
+
+    public void testMatchAgreesWithCreateForForecasterCallerCannotSee() throws IOException {
+        // other tests leave filter by backend roles on
+        disableFilterBy();
+        Response response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        String devOpsForecasterId = (String) entityAsMap(response).get("_id");
+        assertNotNull(devOpsForecasterId);
+
+        if (isResourceSharingFeatureEnabled()) {
+            // the forecaster is not shared with the SDE user
+            ResponseException getException = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        sdeClient,
+                        "GET",
+                        String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId),
+                        ImmutableMap.of(),
+                        (HttpEntity) null,
+                        null
+                    )
+            );
+            assertEquals(403, getException.getResponse().getStatusLine().getStatusCode());
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+            assertEquals(RestStatus.OK.getStatus(), response.getStatusLine().getStatusCode());
+        }
+
+        response = TestHelpers.makeRequest(sdeClient, "GET", MATCH_FORECASTER, ImmutableMap.of("name", NAME), (HttpEntity) null, null);
+        assertTrue("match must report the name as taken", (Boolean) entityAsMap(response).get("match"));
+
+        ResponseException createException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "POST",
+                    String.format(Locale.ROOT, CREATE_FORECASTER),
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(formattedForecaster),
+                    null
+                )
+        );
+        assertEquals(RestStatus.CONFLICT.getStatus(), createException.getResponse().getStatusLine().getStatusCode());
     }
 
     public void testFilterBy() throws IOException {
