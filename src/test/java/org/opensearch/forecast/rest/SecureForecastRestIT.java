@@ -1201,8 +1201,8 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         int parsedCount = (Integer) responseMap.get("count");
         assertEquals("got: " + parsedCount, isResourceSharingFeatureEnabled() ? 0 : 1, parsedCount);
 
-        // case 22: read access user can look up forecaster. With resource sharing the lookup matches only the
-        // forecasters visible to the caller.
+        // case 22: read access user can look up forecaster. The lookup covers every forecaster, including one the
+        // caller cannot see, because create rejects a name that any forecaster uses.
         response = TestHelpers
             .makeRequest(
                 readClient,
@@ -1214,7 +1214,7 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
             );
         responseMap = entityAsMap(response);
         boolean parsedMatch = (Boolean) responseMap.get("match");
-        assertEquals(!isResourceSharingFeatureEnabled(), parsedMatch);
+        assertTrue(parsedMatch);
 
         // case 23: A user cannot create a forecaster without source data present
         String noDataForecasterDef = "{\n"
@@ -1353,6 +1353,67 @@ public class SecureForecastRestIT extends AbstractForecastSyntheticDataTest {
         responseMap = entityAsMap(response);
         parsedForecasterId = (String) responseMap.get("_id");
         assertEquals("got: " + parsedForecasterId, forecasterId, parsedForecasterId);
+    }
+
+    public void testMatchAgreesWithCreateForForecasterCallerCannotSee() throws IOException {
+        // other tests leave filter by backend roles on
+        disableFilterBy();
+        Response response = TestHelpers
+            .makeRequest(
+                devOpsClient,
+                "POST",
+                String.format(Locale.ROOT, CREATE_FORECASTER),
+                ImmutableMap.of(),
+                TestHelpers.toHttpEntity(formattedForecaster),
+                null
+            );
+        String devOpsForecasterId = (String) entityAsMap(response).get("_id");
+        assertNotNull(devOpsForecasterId);
+
+        if (isResourceSharingFeatureEnabled()) {
+            // the forecaster is not shared with the SDE user
+            ResponseException getException = expectThrows(
+                ResponseException.class,
+                () -> TestHelpers
+                    .makeRequest(
+                        sdeClient,
+                        "GET",
+                        String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId),
+                        ImmutableMap.of(),
+                        (HttpEntity) null,
+                        null
+                    )
+            );
+            assertEquals(403, getException.getResponse().getStatusLine().getStatusCode());
+        } else {
+            response = TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "GET",
+                    String.format(Locale.ROOT, GET_FORECASTER, devOpsForecasterId),
+                    ImmutableMap.of(),
+                    (HttpEntity) null,
+                    null
+                );
+            assertEquals(RestStatus.OK.getStatus(), response.getStatusLine().getStatusCode());
+        }
+
+        response = TestHelpers.makeRequest(sdeClient, "GET", MATCH_FORECASTER, ImmutableMap.of("name", NAME), (HttpEntity) null, null);
+        assertTrue("match must report the name as taken", (Boolean) entityAsMap(response).get("match"));
+
+        ResponseException createException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    sdeClient,
+                    "POST",
+                    String.format(Locale.ROOT, CREATE_FORECASTER),
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(formattedForecaster),
+                    null
+                )
+        );
+        assertEquals(RestStatus.CONFLICT.getStatus(), createException.getResponse().getStatusLine().getStatusCode());
     }
 
     public void testFilterBy() throws IOException {

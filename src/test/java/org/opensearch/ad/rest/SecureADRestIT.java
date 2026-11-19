@@ -52,6 +52,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.model.DateRange;
 import org.opensearch.timeseries.settings.TimeSeriesSettings;
+import org.opensearch.timeseries.util.RestHandlerUtils;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -412,6 +413,45 @@ public class SecureADRestIT extends AnomalyDetectorRestTestCase {
             AnomalyDetector detectorOfCat2 = createAnomalyDetector(cloneDetector(aliceDetector, resultIndex), true, catClient);
             assertEquals(resultIndex, detectorOfCat2.getCustomResultIndexOrAlias());
         }
+    }
+
+    public void testMatchAgreesWithCreateForDetectorCallerCannotSee() throws IOException {
+        // other tests leave filter by backend roles on, and dog has no backend role
+        disableFilterBy();
+        AnomalyDetector aliceDetector = createRandomAnomalyDetector(false, false, aliceClient);
+
+        if (isResourceSharingFeatureEnabled()) {
+            // the detector is not shared with dog
+            Exception exception = expectThrows(Exception.class, () -> getConfig(aliceDetector.getId(), dogClient));
+            assertTrue(exception.getMessage().contains("no permissions for [cluster:admin/opendistro/ad/detectors/get]"));
+        } else {
+            assertEquals(aliceDetector.getId(), getConfig(aliceDetector.getId(), dogClient).getId());
+        }
+
+        Response response = TestHelpers
+            .makeRequest(
+                dogClient,
+                "GET",
+                TestHelpers.AD_BASE_DETECTORS_URI + "/" + RestHandlerUtils.MATCH,
+                ImmutableMap.of("name", aliceDetector.getName()),
+                "",
+                null
+            );
+        assertTrue("match must report the name as taken", (Boolean) entityAsMap(response).get("match"));
+
+        ResponseException createException = expectThrows(
+            ResponseException.class,
+            () -> TestHelpers
+                .makeRequest(
+                    dogClient,
+                    "POST",
+                    TestHelpers.AD_BASE_DETECTORS_URI,
+                    ImmutableMap.of(),
+                    TestHelpers.toHttpEntity(aliceDetector),
+                    null
+                )
+        );
+        assertEquals(RestStatus.CONFLICT.getStatus(), createException.getResponse().getStatusLine().getStatusCode());
     }
 
     public void testGetDetector() throws IOException {
