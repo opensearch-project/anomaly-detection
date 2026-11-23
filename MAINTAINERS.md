@@ -8,7 +8,6 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | ----------------------- | ---------------------------------------------------------| ----------- |
 | Jing Zhang              | [jngz-es](https://github.com/jngz-es)                    | Amazon      |
 | Kaituo Li               | [kaituo](https://github.com/kaituo)                      | Amazon      |
-| Sarat Vemulapalli       | [saratvemulapalli](https://github.com/saratvemulapalli)  | Amazon      |
 | Tyler Ohlsen            | [ohltyler](https://github.com/ohltyler)                  | Amazon      |
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                    | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)                  | Amazon      |
@@ -29,3 +28,4 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Yizhe Liu      | [yizheliu-amazon](https://github.com/yizheliu-amazon) | Amazon      |
 | Lai Jiang      | [wnbts](https://github.com/wnbts)                     | Amazon      |
 | Sudipto Guha   | [sudiptoguha](https://github.com/sudiptoguha)         | Amazon      |
+| Sarat Vemulapalli | [saratvemulapalli](https://github.com/saratvemulapalli) | Amazon      |
