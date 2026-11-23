@@ -134,10 +134,6 @@ dependencies {
     implementation 'software.amazon.randomcutforest:randomcutforest-parkservices:4.2.0'
     implementation 'software.amazon.randomcutforest:randomcutforest-core:4.2.0'
 
-    // we inherit jackson-core from opensearch core
-    implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}")
-
     // used for serializing/deserializing rcf models.
     implementation group: 'io.protostuff', name: 'protostuff-core', version: '1.8.0'
     implementation group: 'io.protostuff', name: 'protostuff-runtime', version: '1.8.0'
@@ -179,6 +175,12 @@ apply plugin: 'base'
 apply plugin: 'jacoco'
 apply plugin: 'eclipse'
 apply plugin: 'opensearch.pluginzip'
+
+dependencies {
+    // we inherit jackson-core from opensearch core
+    implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson_databind}")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}")
+}
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
