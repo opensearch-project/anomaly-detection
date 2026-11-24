@@ -11,6 +11,8 @@
 
 package org.opensearch.ad.util;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.opensearch.timeseries.util.ParseUtils.isAdmin;
 
 import java.io.IOException;
@@ -19,6 +21,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.opensearch.ad.model.AnomalyDetector;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.commons.authuser.User;
 import org.opensearch.core.common.ParsingException;
@@ -32,6 +38,7 @@ import org.opensearch.timeseries.TestHelpers;
 import org.opensearch.timeseries.common.exception.TimeSeriesException;
 import org.opensearch.timeseries.model.Feature;
 import org.opensearch.timeseries.util.ParseUtils;
+import org.opensearch.timeseries.util.PluggableDataFormatUtil;
 
 import com.google.common.collect.ImmutableList;
 
@@ -190,6 +197,46 @@ public class ParseUtilsTests extends OpenSearchTestCase {
                 + "\"adjust_pure_negative\":true,\"boost\":1.0}}}",
             searchSourceBuilder.toString()
         );
+    }
+
+    public void testAddUserRoleFilterOnPluggableDataFormatCluster() {
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getSettings())
+            .thenReturn(
+                Settings
+                    .builder()
+                    .put(PluggableDataFormatUtil.ENABLED_SETTING, true)
+                    .putList(PluggableDataFormatUtil.ALLOWLIST_SETTING, ".opendistro-anomaly-")
+                    .build()
+            );
+        when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test")).build());
+        String backendRole = randomAlphaOfLength(5);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        ParseUtils
+            .addUserBackendRolesFilter(
+                new User(randomAlphaOfLength(5), ImmutableList.of(backendRole), ImmutableList.of(), ImmutableList.of()),
+                searchSourceBuilder,
+                clusterService
+            );
+        String query = searchSourceBuilder.toString();
+        // Lucene indices keep matching on the .keyword sub-field
+        assertTrue(query, query.contains("{\"terms\":{\"user.backend_roles.keyword\":[\"" + backendRole + "\"]"));
+        // pluggable-data-format indices match the plain keyword field, excluding allowlisted (Lucene) indices
+        assertTrue(query, query.contains("{\"terms\":{\"user.backend_roles\":[\"" + backendRole + "\"]"));
+        assertTrue(query, query.contains("\"must_not\":[{\"prefix\":{\"_index\":{\"value\":\".opendistro-anomaly-\""));
+        assertTrue(query, query.contains("\"minimum_should_match\":\"1\""));
+    }
+
+    public void testAddUserRoleFilterWithClusterServiceWithoutPluggableDataFormat() {
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
+        when(clusterService.state()).thenReturn(ClusterState.builder(new ClusterName("test")).build());
+        User user = new User(randomAlphaOfLength(5), ImmutableList.of(randomAlphaOfLength(5)), ImmutableList.of(), ImmutableList.of());
+        SearchSourceBuilder withClusterService = new SearchSourceBuilder();
+        SearchSourceBuilder legacy = new SearchSourceBuilder();
+        ParseUtils.addUserBackendRolesFilter(user, withClusterService, clusterService);
+        ParseUtils.addUserBackendRolesFilter(user, legacy);
+        assertEquals(legacy.toString(), withClusterService.toString());
     }
 
     public void testBatchFeatureQuery() throws IOException {

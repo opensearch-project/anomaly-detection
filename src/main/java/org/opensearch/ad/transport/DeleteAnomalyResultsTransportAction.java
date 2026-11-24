@@ -45,6 +45,7 @@ import org.opensearch.transport.client.Client;
 
 public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<DeleteByQueryRequest, BulkByScrollResponse> {
 
+    private final ClusterService clusterService;
     private final Client client;
     private final PluginClient pluginClient;
     private volatile Boolean filterEnabled;
@@ -63,6 +64,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
         super(DeleteAnomalyResultsAction.NAME, transportService, actionFilters, DeleteByQueryRequest::new);
         this.client = client;
         this.pluginClient = pluginClient;
+        this.clusterService = clusterService;
         this.shouldUseResourceAuthz = ParseUtils.shouldUseResourceAuthz(AD_RESOURCE_TYPE);
         filterEnabled = AD_FILTER_BY_BACKEND_ROLES.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(AD_FILTER_BY_BACKEND_ROLES, it -> filterEnabled = it);
@@ -98,7 +100,7 @@ public class DeleteAnomalyResultsTransportAction extends HandledTransportAction<
                 }
                 // Security is enabled and backend role filter is enabled
                 if (filterEnabled) {
-                    ParseUtils.addUserBackendRolesFilter(user, request.getSearchRequest().source());
+                    ParseUtils.addUserBackendRolesFilter(user, request.getSearchRequest().source(), clusterService);
                 }
                 pluginClient.execute(DeleteByQueryAction.INSTANCE, request, listener);
             } catch (Exception e) {
