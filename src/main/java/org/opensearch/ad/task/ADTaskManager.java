@@ -1379,9 +1379,51 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
     }
 
     /**
-     * Scale task slots and check the scale delta:
-     *   1. If scale delta is negative, that means we need to scale down, will not start next entity.
-     *   2. If scale delta is positive, will start next entity in current lane.
+     * Advances one execution lane of a historical high-cardinality analysis after an entity task
+     * finishes, fails, or is removed as stale.
+     *
+     * <p><b>Execution model and terminology</b>
+     *
+     * <ul>
+     * <li>The <b>parent task</b> represents the complete historical analysis for one detector.</li>
+     * <li>An <b>entity task</b> analyzes one category-field value or category-field combination.</li>
+     * <li>A <b>pending entity</b> is waiting to be selected.</li>
+     * <li>A <b>temp entity</b> has been removed from pending and is being dispatched, but has not
+     * yet been accepted by a worker.</li>
+     * <li>A <b>running entity</b> has been accepted by a worker and is executing.</li>
+     * <li>An <b>active entity</b> is either temp or running, so
+     * {@code activeEntityCount = tempEntityCount + runningEntityCount}.</li>
+     * </ul>
+     *
+     * <p>A <b>task slot</b> is reserved concurrency capacity for a detector. For example, four
+     * assigned slots permit up to four concurrent entity tasks. A slot is accounting capacity; it
+     * is not a thread and does not dispatch an entity.
+     *
+     * <p>An <b>execution lane</b> is the callback chain that keeps work moving. When an entity
+     * reaches a terminal result, its callback invokes this method and the lane can poll and dispatch
+     * another pending entity. A lane is conceptual control flow, not a persisted task. Consequently,
+     * a detector can have assigned slots but no lane left to use them, just as open checkout stations
+     * do not serve waiting customers when no cashier is present.
+     *
+     * <p><b>Slot scaling</b>
+     *
+     * <p>The desired task-lane limit is the minimum of the unfinished entity count
+     * ({@code pending + temp + running}), cluster task-slot capacity, and the per-detector
+     * running-entity limit. The scale delta is:
+     *
+     * <pre>
+     * scaleDelta = desired task-lane limit - assigned task slots
+     * </pre>
+     *
+     * <ul>
+     * <li>A positive delta requests more slots.</li>
+     * <li>A zero delta keeps the current allocation.</li>
+     * <li>A negative delta releases idle slots because fewer slots are now needed.</li>
+     * </ul>
+     *
+     * <p>{@link #scaleTaskSlots(ADTask, TransportService, ActionListener)} releases only idle
+     * capacity when scaling down. Releasing capacity does not start or stop callback chains, so a
+     * negative delta alone does not prove that the current lane is redundant.
      *
      * This method will be called by {@link org.opensearch.ad.transport.ForwardADTaskTransportAction}.
      *
@@ -1395,15 +1437,44 @@ public class ADTaskManager extends TaskManager<ADTaskCacheManager, ADTaskType, A
             logger.debug("Scale up task slots done for detector {}, task {}", detectorId, adTask.getTaskId());
         }, e -> { logger.error("Failed to scale up task slots for task " + adTask.getTaskId(), e); }));
         if (scaleDelta < 0) {
+            // Both accepted work and in-flight dispatches occupy retained slots. Counting temp
+            // entities avoids starting another entity while a worker acceptance is still pending.
+            int activeEntityCount = taskCacheManager.getRunningEntityCount(detectorId) + taskCacheManager.getTempEntityCount(detectorId);
+            // scaleTaskSlots has already released idle capacity, so this is the post-scale number
+            // of slots that the detector is still allowed to occupy.
+            int assignedTaskSlots = taskCacheManager.getDetectorTaskSlots(detectorId);
+            // Pending entities have no callback lane of their own and cannot make progress unless
+            // this lane or one of the active entity lanes polls them.
+            int pendingEntityCount = taskCacheManager.getPendingEntityCount(detectorId);
+            // This lane is unnecessary if there is no work left or every retained slot is occupied.
+            // In the latter case, the active entities' callbacks will advance any pending work.
+            if (pendingEntityCount == 0 || activeEntityCount >= assignedTaskSlots) {
+                logger
+                    .debug(
+                        "Have scaled down task slots. Will not poll next entity for detector {}, task {}, active entities: {}, "
+                            + "pending entities: {}, task slots: {}",
+                        detectorId,
+                        adTask.getTaskId(),
+                        activeEntityCount,
+                        pendingEntityCount,
+                        assignedTaskSlots
+                    );
+                listener.onResponse(new JobResponse(detectorId));
+                return;
+            }
+            // Pending work and an unused retained slot remain. A dispatch failure can leave no
+            // other active callback lane; returning here would strand the pending queue and keep
+            // the parent task RUNNING. Reuse the current lane to dispatch the next entity.
             logger
-                .warn(
-                    "Have scaled down task slots. Will not poll next entity for detector {}, task {}, task slots: {}",
+                .debug(
+                    "Have scaled down task slots but will continue current lane for detector {}, task {}, active entities: {}, "
+                        + "pending entities: {}, task slots: {}",
                     detectorId,
                     adTask.getTaskId(),
-                    taskCacheManager.getDetectorTaskSlots(detectorId)
+                    activeEntityCount,
+                    pendingEntityCount,
+                    assignedTaskSlots
                 );
-            listener.onResponse(new JobResponse(detectorId));
-            return;
         }
         client.execute(ADBatchAnomalyResultAction.INSTANCE, new ADBatchAnomalyResultRequest(adTask), ActionListener.wrap(r -> {
             String remoteOrLocal = r.isRunTaskRemotely() ? "remote" : "local";
